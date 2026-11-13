@@ -1,6 +1,7 @@
 use crate::{
     client::LlmClient,
     error::ModelError,
+    models::{ModelCapability, ModelConfig},
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use serde::Deserialize;
@@ -15,7 +16,7 @@ struct ProviderConfig {
     api_key_env: String,
     account_id_env: Option<String>,
     base_url: Option<String>,
-    models: Vec<String>,
+    models: Vec<ModelConfig>,
 }
 
 pub struct Registry {
@@ -45,6 +46,23 @@ impl Registry {
         Ok(Self { providers })
     }
 
+    pub fn models_with_capability(
+        &self,
+        capability: ModelCapability,
+    ) -> Vec<(String, ModelConfig)> {
+        // Return models supporting this capability.
+        let mut result = Vec::<(String, ModelConfig)>::new();
+        for (provider_name, provider_cfg) in self.providers.iter() {
+            for model in provider_cfg.models.iter() {
+                if model.capabilities.iter().any(|cap| cap == &capability) {
+                    result.push((provider_name.clone(), model.clone()));
+                }
+            }
+        }
+
+        result
+    }
+
     pub fn resolve_model(&self, model_name: &str) -> Result<Arc<dyn LlmClient>, ModelError> {
         let (provider_name, model) = model_name
             .split_once('/')
@@ -55,7 +73,7 @@ impl Registry {
             .get(provider_name)
             .ok_or_else(|| ModelError::UnsupportedProvider(provider_name.to_string()))?;
 
-        if !provider.models.iter().any(|m| m == model) {
+        if !provider.models.iter().any(|m| m.name == model) {
             return Err(ModelError::UnsupportedProvider(format!(
                 "{provider_name}/{model}"
             )));

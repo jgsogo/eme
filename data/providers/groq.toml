@@ -2,4 +2,7 @@ name = "groq"
 client = "openai-compatible"
 api_key_env = "GROQ_API_KEY"
 base_url = "https://api.groq.com/openai/v1"
-models = ["llama-3.3-70b-versatile"]
+
+[[models]]
+name = "llama-3.3-70b-versatile"
+capabilities = ["chat", "coding", "tool_calling", "structured_output"]

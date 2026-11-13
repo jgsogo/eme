@@ -3,4 +3,8 @@ client = "openai-compatible"
 api_key_env = "CLOUDFLARE_API_TOKEN"
 account_id_env = "CLOUDFLARE_ACCOUNT_ID"
 base_url = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
-models = ["@cf/meta/llama-3.1-8b-instruct-fp8"]
+
+
+[[models]]
+name = "@cf/meta/llama-3.1-8b-instruct-fp8"
+capabilities = ["chat", "coding", "tool_calling", "structured_output"]
