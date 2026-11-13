@@ -4,8 +4,8 @@ use std::{
 };
 
 use agent_runtime::{
-    Agent, AgentModel, AgentRuntime, AllowListPolicy, Message, ModelRequest, ModelTurn, ToolCall,
-    ToolDefinition, ToolDispatcher, ToolError,
+    Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, Message, ModelRequest,
+    ModelTurn, ToolCall, ToolDefinition, ToolDispatcher, ToolError,
 };
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -118,7 +118,11 @@ async fn executes_tool_and_returns_final_response() {
     };
 
     let result = runtime
-        .run(&agent, "What is 123 multiplied by 456?")
+        .run(
+            &agent,
+            "What is 123 multiplied by 456?",
+            CancellationToken::new(),
+        )
         .await
         .unwrap();
 
@@ -184,7 +188,11 @@ async fn denies_unauthorized_tool_execution() {
     };
 
     let result = runtime
-        .run(&agent, "Calculate 123 multiplied by 456.")
+        .run(
+            &agent,
+            "Calculate 123 multiplied by 456.",
+            CancellationToken::new(),
+        )
         .await
         .unwrap();
 
@@ -243,11 +251,13 @@ async fn stops_after_max_iterations() {
     let agent = Agent {
         id: "calculator-agent".into(),
         system_prompt: None,
-        tool_names: vec![],
+        tool_names: vec!["calculator".into()],
         max_iterations: 2,
     };
 
-    let result = runtime.run(&agent, "Keep calculating.").await;
+    let result = runtime
+        .run(&agent, "Keep calculating.", CancellationToken::new())
+        .await;
 
     let result = result.unwrap();
 

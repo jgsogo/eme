@@ -32,11 +32,18 @@ impl AllowListPolicy {
 }
 
 impl PolicyEngine for AllowListPolicy {
-    fn authorize(&self, _agent: &Agent, call: &ToolCall) -> Authorization {
-        if self.allowed_tools.contains(&call.name) {
-            Authorization::Allowed
-        } else {
-            Authorization::Denied(format!("Tool '{}' is not allowed", call.name))
+    fn authorize(&self, agent: &Agent, call: &ToolCall) -> Authorization {
+        if !agent.tool_names.iter().any(|name| name == &call.name) {
+            return Authorization::Denied(format!(
+                "Tool '{}' is not available to agent '{}'",
+                call.name, agent.id
+            ));
         }
+
+        if !self.allowed_tools.contains(&call.name) {
+            return Authorization::Denied(format!("Tool '{}' is not allowed by policy", call.name));
+        }
+
+        Authorization::Allowed
     }
 }

@@ -7,8 +7,8 @@ pub mod tool;
 pub use model::AgentModel;
 pub use policy::{AllowListPolicy, Authorization, PolicyEngine};
 pub use runtime::{
-    AgentRuntime, EventSink, NoopEventSink, RunEvent, RunEventKind, RunResult, RunStatus,
-    RuntimeError,
+    AgentRuntime, CancellationToken, CollectingEventSink, EventSink, NoopEventSink, RunEvent,
+    RunEventKind, RunFailure, RunResult, RunStatus, RuntimeError,
 };
 pub use tool::{Tool, ToolDispatcher, ToolError, ToolRegistry};
 
