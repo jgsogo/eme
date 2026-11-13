@@ -23,4 +23,16 @@ pub enum ModelError {
 
     #[error("Failed to access registry path: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Duplicate provider configuration: {0}")]
+    DuplicateProvider(String),
+
+    #[error("No provider configuration files found")]
+    NoProvidersFound,
+
+    #[error("Invalid provider configuration: {0}")]
+    InvalidProviderConfig(String),
+
+    #[error("Unsupported model '{0}'")]
+    UnsupportedModel(String),
 }

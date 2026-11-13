@@ -7,7 +7,7 @@ use crate::{
 use serde::Deserialize;
 use std::fs;
 use std::path::Path;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Debug, Deserialize)]
 struct ProviderConfig {
@@ -19,13 +19,73 @@ struct ProviderConfig {
     models: Vec<ModelConfig>,
 }
 
+impl ProviderConfig {
+    fn validate(&self) -> Result<(), ModelError> {
+        let invalid =
+            |reason: &str| ModelError::InvalidProviderConfig(format!("{}: {reason}", self.name));
+
+        if self.name.trim().is_empty() {
+            return Err(invalid("provider name cannot be empty"));
+        }
+
+        if self.api_key_env.trim().is_empty() {
+            return Err(invalid("api_key_env cannot be empty"));
+        }
+
+        if self.models.is_empty() {
+            return Err(invalid("provider must define at least one model"));
+        }
+
+        let mut model_names = std::collections::HashSet::new();
+
+        for model in &self.models {
+            model.validate().map_err(|reason| invalid(&reason))?;
+
+            if !model_names.insert(&model.name) {
+                return Err(invalid(&format!(
+                    "model '{}' is declared more than once",
+                    model.name
+                )));
+            }
+        }
+
+        match self.client.as_str() {
+            "gemini" => Ok(()),
+
+            "openai-compatible" => {
+                let base_url = self
+                    .base_url
+                    .as_deref()
+                    .filter(|url| !url.trim().is_empty())
+                    .ok_or_else(|| invalid("openai-compatible providers require base_url"))?;
+
+                let uses_account_id = base_url.contains("{account_id}");
+                let has_account_id_env = self
+                    .account_id_env
+                    .as_deref()
+                    .is_some_and(|name| !name.trim().is_empty());
+
+                if uses_account_id != has_account_id_env {
+                    return Err(invalid(
+                        "base_url must use {account_id} if and only if account_id_env is configured",
+                    ));
+                }
+
+                Ok(())
+            }
+
+            client => Err(invalid(&format!("unsupported client '{client}'"))),
+        }
+    }
+}
+
 pub struct Registry {
-    providers: HashMap<String, ProviderConfig>,
+    providers: BTreeMap<String, ProviderConfig>,
 }
 
 impl Registry {
     pub fn load(data_dir: impl AsRef<Path>) -> Result<Self, ModelError> {
-        let mut providers = HashMap::new();
+        let mut providers = BTreeMap::new();
 
         let providers_dir = data_dir.as_ref().join("providers");
 
@@ -39,8 +99,16 @@ impl Registry {
 
             let contents = fs::read_to_string(path)?;
             let config: ProviderConfig = toml::from_str(&contents)?;
+            config.validate()?;
+            let name = config.name.clone();
 
-            providers.insert(config.name.clone(), config);
+            if providers.insert(name.clone(), config).is_some() {
+                return Err(ModelError::DuplicateProvider(name));
+            }
+        }
+
+        if providers.is_empty() {
+            return Err(ModelError::NoProvidersFound);
         }
 
         Ok(Self { providers })
@@ -74,7 +142,7 @@ impl Registry {
             .ok_or_else(|| ModelError::UnsupportedProvider(provider_name.to_string()))?;
 
         if !provider.models.iter().any(|m| m.name == model) {
-            return Err(ModelError::UnsupportedProvider(format!(
+            return Err(ModelError::UnsupportedModel(format!(
                 "{provider_name}/{model}"
             )));
         }
