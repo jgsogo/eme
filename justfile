@@ -10,5 +10,5 @@ model-playground *args:
     cargo run -p agent-models --bin model-playground -- "$@"
 
 model-gemini *args: (model-playground "--model" "gemini/gemini-3.5-flash-lite" args)
-
 model-groq *args: (model-playground "--model" "groq/openai/gpt-oss-20b" args)
+model-cloudfare *args: (model-playground "--model" "cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8" args)

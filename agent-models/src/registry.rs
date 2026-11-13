@@ -31,6 +31,21 @@ pub fn resolve_model(model_name: &str) -> Result<Arc<dyn LlmClient>, ModelError>
             )))
         }
 
+        "cloudflare" => {
+            let account_id = std::env::var("CLOUDFLARE_ACCOUNT_ID")
+                .map_err(|_| ModelError::MissingApiKey("CLOUDFLARE_ACCOUNT_ID".into()))?;
+
+            let api_key = std::env::var("CLOUDFLARE_API_TOKEN")
+                .map_err(|_| ModelError::MissingApiKey("CLOUDFLARE_API_TOKEN".into()))?;
+
+            let base_url =
+                format!("https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1");
+
+            Ok(Arc::new(OpenAICompatibleClient::new(
+                &base_url, api_key, model,
+            )))
+        }
+
         other => Err(ModelError::UnsupportedProvider(other.to_string())),
     }
 }
