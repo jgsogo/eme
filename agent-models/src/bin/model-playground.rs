@@ -1,5 +1,8 @@
-use agent_models::registry::Registry;
-use agent_models::types::CompletionRequest;
+use agent_models::{
+    registry::Registry,
+    types::{ConversationMessage, ConversationRequest},
+};
+
 use anyhow::Result;
 use clap::Parser;
 
@@ -28,11 +31,29 @@ async fn main() -> Result<()> {
 
     let registry = Registry::load(&args.data_dir)?;
     let client = registry.resolve_model(&args.model)?;
-    let request = CompletionRequest::new(args.prompt);
 
-    let response = client.complete(request).await?;
+    let request = ConversationRequest {
+        system: None,
+        messages: vec![ConversationMessage::User {
+            content: args.prompt,
+        }],
+        tools: vec![],
+        temperature: Some(0.7),
+        max_tokens: Some(1024),
+    };
 
-    println!("{}", response.content);
+    let response = client.complete_conversation(request).await?;
+
+    if let Some(content) = response.content {
+        println!("{content}");
+    }
+
+    if !response.tool_calls.is_empty() {
+        eprintln!("\n--- Tool calls ---");
+        for call in &response.tool_calls {
+            eprintln!("{}: {}", call.name, call.arguments);
+        }
+    }
 
     if let Some(usage) = response.usage {
         eprintln!("\n--- Usage ---");

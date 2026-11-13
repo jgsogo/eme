@@ -1,5 +1,5 @@
 use crate::{
-    client::LlmClient,
+    client::ConversationClient,
     error::ModelError,
     models::{ModelCapability, ModelConfig},
     providers::{GeminiClient, OpenAICompatibleClient},
@@ -131,7 +131,10 @@ impl Registry {
         result
     }
 
-    pub fn resolve_model(&self, model_name: &str) -> Result<Arc<dyn LlmClient>, ModelError> {
+    pub fn resolve_model(
+        &self,
+        model_name: &str,
+    ) -> Result<Arc<dyn ConversationClient>, ModelError> {
         let (provider_name, model) = model_name
             .split_once('/')
             .ok_or_else(|| ModelError::InvalidModelName(model_name.to_string()))?;

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 use agent_models::{
@@ -15,14 +17,14 @@ pub trait AgentModel: Send + Sync {
 }
 
 /// Adapts an agent-models conversation client to the runtime interface.
-pub struct ModelAdapter<M> {
-    client: M,
+pub struct ModelAdapter {
+    client: Arc<dyn ConversationClient>,
     temperature: Option<f32>,
     max_tokens: Option<u32>,
 }
 
-impl<M> ModelAdapter<M> {
-    pub fn new(client: M) -> Self {
+impl ModelAdapter {
+    pub fn new(client: Arc<dyn ConversationClient>) -> Self {
         Self {
             client,
             temperature: Some(0.7),
@@ -42,10 +44,7 @@ impl<M> ModelAdapter<M> {
 }
 
 #[async_trait]
-impl<M> AgentModel for ModelAdapter<M>
-where
-    M: ConversationClient,
-{
+impl AgentModel for ModelAdapter {
     async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, String> {
         let request = ConversationRequest {
             system: request.system_prompt,
@@ -129,7 +128,7 @@ mod tests {
     use crate::{Message, ModelRequest, ToolCall, ToolDefinition};
 
     struct FakeClient {
-        received: Mutex<Option<ConversationRequest>>,
+        received: Arc<Mutex<Option<ConversationRequest>>>,
     }
 
     #[async_trait]
@@ -156,9 +155,10 @@ mod tests {
 
     #[tokio::test]
     async fn adapts_runtime_requests_and_model_responses() {
-        let client = FakeClient {
-            received: Mutex::new(None),
-        };
+        let received = Arc::new(Mutex::new(None));
+        let client = Arc::new(FakeClient {
+            received: received.clone(),
+        });
 
         let adapter = ModelAdapter::new(client)
             .with_temperature(Some(0.2))
@@ -208,7 +208,7 @@ mod tests {
         assert_eq!(turn.tool_calls[0].name, "calculator");
         assert_eq!(turn.tool_calls[0].arguments, json!({"expression": "1 + 1"}));
 
-        let received = adapter.client.received.lock().unwrap();
+        let received = received.lock().unwrap();
         let received = received.as_ref().unwrap();
 
         assert_eq!(received.system.as_deref(), Some("You are helpful."));

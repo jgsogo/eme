@@ -1,10 +1,8 @@
 use async_trait::async_trait;
 
-use crate::client::LlmClient;
-
 use crate::client::ConversationClient;
 use crate::error::ModelError;
-use crate::types::{CompletionRequest, ModelResponse, TokenUsage};
+use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -154,87 +152,6 @@ struct ResponseFunctionCall {
 struct UsageMetadata {
     prompt_token_count: u32,
     candidates_token_count: u32,
-}
-
-#[async_trait]
-impl LlmClient for GeminiClient {
-    async fn complete(&self, request: CompletionRequest) -> Result<ModelResponse, ModelError> {
-        let body = GenerateContentRequest {
-            contents: vec![Content {
-                role: "user".into(),
-                parts: vec![Part {
-                    text: Some(request.prompt),
-                    function_call: None,
-                    function_response: None,
-                    thought_signature: None,
-                }],
-            }],
-            system_instruction: request.system.map(|si| SystemInstruction {
-                parts: vec![Part {
-                    text: Some(si),
-                    function_call: None,
-                    function_response: None,
-                    thought_signature: None,
-                }],
-            }),
-            generation_config: Some(GenerationConfig {
-                temperature: request.temperature,
-                max_output_tokens: request.max_tokens,
-            }),
-            tools: None,
-        };
-
-        let url = format!(
-            "{}/v1beta/models/{}:generateContent",
-            self.base_url, self.model
-        );
-
-        let response = self
-            .http
-            .post(url)
-            .header("x-goog-api-key", &self.api_key)
-            .json(&body)
-            .send()
-            .await?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(ModelError::Provider(format!("HTTP {status}: {body}")));
-        }
-
-        let result: GenerateResponse = response.json().await?;
-
-        let candidate = result
-            .candidates
-            .and_then(|mut candidates| {
-                if candidates.is_empty() {
-                    None
-                } else {
-                    Some(candidates.remove(0))
-                }
-            })
-            .ok_or_else(|| ModelError::InvalidResponse("No candidates returned".into()))?;
-
-        let content = candidate
-            .content
-            .parts
-            .into_iter()
-            .filter_map(|part| part.text)
-            .collect::<Vec<_>>()
-            .join("");
-
-        let usage = result.usage_metadata.map(|usage| TokenUsage {
-            input_tokens: usage.prompt_token_count,
-            output_tokens: usage.candidates_token_count,
-        });
-
-        Ok(ModelResponse {
-            model: self.model.clone(),
-            content,
-            usage,
-        })
-    }
 }
 
 #[async_trait]

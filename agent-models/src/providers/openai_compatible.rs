@@ -1,6 +1,8 @@
-use crate::client::LlmClient;
+use crate::client::ConversationClient;
+
 use crate::error::ModelError;
-use crate::types::{CompletionRequest, ModelResponse, TokenUsage};
+use crate::types::TokenUsage;
+use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -27,20 +29,6 @@ impl OpenAICompatibleClient {
     }
 }
 
-#[derive(Serialize)]
-struct ApiRequest {
-    model: String,
-    messages: Vec<ApiMessage>,
-    temperature: Option<f32>,
-    max_tokens: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct ApiMessage {
-    role: String,
-    content: String,
-}
-
 #[derive(Deserialize)]
 struct ApiResponse {
     choices: Vec<Choice>,
@@ -55,6 +43,19 @@ struct Choice {
 #[derive(Deserialize)]
 struct ApiMessageResponse {
     content: Option<String>,
+    tool_calls: Option<Vec<ApiToolCallResponse>>,
+}
+
+#[derive(Deserialize)]
+struct ApiToolCallResponse {
+    id: String,
+    function: ApiFunctionCallResponse,
+}
+
+#[derive(Deserialize)]
+struct ApiFunctionCallResponse {
+    name: String,
+    arguments: String,
 }
 
 #[derive(Deserialize)]
@@ -63,26 +64,151 @@ struct ApiUsage {
     completion_tokens: u32,
 }
 
+#[derive(Serialize)]
+struct ApiConversationRequest {
+    model: String,
+    messages: Vec<ApiConversationMessage>,
+    tools: Option<Vec<ApiTool>>,
+    temperature: Option<f32>,
+    max_tokens: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct ApiConversationMessage {
+    role: String,
+    content: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<ApiToolCall>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ApiToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    kind: String,
+    function: ApiFunctionCall,
+}
+
+#[derive(Serialize)]
+struct ApiFunctionCall {
+    name: String,
+    arguments: String,
+}
+
+#[derive(Serialize)]
+struct ApiTool {
+    #[serde(rename = "type")]
+    kind: String,
+    function: ApiFunctionDefinition,
+}
+
+#[derive(Serialize)]
+struct ApiFunctionDefinition {
+    name: String,
+    description: String,
+    parameters: serde_json::Value,
+}
+
 #[async_trait]
-impl LlmClient for OpenAICompatibleClient {
-    async fn complete(&self, request: CompletionRequest) -> Result<ModelResponse, ModelError> {
+impl ConversationClient for OpenAICompatibleClient {
+    async fn complete_conversation(
+        &self,
+        request: ConversationRequest,
+    ) -> Result<ConversationResponse, ModelError> {
         let mut messages = Vec::new();
 
         if let Some(system) = request.system {
-            messages.push(ApiMessage {
+            messages.push(ApiConversationMessage {
                 role: "system".into(),
-                content: system,
+                content: Some(system),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
             });
         }
 
-        messages.push(ApiMessage {
-            role: "user".into(),
-            content: request.prompt,
-        });
+        for message in request.messages {
+            let message = match message {
+                ConversationMessage::User { content } => ApiConversationMessage {
+                    role: "user".into(),
+                    content: Some(content),
+                    name: None,
+                    tool_calls: None,
+                    tool_call_id: None,
+                },
 
-        let body = ApiRequest {
+                ConversationMessage::Assistant {
+                    content,
+                    tool_calls,
+                } => {
+                    let tool_calls = tool_calls
+                        .into_iter()
+                        .map(|call| ApiToolCall {
+                            id: call.id,
+                            kind: "function".into(),
+                            function: ApiFunctionCall {
+                                name: call.name,
+                                arguments: call.arguments.to_string(),
+                            },
+                        })
+                        .collect::<Vec<_>>();
+
+                    ApiConversationMessage {
+                        role: "assistant".into(),
+                        content,
+                        name: None,
+                        tool_calls: (!tool_calls.is_empty()).then_some(tool_calls),
+                        tool_call_id: None,
+                    }
+                }
+
+                ConversationMessage::Tool {
+                    tool_call_id,
+                    name,
+                    content,
+                    ..
+                } => ApiConversationMessage {
+                    role: "tool".into(),
+                    content: Some(content),
+                    name: Some(name),
+                    tool_calls: None,
+                    tool_call_id: Some(tool_call_id),
+                },
+            };
+
+            messages.push(message);
+        }
+
+        let tools = if request.tools.is_empty() {
+            None
+        } else {
+            Some(
+                request
+                    .tools
+                    .into_iter()
+                    .map(|tool| ApiTool {
+                        kind: "function".into(),
+                        function: ApiFunctionDefinition {
+                            name: tool.name,
+                            description: tool.description,
+                            parameters: tool.parameters,
+                        },
+                    })
+                    .collect(),
+            )
+        };
+
+        let body = ApiConversationRequest {
             model: self.model.clone(),
             messages,
+            tools,
             temperature: request.temperature,
             max_tokens: request.max_tokens,
         };
@@ -102,7 +228,6 @@ impl LlmClient for OpenAICompatibleClient {
 
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-
             return Err(ModelError::Provider(format!("HTTP {status}: {body}")));
         }
 
@@ -113,20 +238,355 @@ impl LlmClient for OpenAICompatibleClient {
                 ModelError::InvalidResponse("No completion choices returned".into())
             })?;
 
-        let content = choice
+        let tool_calls = choice
             .message
-            .content
-            .ok_or_else(|| ModelError::InvalidResponse("Completion has no text content".into()))?;
+            .tool_calls
+            .unwrap_or_default()
+            .into_iter()
+            .map(|call| {
+                let arguments =
+                    serde_json::from_str(&call.function.arguments).map_err(|error| {
+                        ModelError::InvalidResponse(format!(
+                            "Invalid tool arguments for '{}': {error}",
+                            call.function.name
+                        ))
+                    })?;
+
+                Ok(ToolCall {
+                    id: call.id,
+                    name: call.function.name,
+                    arguments,
+                    provider_metadata: None,
+                })
+            })
+            .collect::<Result<Vec<_>, ModelError>>()?;
 
         let usage = result.usage.map(|usage| TokenUsage {
             input_tokens: usage.prompt_tokens,
             output_tokens: usage.completion_tokens,
         });
 
-        Ok(ModelResponse {
+        Ok(ConversationResponse {
             model: self.model.clone(),
-            content,
+            content: choice.message.content,
+            tool_calls,
             usage,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::ToolDefinition;
+
+    use super::*;
+    use serde_json::json;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{header, method, path},
+    };
+
+    #[tokio::test]
+    async fn completes_conversation_with_text_response() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .and(header("authorization", "Bearer test-key"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": "Hello!"
+                    }
+                }],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5
+                }
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = OpenAICompatibleClient::new(server.uri(), "test-key", "test-model");
+
+        let response = client
+            .complete_conversation(ConversationRequest {
+                system: Some("Be helpful.".into()),
+                messages: vec![ConversationMessage::User {
+                    content: "Hello".into(),
+                }],
+                tools: vec![],
+                temperature: Some(0.2),
+                max_tokens: Some(100),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(response.model, "test-model");
+        assert_eq!(response.content.as_deref(), Some("Hello!"));
+        assert!(response.tool_calls.is_empty());
+
+        let usage = response.usage.unwrap();
+        assert_eq!(usage.input_tokens, 10);
+        assert_eq!(usage.output_tokens, 5);
+    }
+
+    #[tokio::test]
+    async fn parses_tool_calls_from_response() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "calculator",
+                                "arguments": "{\"expression\":\"1 + 1\"}"
+                            }
+                        }]
+                    }
+                }]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = OpenAICompatibleClient::new(server.uri(), "test-key", "test-model");
+
+        let response = client
+            .complete_conversation(ConversationRequest {
+                system: None,
+                messages: vec![ConversationMessage::User {
+                    content: "Calculate 1 + 1".into(),
+                }],
+                tools: vec![ToolDefinition {
+                    name: "calculator".into(),
+                    description: "Evaluate an arithmetic expression".into(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "expression": { "type": "string" }
+                        },
+                        "required": ["expression"]
+                    }),
+                }],
+                temperature: None,
+                max_tokens: None,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(response.content, None);
+        assert_eq!(response.tool_calls.len(), 1);
+
+        let call = &response.tool_calls[0];
+        assert_eq!(call.id, "call_123");
+        assert_eq!(call.name, "calculator");
+        assert_eq!(call.arguments, json!({ "expression": "1 + 1" }));
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+
+        let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+
+        assert_eq!(body["model"], "test-model");
+
+        assert_eq!(
+            body["messages"][0],
+            json!({
+                "role": "user",
+                "content": "Calculate 1 + 1"
+            })
+        );
+
+        assert_eq!(
+            body["tools"][0],
+            json!({
+                "type": "function",
+                "function": {
+                    "name": "calculator",
+                    "description": "Evaluate an arithmetic expression",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "expression": { "type": "string" }
+                        },
+                        "required": ["expression"]
+                    }
+                }
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn serializes_tool_call_follow_up() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": "The result is 2."
+                    }
+                }]
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = OpenAICompatibleClient::new(server.uri(), "test-key", "test-model");
+
+        client
+            .complete_conversation(ConversationRequest {
+                system: None,
+                messages: vec![
+                    ConversationMessage::User {
+                        content: "Calculate 1 + 1".into(),
+                    },
+                    ConversationMessage::Assistant {
+                        content: None,
+                        tool_calls: vec![ToolCall {
+                            id: "call_123".into(),
+                            name: "calculator".into(),
+                            arguments: json!({ "expression": "1 + 1" }),
+                            provider_metadata: None,
+                        }],
+                    },
+                    ConversationMessage::Tool {
+                        tool_call_id: "call_123".into(),
+                        name: "calculator".into(),
+                        content: "2".into(),
+                        is_error: false,
+                        provider_metadata: None,
+                    },
+                ],
+                tools: vec![],
+                temperature: None,
+                max_tokens: None,
+            })
+            .await
+            .unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+
+        let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+
+        assert_eq!(
+            body["messages"][1],
+            json!({
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [{
+                    "id": "call_123",
+                    "type": "function",
+                    "function": {
+                        "name": "calculator",
+                        "arguments": "{\"expression\":\"1 + 1\"}"
+                    }
+                }]
+            })
+        );
+
+        assert_eq!(
+            body["messages"][2],
+            json!({
+                "role": "tool",
+                "content": "2",
+                "name": "calculator",
+                "tool_call_id": "call_123"
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_invalid_tool_call_arguments() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {
+                                "name": "calculator",
+                                "arguments": "{invalid json"
+                            }
+                        }]
+                    }
+                }]
+            })))
+            .mount(&server)
+            .await;
+
+        let client = OpenAICompatibleClient::new(server.uri(), "test-key", "test-model");
+
+        let error = client
+            .complete_conversation(ConversationRequest {
+                system: None,
+                messages: vec![ConversationMessage::User {
+                    content: "Calculate 1 + 1".into(),
+                }],
+                tools: vec![],
+                temperature: None,
+                max_tokens: None,
+            })
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, ModelError::InvalidResponse(_)));
+    }
+
+    #[tokio::test]
+    async fn returns_provider_error_for_http_failure() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/chat/completions"))
+            .respond_with(ResponseTemplate::new(401).set_body_json(json!({
+                "error": {
+                    "message": "Invalid API key"
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = OpenAICompatibleClient::new(server.uri(), "invalid-key", "test-model");
+
+        let error = client
+            .complete_conversation(ConversationRequest {
+                system: None,
+                messages: vec![ConversationMessage::User {
+                    content: "Hello".into(),
+                }],
+                tools: vec![],
+                temperature: None,
+                max_tokens: None,
+            })
+            .await
+            .unwrap_err();
+
+        match error {
+            ModelError::Provider(message) => {
+                assert!(message.contains("401"));
+                assert!(message.contains("Invalid API key"));
+            }
+            other => panic!("Expected provider error, got: {other:?}"),
+        }
     }
 }
