@@ -7,7 +7,7 @@ default:
 
 # Run the Rust project with environment variables loaded
 model-playground *args:
-    cargo run -p agent-models --bin model-playground -- "$@"
+    cargo run -p agent-models --bin model-playground -- --data-dir "{{justfile_directory()}}/data" "$@"
 
 model-gemini *args: (model-playground "--model" "gemini/gemini-3.5-flash-lite" args)
 model-groq *args: (model-playground "--model" "groq/openai/gpt-oss-20b" args)

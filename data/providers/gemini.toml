@@ -1,0 +1,4 @@
+name = "gemini"
+client = "gemini"
+api_key_env = "GEMINI_API_KEY"
+models = ["gemini-2.5-flash"]

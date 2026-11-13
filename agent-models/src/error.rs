@@ -17,4 +17,10 @@ pub enum ModelError {
 
     #[error("Invalid provider response: {0}")]
     InvalidResponse(String),
+
+    #[error("Failed to parse provider configuration: {0}")]
+    Toml(#[from] toml::de::Error),
+
+    #[error("Failed to access registry path: {0}")]
+    Io(#[from] std::io::Error),
 }

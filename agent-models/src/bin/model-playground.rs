@@ -1,4 +1,4 @@
-use agent_models::registry::resolve_model;
+use agent_models::registry::Registry;
 use agent_models::types::CompletionRequest;
 use anyhow::Result;
 use clap::Parser;
@@ -7,6 +7,10 @@ use clap::Parser;
 #[command(name = "model-playground")]
 #[command(about = "Experiment with different LLM providers")]
 struct Args {
+    /// Data directory
+    #[arg(short, long)]
+    data_dir: std::path::PathBuf,
+
     /// Model identifier: provider/model
     #[arg(short, long)]
     model: String,
@@ -22,7 +26,8 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     log::debug!("Execute prompt using model '{}'", args.model);
 
-    let client = resolve_model(&args.model)?;
+    let registry = Registry::load(&args.data_dir)?;
+    let client = registry.resolve_model(&args.model)?;
     let request = CompletionRequest::new(args.prompt);
 
     let response = client.complete(request).await?;
