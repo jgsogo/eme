@@ -9,16 +9,26 @@ use serde::{Deserialize, Serialize};
 
 pub struct GeminiClient {
     http: Client,
+    base_url: String,
     api_key: String,
     model: String,
 }
 
 impl GeminiClient {
     pub fn new(key: impl Into<String>, model: impl Into<String>) -> Self {
+        Self::new_with_base_url("https://generativelanguage.googleapis.com", key, model)
+    }
+
+    pub fn new_with_base_url(
+        base_url: impl Into<String>,
+        key: impl Into<String>,
+        model: impl Into<String>,
+    ) -> Self {
         Self {
-            model: model.into(),
             http: Client::new(),
+            base_url: base_url.into(),
             api_key: key.into(),
+            model: model.into(),
         }
     }
 }
@@ -59,6 +69,7 @@ struct GenerationConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GenerateResponse {
     candidates: Option<Vec<Candidate>>,
     usage_metadata: Option<UsageMetadata>,
@@ -106,8 +117,8 @@ impl LlmClient for GeminiClient {
         };
 
         let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent",
-            self.model
+            "{}/v1beta/models/{}:generateContent",
+            self.base_url, self.model
         );
 
         let response = self
