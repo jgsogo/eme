@@ -11,5 +11,4 @@ model-playground *args:
 
 model-gemini *args: (model-playground "--model" "gemini/gemini-3.5-flash-lite" args)
 
-model-groq *args: (model-playground "--model" "groq/gemini-3.5-flash-lite" args)
-
+model-groq *args: (model-playground "--model" "groq/openai/gpt-oss-20b" args)

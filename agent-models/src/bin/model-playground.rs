@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     env_logger::init();
 
     let args = Args::parse();
-    log::debug!("Execute prompt using model '{}'", &args.model);
+    log::debug!("Execute prompt using model '{}'", args.model);
 
     let client = resolve_model(&args.model)?;
     let request = CompletionRequest::new(args.prompt);

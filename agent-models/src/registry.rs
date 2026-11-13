@@ -31,6 +31,6 @@ pub fn resolve_model(model_name: &str) -> Result<Arc<dyn LlmClient>, ModelError>
             )))
         }
 
-        other => Err(ModelError::UnsupportedProvider(other.to_string()))
+        other => Err(ModelError::UnsupportedProvider(other.to_string())),
     }
 }
