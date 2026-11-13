@@ -21,7 +21,7 @@ pub fn resolve_model(model_name: &str) -> Result<Arc<dyn LlmClient>, ModelError>
             Ok(Arc::new(GeminiClient::new(key, model)))
         }
 
-        "grok" => {
+        "groq" => {
             let key = std::env::var("GROQ_API_KEY")
                 .map_err(|_| ModelError::MissingApiKey("GROQ_API_KEY".into()))?;
             Ok(Arc::new(OpenAICompatibleClient::new(

@@ -1,8 +1,7 @@
-
-use clap::Parser;
 use agent_models::registry::resolve_model;
-use anyhow::Result;
 use agent_models::types::CompletionRequest;
+use anyhow::Result;
+use clap::Parser;
 
 #[derive(Parser)]
 #[command(name = "model-playground")]
@@ -15,7 +14,6 @@ struct Args {
     /// Prompt to send
     prompt: String,
 }
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,6 +28,12 @@ async fn main() -> Result<()> {
     let response = client.complete(request).await?;
 
     println!("{}", response.content);
+
+    if let Some(usage) = response.usage {
+        eprintln!("\n--- Usage ---");
+        eprintln!("Input tokens: {}", usage.input_tokens);
+        eprintln!("Output tokens: {}", usage.output_tokens);
+    }
 
     Ok(())
 }
