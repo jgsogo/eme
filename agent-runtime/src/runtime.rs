@@ -464,6 +464,7 @@ impl AgentRuntime {
                     name: call.name,
                     content,
                     is_error,
+                    provider_metadata: call.provider_metadata.clone(),
                 });
             }
         }

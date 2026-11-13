@@ -4,7 +4,7 @@ pub mod model;
 pub mod policy;
 pub mod runtime;
 pub mod tool;
-pub use model::AgentModel;
+pub use model::{AgentModel, ModelAdapter};
 pub use policy::{AllowListPolicy, Authorization, PolicyEngine};
 pub use runtime::{
     AgentRuntime, CancellationToken, CollectingEventSink, EventSink, NoopEventSink, RunEvent,
@@ -37,6 +37,7 @@ pub struct ToolCall {
     pub id: String,
     pub name: String,
     pub arguments: Value,
+    pub provider_metadata: Option<Value>,
 }
 
 /// A message in the conversation.
@@ -54,6 +55,7 @@ pub enum Message {
         name: String,
         content: String,
         is_error: bool,
+        provider_metadata: Option<Value>,
     },
 }
 

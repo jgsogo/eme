@@ -94,6 +94,7 @@ async fn executes_tool_and_returns_final_response() {
                     "a": 123,
                     "b": 456
                 }),
+                provider_metadata: None,
             }],
         },
         ModelTurn {
@@ -163,6 +164,7 @@ async fn denies_unauthorized_tool_execution() {
                     "a": 123,
                     "b": 456
                 }),
+                provider_metadata: None,
             }],
         },
         ModelTurn {
@@ -228,6 +230,7 @@ async fn stops_after_max_iterations() {
                 id: "call-1".into(),
                 name: "calculator".into(),
                 arguments: json!({ "a": 2, "b": 3 }),
+                provider_metadata: None,
             }],
         },
         ModelTurn {
@@ -236,6 +239,7 @@ async fn stops_after_max_iterations() {
                 id: "call-2".into(),
                 name: "calculator".into(),
                 arguments: json!({ "a": 4, "b": 5 }),
+                provider_metadata: None,
             }],
         },
     ]));
