@@ -12,6 +12,8 @@ serde_json = { workspace = true }
 jsonschema = { workspace = true }
 uuid = { workspace = true }
 tokio = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }

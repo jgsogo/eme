@@ -4,5 +4,5 @@ api_key_env = "GROQ_API_KEY"
 base_url = "https://api.groq.com/openai/v1"
 
 [[models]]
-name = "llama-3.3-70b-versatile"
+name = "openai/gpt-oss-20b"
 capabilities = ["chat", "coding", "tool_calling", "structured_output"]

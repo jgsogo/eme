@@ -14,5 +14,14 @@ model-groq *args: (model-playground "--model" "groq/openai/gpt-oss-20b" args)
 model-cloudfare *args: (model-playground "--model" "cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8" args)
 
 
-ex-basic-agent:
+ex-basic-agent-gemini:
     cargo run -p agent-runtime --example basic_agent -- gemini/gemini-3.5-flash-lite "{{justfile_directory()}}/data"
+
+ex-basic-agent-groq:
+    cargo run -p agent-runtime --example basic_agent -- groq/openai/gpt-oss-20b "{{justfile_directory()}}/data"
+
+ex-basic-agent-cf:
+    # cargo run -p agent-runtime --example basic_agent -- cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8 "{{justfile_directory()}}/data"
+    cargo run -p agent-runtime --example basic_agent -- cloudflare/@cf/zai-org/glm-4.7-flash "{{justfile_directory()}}/data"
+
+    
