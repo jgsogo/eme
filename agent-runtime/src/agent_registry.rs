@@ -48,7 +48,7 @@ impl AgentRegistry {
         if registry.agents.is_empty() {
             return Err("No agent definitions found".into());
         }
-        
+
         Ok(registry)
     }
 
