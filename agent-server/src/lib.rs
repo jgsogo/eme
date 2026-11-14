@@ -7,7 +7,8 @@ use actix_web::{
     web::{self, Data, Json, Path},
 };
 use agent_service::{
-    CancelRunError, CancelRunOutcome, RunId, RunManager, RunStatus, SubmitRunError,
+    CancelRunError, CancelRunOutcome, RunEvent, RunEventKind, RunId, RunManager, RunStatus,
+    SubmitRunError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +31,41 @@ pub struct GetRunResponse {
     pub status: &'static str,
     pub response: Option<String>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RunEventResponse {
+    pub sequence: u64,
+    pub kind: &'static str,
+    pub occurred_at_unix_ms: u128,
+}
+
+impl From<RunEvent> for RunEventResponse {
+    fn from(event: RunEvent) -> Self {
+        let occurred_at_unix_ms = event
+            .occurred_at
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+
+        Self {
+            sequence: event.sequence,
+            kind: event_kind_name(event.kind),
+            occurred_at_unix_ms,
+        }
+    }
+}
+
+fn event_kind_name(kind: RunEventKind) -> &'static str {
+    match kind {
+        RunEventKind::Queued => "queued",
+        RunEventKind::Started => "started",
+        RunEventKind::Completed => "completed",
+        RunEventKind::Failed => "failed",
+        RunEventKind::Cancelled => "cancelled",
+        RunEventKind::TimedOut => "timed_out",
+        RunEventKind::MaxIterationsReached => "max_iterations_reached",
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -92,6 +128,21 @@ async fn get_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Respon
     }
 }
 
+#[get("/{run_id}/events")]
+async fn get_run_events(manager: Data<RunManager>, run_id: Path<String>) -> impl Responder {
+    let run_id = match RunId::from_str(&run_id) {
+        Ok(run_id) => run_id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
+    };
+
+    match manager.events(run_id).await {
+        Some(events) => HttpResponse::Ok().json(
+            events.into_iter().map(RunEventResponse::from).collect::<Vec<_>>(),
+        ),
+        None => HttpResponse::NotFound().finish(),
+    }
+}
+
 #[post("/{run_id}/cancel")]
 async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Responder {
     let run_id = match RunId::from_str(&run_id) {
@@ -129,6 +180,7 @@ pub fn runs_api() -> Scope {
     web::scope("/runs")
         .service(submit_run)
         .service(get_run)
+        .service(get_run_events)
         .service(cancel_run)
 }
 
@@ -240,6 +292,75 @@ mod tests {
         })
         .await
         .expect("run should complete");
+    }
+
+    #[actix_web::test]
+    async fn exposes_ordered_run_lifecycle_events() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(manager()))
+                .service(runs_api()),
+        )
+        .await;
+
+        let request = test::TestRequest::post()
+            .uri("/runs")
+            .set_json(json!({"agent": "assistant", "input": "hello"}))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        let body: Value = test::read_body_json(response).await;
+        let run_id = body["run_id"].as_str().unwrap().to_owned();
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                let request = test::TestRequest::get()
+                    .uri(&format!("/runs/{run_id}/events"))
+                    .to_request();
+                let response = test::call_service(&app, request).await;
+                let events: Value = test::read_body_json(response).await;
+                if events.as_array().is_some_and(|events| {
+                    events.last().is_some_and(|event| event["kind"] == "completed")
+                }) {
+                    assert_eq!(events[0]["sequence"], 0);
+                    assert_eq!(events[0]["kind"], "queued");
+                    assert_eq!(events[1]["sequence"], 1);
+                    assert_eq!(events[1]["kind"], "started");
+                    assert_eq!(events[2]["sequence"], 2);
+                    assert_eq!(events[2]["kind"], "completed");
+                    assert!(events[0]["occurred_at_unix_ms"].is_number());
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("lifecycle events should be recorded in order");
+    }
+
+    #[actix_web::test]
+    async fn rejects_invalid_and_unknown_event_targets() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(manager()))
+                .service(runs_api()),
+        )
+        .await;
+
+        let request = test::TestRequest::get()
+            .uri("/runs/not-a-uuid/events")
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::BAD_REQUEST
+        );
+
+        let request = test::TestRequest::get()
+            .uri("/runs/00000000-0000-0000-0000-000000000000/events")
+            .to_request();
+        assert_eq!(
+            test::call_service(&app, request).await.status(),
+            StatusCode::NOT_FOUND
+        );
     }
 
     #[actix_web::test]
