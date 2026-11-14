@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
 
-use crate::{Run, RunId, RunStatus};
+use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
 
 /// Executes the work associated with an accepted run.
 ///
@@ -69,6 +69,17 @@ pub enum CancelRunError {
 struct ManagedRun {
     run: Run,
     cancellation: CancellationToken,
+    events: Vec<RunEvent>,
+}
+
+impl ManagedRun {
+    fn record(&mut self, kind: RunEventKind) {
+        self.events.push(RunEvent {
+            sequence: self.events.len() as u64,
+            kind,
+            occurred_at: std::time::SystemTime::now(),
+        });
+    }
 }
 
 /// Coordinates run admission, in-memory state, and bounded execution.
@@ -124,6 +135,7 @@ impl RunManager {
                         if entry.run.mark_running().is_err() {
                             continue;
                         }
+                        entry.record(RunEventKind::Started);
 
                         (entry.run.clone(), entry.cancellation.clone())
                     };
@@ -140,23 +152,29 @@ impl RunManager {
                             continue;
                         }
 
-                        match result {
+                        let event = match result {
                             Ok(ExecutionOutcome::Completed(response)) => {
                                 let _ = entry.run.complete(response);
+                                RunEventKind::Completed
                             }
                             Ok(ExecutionOutcome::Cancelled) => {
                                 let _ = entry.run.cancel();
+                                RunEventKind::Cancelled
                             }
                             Ok(ExecutionOutcome::TimedOut) => {
                                 let _ = entry.run.time_out();
+                                RunEventKind::TimedOut
                             }
                             Ok(ExecutionOutcome::MaxIterationsReached) => {
                                 let _ = entry.run.reach_max_iterations();
+                                RunEventKind::MaxIterationsReached
                             }
                             Err(error) => {
                                 let _ = entry.run.fail(error);
+                                RunEventKind::Failed
                             }
-                        }
+                        };
+                        entry.record(event);
                     }
                 }
             });
@@ -183,6 +201,11 @@ impl RunManager {
                 ManagedRun {
                     run,
                     cancellation: CancellationToken::new(),
+                    events: vec![RunEvent {
+                        sequence: 0,
+                        kind: RunEventKind::Queued,
+                        occurred_at: std::time::SystemTime::now(),
+                    }],
                 },
             );
         }
@@ -208,6 +231,7 @@ impl RunManager {
             RunStatus::Queued => {
                 entry.cancellation.cancel();
                 entry.run.cancel().expect("queued run can be cancelled");
+                entry.record(RunEventKind::Cancelled);
                 Ok(CancelRunOutcome::CancelledBeforeStart)
             }
             RunStatus::Running => {
@@ -220,6 +244,15 @@ impl RunManager {
             }
             _ => Ok(CancelRunOutcome::AlreadyFinished),
         }
+    }
+
+    /// Returns an ordered snapshot of a run's lifecycle events.
+    pub async fn events(&self, run_id: RunId) -> Option<Vec<RunEvent>> {
+        self.runs
+            .lock()
+            .await
+            .get(&run_id)
+            .map(|entry| entry.events.clone())
     }
 
     /// Returns a snapshot of a run's current state.
