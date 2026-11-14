@@ -6,6 +6,7 @@ use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub struct GeminiClient {
     http: Client,
@@ -263,7 +264,7 @@ impl ConversationClient for GeminiClient {
                     .map(|tool| FunctionDeclaration {
                         name: tool.name,
                         description: tool.description,
-                        parameters: tool.parameters,
+                        parameters: normalize_gemini_schema(&tool.parameters),
                     })
                     .collect(),
             }])
@@ -381,6 +382,30 @@ impl ConversationClient for GeminiClient {
             usage,
         })
     }
+}
+
+fn normalize_gemini_schema(schema: &Value) -> Value {
+    fn remove_unsupported_fields(value: &mut Value) {
+        match value {
+            Value::Object(object) => {
+                object.remove("additionalProperties");
+
+                for value in object.values_mut() {
+                    remove_unsupported_fields(value);
+                }
+            }
+            Value::Array(values) => {
+                for value in values {
+                    remove_unsupported_fields(value);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let mut schema = schema.clone();
+    remove_unsupported_fields(&mut schema);
+    schema
 }
 
 #[cfg(test)]
@@ -531,5 +556,44 @@ mod tests {
 
         assert_eq!(tool_parts[0]["functionResponse"]["id"], "gemini-call-123");
         assert_eq!(tool_parts[0]["functionResponse"]["name"], "calculator");
+    }
+
+    #[test]
+    fn normalizes_function_schema_for_gemini() {
+        let schema = serde_json::json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Message to send"
+                },
+                "options": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "urgent": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            },
+            "required": ["text"]
+        });
+
+        let normalized = normalize_gemini_schema(&schema);
+
+        assert!(normalized.get("additionalProperties").is_none());
+        assert!(
+            normalized["properties"]["options"]
+                .get("additionalProperties")
+                .is_none()
+        );
+
+        assert_eq!(normalized["required"], serde_json::json!(["text"]));
+        assert_eq!(normalized["properties"]["text"]["type"], "string");
+
+        // The original schema remains intact.
+        assert_eq!(schema["additionalProperties"], false);
     }
 }

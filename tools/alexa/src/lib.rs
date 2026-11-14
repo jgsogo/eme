@@ -1,4 +1,5 @@
 mod tool;
+mod alexa_speak;
 
 use std::path::PathBuf;
 
