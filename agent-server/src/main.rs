@@ -8,9 +8,7 @@ use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher,
     ToolRegistry,
 };
-use agent_service::{
-    AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager,
-};
+use agent_service::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager};
 use anyhow::{Context, Result};
 use clap::Parser;
 
@@ -54,12 +52,8 @@ impl ConfiguredAgentResolver {
         alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
         let tools = Arc::new(tools);
 
-        let agents = AgentRegistry::load_validated(
-            data_dir.join("agents"),
-            &models,
-            tools.as_ref(),
-        )
-        .context("loading and validating agent definitions")?;
+        let agents = AgentRegistry::load_validated(data_dir.join("agents"), &models, tools.as_ref())
+            .context("loading and validating agent definitions")?;
 
         Ok(Self {
             agents,
@@ -95,19 +89,22 @@ impl AgentRuntimeResolver for ConfiguredAgentResolver {
 async fn main() -> Result<()> {
     let args = Args::parse();
     let resolver = Arc::new(
-        ConfiguredAgentResolver::load(&args.data_dir)
-            .with_context(|| format!("loading platform configuration from {}", args.data_dir.display()))?,
+        ConfiguredAgentResolver::load(&args.data_dir).with_context(|| {
+            format!(
+                "loading platform configuration from {}",
+                args.data_dir.display()
+            )
+        })?,
     );
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
-    let manager = RunManager::new(
-        executor,
-        args.max_concurrent_runs,
-        args.max_queued_runs,
-    )
-    .context("configuring run manager")?;
+    let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
+        .context("configuring run manager")?;
 
     let bind_address = (args.host, args.port);
-    println!("Agent platform listening on http://{}:{}", bind_address.0, bind_address.1);
+    println!(
+        "Agent platform listening on http://{}:{}",
+        bind_address.0, bind_address.1
+    );
 
     HttpServer::new(move || {
         App::new()
