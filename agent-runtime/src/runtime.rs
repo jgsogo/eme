@@ -10,6 +10,29 @@ use std::time::Duration;
 use thiserror::Error;
 use uuid::Uuid;
 
+const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_MAX_TOOL_OUTPUT_BYTES: usize = 16 * 1024;
+const TOOL_OUTPUT_TRUNCATED: &str = "\n[tool output truncated]";
+
+fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
+    if output.len() <= max_bytes {
+        return output;
+    }
+
+    let marker = if max_bytes >= TOOL_OUTPUT_TRUNCATED.len() {
+        TOOL_OUTPUT_TRUNCATED
+    } else {
+        ""
+    };
+    let mut end = max_bytes.saturating_sub(marker.len()).min(output.len());
+    while !output.is_char_boundary(end) {
+        end -= 1;
+    }
+    output.truncate(end);
+    output.push_str(marker);
+    output
+}
+
 #[derive(Debug, Error)]
 pub enum RuntimeError {
     #[error("Model request failed: {0}")]
@@ -161,6 +184,8 @@ pub struct AgentRuntime {
     policy: Arc<dyn PolicyEngine>,
     event_sink: Arc<dyn EventSink>,
     timeout: Option<Duration>,
+    tool_timeout: Duration,
+    max_tool_output_bytes: usize,
 }
 
 impl AgentRuntime {
@@ -175,6 +200,8 @@ impl AgentRuntime {
             policy,
             event_sink: Arc::new(NoopEventSink),
             timeout: None,
+            tool_timeout: DEFAULT_TOOL_TIMEOUT,
+            max_tool_output_bytes: DEFAULT_MAX_TOOL_OUTPUT_BYTES,
         }
     }
 
@@ -185,6 +212,21 @@ impl AgentRuntime {
 
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
+        self
+    }
+
+    /// Sets the maximum duration of an individual tool invocation.
+    ///
+    /// A timed-out tool future is dropped and its timeout is returned to the
+    /// model as a tool error. This does not undo external side effects.
+    pub fn with_tool_timeout(mut self, timeout: Duration) -> Self {
+        self.tool_timeout = timeout;
+        self
+    }
+
+    /// Sets the maximum number of UTF-8 bytes retained from each tool result.
+    pub fn with_max_tool_output_bytes(mut self, max_bytes: usize) -> Self {
+        self.max_tool_output_bytes = max_bytes;
         self
     }
 
@@ -457,20 +499,25 @@ impl AgentRuntime {
                     }
                 };
 
-                let result = match deadline {
-                    Some(deadline) => match tokio::time::timeout_at(deadline, execution).await {
-                        Ok(result) => result,
-                        Err(_) => {
-                            return Ok(self.stopped_result(
-                                run_id,
-                                iteration,
-                                StopReason::TimedOut,
-                                messages,
-                                &mut events,
-                            ));
-                        }
-                    },
-                    None => execution.await,
+                let tool_deadline = tokio::time::Instant::now() + self.tool_timeout;
+                let operation_deadline = deadline.map_or(tool_deadline, |run_deadline| {
+                    run_deadline.min(tool_deadline)
+                });
+
+                let result = match tokio::time::timeout_at(operation_deadline, execution).await {
+                    Ok(result) => result,
+                    Err(_)
+                        if deadline.is_some_and(|run_deadline| run_deadline <= tool_deadline) =>
+                    {
+                        return Ok(self.stopped_result(
+                            run_id,
+                            iteration,
+                            StopReason::TimedOut,
+                            messages,
+                            &mut events,
+                        ));
+                    }
+                    Err(_) => Err(ToolError::Timeout(self.tool_timeout)),
                 };
 
                 self.emit_event(
@@ -490,6 +537,7 @@ impl AgentRuntime {
                     Ok(output) => (output, false),
                     Err(error) => (error.to_string(), true),
                 };
+                let content = limit_tool_output(content, self.max_tool_output_bytes);
 
                 messages.push(Message::Tool {
                     tool_call_id: call.id,
