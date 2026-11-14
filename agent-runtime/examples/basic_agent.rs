@@ -11,21 +11,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../data");
 
-    let agents = AgentRegistry::load(data_dir.join("agents"))?;
-    let agent_definition = agents
-        .get("assistant")
-        .ok_or("Agent 'assistant' not found")?;
-
     let mut tools = ToolRegistry::new();
     alexa_tool::register_tools(&mut tools)?;
 
     let model_registry = agent_models::registry::Registry::load(&data_dir)?;
+    let agents = AgentRegistry::load_validated(data_dir.join("agents"), &model_registry, &tools)?;
+    let agent_definition = agents
+        .get("assistant")
+        .ok_or("Agent 'assistant' not found")?;
 
     let model = model_registry.resolve_model(&agent_definition.model)?;
     let model = Arc::new(ModelAdapter::new(model));
 
     let agent = Agent::from(agent_definition);
-
     let allowed_tools = agent.tool_names.clone();
 
     let runtime = AgentRuntime::new(
@@ -35,11 +33,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let input = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
-
     if input.is_empty() {
-        return Err("Usage: basic_agent <prompt>\n\\
-         Example: basic_agent \"Ask Alexa to say Hello from my AI platform\""
-            .into());
+        return Err(
+            "Usage: basic_agent <prompt>\nExample: basic_agent \"Ask Alexa to say Hello\"".into(),
+        );
     }
 
     let result = runtime.run(&agent, input, CancellationToken::new()).await?;

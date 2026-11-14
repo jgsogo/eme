@@ -77,6 +77,11 @@ impl ToolRegistry {
         Ok(())
     }
 
+    /// Returns whether an executable implementation is registered for the given name.
+    pub fn contains(&self, name: &str) -> bool {
+        self.tools.contains_key(name)
+    }
+
     pub fn definition(&self, name: &str) -> Option<ToolDefinition> {
         self.tools.get(name).map(|tool| tool.definition.clone())
     }
