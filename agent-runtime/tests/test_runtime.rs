@@ -580,10 +580,7 @@ async fn model_failures_keep_their_category() {
     let mut agent = test_agent();
     agent.tool_names.clear();
 
-    let failure = match runtime
-        .run(&agent, "Fail", CancellationToken::new())
-        .await
-    {
+    let failure = match runtime.run(&agent, "Fail", CancellationToken::new()).await {
         Err(failure) => failure,
         Ok(_) => panic!("Expected a model failure"),
     };
