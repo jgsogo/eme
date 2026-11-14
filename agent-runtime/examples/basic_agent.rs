@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(AllowListPolicy::new(allowed_tools)),
     );
 
-    let result = runtime
+    let _result = runtime
         .run(
             &agent,
             "Send a message to my Alexa device",
