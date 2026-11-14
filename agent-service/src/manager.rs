@@ -58,7 +58,7 @@ impl RunManager {
             return Err(RunManagerConfigError::ZeroQueueCapacity);
         }
 
-        let runs = Arc::new(Mutex::new(HashMap::new()));
+        let runs = Arc::new(Mutex::new(HashMap::<RunId, Run>::new()));
         let (sender, receiver) = mpsc::channel(max_queued_runs);
         let receiver = Arc::new(Mutex::new(receiver));
 
