@@ -6,5 +6,9 @@
 //! implemented here as the service takes shape.
 
 fn main() {
-    // Service startup will be implemented in a later change.
+    use tracing_subscriber::EnvFilter;
+
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+    tracing::info!("agent server process initialized");
 }

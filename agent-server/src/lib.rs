@@ -8,6 +8,7 @@ use actix_web::{
 };
 use agent_service::{RunId, RunManager, RunStatus, SubmitRunError};
 use serde::{Deserialize, Serialize};
+use tracing::{info, warn};
 
 #[derive(Debug, Deserialize)]
 pub struct SubmitRunRequest {
@@ -45,9 +46,11 @@ fn status_name(status: RunStatus) -> &'static str {
 #[post("")]
 async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) -> impl Responder {
     if request.agent.trim().is_empty() {
+        warn!("rejected run submission with empty agent");
         return HttpResponse::BadRequest().body("agent must not be empty");
     }
     if request.input.trim().is_empty() {
+        warn!("rejected run submission with empty input");
         return HttpResponse::BadRequest().body("input must not be empty");
     }
 
@@ -55,11 +58,15 @@ async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) 
         .submit(request.agent.clone(), request.input.clone())
         .await
     {
-        Ok(run_id) => HttpResponse::Accepted().json(SubmitRunResponse {
-            run_id: run_id.to_string(),
-            status: "queued",
-        }),
+        Ok(run_id) => {
+            info!(run_id = %run_id, agent = %request.agent, "accepted run submission");
+            HttpResponse::Accepted().json(SubmitRunResponse {
+                run_id: run_id.to_string(),
+                status: "queued",
+            })
+        }
         Err(SubmitRunError::QueueFull) => {
+            warn!(agent = %request.agent, "run submission rejected because queue is full");
             HttpResponse::ServiceUnavailable().body("run queue is full")
         }
     }
@@ -69,7 +76,10 @@ async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) 
 async fn get_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Responder {
     let run_id = match RunId::from_str(&run_id) {
         Ok(run_id) => run_id,
-        Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
+        Err(_) => {
+            warn!("rejected request with invalid run identifier");
+            return HttpResponse::BadRequest().body("invalid run identifier");
+        }
     };
 
     match manager.get(run_id).await {

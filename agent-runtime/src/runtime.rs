@@ -8,6 +8,7 @@ use std::sync::{
 };
 use std::time::Duration;
 use uuid::Uuid;
+use tracing::{debug, error, info, warn};
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_MAX_TOOL_OUTPUT_BYTES: usize = 16 * 1024;
@@ -267,8 +268,14 @@ impl AgentRuntime {
         events: &mut Vec<RunEvent>,
     ) -> RunResult {
         let (status, kind) = match reason {
-            StopReason::Cancelled => (RunStatus::Cancelled, RunEventKind::Cancelled),
-            StopReason::TimedOut => (RunStatus::TimedOut, RunEventKind::TimedOut),
+            StopReason::Cancelled => {
+                warn!(run_id = %run_id, iteration, "agent run cancelled");
+                (RunStatus::Cancelled, RunEventKind::Cancelled)
+            }
+            StopReason::TimedOut => {
+                warn!(run_id = %run_id, iteration, "agent run timed out");
+                (RunStatus::TimedOut, RunEventKind::TimedOut)
+            }
         };
 
         self.emit_event(
@@ -312,6 +319,7 @@ impl AgentRuntime {
         input: impl Into<String>,
         cancellation: CancellationToken,
     ) -> Result<RunResult, RunFailure> {
+        info!(run_id = %run_id, agent = %agent.id, max_iterations = agent.max_iterations, "agent run started");
         let deadline = self
             .timeout
             .map(|timeout| tokio::time::Instant::now() + timeout);
@@ -360,6 +368,7 @@ impl AgentRuntime {
                 ));
             }
 
+            debug!(run_id = %run_id, iteration, "requesting model completion");
             self.emit_event(
                 &mut events,
                 RunEvent {
@@ -368,6 +377,7 @@ impl AgentRuntime {
                     kind: RunEventKind::ModelRequested,
                 },
             );
+            let model_started = std::time::Instant::now();
 
             let turn = match deadline {
                 Some(deadline) => {
@@ -375,6 +385,7 @@ impl AgentRuntime {
                         Ok(Ok(turn)) => turn,
                         Ok(Err(error)) => {
                             let error = RuntimeError::Model(error);
+                            error!(run_id = %run_id, iteration, category = ?ErrorCategory::Model, error = %error, "model request failed");
 
                             self.emit_event(
                                 &mut events,
@@ -397,6 +408,7 @@ impl AgentRuntime {
                             });
                         }
                         Err(_) => {
+                            warn!(run_id = %run_id, iteration, "model request exceeded run deadline");
                             return Ok(self.stopped_result(
                                 run_id,
                                 iteration - 1,
@@ -411,6 +423,7 @@ impl AgentRuntime {
                     Ok(turn) => turn,
                     Err(error) => {
                         let error = RuntimeError::Model(error);
+                        error!(run_id = %run_id, iteration, category = ?ErrorCategory::Model, error = %error, "model request failed");
 
                         self.emit_event(
                             &mut events,
@@ -435,6 +448,7 @@ impl AgentRuntime {
                 },
             };
 
+            info!(run_id = %run_id, iteration, elapsed_ms = model_started.elapsed().as_millis() as u64, tool_calls = turn.tool_calls.len(), "model response received");
             self.emit_event(
                 &mut events,
                 RunEvent {
@@ -463,6 +477,7 @@ impl AgentRuntime {
             }
 
             if turn.tool_calls.is_empty() {
+                info!(run_id = %run_id, iterations = iteration, "agent run completed");
                 return Ok(RunResult {
                     run_id,
                     status: RunStatus::Completed,
@@ -484,6 +499,8 @@ impl AgentRuntime {
                     ));
                 }
 
+                debug!(run_id = %run_id, iteration, tool = %call.name, tool_call_id = %call.id, "tool execution started");
+                let tool_started = std::time::Instant::now();
                 self.emit_event(
                     &mut events,
                     RunEvent {
@@ -531,6 +548,12 @@ impl AgentRuntime {
                     Err(_) => Err(RuntimeError::Timeout(self.tool_timeout)),
                 };
 
+                let tool_error_category = result.as_ref().err().map(RuntimeError::category);
+                if let Some(category) = tool_error_category {
+                    warn!(run_id = %run_id, iteration, tool = %call.name, tool_call_id = %call.id, category = ?category, elapsed_ms = tool_started.elapsed().as_millis() as u64, "tool execution failed");
+                } else {
+                    info!(run_id = %run_id, iteration, tool = %call.name, tool_call_id = %call.id, elapsed_ms = tool_started.elapsed().as_millis() as u64, "tool execution completed");
+                }
                 self.emit_event(
                     &mut events,
                     RunEvent {
@@ -539,7 +562,7 @@ impl AgentRuntime {
                         kind: RunEventKind::ToolExecutionFinished {
                             tool_call_id: call.id.clone(),
                             name: call.name.clone(),
-                            error_category: result.as_ref().err().map(RuntimeError::category),
+                            error_category: tool_error_category,
                         },
                     },
                 );
@@ -572,6 +595,7 @@ impl AgentRuntime {
             }
         }
 
+        warn!(run_id = %run_id, iterations = agent.max_iterations, "agent run reached maximum iterations");
         Ok(RunResult {
             run_id,
             status: RunStatus::MaxIterationsReached,

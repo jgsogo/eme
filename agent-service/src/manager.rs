@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
+use tracing::{error, info, warn};
 
 use crate::{Run, RunId};
 
@@ -100,6 +101,7 @@ impl RunManager {
                         run.clone()
                     };
 
+                    info!(run_id = %run.id, agent = %run.agent, "run execution started");
                     let result = executor
                         .execute(run.id, run.agent.clone(), run.input.clone())
                         .await;
@@ -109,17 +111,22 @@ impl RunManager {
                         match result {
                             Ok(ExecutionOutcome::Completed(response)) => {
                                 let _ = run.complete(response);
+                                info!(run_id = %run_id, status = "completed", "run execution finished");
                             }
                             Ok(ExecutionOutcome::Cancelled) => {
                                 let _ = run.cancel();
+                                warn!(run_id = %run_id, status = "cancelled", "run execution finished");
                             }
                             Ok(ExecutionOutcome::TimedOut) => {
                                 let _ = run.time_out();
+                                warn!(run_id = %run_id, status = "timed_out", "run execution finished");
                             }
                             Ok(ExecutionOutcome::MaxIterationsReached) => {
                                 let _ = run.reach_max_iterations();
+                                warn!(run_id = %run_id, status = "max_iterations_reached", "run execution finished");
                             }
                             Err(error) => {
+                                error!(run_id = %run_id, error = %error, "run execution failed");
                                 let _ = run.fail(error);
                             }
                         }
@@ -141,6 +148,7 @@ impl RunManager {
     ) -> Result<RunId, SubmitRunError> {
         let run = Run::new(agent, input);
         let run_id = run.id;
+        info!(run_id = %run_id, agent = %run.agent, "run submitted");
 
         {
             let mut runs = self.runs.lock().await;
@@ -149,6 +157,7 @@ impl RunManager {
 
         if self.sender.try_send(run_id).is_err() {
             self.runs.lock().await.remove(&run_id);
+            warn!(run_id = %run_id, "run rejected because queue is full");
             return Err(SubmitRunError::QueueFull);
         }
 
