@@ -9,6 +9,7 @@ members = [
     "agent-server",
     "tools/alexa",
     "tools/telegram",
+    "tools/meteosource",
 ]
 
 [workspace.dependencies]
