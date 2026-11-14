@@ -11,6 +11,8 @@ agent-runtime = { path = "../agent-runtime" }
 agent-service = { path = "../agent-service" }
 alexa-tool = { path = "../tools/alexa" }
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }
