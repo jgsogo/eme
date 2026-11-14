@@ -1,0 +1,32 @@
+[workspace]
+resolver = "3"
+members = [
+    "agent-config",
+    "agent-models",
+    "agent-runtime",
+    "agent-service",
+    "agent-storage",
+    "agent-server",
+    "tools/alexa",
+]
+
+[workspace.dependencies]
+thiserror = "2"
+async-trait = "0.1"
+clap = { version = "4", features = ["derive"] }
+log = { version = "0.4" }
+env_logger = "0.11.11"
+anyhow = "1.0.104"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+reqwest = { version = "0.12", features = ["json", "cookies","rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1.2"
+jsonschema = "0.61"
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+
+# Test dependencies
+wiremock = "0.6"
+assert_cmd = "2"
+predicates = "3"

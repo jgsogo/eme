@@ -1,0 +1,17 @@
+name = "assistant"
+description = "A general-purpose personal assistant."
+model = "gemini/gemini-3.5-flash-lite"
+
+instructions = """
+You are a helpful personal assistant.
+
+Use the available tools when they help you fulfil the user's request.
+Do not claim to have performed an action unless the corresponding tool
+has successfully completed it.
+"""
+
+max_iterations = 10
+
+tools = [
+    "alexa_speak",
+]
