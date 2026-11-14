@@ -219,6 +219,19 @@ The project is under active development. Areas being explored include:
 
 ## Development
 
+Install [pre-commit](https://pre-commit.com/) and enable the repository hooks:
+
+```bash
+pipx install pre-commit
+pre-commit install
+```
+
+Run all hooks against the repository manually:
+
+```bash
+pre-commit run --all-files
+```
+
 Build the workspace:
 
 ```bash
