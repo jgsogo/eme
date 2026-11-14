@@ -3,3 +3,7 @@ name = "agent-service"
 version = "0.1.0"
 edition = "2024"
 description = "Orchestration and lifecycle management for concurrent agent runs."
+
+[dependencies]
+thiserror = { workspace = true }
+uuid = { workspace = true }
