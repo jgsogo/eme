@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use agent_runtime::CancellationToken;
+use agent_runtime::{CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind};
 use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
@@ -19,15 +19,36 @@ pub trait RunExecutor: Send + Sync + 'static {
         input: String,
         cancellation: CancellationToken,
     ) -> Result<ExecutionOutcome, String>;
+
+    async fn execute_with_events(
+        &self,
+        run_id: RunId,
+        agent: String,
+        input: String,
+        cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        self.execute(run_id, agent, input, cancellation).await.map(|outcome| ExecutionReport {
+            outcome,
+            runtime_events: Vec::new(),
+        })
+    }
 }
 
-/// Outcome of a successfully executed runtime run.
+/// Outcome reported by a run executor.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecutionOutcome {
     Completed(Option<String>),
     Cancelled,
     TimedOut,
     MaxIterationsReached,
+    Failed(String),
+}
+
+/// Runtime outcome and the events emitted while executing it.
+#[derive(Debug, Clone)]
+pub struct ExecutionReport {
+    pub outcome: ExecutionOutcome,
+    pub runtime_events: Vec<RuntimeEvent>,
 }
 
 /// Configuration errors for a run manager.
@@ -73,12 +94,50 @@ struct ManagedRun {
 }
 
 impl ManagedRun {
+    fn record_runtime(&mut self, event: &RuntimeEvent) {
+        let (kind, tool_name, error_category) = match &event.kind {
+            RuntimeEventKind::ModelRequested => (RunEventKind::ModelRequested, None, None),
+            RuntimeEventKind::ModelResponded { .. } => (RunEventKind::ModelResponded, None, None),
+            RuntimeEventKind::ToolExecutionStarted { name, .. } =>
+                (RunEventKind::ToolExecutionStarted, Some(name.clone()), None),
+            RuntimeEventKind::ToolExecutionFinished { name, error_category, .. } =>
+                (RunEventKind::ToolExecutionFinished, Some(name.clone()), error_category.map(error_category_name)),
+            RuntimeEventKind::ModelFailed { category, .. } =>
+                (RunEventKind::ModelFailed, None, Some(error_category_name(*category))),
+            RuntimeEventKind::Cancelled => (RunEventKind::RuntimeCancelled, None, None),
+            RuntimeEventKind::TimedOut => (RunEventKind::RuntimeTimedOut, None, None),
+        };
+        self.events.push(RunEvent {
+            sequence: self.events.len() as u64,
+            kind,
+            iteration: Some(event.iteration),
+            tool_name,
+            error_category,
+            occurred_at: std::time::SystemTime::now(),
+        });
+    }
+
+    /// Records a service or lifecycle event in the shared ordered history.
     fn record(&mut self, kind: RunEventKind) {
         self.events.push(RunEvent {
             sequence: self.events.len() as u64,
             kind,
+            iteration: None,
+            tool_name: None,
+            error_category: None,
             occurred_at: std::time::SystemTime::now(),
         });
+    }
+}
+
+fn error_category_name(category: agent_runtime::ErrorCategory) -> &'static str {
+    match category {
+        agent_runtime::ErrorCategory::Configuration => "configuration",
+        agent_runtime::ErrorCategory::Authorization => "authorization",
+        agent_runtime::ErrorCategory::Model => "model",
+        agent_runtime::ErrorCategory::Tool => "tool",
+        agent_runtime::ErrorCategory::Timeout => "timeout",
+        agent_runtime::ErrorCategory::Cancellation => "cancellation",
     }
 }
 
@@ -141,7 +200,7 @@ impl RunManager {
                     };
 
                     let result = executor
-                        .execute(run.id, run.agent.clone(), run.input.clone(), cancellation)
+                        .execute_with_events(run.id, run.agent.clone(), run.input.clone(), cancellation)
                         .await;
 
                     let mut runs = runs.lock().await;
@@ -152,22 +211,31 @@ impl RunManager {
                             continue;
                         }
 
+                        if let Ok(report) = &result {
+                            for runtime_event in &report.runtime_events {
+                                entry.record_runtime(runtime_event);
+                            }
+                        }
                         let event = match result {
-                            Ok(ExecutionOutcome::Completed(response)) => {
+                            Ok(ExecutionReport { outcome: ExecutionOutcome::Completed(response), .. }) => {
                                 let _ = entry.run.complete(response);
                                 RunEventKind::Completed
                             }
-                            Ok(ExecutionOutcome::Cancelled) => {
+                            Ok(ExecutionReport { outcome: ExecutionOutcome::Cancelled, .. }) => {
                                 let _ = entry.run.cancel();
                                 RunEventKind::Cancelled
                             }
-                            Ok(ExecutionOutcome::TimedOut) => {
+                            Ok(ExecutionReport { outcome: ExecutionOutcome::TimedOut, .. }) => {
                                 let _ = entry.run.time_out();
                                 RunEventKind::TimedOut
                             }
-                            Ok(ExecutionOutcome::MaxIterationsReached) => {
+                            Ok(ExecutionReport { outcome: ExecutionOutcome::MaxIterationsReached, .. }) => {
                                 let _ = entry.run.reach_max_iterations();
                                 RunEventKind::MaxIterationsReached
+                            }
+                            Ok(ExecutionReport { outcome: ExecutionOutcome::Failed(error), .. }) => {
+                                let _ = entry.run.fail(error);
+                                RunEventKind::Failed
                             }
                             Err(error) => {
                                 let _ = entry.run.fail(error);
@@ -204,6 +272,9 @@ impl RunManager {
                     events: vec![RunEvent {
                         sequence: 0,
                         kind: RunEventKind::Queued,
+                        iteration: None,
+                        tool_name: None,
+                        error_category: None,
                         occurred_at: std::time::SystemTime::now(),
                     }],
                 },
@@ -269,7 +340,7 @@ impl RunManager {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use agent_runtime::CancellationToken;
+    use agent_runtime::{CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind};
     use async_trait::async_trait;
     use tokio::sync::Notify;
 
@@ -459,6 +530,65 @@ mod tests {
         })
         .await
         .expect("running run should observe cancellation");
+    }
+
+    struct RuntimeEventExecutor;
+
+    #[async_trait]
+    impl RunExecutor for RuntimeEventExecutor {
+        async fn execute(
+            &self,
+            _run_id: RunId,
+            _agent: String,
+            _input: String,
+            _cancellation: CancellationToken,
+        ) -> Result<ExecutionOutcome, String> {
+            Ok(ExecutionOutcome::Completed(None))
+        }
+
+        async fn execute_with_events(
+            &self,
+            run_id: RunId,
+            agent: String,
+            input: String,
+            cancellation: CancellationToken,
+        ) -> Result<super::ExecutionReport, String> {
+            let outcome = self.execute(run_id, agent, input, cancellation).await?;
+            Ok(super::ExecutionReport {
+                outcome,
+                runtime_events: vec![RuntimeEvent {
+                    run_id: run_id.as_uuid(),
+                    iteration: 2,
+                    kind: RuntimeEventKind::ToolExecutionStarted {
+                        tool_call_id: "call-1".into(),
+                        name: "weather".into(),
+                    },
+                }],
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn runtime_events_are_inserted_between_lifecycle_events() {
+        let manager = RunManager::new(Arc::new(RuntimeEventExecutor), 1, 2).unwrap();
+        let run_id = manager.submit("assistant", "hello").await.unwrap();
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                let events = manager.events(run_id).await.unwrap();
+                if events.last().is_some_and(|event| event.kind == RunEventKind::Completed) {
+                    assert_eq!(events.iter().map(|event| event.sequence).collect::<Vec<_>>(), vec![0, 1, 2, 3]);
+                    assert_eq!(events[2].kind, RunEventKind::ToolExecutionStarted);
+                    assert_eq!(events[2].iteration, Some(2));
+                    assert_eq!(events[2].tool_name.as_deref(), Some("weather"));
+                    assert_eq!(events[2].error_category, None);
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("runtime events should be ordered with lifecycle events");
     }
 
     #[tokio::test]
