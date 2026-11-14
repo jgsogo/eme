@@ -45,7 +45,7 @@ impl ModelAdapter {
 
 #[async_trait]
 impl AgentModel for ModelAdapter {
-    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, String> {
+    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, ModelError> {
         let request = ConversationRequest {
             system: request.system_prompt,
             messages: request

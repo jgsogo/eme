@@ -174,10 +174,7 @@ impl ToolDispatcher for ToolRegistry {
             });
         }
 
-        tool.implementation
-            .execute(arguments)
-            .await
-            .map_err(ToolError::Execution)
+        tool.implementation.execute(arguments).await
     }
 }
 
@@ -212,7 +209,7 @@ mod registration_tests {
 
     #[async_trait]
     impl Tool for NoopTool {
-        async fn execute(&self, _arguments: Value) -> Result<String, String> {
+        async fn execute(&self, _arguments: Value) -> Result<String, ToolError> {
             Ok(String::new())
         }
     }

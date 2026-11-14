@@ -597,7 +597,7 @@ mod external_run_id_tests {
 
     #[async_trait]
     impl AgentModel for FixedModel {
-        async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, String> {
+        async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, ModelError> {
             Ok(ModelTurn {
                 content: Some("completed".into()),
                 tool_calls: Vec::new(),
