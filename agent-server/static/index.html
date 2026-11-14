@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EME Agent Console</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --panel-2: #243044;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #5b9fd4;
+      --accent-hover: #7ab3df;
+      --ok: #3d9a6a;
+      --warn: #c9a227;
+      --err: #c45c5c;
+      --run: #6b8cce;
+      --radius: 10px;
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      background: var(--panel);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    header .meta { color: var(--muted); font-size: 0.85rem; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 380px) 1fr;
+      gap: 1rem;
+      padding: 1rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .panel h2 {
+      margin: 0 0 0.85rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+    select, textarea, button, input {
+      font: inherit;
+      color: var(--text);
+    }
+    select, textarea {
+      width: 100%;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+      margin-bottom: 0.85rem;
+    }
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 0.9rem;
+    }
+    select:focus, textarea:focus {
+      outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+      border-color: var(--accent);
+    }
+    .agent-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: -0.5rem 0 0.85rem;
+      min-height: 1.2em;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 0.55rem 0.9rem;
+      cursor: pointer;
+      background: var(--accent);
+      color: #0b1220;
+      font-weight: 600;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.secondary:hover { border-color: var(--accent); }
+    button.danger {
+      background: transparent;
+      color: var(--err);
+      border: 1px solid color-mix(in srgb, var(--err) 45%, var(--border));
+    }
+    button.danger:hover { background: color-mix(in srgb, var(--err) 15%, transparent); }
+    .row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .runs {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: calc(100vh - 12rem);
+      overflow: auto;
+    }
+    .runs li {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      background: var(--panel-2);
+      transition: border-color 0.12s;
+    }
+    .runs li:hover { border-color: var(--accent); }
+    .runs li.active {
+      border-color: var(--accent);
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    .run-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.25rem;
+    }
+    .run-id {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: var(--border);
+      color: var(--text);
+    }
+    .badge.queued { background: #3a4558; }
+    .badge.running { background: color-mix(in srgb, var(--run) 35%, #1a2332); color: #c5d6f5; }
+    .badge.completed { background: color-mix(in srgb, var(--ok) 35%, #1a2332); color: #b8e6cc; }
+    .badge.failed, .badge.timed_out, .badge.max_iterations_reached {
+      background: color-mix(in srgb, var(--err) 30%, #1a2332); color: #f0c0c0;
+    }
+    .badge.cancelled { background: color-mix(in srgb, var(--warn) 30%, #1a2332); color: #f0e0a8; }
+    .detail-empty {
+      color: var(--muted);
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .detail-header h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-family: var(--mono);
+      word-break: break-all;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 7rem 1fr;
+      gap: 0.35rem 0.75rem;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+    .kv dt { color: var(--muted); }
+    .kv dd { margin: 0; word-break: break-word; }
+    pre {
+      background: #0c1017;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.85rem;
+      overflow: auto;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      margin: 0 0 1rem;
+    }
+    .events {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .events li {
+      display: grid;
+      grid-template-columns: 2.5rem 1fr auto;
+      gap: 0.5rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .events .seq { color: var(--muted); font-family: var(--mono); }
+    .events .time { color: var(--muted); font-family: var(--mono); font-size: 0.75rem; }
+    .flash {
+      font-size: 0.85rem;
+      padding: 0.5rem 0.7rem;
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      display: none;
+    }
+    .flash.error {
+      display: block;
+      background: color-mix(in srgb, var(--err) 18%, transparent);
+      border: 1px solid color-mix(in srgb, var(--err) 40%, transparent);
+      color: #f0c8c8;
+    }
+    .flash.ok {
+      display: block;
+      background: color-mix(in srgb, var(--ok) 18%, transparent);
+      border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+      color: #c5ebd5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EME Agent Console</h1>
+    <div class="meta" id="poll-status">Connecting…</div>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>New run</h2>
+      <div id="submit-flash" class="flash"></div>
+      <label for="agent">Agent</label>
+      <select id="agent"></select>
+      <div class="agent-desc" id="agent-desc"></div>
+      <label for="input">Input</label>
+      <textarea id="input" placeholder="What should the agent do?"></textarea>
+      <div class="row">
+        <button id="submit-btn" type="button">Start run</button>
+      </div>
+
+      <div class="toolbar" style="margin-top: 1.5rem;">
+        <h2 style="margin: 0;">Runs</h2>
+        <button class="secondary" id="refresh-btn" type="button">Refresh</button>
+      </div>
+      <ul class="runs" id="runs"></ul>
+    </section>
+
+    <section class="panel" id="detail">
+      <div class="detail-empty">Select a run to inspect status, result, and events.</div>
+    </section>
+  </main>
+
+  <script>
+    const TERMINAL = new Set([
+      "completed", "failed", "cancelled", "timed_out", "max_iterations_reached",
+    ]);
+
+    const state = {
+      agents: [],
+      runs: [],
+      selectedId: null,
+      events: [],
+      pollTimer: null,
+    };
+
+    const el = {
+      agent: document.getElementById("agent"),
+      agentDesc: document.getElementById("agent-desc"),
+      input: document.getElementById("input"),
+      submitBtn: document.getElementById("submit-btn"),
+      refreshBtn: document.getElementById("refresh-btn"),
+      runs: document.getElementById("runs"),
+      detail: document.getElementById("detail"),
+      submitFlash: document.getElementById("submit-flash"),
+      pollStatus: document.getElementById("poll-status"),
+    };
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, {
+        headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+        ...options,
+      });
+      const text = await res.text();
+      let body = null;
+      if (text) {
+        try { body = JSON.parse(text); } catch { body = text; }
+      }
+      if (!res.ok) {
+        const msg = typeof body === "string" ? body : (body && body.error) || res.statusText;
+        throw new Error(msg || `HTTP ${res.status}`);
+      }
+      return body;
+    }
+
+    function flash(node, kind, message) {
+      node.className = `flash ${kind}`;
+      node.textContent = message;
+      if (kind === "ok") {
+        setTimeout(() => { node.className = "flash"; node.textContent = ""; }, 2500);
+      }
+    }
+
+    function statusBadge(status) {
+      const cls = status.replace(/[^a-z0-9_]/g, "_");
+      return `<span class="badge ${cls}">${status}</span>`;
+    }
+
+    function shortId(id) {
+      return id ? id.slice(0, 8) : "—";
+    }
+
+    function formatTime(ms) {
+      if (ms == null) return "—";
+      try {
+        return new Date(Number(ms)).toLocaleTimeString();
+      } catch {
+        return String(ms);
+      }
+    }
+
+    function renderAgents() {
+      el.agent.innerHTML = state.agents.map((a) =>
+        `<option value="${escapeAttr(a.name)}">${escapeHtml(a.name)}</option>`
+      ).join("");
+      updateAgentDesc();
+    }
+
+    function updateAgentDesc() {
+      const agent = state.agents.find((a) => a.name === el.agent.value);
+      if (!agent) {
+        el.agentDesc.textContent = "";
+        return;
+      }
+      const tools = (agent.tools || []).join(", ") || "no tools";
+      el.agentDesc.textContent = `${agent.description || ""} · ${agent.model} · ${tools}`;
+    }
+
+    function renderRuns() {
+      if (!state.runs.length) {
+        el.runs.innerHTML = `<li style="cursor:default;color:var(--muted)">No runs yet.</li>`;
+        return;
+      }
+      el.runs.innerHTML = state.runs.map((run) => {
+        const active = run.run_id === state.selectedId ? "active" : "";
+        return `<li class="${active}" data-id="${escapeAttr(run.run_id)}">
+          <div class="run-top">
+            <span class="run-id">${escapeHtml(shortId(run.run_id))}</span>
+            ${statusBadge(run.status)}
+          </div>
+          <div>${escapeHtml(run.agent)}</div>
+        </li>`;
+      }).join("");
+    }
+
+    function renderDetail() {
+      const run = state.runs.find((r) => r.run_id === state.selectedId);
+      if (!run) {
+        el.detail.innerHTML = `<div class="detail-empty">Select a run to inspect status, result, and events.</div>`;
+        return;
+      }
+      const canCancel = run.status === "queued" || run.status === "running";
+      const result = run.error
+        ? `<h2>Error</h2><pre>${escapeHtml(run.error)}</pre>`
+        : run.response
+          ? `<h2>Response</h2><pre>${escapeHtml(run.response)}</pre>`
+          : `<h2>Response</h2><pre style="color:var(--muted)">(none yet)</pre>`;
+
+      const events = state.events.length
+        ? state.events.map((e) => `<li>
+            <span class="seq">${e.sequence}</span>
+            <span>${escapeHtml(e.kind)}</span>
+            <span class="time">${formatTime(e.occurred_at_unix_ms)}</span>
+          </li>`).join("")
+        : `<li style="display:block;color:var(--muted)">No events.</li>`;
+
+      el.detail.innerHTML = `
+        <div class="detail-header">
+          <div>
+            <h3>${escapeHtml(run.run_id)}</h3>
+            <div style="margin-top:0.35rem">${statusBadge(run.status)}</div>
+          </div>
+          <div class="row">
+            <button class="secondary" type="button" id="detail-refresh">Refresh</button>
+            <button class="danger" type="button" id="cancel-btn" ${canCancel ? "" : "disabled"}>Cancel</button>
+          </div>
+        </div>
+        <dl class="kv">
+          <dt>Agent</dt><dd>${escapeHtml(run.agent)}</dd>
+          <dt>Status</dt><dd>${escapeHtml(run.status)}</dd>
+        </dl>
+        ${result}
+        <h2>Events</h2>
+        <ul class="events">${events}</ul>
+      `;
+
+      document.getElementById("detail-refresh").onclick = () => selectRun(run.run_id, true);
+      document.getElementById("cancel-btn").onclick = () => cancelRun(run.run_id);
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+    function escapeAttr(s) {
+      return escapeHtml(s).replace(/'/g, "&#39;");
+    }
+
+    async function loadAgents() {
+      state.agents = await api("/agents");
+      renderAgents();
+    }
+
+    async function loadRuns() {
+      state.runs = await api("/runs");
+      renderRuns();
+      if (state.selectedId) {
+        const still = state.runs.some((r) => r.run_id === state.selectedId);
+        if (!still) {
+          state.selectedId = null;
+          state.events = [];
+        }
+        renderDetail();
+      }
+      el.pollStatus.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+    }
+
+    async function selectRun(id, forceEvents = false) {
+      state.selectedId = id;
+      renderRuns();
+      try {
+        const [run, events] = await Promise.all([
+          api(`/runs/${id}`),
+          api(`/runs/${id}/events`),
+        ]);
+        const idx = state.runs.findIndex((r) => r.run_id === id);
+        if (idx >= 0) state.runs[idx] = run;
+        else state.runs.unshift(run);
+        state.events = events;
+        renderRuns();
+        renderDetail();
+      } catch (err) {
+        el.pollStatus.textContent = err.message;
+      }
+    }
+
+    async function submitRun() {
+      const agent = el.agent.value;
+      const input = el.input.value.trim();
+      if (!agent || !input) {
+        flash(el.submitFlash, "error", "Agent and input are required.");
+        return;
+      }
+      el.submitBtn.disabled = true;
+      try {
+        const body = await api("/runs", {
+          method: "POST",
+          body: JSON.stringify({ agent, input }),
+        });
+        flash(el.submitFlash, "ok", `Queued ${shortId(body.run_id)}`);
+        el.input.value = "";
+        await loadRuns();
+        await selectRun(body.run_id);
+      } catch (err) {
+        flash(el.submitFlash, "error", err.message);
+      } finally {
+        el.submitBtn.disabled = false;
+      }
+    }
+
+    async function cancelRun(id) {
+      try {
+        await api(`/runs/${id}/cancel`, { method: "POST" });
+        await selectRun(id);
+        await loadRuns();
+      } catch (err) {
+        el.pollStatus.textContent = err.message;
+      }
+    }
+
+    function schedulePoll() {
+      clearInterval(state.pollTimer);
+      state.pollTimer = setInterval(async () => {
+        try {
+          await loadRuns();
+          if (state.selectedId) {
+            const run = state.runs.find((r) => r.run_id === state.selectedId);
+            if (run && !TERMINAL.has(run.status)) {
+              await selectRun(state.selectedId);
+            } else if (run) {
+              state.events = await api(`/runs/${state.selectedId}/events`);
+              renderDetail();
+            }
+          }
+        } catch (err) {
+          el.pollStatus.textContent = `Poll error: ${err.message}`;
+        }
+      }, 2000);
+    }
+
+    el.agent.addEventListener("change", updateAgentDesc);
+    el.submitBtn.addEventListener("click", submitRun);
+    el.refreshBtn.addEventListener("click", () => loadRuns().catch((e) => {
+      el.pollStatus.textContent = e.message;
+    }));
+    el.runs.addEventListener("click", (ev) => {
+      const li = ev.target.closest("li[data-id]");
+      if (li) selectRun(li.dataset.id);
+    });
+    el.input.addEventListener("keydown", (ev) => {
+      if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") submitRun();
+    });
+
+    (async function init() {
+      try {
+        await loadAgents();
+        await loadRuns();
+        schedulePoll();
+      } catch (err) {
+        el.pollStatus.textContent = `Failed to connect: ${err.message}`;
+        flash(el.submitFlash, "error", err.message);
+      }
+    })();
+  </script>
+</body>
+</html>

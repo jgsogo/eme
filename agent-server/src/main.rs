@@ -2,7 +2,7 @@
 
 use std::{net::IpAddr, path::PathBuf, sync::Arc};
 
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
@@ -98,6 +98,13 @@ impl AgentRuntimeResolver for ConfiguredAgentResolver {
     }
 }
 
+#[get("/")]
+async fn console_ui() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../static/index.html"))
+}
+
 #[actix_web::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -124,6 +131,7 @@ async fn main() -> Result<()> {
         App::new()
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
+            .service(console_ui)
             .service(agent_server::agents_api())
             .service(agent_server::runs_api())
     })
