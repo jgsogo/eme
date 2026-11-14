@@ -5,8 +5,7 @@ use std::{net::IpAddr, path::PathBuf, sync::Arc};
 use actix_web::{App, HttpServer, web};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
-    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher,
-    ToolRegistry,
+    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
 use agent_service::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager};
 use anyhow::{Context, Result};
@@ -52,8 +51,9 @@ impl ConfiguredAgentResolver {
         alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
         let tools = Arc::new(tools);
 
-        let agents = AgentRegistry::load_validated(data_dir.join("agents"), &models, tools.as_ref())
-            .context("loading and validating agent definitions")?;
+        let agents =
+            AgentRegistry::load_validated(data_dir.join("agents"), &models, tools.as_ref())
+                .context("loading and validating agent definitions")?;
 
         Ok(Self {
             agents,
