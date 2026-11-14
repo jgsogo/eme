@@ -577,8 +577,11 @@ async fn model_failures_keep_their_category() {
         Arc::new(AllowListPolicy::new(Vec::<String>::new())),
     );
 
+    let mut agent = test_agent();
+    agent.tool_names.clear();
+
     let failure = match runtime
-        .run(&test_agent(), "Fail", CancellationToken::new())
+        .run(&agent, "Fail", CancellationToken::new())
         .await
     {
         Err(failure) => failure,
