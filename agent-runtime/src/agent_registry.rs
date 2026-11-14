@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    fs,
-    path::Path,
-};
+use std::{collections::BTreeMap, fs, path::Path};
 
 use crate::AgentDefinition;
 
@@ -15,13 +11,12 @@ impl AgentRegistry {
     pub fn load(data_dir: impl AsRef<Path>) -> Result<Self, String> {
         let data_dir = data_dir.as_ref();
 
-        let entries = fs::read_dir(data_dir)
-            .map_err(|error| {
-                format!(
-                    "Failed to read agent directory {}: {error}",
-                    data_dir.display()
-                )
-            })?;
+        let entries = fs::read_dir(data_dir).map_err(|error| {
+            format!(
+                "Failed to read agent directory {}: {error}",
+                data_dir.display()
+            )
+        })?;
 
         let mut registry = Self::default();
 
@@ -34,25 +29,26 @@ impl AgentRegistry {
             }
 
             let contents = fs::read_to_string(&path)
-                .map_err(|error| {
-                    format!("Failed to read {}: {error}", path.display())
-                })?;
+                .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
 
             let definition: AgentDefinition = toml::from_str(&contents)
-                .map_err(|error| {
-                    format!("Invalid agent definition {}: {error}", path.display())
-                })?;
+                .map_err(|error| format!("Invalid agent definition {}: {error}", path.display()))?;
+
+            if definition.name.trim().is_empty() {
+                return Err(format!("Agent name cannot be empty in {}", path.display()));
+            }
 
             if registry.agents.contains_key(&definition.name) {
-                return Err(format!(
-                    "Agent '{}' is already registered",
-                    definition.name
-                ));
+                return Err(format!("Agent '{}' is already registered", definition.name));
             }
 
             registry.agents.insert(definition.name.clone(), definition);
         }
 
+        if registry.agents.is_empty() {
+            return Err("No agent definitions found".into());
+        }
+        
         Ok(registry)
     }
 
