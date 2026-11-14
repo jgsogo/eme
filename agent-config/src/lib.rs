@@ -29,14 +29,14 @@ pub enum ConfigError {
         source: toml::de::Error,
     },
 
-    #[error("Invalid {kind} configuration{location}: {message}", location = path_suffix(.path))]
+    #[error("Invalid {kind} configuration at {path:?}: {message}")]
     Invalid {
         kind: String,
         path: Option<PathBuf>,
         message: String,
     },
 
-    #[error("Duplicate {kind} '{name}'{location}", location = path_suffix(.path))]
+    #[error("Duplicate {kind} '{name}' at {path:?}")]
     Duplicate {
         kind: String,
         name: String,
@@ -45,12 +45,6 @@ pub enum ConfigError {
 
     #[error("No {kind} configuration files found in '{path}'")]
     NoFilesFound { kind: String, path: PathBuf },
-}
-
-fn path_suffix(path: &Option<PathBuf>) -> String {
-    path.as_ref()
-        .map(|path| format!(" in '{}'", path.display()))
-        .unwrap_or_default()
 }
 
 impl ConfigError {
