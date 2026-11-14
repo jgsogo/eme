@@ -26,3 +26,4 @@ anyhow = { workspace = true }
 alexa-tool = { path = "../tools/alexa" }
 telegram-tool = { path = "../tools/telegram" }
 meteosource-tool = { path = "../tools/meteosource" }
+google-tool = { path = "../tools/google" }
