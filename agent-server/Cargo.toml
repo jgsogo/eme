@@ -6,7 +6,6 @@ description = "Executable service exposing the AI agent platform to external cli
 
 [dependencies]
 actix-web = "4"
-reqwest = { workspace = true }
 agent-models = { path = "../agent-models" }
 agent-runtime = { path = "../agent-runtime" }
 agent-service = { path = "../agent-service" }
