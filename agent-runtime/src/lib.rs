@@ -14,6 +14,12 @@ pub use runtime::{
 pub use tool::{Tool, ToolDispatcher, ToolError, ToolRegistry};
 mod tool_definitions;
 pub use tool_definitions::ToolDefinitionRegistry;
+mod agent;
+
+pub use agent::AgentDefinition;
+mod agent_registry;
+
+pub use agent_registry::AgentRegistry;
 
 /// Configuration for an agent.
 #[derive(Debug, Clone)]
