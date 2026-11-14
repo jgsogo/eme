@@ -1,0 +1,13 @@
+name = "calculator"
+description = "Multiplies two integers."
+
+[parameters]
+type = "object"
+required = ["a", "b"]
+additionalProperties = false
+
+[parameters.properties.a]
+type = "integer"
+
+[parameters.properties.b]
+type = "integer"
