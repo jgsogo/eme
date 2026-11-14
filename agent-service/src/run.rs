@@ -62,7 +62,7 @@ impl RunStatus {
     }
 }
 
-/// A lifecycle event recorded by the run service.
+/// An event recorded in the ordered history of a run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunEventKind {
     Queued,
@@ -72,6 +72,13 @@ pub enum RunEventKind {
     Cancelled,
     TimedOut,
     MaxIterationsReached,
+    ModelRequested,
+    ModelResponded,
+    ToolExecutionStarted,
+    ToolExecutionFinished,
+    ModelFailed,
+    RuntimeCancelled,
+    RuntimeTimedOut,
 }
 
 /// An immutable, ordered entry in a run's lifecycle history.
@@ -80,6 +87,12 @@ pub struct RunEvent {
     /// Zero-based sequence number, monotonically increasing within a run.
     pub sequence: u64,
     pub kind: RunEventKind,
+    /// Runtime iteration for model and tool events; absent for lifecycle events.
+    pub iteration: Option<usize>,
+    /// Tool name for tool execution events.
+    pub tool_name: Option<String>,
+    /// Stable error category; raw error messages are excluded.
+    pub error_category: Option<&'static str>,
     pub occurred_at: SystemTime,
 }
 

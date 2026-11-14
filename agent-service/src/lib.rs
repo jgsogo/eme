@@ -9,7 +9,7 @@ mod run;
 mod runtime_executor;
 
 pub use manager::{
-    CancelRunError, CancelRunOutcome, ExecutionOutcome, RunExecutor, RunManager,
+    CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor, RunManager,
     RunManagerConfigError, SubmitRunError,
 };
 pub use run::{InvalidRunTransition, Run, RunEvent, RunEventKind, RunId, RunStatus};

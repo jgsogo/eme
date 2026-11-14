@@ -37,6 +37,9 @@ pub struct GetRunResponse {
 pub struct RunEventResponse {
     pub sequence: u64,
     pub kind: &'static str,
+    pub iteration: Option<usize>,
+    pub tool_name: Option<String>,
+    pub error_category: Option<&'static str>,
     pub occurred_at_unix_ms: u128,
 }
 
@@ -51,6 +54,9 @@ impl From<RunEvent> for RunEventResponse {
         Self {
             sequence: event.sequence,
             kind: event_kind_name(event.kind),
+            iteration: event.iteration,
+            tool_name: event.tool_name,
+            error_category: event.error_category,
             occurred_at_unix_ms,
         }
     }
@@ -65,6 +71,13 @@ fn event_kind_name(kind: RunEventKind) -> &'static str {
         RunEventKind::Cancelled => "cancelled",
         RunEventKind::TimedOut => "timed_out",
         RunEventKind::MaxIterationsReached => "max_iterations_reached",
+        RunEventKind::ModelRequested => "model_requested",
+        RunEventKind::ModelResponded => "model_responded",
+        RunEventKind::ToolExecutionStarted => "tool_execution_started",
+        RunEventKind::ToolExecutionFinished => "tool_execution_finished",
+        RunEventKind::ModelFailed => "model_failed",
+        RunEventKind::RuntimeCancelled => "runtime_cancelled",
+        RunEventKind::RuntimeTimedOut => "runtime_timed_out",
     }
 }
 
