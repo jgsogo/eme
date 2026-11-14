@@ -1,0 +1,5 @@
+[package]
+name = "agent-storage"
+version = "0.1.0"
+edition = "2024"
+description = "Persistence contracts and storage backends for agent execution data."

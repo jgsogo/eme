@@ -52,6 +52,8 @@ The platform is organized around a separation of responsibilities:
 
 ### Main components
 
+The workspace separates provider integration, individual agent execution, and external tool integrations into dedicated crates. Service-level orchestration and transport are being introduced in separate crates. Each crate's README describes its purpose, responsibilities, boundaries, and non-goals.
+
 #### `agent-models`
 
 Provider-independent model integration.
@@ -82,6 +84,50 @@ Its current capabilities include:
 - Runtime event collection.
 
 The model proposes tool calls, but it does not execute them directly. The runtime validates and authorizes each call before dispatching it.
+
+#### Tool integration crates
+
+Tool crates implement capabilities that agents can invoke through the runtime. They own the integration with the external system; the runtime remains responsible for validating, authorizing, and dispatching calls.
+
+##### `tools/alexa` (`alexa-tool`)
+
+The Alexa integration crate will contain the platform's collection of Alexa-related tools. It currently provides `alexa_speak`, which sends speech to an Alexa device, and is intended to grow as additional Alexa capabilities are implemented.
+
+Alexa-specific authentication, service interaction, and reusable device-resolution logic belong in this crate. Tool definitions expose individual operations to agents without making credentials or privileged configuration model-controlled.
+
+## Planned service architecture
+
+The following crates establish the structure for running the platform as a long-lived service. Their documentation describes intended responsibilities; these crates are scaffolding and do not implement these capabilities yet.
+
+#### `agent-service`
+
+The orchestration layer will manage multiple independent agent runs. It will provide run submission and lifecycle management, bounded scheduling, worker coordination, cancellation, execution supervision, and run-event routing. It will use `agent-runtime` to execute individual runs and will remain independent of HTTP transport and concrete storage backends.
+
+#### `agent-storage`
+
+The persistence layer will define storage contracts for runs, conversation messages, and execution events. It will provide concrete storage adapters, beginning with SQLite, and the persistence primitives needed for later recovery, checkpointing, and resumption.
+
+#### `agent-server`
+
+The executable service will compose the platform components and expose them to external clients. It will own application startup and shutdown, the HTTP API for submitting and managing runs, and client-facing event streaming. Run orchestration will belong to `agent-service`, while persistence will belong to `agent-storage`.
+
+The intended dependency direction is:
+
+```text
+                 External Clients
+                        |
+                        v
+                  agent-server
+                  /          \\
+                 v            v
+          agent-service   agent-storage
+                 |
+                 v
+            agent-runtime
+              /      \\
+             v        v
+       agent-models  Tools
+```
 
 ## Current capabilities
 
@@ -151,8 +197,8 @@ export CLOUDFLARE_ACCOUNT_ID="..."
 From the repository root:
 
 ```bash
-cargo run -p agent-runtime --example basic_agent -- \
-  cloudflare/@cf/zai-org/glm-4.7-flash \
+cargo run -p agent-runtime --example basic_agent -- \\
+  cloudflare/@cf/zai-org/glm-4.7-flash \\
   ./data
 ```
 
@@ -181,7 +227,7 @@ Authorization is enforced by the runtime through deterministic policies. Tool ar
 
 Tools represent capabilities made available to an agent. They should be independently defined, registered, validated, authorized, and executed.
 
-The runtime should not need to know whether a tool sends a message, queries an API, accesses a file, or interacts with a device.
+The runtime should not need to know whether a tool sends a message, queries an API, accesses a file, or interacts with a device. Related tools can share an integration crate when they depend on the same external system.
 
 ### Provider independence
 
@@ -246,8 +292,8 @@ cargo test
 Run the basic agent:
 
 ```bash
-cargo run -p agent-runtime --example basic_agent -- \
-  <provider/model> \
+cargo run -p agent-runtime --example basic_agent -- \\
+  <provider/model> \\
   ./data
 ```
 
