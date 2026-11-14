@@ -1,0 +1,16 @@
+name = "tg_ask_user"
+description = "Ask the configured Telegram user a question and wait for their reply. Use kind='text' for free-text answers, or kind='yes_no' for a Yes/No choice presented as inline buttons. Returns the user's answer (free text, or 'yes'/'no')."
+
+[parameters]
+type = "object"
+required = ["question"]
+additionalProperties = false
+
+[parameters.properties.question]
+type = "string"
+description = "The question to show the user."
+
+[parameters.properties.kind]
+type = "string"
+description = "Answer mode: 'text' (default) for free-text reply, or 'yes_no' for Yes/No buttons."
+enum = ["text", "yes_no"]
