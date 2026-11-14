@@ -7,3 +7,10 @@
 //!
 //! Agent execution, tool authorization, and run lifecycle management will
 //! remain outside this crate.
+
+pub mod client;
+pub mod error;
+pub mod models;
+pub mod providers;
+pub mod registry;
+pub mod types;
