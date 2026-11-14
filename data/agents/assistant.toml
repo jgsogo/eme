@@ -14,4 +14,7 @@ max_iterations = 10
 
 tools = [
     "alexa_speak",
+    "tg_notify_user",
+    "tg_ask_user",
+    "meteosource",
 ]
