@@ -7,7 +7,8 @@ mod telegram;
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
-    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
+    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher,
+    ToolRegistry,
 };
 use agent_service::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager};
 use anyhow::{Context, Result};
@@ -79,16 +80,24 @@ impl ConfiguredAgentResolver {
             AgentRegistry::load_validated(data_dir.join("agents"), &models, tools.as_ref())
                 .context("loading and validating agent definitions")?;
 
-        Ok(Self { agents, models, tools })
+        Ok(Self {
+            agents,
+            models,
+            tools,
+        })
     }
 }
 
 impl AgentRuntimeResolver for ConfiguredAgentResolver {
     fn resolve(&self, agent_name: &str) -> Result<ResolvedAgent, String> {
-        let definition = self.agents.get(agent_name)
+        let definition = self
+            .agents
+            .get(agent_name)
             .ok_or_else(|| format!("unknown agent '{agent_name}'"))?;
 
-        let client = self.models.resolve_model(&definition.model)
+        let client = self
+            .models
+            .resolve_model(&definition.model)
             .map_err(|error| error.to_string())?;
 
         let agent = Agent::from(definition);
@@ -121,12 +130,19 @@ async fn main() -> Result<()> {
         }
         Err(_) => None,
     };
-    let gateway_for_tools = telegram_gateway.as_ref().map(|(gateway, _)| gateway.clone());
+    let gateway_for_tools = telegram_gateway
+        .as_ref()
+        .map(|(gateway, _)| gateway.clone());
 
     let resolver = Arc::new(
-        ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools)
-            .with_context(|| format!("loading platform configuration from {}", args.data_dir.display()))?,
+        ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools).with_context(|| {
+            format!(
+                "loading platform configuration from {}",
+                args.data_dir.display()
+            )
+        })?,
     );
+
     if telegram_gateway.is_some() && resolver.agents.get(&args.telegram_agent).is_none() {
         anyhow::bail!("Telegram agent '{}' is not configured", args.telegram_agent);
     }
@@ -141,7 +157,11 @@ async fn main() -> Result<()> {
         let updates = gateway.subscribe();
         tokio::spawn(gateway.clone().run());
         tokio::spawn(telegram::run_bot(
-            gateway, allowed, args.telegram_agent.clone(), manager.clone(), updates,
+            gateway,
+            allowed,
+            args.telegram_agent.clone(),
+            manager.clone(),
+            updates,
         ));
         println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
     } else {
