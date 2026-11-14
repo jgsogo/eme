@@ -48,6 +48,12 @@ pub enum RunStatus {
 }
 
 /// Shared cancellation signal for an agent run.
+///
+/// Cancellation is observed at operation boundaries. A model request or tool
+/// invocation that has already started is allowed to finish; its result is
+/// recorded before the runtime stops. No subsequent model or tool operation is
+/// started after cancellation is observed. This avoids abandoning a tool result
+/// when an external side effect may already have occurred.
 #[derive(Clone, Default)]
 pub struct CancellationToken {
     cancelled: Arc<AtomicBool>,
@@ -379,6 +385,17 @@ impl AgentRuntime {
                 tool_calls: turn.tool_calls.clone(),
             });
 
+            // Preserve the completed model turn, but do not start any requested tools.
+            if cancellation.is_cancelled() {
+                return Ok(self.stopped_result(
+                    run_id,
+                    iteration,
+                    StopReason::Cancelled,
+                    messages,
+                    &mut events,
+                ));
+            }
+
             if turn.tool_calls.is_empty() {
                 return Ok(RunResult {
                     run_id,
@@ -466,6 +483,18 @@ impl AgentRuntime {
                     is_error,
                     provider_metadata: call.provider_metadata.clone(),
                 });
+
+                // The in-flight tool completed and its result is now part of the
+                // conversation. Stop before starting another tool or model request.
+                if cancellation.is_cancelled() {
+                    return Ok(self.stopped_result(
+                        run_id,
+                        iteration,
+                        StopReason::Cancelled,
+                        messages,
+                        &mut events,
+                    ));
+                }
             }
         }
 

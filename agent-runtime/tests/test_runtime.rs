@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use tokio::sync::Notify;
+
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, Message, ModelRequest,
     ModelTurn, ToolCall, ToolDefinition, ToolDispatcher, ToolError,
@@ -274,4 +276,67 @@ async fn stops_after_max_iterations() {
 
     // Two iterations were executed, each with one tool call.
     assert_eq!(tools.calls.lock().unwrap().len(), 2);
+}
+
+
+struct BlockingModel {
+    started: Arc<Notify>,
+    release: Arc<Notify>,
+}
+
+#[async_trait]
+impl AgentModel for BlockingModel {
+    async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, String> {
+        self.started.notify_one();
+        self.release.notified().await;
+        Ok(ModelTurn {
+            content: Some("Model response".into()),
+            tool_calls: Vec::new(),
+        })
+    }
+}
+
+#[tokio::test]
+async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
+    let started = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let model = Arc::new(BlockingModel {
+        started: started.clone(),
+        release: release.clone(),
+    });
+    let runtime = Arc::new(AgentRuntime::new(
+        model,
+        Arc::new(MockTools {
+            calls: Mutex::new(Vec::new()),
+        }),
+        Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+    ));
+    let cancellation = CancellationToken::new();
+    let run_cancellation = cancellation.clone();
+    let agent = Agent {
+        id: "test-agent".into(),
+        system_prompt: None,
+        tool_names: Vec::new(),
+        max_iterations: 2,
+    };
+
+    let run = tokio::spawn(async move {
+        runtime
+            .run(&agent, "Hello", run_cancellation)
+            .await
+            .unwrap()
+    });
+
+    started.notified().await;
+    cancellation.cancel();
+    release.notify_one();
+
+    let result = run.await.unwrap();
+    assert_eq!(result.status, agent_runtime::RunStatus::Cancelled);
+    assert!(result.messages.iter().any(|message| {
+        matches!(message, Message::Assistant { content: Some(content), .. } if content == "Model response")
+    }));
+    assert!(result.events.iter().any(|event| {
+        matches!(event.kind, agent_runtime::RunEventKind::Cancelled)
+    }));
 }
