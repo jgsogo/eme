@@ -180,7 +180,6 @@ impl Registry {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::{

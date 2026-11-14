@@ -242,7 +242,7 @@ tools = [
                 .contains("lists tool 'test_tool' more than once")
         );
     }
-    
+
     #[test]
     fn reports_agent_configuration_contract_errors() {
         let directory = TestDirectory::new();
@@ -291,5 +291,4 @@ instructions = "Test"
             Err(agent_config::ConfigError::Duplicate { .. })
         ));
     }
-
 }

@@ -55,7 +55,6 @@ impl ToolDefinitionRegistry {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::{
