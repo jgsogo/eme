@@ -101,7 +101,10 @@ async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Res
 
     match manager.cancel(run_id).await {
         Ok(outcome) => {
-            let run = manager.get(run_id).await.expect("cancelled run remains available");
+            let run = manager
+                .get(run_id)
+                .await
+                .expect("cancelled run remains available");
             let response = CancelRunResponse {
                 run_id: run.id.to_string(),
                 status: status_name(run.status),
@@ -187,8 +190,7 @@ mod tests {
     }
 
     fn manager() -> RunManager {
-        RunManager::new(Arc::new(ImmediateExecutor), 1, 8)
-            .expect("valid run manager configuration")
+        RunManager::new(Arc::new(ImmediateExecutor), 1, 8).expect("valid run manager configuration")
     }
 
     #[actix_web::test]
