@@ -1,0 +1,12 @@
+name = "meteosource"
+description = "Retrieve the current weather and hourly forecast for a location."
+
+[parameters]
+type = "object"
+required = ["location"]
+additionalProperties = false
+
+[parameters.properties.location]
+type = "string"
+minLength = 1
+description = "A city, town, or other place name, preferably including its country (for example, 'Salamanca, Spain')."
