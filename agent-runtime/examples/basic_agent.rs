@@ -8,7 +8,7 @@ use agent_runtime::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    
+
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../data");
 
     let agents = AgentRegistry::load(data_dir.join("agents"))?;
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
 
     if input.is_empty() {
-        return Err("Usage: basic_agent <prompt>\n\
+        return Err("Usage: basic_agent <prompt>\n\\
          Example: basic_agent \"Ask Alexa to say Hello from my AI platform\""
             .into());
     }
