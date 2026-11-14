@@ -123,8 +123,8 @@ impl Tool for WebSearch {
             exclude_domains: arguments.exclude_domains,
         };
 
-        let client = TavilyClient::new(api_key)
-            .map_err(|error| ToolError::Execution(error.to_string()))?;
+        let client =
+            TavilyClient::new(api_key).map_err(|error| ToolError::Execution(error.to_string()))?;
         let response = client
             .search(&request)
             .await
