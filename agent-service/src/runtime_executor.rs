@@ -65,7 +65,8 @@ mod tests {
     use std::sync::Arc;
 
     use agent_runtime::{
-        Agent, AgentModel, AgentRuntime, AllowListPolicy, ModelRequest, ModelTurn, ToolRegistry,
+        Agent, AgentModel, AgentRuntime, AllowListPolicy, ModelError, ModelRequest, ModelTurn,
+        ToolRegistry,
     };
     use async_trait::async_trait;
 
@@ -76,7 +77,7 @@ mod tests {
 
     #[async_trait]
     impl AgentModel for FixedModel {
-        async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, String> {
+        async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, ModelError> {
             Ok(ModelTurn {
                 content: Some("runtime response".into()),
                 tool_calls: Vec::new(),

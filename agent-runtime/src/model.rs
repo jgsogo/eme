@@ -13,7 +13,7 @@ use crate::{ModelRequest, ModelTurn};
 /// Interface used by the agent runtime to interact with a model.
 #[async_trait]
 pub trait AgentModel: Send + Sync {
-    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, String>;
+    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, ModelError>;
 }
 
 /// Adapts an agent-models conversation client to the runtime interface.
@@ -45,7 +45,7 @@ impl ModelAdapter {
 
 #[async_trait]
 impl AgentModel for ModelAdapter {
-    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, String> {
+    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, ModelError> {
         let request = ConversationRequest {
             system: request.system_prompt,
             messages: request
@@ -96,11 +96,7 @@ impl AgentModel for ModelAdapter {
             max_tokens: self.max_tokens,
         };
 
-        let response: ConversationResponse = self
-            .client
-            .complete_conversation(request)
-            .await
-            .map_err(|error: ModelError| error.to_string())?;
+        let response: ConversationResponse = self.client.complete_conversation(request).await?;
 
         Ok(ModelTurn {
             content: response.content,

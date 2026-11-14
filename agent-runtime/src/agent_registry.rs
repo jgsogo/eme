@@ -148,7 +148,7 @@ mod tests {
 
     #[async_trait]
     impl Tool for NoopTool {
-        async fn execute(&self, _arguments: Value) -> Result<String, String> {
+        async fn execute(&self, _arguments: Value) -> Result<String, crate::ToolError> {
             Ok(String::new())
         }
     }
