@@ -41,7 +41,7 @@ pub(crate) struct SearchResponse {
     #[serde(default)]
     pub results: Vec<SearchResult>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub response_time: Option<f64>,
+    pub response_time: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -94,10 +94,11 @@ impl TavilyClient {
             let detail = serde_json::from_str::<serde_json::Value>(&body)
                 .ok()
                 .and_then(|value| {
-                    value
-                        .get("detail")
-                        .or_else(|| value.get("message"))
-                        .and_then(serde_json::Value::as_str)
+                    let detail = value.get("detail").unwrap_or(&value);
+                    detail
+                        .as_str()
+                        .or_else(|| detail.get("error").and_then(serde_json::Value::as_str))
+                        .or_else(|| detail.get("message").and_then(serde_json::Value::as_str))
                         .map(str::to_owned)
                 })
                 .unwrap_or_else(|| {
@@ -149,7 +150,7 @@ mod tests {
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "query": "Rust agent frameworks",
-                "response_time": 1.23,
+                "response_time": "1.23",
                 "results": [{
                     "title": "An article",
                     "url": "https://example.com/article",
