@@ -1,11 +1,12 @@
-use crate::alexa_speak::{ alexa_speak};
+use crate::alexa_speak::alexa_speak;
 use agent_runtime::Tool;
 use async_trait::async_trait;
 use serde_json::Value;
-pub struct AlexaTool;
+
+pub struct AlexaSpeak;
 
 #[async_trait]
-impl Tool for AlexaTool {
+impl Tool for AlexaSpeak {
     async fn execute(&self, arguments: Value) -> Result<String, String> {
         let text = arguments
             .get("text")
@@ -16,7 +17,7 @@ impl Tool for AlexaTool {
         let device_name = std::env::var("AMAZON_ALEXA_DEVICE_NAME")
             .map_err(|_| "AMAZON_ALEXA_DEVICE_NAME env var not set".to_owned())?;
 
-                    alexa_speak(&device_name, text)
+        alexa_speak(&device_name, text)
             .await
             .map_err(|error| error.to_string())?;
 

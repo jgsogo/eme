@@ -1,4 +1,4 @@
-name = "alexa"
+name = "alexa_speak"
 description = "Send a text message to an Alexa device."
 
 [parameters]
