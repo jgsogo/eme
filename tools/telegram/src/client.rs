@@ -51,10 +51,12 @@ pub struct IncomingMessage {
 enum PendingReply {
     Text {
         chat_id: i64,
+        after_message_id: i32,
         sender: oneshot::Sender<String>,
     },
     YesNo {
         chat_id: i64,
+        question_message_id: i32,
         sender: oneshot::Sender<bool>,
     },
 }
@@ -68,6 +70,7 @@ pub struct TelegramGateway {
     bot: Bot,
     pending: Mutex<Option<PendingReply>>,
     interactive_lock: Mutex<()>,
+    dispatch_lock: Mutex<()>,
     events: broadcast::Sender<IncomingMessage>,
 }
 
@@ -78,6 +81,7 @@ impl TelegramGateway {
             bot: Bot::new(token),
             pending: Mutex::new(None),
             interactive_lock: Mutex::new(()),
+            dispatch_lock: Mutex::new(()),
             events,
         })
     }
@@ -115,12 +119,18 @@ impl TelegramGateway {
     ) -> Result<String, TelegramError> {
         let _guard = self.interactive_lock.lock().await;
         let (sender, receiver) = oneshot::channel();
-        *self.pending.lock().await = Some(PendingReply::Text { chat_id, sender });
-
-        if let Err(error) = self.send_message(chat_id, question).await {
-            self.pending.lock().await.take();
-            return Err(error);
-        }
+        // Serialize registration with update dispatch. This also prevents an
+        // already-fetched update from being mistaken for the answer.
+        let _dispatch = self.dispatch_lock.lock().await;
+        let sent = self.bot.send_message(
+            &SendMessageParams::builder().chat_id(chat_id).text(question).build()
+        ).await.map_err(|error| TelegramError::Api(error.to_string()))?;
+        *self.pending.lock().await = Some(PendingReply::Text {
+            chat_id,
+            after_message_id: sent.result.message_id,
+            sender,
+        });
+        drop(_dispatch);
 
         match tokio::time::timeout(timeout, receiver).await {
             Ok(Ok(answer)) => Ok(answer),
@@ -140,7 +150,7 @@ impl TelegramGateway {
     ) -> Result<bool, TelegramError> {
         let _guard = self.interactive_lock.lock().await;
         let (sender, receiver) = oneshot::channel();
-        *self.pending.lock().await = Some(PendingReply::YesNo { chat_id, sender });
+        let _dispatch = self.dispatch_lock.lock().await;
 
         let keyboard = InlineKeyboardMarkup {
             inline_keyboard: vec![vec![
@@ -161,10 +171,14 @@ impl TelegramGateway {
             .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
             .build();
 
-        if let Err(error) = self.bot.send_message(&params).await {
-            self.pending.lock().await.take();
-            return Err(TelegramError::Api(error.to_string()));
-        }
+        let sent = self.bot.send_message(&params).await
+            .map_err(|error| TelegramError::Api(error.to_string()))?;
+        *self.pending.lock().await = Some(PendingReply::YesNo {
+            chat_id,
+            question_message_id: sent.result.message_id,
+            sender,
+        });
+        drop(_dispatch);
 
         match tokio::time::timeout(timeout, receiver).await {
             Ok(Ok(answer)) => Ok(answer),
@@ -190,6 +204,7 @@ impl TelegramGateway {
                 Ok(response) => {
                     for update in response.result {
                         offset = Some(i64::from(update.update_id) + 1);
+                        let _dispatch = self.dispatch_lock.lock().await;
                         match update.content {
                             UpdateContent::Message(message) => {
                                 let event = IncomingMessage {
@@ -200,9 +215,17 @@ impl TelegramGateway {
                                     text: message.text.clone(),
                                 };
                                 let mut pending = self.pending.lock().await;
+                                if pending.as_ref().is_some_and(|pending| match pending {
+                                    PendingReply::Text { sender, .. } => sender.is_closed(),
+                                    PendingReply::YesNo { sender, .. } => sender.is_closed(),
+                                }) {
+                                    pending.take();
+                                }
                                 let consumed = match pending.as_ref() {
-                                    Some(PendingReply::Text { chat_id, .. })
-                                        if *chat_id == event.chat_id && !event.is_bot =>
+                                    Some(PendingReply::Text { chat_id, after_message_id, .. })
+                                        if *chat_id == event.chat_id
+                                            && event.message_id > *after_message_id
+                                            && !event.is_bot =>
                                     {
                                         event.text.as_deref().map(str::trim)
                                             .filter(|text| !text.is_empty())
@@ -231,9 +254,24 @@ impl TelegramGateway {
                                     _ => None,
                                 };
                                 let mut pending = self.pending.lock().await;
+                                if pending.as_ref().is_some_and(|pending| match pending {
+                                    PendingReply::Text { sender, .. } => sender.is_closed(),
+                                    PendingReply::YesNo { sender, .. } => sender.is_closed(),
+                                }) {
+                                    pending.take();
+                                }
                                 let consumed = match (pending.as_ref(), chat_id, answer) {
-                                    (Some(PendingReply::YesNo { chat_id: expected, .. }), Some(actual), Some(value))
-                                        if *expected == actual => Some(value),
+                                    (Some(PendingReply::YesNo {
+                                        chat_id: expected,
+                                        question_message_id,
+                                        ..
+                                    }), Some(actual), Some(value))
+                                        if *expected == actual
+                                            && query.message.as_ref().is_some_and(|message| match message {
+                                                MaybeInaccessibleMessage::Message(message) =>
+                                                    message.message_id == *question_message_id,
+                                                _ => false,
+                                            }) => Some(value),
                                     _ => None,
                                 };
                                 if let Some(value) = consumed {
