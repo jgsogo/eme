@@ -340,3 +340,75 @@ async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
         matches!(event.kind, agent_runtime::RunEventKind::Cancelled)
     }));
 }
+
+
+struct BlockingTools {
+    started: Arc<Notify>,
+    release: Arc<Notify>,
+}
+
+#[async_trait]
+impl ToolDispatcher for BlockingTools {
+    fn definition(&self, name: &str) -> Option<ToolDefinition> {
+        (name == "calculator").then(|| ToolDefinition {
+            name: "calculator".into(),
+            description: "A blocking test tool".into(),
+            parameters: json!({"type": "object"}),
+        })
+    }
+
+    async fn execute(&self, _name: &str, _arguments: Value) -> Result<String, ToolError> {
+        self.started.notify_one();
+        self.release.notified().await;
+        Ok("tool result".into())
+    }
+}
+
+#[tokio::test]
+async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
+    let started = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let model = Arc::new(MockModel::new(vec![ModelTurn {
+        content: None,
+        tool_calls: vec![ToolCall {
+            id: "call-1".into(),
+            name: "calculator".into(),
+            arguments: json!({}),
+            provider_metadata: None,
+        }],
+    }]));
+    let tools = Arc::new(BlockingTools {
+        started: started.clone(),
+        release: release.clone(),
+    });
+    let runtime = Arc::new(AgentRuntime::new(
+        model,
+        tools,
+        Arc::new(AllowListPolicy::new(["calculator"])),
+    ));
+    let cancellation = CancellationToken::new();
+    let run_cancellation = cancellation.clone();
+    let agent = Agent {
+        id: "test-agent".into(),
+        system_prompt: None,
+        tool_names: vec!["calculator".into()],
+        max_iterations: 2,
+    };
+
+    let run = tokio::spawn(async move {
+        runtime
+            .run(&agent, "Use the tool", run_cancellation)
+            .await
+            .unwrap()
+    });
+
+    started.notified().await;
+    cancellation.cancel();
+    release.notify_one();
+
+    let result = run.await.unwrap();
+    assert_eq!(result.status, agent_runtime::RunStatus::Cancelled);
+    assert!(result.messages.iter().any(|message| {
+        matches!(message, Message::Tool { tool_call_id, content, .. } if tool_call_id == "call-1" && content == "tool result")
+    }));
+}
