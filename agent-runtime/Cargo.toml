@@ -20,5 +20,9 @@ toml = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+
 # So the examples can load tools from these crates
 alexa-tool = { path = "../tools/alexa" }
+telegram-tool = { path = "../tools/telegram" }
+meteosource-tool = { path = "../tools/meteosource" }
