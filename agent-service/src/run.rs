@@ -62,6 +62,27 @@ impl RunStatus {
     }
 }
 
+/// A lifecycle event recorded by the run service.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RunEventKind {
+    Queued,
+    Started,
+    Completed,
+    Failed,
+    Cancelled,
+    TimedOut,
+    MaxIterationsReached,
+}
+
+/// An immutable, ordered entry in a run's lifecycle history.
+#[derive(Debug, Clone)]
+pub struct RunEvent {
+    /// Zero-based sequence number, monotonically increasing within a run.
+    pub sequence: u64,
+    pub kind: RunEventKind,
+    pub occurred_at: SystemTime,
+}
+
 /// Service-level representation of a submitted run.
 ///
 /// This type deliberately contains no HTTP or persistence-specific concepts.
