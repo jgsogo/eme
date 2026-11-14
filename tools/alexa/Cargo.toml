@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+agent-config = { path = "../../agent-config" }
 agent-runtime = { path = "../../agent-runtime" }
 
 thiserror = { workspace = true }
@@ -11,13 +12,7 @@ reqwest = { workspace = true }
 serde = { workspace = true }
 async-trait = { workspace = true }
 serde_json = { workspace = true }
-# jsonschema = { workspace = true }
-# uuid = { workspace = true }
-# tokio = { workspace = true }
-# log = { workspace = true }
-# env_logger = { workspace = true }
 toml = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-# tokio = { workspace = true }
