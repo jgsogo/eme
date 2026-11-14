@@ -9,7 +9,6 @@ pub struct AuthorizationError {
     pub reason: String,
 }
 
-
 /// Result of an authorization decision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Authorization {

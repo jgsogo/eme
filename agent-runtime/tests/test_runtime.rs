@@ -9,11 +9,11 @@ use std::{
 
 use tokio::sync::Notify;
 
+use agent_models::error::ModelError;
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
     ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolDefinition, ToolDispatcher, ToolError,
 };
-use agent_models::error::ModelError;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -346,7 +346,10 @@ async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
 
     let result = run.await.unwrap();
     assert_eq!(result.status, agent_runtime::RunStatus::Cancelled);
-    assert_eq!(result.status.error_category(), Some(ErrorCategory::Cancellation));
+    assert_eq!(
+        result.status.error_category(),
+        Some(ErrorCategory::Cancellation)
+    );
     assert!(result.messages.iter().any(|message| {
         matches!(message, Message::Assistant { content: Some(content), .. } if content == "Model response")
     }));
@@ -424,7 +427,10 @@ async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
 
     let result = run.await.unwrap();
     assert_eq!(result.status, agent_runtime::RunStatus::Cancelled);
-    assert_eq!(result.status.error_category(), Some(ErrorCategory::Cancellation));
+    assert_eq!(
+        result.status.error_category(),
+        Some(ErrorCategory::Cancellation)
+    );
     assert!(result.messages.iter().any(|message| {
         matches!(message, Message::Tool { tool_call_id, content, .. } if tool_call_id == "call-1" && content == "tool result")
     }));
@@ -560,7 +566,6 @@ async fn truncates_tool_output_to_the_configured_utf8_byte_limit() {
     assert!(content.len() <= 32);
     assert!(content.ends_with("[tool output truncated]"));
 }
-
 
 #[tokio::test]
 async fn model_failures_keep_their_category() {

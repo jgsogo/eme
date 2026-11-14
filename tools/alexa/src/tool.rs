@@ -17,8 +17,9 @@ impl Tool for AlexaSpeak {
                 errors: vec!["Missing or invalid 'text' argument".into()],
             })?;
 
-        let device_name = std::env::var("AMAZON_ALEXA_DEVICE_NAME")
-            .map_err(|_| ToolError::Configuration("AMAZON_ALEXA_DEVICE_NAME env var not set".into()))?;
+        let device_name = std::env::var("AMAZON_ALEXA_DEVICE_NAME").map_err(|_| {
+            ToolError::Configuration("AMAZON_ALEXA_DEVICE_NAME env var not set".into())
+        })?;
 
         alexa_speak(&device_name, text)
             .await
