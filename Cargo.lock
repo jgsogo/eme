@@ -3,9 +3,19 @@
 version = 4
 
 [[package]]
+name = "agent-config"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "agent-models"
 version = "0.1.0"
 dependencies = [
+ "agent-config",
  "anyhow",
  "assert_cmd",
  "async-trait",
@@ -26,6 +36,7 @@ dependencies = [
 name = "agent-runtime"
 version = "0.1.0"
 dependencies = [
+ "agent-config",
  "agent-models",
  "alexa-tool",
  "async-trait",
@@ -79,6 +90,7 @@ dependencies = [
 name = "alexa-tool"
 version = "0.1.0"
 dependencies = [
+ "agent-config",
  "agent-runtime",
  "async-trait",
  "reqwest 0.12.28",
