@@ -13,9 +13,9 @@ fn gateway_or_error(gateway: &Option<Arc<TelegramGateway>>) -> Result<&Arc<Teleg
 
 fn map_error(error: TelegramError) -> ToolError {
     match error {
-        TelegramError::MissingToken | TelegramError::MissingChatId =>
+        error @ (TelegramError::MissingToken | TelegramError::MissingChatId) =>
             ToolError::Configuration(error.to_string()),
-        _ => ToolError::Execution(error.to_string()),
+        error => ToolError::Execution(error.to_string()),
     }
 }
 
