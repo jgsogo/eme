@@ -1,6 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["agent-models", "agent-runtime", "tools/alexa"]
+members = [
+    "agent-models",
+    "agent-runtime",
+    "agent-service",
+    "agent-storage",
+    "agent-server",
+    "tools/alexa",
+]
 
 [workspace.dependencies]
 thiserror = "2"

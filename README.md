@@ -83,6 +83,40 @@ Its current capabilities include:
 
 The model proposes tool calls, but it does not execute them directly. The runtime validates and authorizes each call before dispatching it.
 
+## Planned service architecture
+
+The following crates will establish the structure for running the platform as a long-lived service. Their documentation describes intended responsibilities; these crates are scaffolding and do not implement these capabilities yet.
+
+#### `agent-service`
+
+The orchestration layer will manage multiple independent agent runs. It will provide run submission and lifecycle management, bounded scheduling, worker coordination, cancellation, execution supervision, and run-event routing. It will use `agent-runtime` to execute individual runs and will remain independent of HTTP transport and concrete storage backends.
+
+#### `agent-storage`
+
+The persistence layer will define storage contracts for runs, conversation messages, and execution events. It will provide concrete storage adapters, beginning with SQLite, and the persistence primitives needed for later recovery, checkpointing, and resumption.
+
+#### `agent-server`
+
+The executable service will compose the platform components and expose them to external clients. It will own application startup and shutdown, the HTTP API for submitting and managing runs, and client-facing event streaming. Run orchestration will belong to `agent-service`, while persistence will belong to `agent-storage`.
+
+The intended dependency direction is:
+
+```text
+                 External Clients
+                        |
+                        v
+                  agent-server
+                  /          \\
+                 v            v
+          agent-service   agent-storage
+                 |
+                 v
+            agent-runtime
+              /      \\
+             v        v
+       agent-models  Tools
+```
+
 ## Current capabilities
 
 The `basic_agent` example demonstrates an end-to-end agent workflow:
