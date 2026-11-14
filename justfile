@@ -30,5 +30,5 @@ azn-tts device speech:
 
 azn-totoro-echo speech: (azn-tts "Totoro Echo" speech)
 
-basic_agent:
-    cargo run -p agent-runtime --example basic_agent
+basic_agent *args:
+    cargo run -p agent-runtime --example basic_agent -- "$@"

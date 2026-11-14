@@ -32,13 +32,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::new(AllowListPolicy::new(allowed_tools)),
     );
 
-    let _result = runtime
-        .run(
-            &agent,
-            "Send a message to my Alexa device",
-            CancellationToken::new(),
-        )
-        .await?;
+    let input = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
+
+    if input.is_empty() {
+        return Err("Usage: basic_agent <prompt>\n\
+         Example: basic_agent \"Ask Alexa to say Hello from my AI platform\""
+            .into());
+    }
+
+    let result = runtime.run(&agent, input, CancellationToken::new()).await?;
+
+    println!("Status: {:?}", result.status);
+    println!("Iterations: {}", result.iterations);
+
+    for event in &result.events {
+        match &event.kind {
+            agent_runtime::RunEventKind::ToolExecutionStarted { name, .. } => {
+                println!("Executing tool: {name}");
+            }
+            agent_runtime::RunEventKind::ToolExecutionFinished { name, is_error, .. } => {
+                println!("Tool {name} finished (error: {is_error})");
+            }
+            agent_runtime::RunEventKind::ModelResponded { tool_calls } => {
+                println!("Model responded (tool calls: {tool_calls})");
+            }
+            _ => {}
+        }
+    }
+
+    for message in &result.messages {
+        if let agent_runtime::Message::Tool {
+            name,
+            content,
+            is_error: true,
+            ..
+        } = message
+        {
+            eprintln!("Tool '{name}' failed: {content}");
+        }
+    }
+
+    if let Some(response) = result.response {
+        println!("\nAgent: {response}");
+    }
 
     Ok(())
 }

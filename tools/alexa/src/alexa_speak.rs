@@ -1,4 +1,7 @@
-use reqwest::{Client, header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT, COOKIE, REFERER, ORIGIN}};
+use reqwest::{
+    Client,
+    header::{CONTENT_TYPE, COOKIE, HeaderMap, HeaderValue, ORIGIN, REFERER, USER_AGENT},
+};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
@@ -7,8 +10,7 @@ use thiserror::Error;
 const AMAZON: &str = "amazon.es";
 const ALEXA: &str = "alexa.amazon.es";
 const TTS_LOCALE: &str = "es-ES";
-const USER_AGENT_STR: &str =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:1.0) bash-script/1.0";
+const USER_AGENT_STR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:1.0) bash-script/1.0";
 
 #[derive(Error, Debug)]
 pub enum AlexaError {
@@ -77,8 +79,8 @@ struct UserMe {
 /// - `device_name`: nombre exacto del Echo (el que sale en la app / `-a` del script)
 /// - `text`: texto plano o SSML (sin envolver en <speak> a menos que quieras SSML completo)
 pub async fn alexa_speak(device_name: &str, text: &str) -> Result<(), AlexaError> {
-    let refresh_token = std::env::var("AMAZON_ALEXA_REFRESH_TOKEN")
-        .map_err(|_| AlexaError::MissingToken)?;
+    let refresh_token =
+        std::env::var("AMAZON_ALEXA_REFRESH_TOKEN").map_err(|_| AlexaError::MissingToken)?;
 
     let client = Client::builder()
         .cookie_store(true)
@@ -86,10 +88,13 @@ pub async fn alexa_speak(device_name: &str, text: &str) -> Result<(), AlexaError
         .build()?;
 
     // 1) Intercambiar refresh_token por cookies de sesión
-    let cookie_header = exchange_refresh_token(&client, &refresh_token).await?;
+    let mut cookie_header = exchange_refresh_token(&client, &refresh_token).await?;
 
     // 2) Obtener CSRF (y validar sesión)
     let csrf = fetch_csrf(&client, &cookie_header).await?;
+
+    // Include the CSRF cookie in subsequent requests.
+    cookie_header.push_str(&format!("; csrf={csrf}"));
 
     // 3) Resolver dispositivo + customerId
     let (device_type, serial, customer_id) =
@@ -229,7 +234,9 @@ async fn resolve_device(
 
     // device list
     let devices: DevicesResponse = client
-        .get(format!("https://{ALEXA}/api/devices-v2/device?cached=false"))
+        .get(format!(
+            "https://{ALEXA}/api/devices-v2/device?cached=false"
+        ))
         .headers(headers)
         .send()
         .await?
@@ -256,22 +263,29 @@ async fn send_speak(
     text: &str,
 ) -> Result<(), AlexaError> {
     // Payload equivalente al SEQUENCECMD=Alexa.Speak del script
+    let sequence = json!({
+        "@type": "com.amazon.alexa.behaviors.model.Sequence",
+        "startNode": {
+            "@type": "com.amazon.alexa.behaviors.model.ParallelNode",
+            "nodesToExecute": [
+                {
+                    "@type": "com.amazon.alexa.behaviors.model.OpaquePayloadOperationNode",
+                    "type": "Alexa.Speak",
+                    "operationPayload": {
+                        "deviceType": device_type,
+                        "deviceSerialNumber": serial,
+                        "customerId": customer_id,
+                        "locale": TTS_LOCALE,
+                        "textToSpeak": text
+                    }
+                }
+            ]
+        }
+    });
+
     let body = json!({
         "behaviorId": "PREVIEW",
-        "sequenceJson": serde_json::to_string(&json!({
-            "@type": "com.amazon.alexa.behaviors.model.Sequence",
-            "startNode": {
-                "@type": "com.amazon.alexa.behaviors.model.OpaquePayloadOperationNode",
-                "type": "Alexa.Speak",
-                "operationPayload": {
-                    "deviceType": device_type,
-                    "deviceSerialNumber": serial,
-                    "customerId": customer_id,
-                    "locale": TTS_LOCALE,
-                    "textToSpeak": text
-                }
-            }
-        }))?,
+        "sequenceJson": serde_json::to_string(&sequence)?,
         "status": "ENABLED"
     });
 
