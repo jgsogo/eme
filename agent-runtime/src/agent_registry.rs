@@ -242,4 +242,54 @@ tools = [
                 .contains("lists tool 'test_tool' more than once")
         );
     }
+    
+    #[test]
+    fn reports_agent_configuration_contract_errors() {
+        let directory = TestDirectory::new();
+        let agents_dir = directory.path().join("agents");
+
+        // Missing directories and malformed TOML retain distinct error types.
+        assert!(matches!(
+            AgentRegistry::load(directory.path().join("missing")),
+            Err(agent_config::ConfigError::Io { .. })
+        ));
+        let malformed = agents_dir.join("malformed.toml");
+        fs::write(&malformed, "name = [").unwrap();
+        assert!(matches!(
+            AgentRegistry::load(&agents_dir),
+            Err(agent_config::ConfigError::Parse { .. })
+        ));
+        fs::remove_file(malformed).unwrap();
+
+        // Invalid definitions and duplicate identifiers fail during loading.
+        fs::write(
+            agents_dir.join("invalid.toml"),
+            r#"
+name = ""
+description = "Invalid agent"
+model = "test/model"
+instructions = "Test"
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            AgentRegistry::load(&agents_dir),
+            Err(agent_config::ConfigError::Invalid { .. })
+        ));
+        fs::remove_file(agents_dir.join("invalid.toml")).unwrap();
+
+        let definition = r#"
+name = "duplicate"
+description = "Test agent"
+model = "test/model"
+instructions = "Test"
+"#;
+        fs::write(agents_dir.join("a.toml"), definition).unwrap();
+        fs::write(agents_dir.join("b.toml"), definition).unwrap();
+        assert!(matches!(
+            AgentRegistry::load(&agents_dir),
+            Err(agent_config::ConfigError::Duplicate { .. })
+        ));
+    }
+
 }

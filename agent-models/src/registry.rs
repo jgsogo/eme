@@ -179,3 +179,103 @@ impl Registry {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+
+    use super::Registry;
+    use crate::error::ModelError;
+    use agent_config::ConfigError;
+
+    struct TestDirectory(PathBuf);
+
+    impl TestDirectory {
+        fn new() -> Self {
+            static NEXT: AtomicUsize = AtomicUsize::new(0);
+            let path = std::env::temp_dir().join(format!(
+                "provider-registry-test-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+
+        fn case(&self, name: &str) -> PathBuf {
+            let path = self.0.join(name);
+            fs::create_dir_all(path.join("providers")).unwrap();
+            path
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn write_provider(root: &Path, file: &str, name: &str, client: &str) {
+        fs::write(
+            root.join("providers").join(file),
+            format!(
+                r#"
+name = "{name}"
+client = "{client}"
+api_key_env = "TEST_API_KEY"
+
+[[models]]
+name = "test-model"
+capabilities = ["chat"]
+"#
+            ),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn loads_valid_providers_and_rejects_invalid_registry_configuration() {
+        let directory = TestDirectory::new();
+
+        // Valid provider configuration: model lookup must not require credentials.
+        let valid = directory.case("valid");
+        write_provider(&valid, "provider.toml", "test", "gemini");
+        let registry = Registry::load(&valid).unwrap();
+        assert!(registry.contains_model("test/test-model"));
+        assert!(!registry.contains_model("test/missing-model"));
+
+        // Duplicate provider identifiers are rejected across files.
+        let duplicate = directory.case("duplicate");
+        write_provider(&duplicate, "a.toml", "same", "gemini");
+        write_provider(&duplicate, "b.toml", "same", "gemini");
+        assert!(matches!(
+            Registry::load(&duplicate),
+            Err(ConfigError::Duplicate { .. })
+        ));
+
+        // Unsupported provider clients are invalid definitions.
+        let invalid = directory.case("invalid");
+        write_provider(&invalid, "provider.toml", "test", "unsupported");
+        assert!(matches!(
+            Registry::load(&invalid),
+            Err(ConfigError::Invalid { .. })
+        ));
+
+        // A missing providers directory is reported as a filesystem error.
+        assert!(matches!(
+            Registry::load(directory.0.join("missing")),
+            Err(ConfigError::Io { .. })
+        ));
+
+        // Resolving a declared model still distinguishes missing credentials.
+        assert!(matches!(
+            registry.resolve_model("test/test-model"),
+            Err(ModelError::MissingApiKey(_))
+        ));
+    }
+}
