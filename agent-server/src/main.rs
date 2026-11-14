@@ -2,6 +2,8 @@
 
 use std::{net::IpAddr, path::PathBuf, sync::Arc};
 
+mod telegram;
+
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
@@ -30,6 +32,10 @@ struct Args {
     /// Maximum number of agent runs executing concurrently.
     #[arg(long, default_value_t = 4)]
     max_concurrent_runs: usize,
+
+    /// Agent used for prompts received through Telegram.
+    #[arg(long, default_value = "assistant")]
+    telegram_agent: String,
 
     /// Maximum number of runs waiting in the execution queue.
     #[arg(long, default_value_t = 100)]
@@ -116,10 +122,26 @@ async fn main() -> Result<()> {
             )
         })?,
     );
+    if resolver.agents.get(&args.telegram_agent).is_none() {
+        return Err(anyhow::anyhow!("Telegram agent '{}' is not configured", args.telegram_agent));
+    }
+
     let agents = resolver.agent_catalog();
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
+
+    if let Ok(token) = std::env::var("TELEGRAM_BOT_TOKEN") {
+        let allowed = telegram::allowed_users_from_env()?;
+        let bot_manager = manager.clone();
+        let bot_agent = args.telegram_agent.clone();
+        tokio::spawn(async move {
+            telegram::run_bot(token, allowed, bot_agent, bot_manager).await;
+        });
+        println!("Telegram bot enabled (agent: {})", args.telegram_agent);
+    } else {
+        println!("Telegram bot disabled (TELEGRAM_BOT_TOKEN is not set)");
+    }
 
     let bind_address = (args.host, args.port);
     println!(
