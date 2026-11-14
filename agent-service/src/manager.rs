@@ -181,7 +181,9 @@ mod tests {
             _agent: String,
             input: String,
         ) -> Result<ExecutionOutcome, String> {
-            Ok(ExecutionOutcome::Completed(Some(format!("processed: {input}"))))
+            Ok(ExecutionOutcome::Completed(Some(format!(
+                "processed: {input}"
+            ))))
         }
     }
 
