@@ -12,15 +12,18 @@
 use serde::Deserialize;
 use serde_json::Value;
 
+pub mod error;
 pub mod model;
 pub mod policy;
 pub mod runtime;
 pub mod tool;
+pub use agent_models::error::ModelError;
+pub use error::{ErrorCategory, RuntimeError};
 pub use model::{AgentModel, ModelAdapter};
-pub use policy::{AllowListPolicy, Authorization, PolicyEngine};
+pub use policy::{AllowListPolicy, Authorization, AuthorizationError, PolicyEngine};
 pub use runtime::{
     AgentRuntime, CancellationToken, CollectingEventSink, EventSink, NoopEventSink, RunEvent,
-    RunEventKind, RunFailure, RunResult, RunStatus, RuntimeError,
+    RunEventKind, RunFailure, RunResult, RunStatus,
 };
 pub use tool::{Tool, ToolDispatcher, ToolError, ToolRegistry};
 mod tool_definitions;

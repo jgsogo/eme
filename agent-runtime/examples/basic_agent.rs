@@ -49,8 +49,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent_runtime::RunEventKind::ToolExecutionStarted { name, .. } => {
                 println!("Executing tool: {name}");
             }
-            agent_runtime::RunEventKind::ToolExecutionFinished { name, is_error, .. } => {
-                println!("Tool {name} finished (error: {is_error})");
+            agent_runtime::RunEventKind::ToolExecutionFinished {
+                name,
+                error_category,
+                ..
+            } => {
+                println!("Tool {name} finished (error: {error_category:?})");
             }
             agent_runtime::RunEventKind::ModelResponded { tool_calls } => {
                 println!("Model responded (tool calls: {tool_calls})");
