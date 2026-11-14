@@ -52,7 +52,7 @@ The platform is organized around a separation of responsibilities:
 
 ### Main components
 
-The workspace will separate provider integration, individual agent execution, external tool integrations, and service-level orchestration into dedicated crates. Each crate's README will describe its intended purpose, responsibilities, boundaries, and non-goals.
+The workspace separates provider integration, individual agent execution, and external tool integrations into dedicated crates. Service-level orchestration and transport are being introduced in separate crates. Each crate's README describes its purpose, responsibilities, boundaries, and non-goals.
 
 #### `agent-models`
 
@@ -85,9 +85,19 @@ Its current capabilities include:
 
 The model proposes tool calls, but it does not execute them directly. The runtime validates and authorizes each call before dispatching it.
 
+#### Tool integration crates
+
+Tool crates implement capabilities that agents can invoke through the runtime. They own the integration with the external system; the runtime remains responsible for validating, authorizing, and dispatching calls.
+
+##### `tools/alexa` (`alexa-tool`)
+
+The Alexa integration crate will contain the platform's collection of Alexa-related tools. It currently provides `alexa_speak`, which sends speech to an Alexa device, and is intended to grow as additional Alexa capabilities are implemented.
+
+Alexa-specific authentication, service interaction, and reusable device-resolution logic belong in this crate. Tool definitions expose individual operations to agents without making credentials or privileged configuration model-controlled.
+
 ## Planned service architecture
 
-The following crates will establish the structure for running the platform as a long-lived service. Their documentation describes intended responsibilities; these crates are scaffolding and do not implement these capabilities yet.
+The following crates establish the structure for running the platform as a long-lived service. Their documentation describes intended responsibilities; these crates are scaffolding and do not implement these capabilities yet.
 
 #### `agent-service`
 
@@ -187,8 +197,8 @@ export CLOUDFLARE_ACCOUNT_ID="..."
 From the repository root:
 
 ```bash
-cargo run -p agent-runtime --example basic_agent -- \
-  cloudflare/@cf/zai-org/glm-4.7-flash \
+cargo run -p agent-runtime --example basic_agent -- \\
+  cloudflare/@cf/zai-org/glm-4.7-flash \\
   ./data
 ```
 
@@ -217,7 +227,7 @@ Authorization is enforced by the runtime through deterministic policies. Tool ar
 
 Tools represent capabilities made available to an agent. They should be independently defined, registered, validated, authorized, and executed.
 
-The runtime should not need to know whether a tool sends a message, queries an API, accesses a file, or interacts with a device.
+The runtime should not need to know whether a tool sends a message, queries an API, accesses a file, or interacts with a device. Related tools can share an integration crate when they depend on the same external system.
 
 ### Provider independence
 
@@ -282,8 +292,8 @@ cargo test
 Run the basic agent:
 
 ```bash
-cargo run -p agent-runtime --example basic_agent -- \
-  <provider/model> \
+cargo run -p agent-runtime --example basic_agent -- \\
+  <provider/model> \\
   ./data
 ```
 
