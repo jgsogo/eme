@@ -7,6 +7,8 @@ use agent_runtime::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+    
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../data");
 
     let agents = AgentRegistry::load(data_dir.join("agents"))?;
