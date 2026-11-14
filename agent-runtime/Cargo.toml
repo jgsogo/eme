@@ -19,3 +19,5 @@ toml = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
+# So the examples can load tools from these crates
+alexa-tool = { path = "../tools/alexa" }

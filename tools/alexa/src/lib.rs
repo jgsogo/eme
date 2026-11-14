@@ -1,17 +1,24 @@
-use agent_runtime::Tool;
-use async_trait::async_trait;
-use serde_json::Value;
+mod tool;
 
-pub struct EchoTool;
+use std::path::PathBuf;
 
-#[async_trait]
-impl Tool for EchoTool {
-    async fn execute(&self, arguments: Value) -> Result<String, String> {
-        let text = arguments
-            .get("text")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "Missing required argument: text".to_string())?;
+use agent_runtime::{ToolRegistry, ToolDefinition};
 
-        Ok(text.to_owned())
-    }
+pub fn register_tools(registry: &mut ToolRegistry) -> Result<(), String> {
+    let definition_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("data/alexa.toml");
+
+    let contents = std::fs::read_to_string(&definition_path)
+        .map_err(|error| {
+            format!(
+                "Failed to read Alexa tool definition {}: {error}",
+                definition_path.display()
+            )
+        })?;
+
+    let definition: ToolDefinition = toml::from_str(&contents)
+        .map_err(|error| format!("Invalid Alexa tool definition: {error}"))?;
+
+    registry.register(definition, tool::AlexaTool)
 }
+

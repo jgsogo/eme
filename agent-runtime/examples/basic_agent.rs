@@ -68,6 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Register the tools available to the agent.
     let mut tool_registry = ToolRegistry::new();
+    alexa_tool::register_tools(&mut tool_registry)?;
 
     tool_registry
         .register(
