@@ -16,7 +16,16 @@ pub trait RunExecutor: Send + Sync + 'static {
         run_id: RunId,
         agent: String,
         input: String,
-    ) -> Result<Option<String>, String>;
+    ) -> Result<ExecutionOutcome, String>;
+}
+
+/// Outcome of a successfully executed runtime run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecutionOutcome {
+    Completed(Option<String>),
+    Cancelled,
+    TimedOut,
+    MaxIterationsReached,
 }
 
 /// Configuration errors for a run manager.
@@ -98,8 +107,17 @@ impl RunManager {
                     let mut runs = runs.lock().await;
                     if let Some(run) = runs.get_mut(&run_id) {
                         match result {
-                            Ok(response) => {
+                            Ok(ExecutionOutcome::Completed(response)) => {
                                 let _ = run.complete(response);
+                            }
+                            Ok(ExecutionOutcome::Cancelled) => {
+                                let _ = run.cancel();
+                            }
+                            Ok(ExecutionOutcome::TimedOut) => {
+                                let _ = run.time_out();
+                            }
+                            Ok(ExecutionOutcome::MaxIterationsReached) => {
+                                let _ = run.reach_max_iterations();
                             }
                             Err(error) => {
                                 let _ = run.fail(error);
@@ -150,7 +168,7 @@ mod tests {
     use async_trait::async_trait;
     use tokio::sync::Notify;
 
-    use super::{RunExecutor, RunManager, RunManagerConfigError, SubmitRunError};
+    use super::{ExecutionOutcome, RunExecutor, RunManager, RunManagerConfigError, SubmitRunError};
     use crate::{RunId, RunStatus};
 
     struct ImmediateExecutor;
@@ -162,8 +180,10 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             input: String,
-        ) -> Result<Option<String>, String> {
-            Ok(Some(format!("processed: {input}")))
+        ) -> Result<ExecutionOutcome, String> {
+            Ok(ExecutionOutcome::Completed(Some(format!(
+                "processed: {input}"
+            ))))
         }
     }
 
@@ -179,10 +199,10 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             _input: String,
-        ) -> Result<Option<String>, String> {
+        ) -> Result<ExecutionOutcome, String> {
             self.started.notify_one();
             self.release.notified().await;
-            Ok(None)
+            Ok(ExecutionOutcome::Completed(None))
         }
     }
 

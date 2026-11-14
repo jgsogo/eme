@@ -290,13 +290,28 @@ impl AgentRuntime {
         }
     }
 
+    /// Runs an agent with a runtime-generated identifier.
+    ///
+    /// Callers that manage runs at a higher level should use run_with_id so the
+    /// same identifier is shared across service, runtime, and event records.
     pub async fn run(
         &self,
         agent: &Agent,
         input: impl Into<String>,
         cancellation: CancellationToken,
     ) -> Result<RunResult, RunFailure> {
-        let run_id = Uuid::new_v4();
+        self.run_with_id(Uuid::new_v4(), agent, input, cancellation)
+            .await
+    }
+
+    /// Runs an agent using an identifier allocated by the calling service.
+    pub async fn run_with_id(
+        &self,
+        run_id: Uuid,
+        agent: &Agent,
+        input: impl Into<String>,
+        cancellation: CancellationToken,
+    ) -> Result<RunResult, RunFailure> {
         let deadline = self
             .timeout
             .map(|timeout| tokio::time::Instant::now() + timeout);
@@ -565,5 +580,53 @@ impl AgentRuntime {
             iterations: agent.max_iterations,
             events,
         })
+    }
+}
+
+#[cfg(test)]
+mod external_run_id_tests {
+    use std::sync::Arc;
+
+    use async_trait::async_trait;
+    use uuid::Uuid;
+
+    use super::{AgentRuntime, CancellationToken, RunStatus};
+    use crate::{Agent, AgentModel, AllowListPolicy, ModelRequest, ModelTurn, ToolRegistry};
+
+    struct FixedModel;
+
+    #[async_trait]
+    impl AgentModel for FixedModel {
+        async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, String> {
+            Ok(ModelTurn {
+                content: Some("completed".into()),
+                tool_calls: Vec::new(),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn run_with_id_preserves_the_callers_identifier_in_result_and_events() {
+        let runtime = AgentRuntime::new(
+            Arc::new(FixedModel),
+            Arc::new(ToolRegistry::new()),
+            Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+        );
+        let agent = Agent {
+            id: "test-agent".into(),
+            system_prompt: None,
+            tool_names: Vec::new(),
+            max_iterations: 2,
+        };
+        let run_id = Uuid::new_v4();
+
+        let result = runtime
+            .run_with_id(run_id, &agent, "hello", CancellationToken::new())
+            .await
+            .unwrap();
+
+        assert_eq!(result.run_id, run_id);
+        assert_eq!(result.status, RunStatus::Completed);
+        assert!(result.events.iter().all(|event| event.run_id == run_id));
     }
 }

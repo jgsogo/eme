@@ -6,6 +6,10 @@
 
 mod manager;
 mod run;
+mod runtime_executor;
 
-pub use manager::{RunExecutor, RunManager, RunManagerConfigError, SubmitRunError};
+pub use manager::{
+    ExecutionOutcome, RunExecutor, RunManager, RunManagerConfigError, SubmitRunError,
+};
 pub use run::{InvalidRunTransition, Run, RunId, RunStatus};
+pub use runtime_executor::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent};
