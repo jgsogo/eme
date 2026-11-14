@@ -31,11 +31,7 @@ impl AgentRegistry {
             }
 
             if registry.agents.contains_key(&definition.name) {
-                return Err(ConfigError::duplicate(
-                    "agent",
-                    definition.name,
-                    Some(path),
-                ));
+                return Err(ConfigError::duplicate("agent", definition.name, Some(path)));
             }
 
             registry.agents.insert(definition.name.clone(), definition);
@@ -240,6 +236,10 @@ tools = [
         let tools = registered_tool();
         let error = agents.validate_references(&models, &tools).unwrap_err();
 
-        assert!(error.to_string().contains("lists tool 'test_tool' more than once"));
+        assert!(
+            error
+                .to_string()
+                .contains("lists tool 'test_tool' more than once")
+        );
     }
 }

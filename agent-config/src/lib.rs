@@ -5,8 +5,7 @@
 //! path-aware diagnostics.
 
 use std::{
-    fs,
-    io,
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -144,10 +143,8 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let path = std::env::temp_dir().join(format!(
-                "agent-config-test-{}",
-                uuid_placeholder()
-            ));
+            let path =
+                std::env::temp_dir().join(format!("agent-config-test-{}", uuid_placeholder()));
             fs::create_dir_all(&path).unwrap();
             Self(path)
         }
@@ -162,7 +159,11 @@ mod tests {
     fn uuid_placeholder() -> String {
         use std::sync::atomic::{AtomicUsize, Ordering};
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        format!("{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed))
+        format!(
+            "{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        )
     }
 
     #[test]

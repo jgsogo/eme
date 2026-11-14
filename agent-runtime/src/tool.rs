@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use agent_config::ConfigError;
 use crate::ToolDefinition;
+use agent_config::ConfigError;
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::BTreeMap;

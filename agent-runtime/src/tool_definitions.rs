@@ -31,11 +31,7 @@ impl ToolDefinitionRegistry {
 
             let name = definition.name.clone();
             if registry.definitions.contains_key(&name) {
-                return Err(ConfigError::duplicate(
-                    "tool definition",
-                    name,
-                    Some(path),
-                ));
+                return Err(ConfigError::duplicate("tool definition", name, Some(path)));
             }
 
             registry.definitions.insert(name, definition);

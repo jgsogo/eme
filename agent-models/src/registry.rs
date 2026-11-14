@@ -6,8 +6,8 @@ use crate::{
 };
 use agent_config::{ConfigError, read_toml_dir};
 use serde::Deserialize;
-use std::{collections::BTreeMap, path::Path};
 use std::sync::Arc;
+use std::{collections::BTreeMap, path::Path};
 
 #[derive(Debug, Deserialize)]
 struct ProviderConfig {
@@ -40,9 +40,7 @@ impl ProviderConfig {
         let mut model_names = std::collections::HashSet::new();
 
         for model in &self.models {
-            model
-                .validate()
-                .map_err(|reason| invalid(&reason))?;
+            model.validate().map_err(|reason| invalid(&reason))?;
 
             if !model_names.insert(&model.name) {
                 return Err(invalid(&format!(
