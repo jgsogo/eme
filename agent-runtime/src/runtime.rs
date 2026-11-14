@@ -1,13 +1,12 @@
 use crate::{
-    Agent, AgentModel, Authorization, Message, ModelRequest, PolicyEngine, ToolDispatcher,
-    ToolError,
+    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
+    RuntimeError, ToolDispatcher, ToolError,
 };
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 use std::time::Duration;
-use thiserror::Error;
 use uuid::Uuid;
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -33,15 +32,6 @@ fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
     output
 }
 
-#[derive(Debug, Error)]
-pub enum RuntimeError {
-    #[error("Model request failed: {0}")]
-    Model(String),
-
-    #[error("Tool '{0}' is not registered")]
-    UnknownTool(String),
-}
-
 #[derive(Debug, thiserror::Error)]
 #[error("Agent run {run_id} failed: {error}")]
 pub struct RunFailure {
@@ -51,6 +41,12 @@ pub struct RunFailure {
     pub messages: Vec<Message>,
     pub events: Vec<RunEvent>,
     pub iterations: usize,
+}
+
+impl RunFailure {
+    pub fn category(&self) -> ErrorCategory {
+        self.error.category()
+    }
 }
 
 pub struct RunResult {
@@ -68,6 +64,16 @@ pub enum RunStatus {
     MaxIterationsReached,
     Cancelled,
     TimedOut,
+}
+
+impl RunStatus {
+    pub fn error_category(&self) -> Option<ErrorCategory> {
+        match self {
+            Self::Cancelled => Some(ErrorCategory::Cancellation),
+            Self::TimedOut => Some(ErrorCategory::Timeout),
+            Self::Completed | Self::MaxIterationsReached => None,
+        }
+    }
 }
 
 /// Shared cancellation signal for an agent run.
@@ -121,13 +127,14 @@ pub enum RunEventKind {
     ToolExecutionFinished {
         tool_call_id: String,
         name: String,
-        is_error: bool,
+        error_category: Option<ErrorCategory>,
     },
 
     Cancelled,
     TimedOut,
 
     ModelFailed {
+        category: ErrorCategory,
         error: String,
     },
 }
@@ -305,7 +312,7 @@ impl AgentRuntime {
             .map(|name| {
                 self.tools
                     .definition(name)
-                    .ok_or_else(|| RuntimeError::UnknownTool(name.clone()))
+                    .ok_or_else(|| RuntimeError::Tool(ToolError::UnknownTool(name.clone())))
             })
             .collect::<Result<Vec<_>, _>>()
         {
@@ -360,6 +367,7 @@ impl AgentRuntime {
                                     run_id,
                                     iteration,
                                     kind: RunEventKind::ModelFailed {
+                                        category: ErrorCategory::Model,
                                         error: error.to_string(),
                                     },
                                 },
@@ -395,7 +403,8 @@ impl AgentRuntime {
                                 run_id,
                                 iteration,
                                 kind: RunEventKind::ModelFailed {
-                                    error: error.to_string(),
+                                    category: ErrorCategory::Model,
+                                        error: error.to_string(),
                                 },
                             },
                         );
@@ -477,10 +486,12 @@ impl AgentRuntime {
 
                 let execution = async {
                     match self.policy.authorize(agent, &call) {
-                        Authorization::Allowed => self.tools.execute(&tool_name, arguments).await,
-                        Authorization::Denied(reason) => Err(ToolError::Execution(format!(
-                            "Tool execution denied: {reason}"
-                        ))),
+                        Authorization::Allowed => self
+                            .tools
+                            .execute(&tool_name, arguments)
+                            .await
+                            .map_err(RuntimeError::Tool),
+                        Authorization::Denied(error) => Err(RuntimeError::Authorization(error)),
                     }
                 };
 
@@ -502,7 +513,7 @@ impl AgentRuntime {
                             &mut events,
                         ));
                     }
-                    Err(_) => Err(ToolError::Timeout(self.tool_timeout)),
+                    Err(_) => Err(RuntimeError::Timeout(self.tool_timeout)),
                 };
 
                 self.emit_event(
@@ -513,7 +524,7 @@ impl AgentRuntime {
                         kind: RunEventKind::ToolExecutionFinished {
                             tool_call_id: call.id.clone(),
                             name: call.name.clone(),
-                            is_error: result.is_err(),
+                            error_category: result.as_ref().err().map(RuntimeError::category),
                         },
                     },
                 );
