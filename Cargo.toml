@@ -15,8 +15,8 @@ members = [
 thiserror = "2"
 async-trait = "0.1"
 clap = { version = "4", features = ["derive"] }
-log = { version = "0.4" }
-env_logger = "0.11.11"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1.0.104"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
 reqwest = { version = "0.12", features = ["json", "cookies","rustls-tls"] }
