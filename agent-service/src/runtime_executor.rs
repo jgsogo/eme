@@ -64,9 +64,9 @@ impl RunExecutor for AgentRuntimeExecutor {
 mod tests {
     use std::sync::Arc;
 
-    use agent_models::error::ModelError;
     use agent_runtime::{
-        Agent, AgentModel, AgentRuntime, AllowListPolicy, ModelRequest, ModelTurn, ToolRegistry,
+        Agent, AgentModel, AgentRuntime, AllowListPolicy, ModelError, ModelRequest, ModelTurn,
+        ToolRegistry,
     };
     use async_trait::async_trait;
 
