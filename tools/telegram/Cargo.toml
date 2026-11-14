@@ -13,6 +13,5 @@ async-trait = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
 tokio = { workspace = true }
-log = { workspace = true }
 
 frankenstein = { version = "0.53", default-features = false, features = ["client-reqwest"] }

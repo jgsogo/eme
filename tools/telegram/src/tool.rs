@@ -19,7 +19,8 @@ impl Tool for TgNotifyUser {
                 errors: vec!["Missing or invalid 'message' argument".into()],
             })?;
 
-        let client = TelegramClient::from_env().map_err(|e| ToolError::Configuration(e.to_string()))?;
+        let client = TelegramClient::from_env()
+            .map_err(|e| ToolError::Configuration(e.to_string()))?;
         client
             .notify(message)
             .await
@@ -54,7 +55,8 @@ impl Tool for TgAskUser {
             .and_then(Value::as_str)
             .unwrap_or("text");
 
-        let client = TelegramClient::from_env().map_err(|e| ToolError::Configuration(e.to_string()))?;
+        let client = TelegramClient::from_env()
+            .map_err(|e| ToolError::Configuration(e.to_string()))?;
         let timeout = default_timeout();
 
         match kind {
