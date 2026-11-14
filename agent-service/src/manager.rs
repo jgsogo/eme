@@ -348,7 +348,7 @@ mod tests {
         CancelRunError, CancelRunOutcome, ExecutionOutcome, RunExecutor, RunManager,
         RunManagerConfigError, SubmitRunError,
     };
-    use crate::{RunId, RunStatus};
+    use crate::{RunEventKind, RunId, RunStatus};
 
     struct ImmediateExecutor;
 
