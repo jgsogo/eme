@@ -1,10 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
+use agent_runtime::CancellationToken;
 use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
 
-use crate::{Run, RunId};
+use crate::{Run, RunId, RunStatus};
 
 /// Executes the work associated with an accepted run.
 ///
@@ -16,6 +17,7 @@ pub trait RunExecutor: Send + Sync + 'static {
         run_id: RunId,
         agent: String,
         input: String,
+        cancellation: CancellationToken,
     ) -> Result<ExecutionOutcome, String>;
 }
 
@@ -44,10 +46,35 @@ pub enum SubmitRunError {
     QueueFull,
 }
 
+/// Result of requesting cancellation for a run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CancelRunOutcome {
+    /// Cancellation was signalled to a running execution.
+    Requested,
+    /// The queued run was cancelled before a worker started it.
+    CancelledBeforeStart,
+    /// A cancellation request had already been sent.
+    AlreadyRequested,
+    /// The run had already reached a terminal state.
+    AlreadyFinished,
+}
+
+/// Errors returned when cancellation targets an unknown run.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum CancelRunError {
+    #[error("run not found")]
+    NotFound,
+}
+
+struct ManagedRun {
+    run: Run,
+    cancellation: CancellationToken,
+}
+
 /// Coordinates run admission, in-memory state, and bounded execution.
 #[derive(Clone)]
 pub struct RunManager {
-    runs: Arc<Mutex<HashMap<RunId, Run>>>,
+    runs: Arc<Mutex<HashMap<RunId, ManagedRun>>>,
     sender: mpsc::Sender<RunId>,
 }
 
@@ -67,7 +94,7 @@ impl RunManager {
             return Err(RunManagerConfigError::ZeroQueueCapacity);
         }
 
-        let runs = Arc::new(Mutex::new(HashMap::<RunId, Run>::new()));
+        let runs = Arc::new(Mutex::new(HashMap::<RunId, ManagedRun>::new()));
         let (sender, receiver) = mpsc::channel(max_queued_runs);
         let receiver = Arc::new(Mutex::new(receiver));
 
@@ -87,40 +114,47 @@ impl RunManager {
                         break;
                     };
 
-                    let run = {
+                    let (run, cancellation) = {
                         let mut runs = runs.lock().await;
-                        let Some(run) = runs.get_mut(&run_id) else {
+                        let Some(entry) = runs.get_mut(&run_id) else {
                             continue;
                         };
 
-                        if run.mark_running().is_err() {
+                        // Queued runs cancelled before dequeue are already terminal.
+                        if entry.run.mark_running().is_err() {
                             continue;
                         }
 
-                        run.clone()
+                        (entry.run.clone(), entry.cancellation.clone())
                     };
 
                     let result = executor
-                        .execute(run.id, run.agent.clone(), run.input.clone())
+                        .execute(run.id, run.agent.clone(), run.input.clone(), cancellation)
                         .await;
 
                     let mut runs = runs.lock().await;
-                    if let Some(run) = runs.get_mut(&run_id) {
+                    if let Some(entry) = runs.get_mut(&run_id) {
+                        // A run may have been cancelled while it was executing.
+                        // Its executor reports Cancelled after observing the token.
+                        if entry.run.status != RunStatus::Running {
+                            continue;
+                        }
+
                         match result {
                             Ok(ExecutionOutcome::Completed(response)) => {
-                                let _ = run.complete(response);
+                                let _ = entry.run.complete(response);
                             }
                             Ok(ExecutionOutcome::Cancelled) => {
-                                let _ = run.cancel();
+                                let _ = entry.run.cancel();
                             }
                             Ok(ExecutionOutcome::TimedOut) => {
-                                let _ = run.time_out();
+                                let _ = entry.run.time_out();
                             }
                             Ok(ExecutionOutcome::MaxIterationsReached) => {
-                                let _ = run.reach_max_iterations();
+                                let _ = entry.run.reach_max_iterations();
                             }
                             Err(error) => {
-                                let _ = run.fail(error);
+                                let _ = entry.run.fail(error);
                             }
                         }
                     }
@@ -144,7 +178,13 @@ impl RunManager {
 
         {
             let mut runs = self.runs.lock().await;
-            runs.insert(run_id, run);
+            runs.insert(
+                run_id,
+                ManagedRun {
+                    run,
+                    cancellation: CancellationToken::new(),
+                },
+            );
         }
 
         if self.sender.try_send(run_id).is_err() {
@@ -155,9 +195,40 @@ impl RunManager {
         Ok(run_id)
     }
 
+    /// Requests cancellation of a queued or running run.
+    ///
+    /// Queued runs transition to Cancelled immediately. Running executions
+    /// receive a cancellation signal and stop at the runtime's next operation
+    /// boundary. Repeated requests are safe and do not alter terminal runs.
+    pub async fn cancel(&self, run_id: RunId) -> Result<CancelRunOutcome, CancelRunError> {
+        let mut runs = self.runs.lock().await;
+        let entry = runs.get_mut(&run_id).ok_or(CancelRunError::NotFound)?;
+
+        match entry.run.status {
+            RunStatus::Queued => {
+                entry.cancellation.cancel();
+                entry.run.cancel().expect("queued run can be cancelled");
+                Ok(CancelRunOutcome::CancelledBeforeStart)
+            }
+            RunStatus::Running => {
+                if entry.cancellation.is_cancelled() {
+                    Ok(CancelRunOutcome::AlreadyRequested)
+                } else {
+                    entry.cancellation.cancel();
+                    Ok(CancelRunOutcome::Requested)
+                }
+            }
+            _ => Ok(CancelRunOutcome::AlreadyFinished),
+        }
+    }
+
     /// Returns a snapshot of a run's current state.
     pub async fn get(&self, run_id: RunId) -> Option<Run> {
-        self.runs.lock().await.get(&run_id).cloned()
+        self.runs
+            .lock()
+            .await
+            .get(&run_id)
+            .map(|entry| entry.run.clone())
     }
 }
 
@@ -165,10 +236,14 @@ impl RunManager {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
+    use agent_runtime::CancellationToken;
     use async_trait::async_trait;
     use tokio::sync::Notify;
 
-    use super::{ExecutionOutcome, RunExecutor, RunManager, RunManagerConfigError, SubmitRunError};
+    use super::{
+        CancelRunError, CancelRunOutcome, ExecutionOutcome, RunExecutor, RunManager,
+        RunManagerConfigError, SubmitRunError,
+    };
     use crate::{RunId, RunStatus};
 
     struct ImmediateExecutor;
@@ -180,6 +255,7 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             input: String,
+            _cancellation: CancellationToken,
         ) -> Result<ExecutionOutcome, String> {
             Ok(ExecutionOutcome::Completed(Some(format!(
                 "processed: {input}"
@@ -199,10 +275,32 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             _input: String,
+            _cancellation: CancellationToken,
         ) -> Result<ExecutionOutcome, String> {
             self.started.notify_one();
             self.release.notified().await;
             Ok(ExecutionOutcome::Completed(None))
+        }
+    }
+
+    struct CancellationAwareExecutor {
+        started: Arc<Notify>,
+    }
+
+    #[async_trait]
+    impl RunExecutor for CancellationAwareExecutor {
+        async fn execute(
+            &self,
+            _run_id: RunId,
+            _agent: String,
+            _input: String,
+            cancellation: CancellationToken,
+        ) -> Result<ExecutionOutcome, String> {
+            self.started.notify_one();
+            while !cancellation.is_cancelled() {
+                tokio::task::yield_now().await;
+            }
+            Ok(ExecutionOutcome::Cancelled)
         }
     }
 
@@ -262,6 +360,82 @@ mod tests {
         })
         .await
         .expect("first run should complete");
+    }
+
+    #[tokio::test]
+    async fn queued_run_can_be_cancelled_before_a_worker_starts_it() {
+        let executor = BlockingExecutor {
+            started: Arc::new(Notify::new()),
+            release: Arc::new(Notify::new()),
+        };
+        let started = Arc::clone(&executor.started);
+        let release = Arc::clone(&executor.release);
+        let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
+
+        let _running = manager.submit("assistant", "running").await.unwrap();
+        started.notified().await;
+        let queued = manager.submit("assistant", "queued").await.unwrap();
+
+        assert_eq!(
+            manager.cancel(queued).await,
+            Ok(CancelRunOutcome::CancelledBeforeStart)
+        );
+        assert_eq!(
+            manager.get(queued).await.unwrap().status,
+            RunStatus::Cancelled
+        );
+        assert_eq!(
+            manager.cancel(queued).await,
+            Ok(CancelRunOutcome::AlreadyFinished)
+        );
+
+        release.notify_one();
+    }
+
+    #[tokio::test]
+    async fn running_run_receives_cancellation_and_becomes_cancelled() {
+        let executor = CancellationAwareExecutor {
+            started: Arc::new(Notify::new()),
+        };
+        let started = Arc::clone(&executor.started);
+        let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
+
+        let run_id = manager.submit("assistant", "hello").await.unwrap();
+        started.notified().await;
+
+        assert_eq!(
+            manager.cancel(run_id).await,
+            Ok(CancelRunOutcome::Requested)
+        );
+        assert_eq!(
+            manager.cancel(run_id).await,
+            Ok(CancelRunOutcome::AlreadyRequested)
+        );
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                if manager
+                    .get(run_id)
+                    .await
+                    .is_some_and(|run| run.status == RunStatus::Cancelled)
+                {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("running run should observe cancellation");
+    }
+
+    #[tokio::test]
+    async fn cancellation_of_unknown_run_returns_not_found() {
+        let manager = RunManager::new(Arc::new(ImmediateExecutor), 1, 2).unwrap();
+
+        assert_eq!(
+            manager.cancel(RunId::new()).await,
+            Err(CancelRunError::NotFound)
+        );
     }
 
     #[test]
