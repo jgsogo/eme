@@ -618,7 +618,10 @@ mod tests {
                     .is_some_and(|event| event.kind == RunEventKind::Completed)
                 {
                     assert_eq!(
-                        events.iter().map(|event| event.sequence).collect::<Vec<_>>(),
+                        events
+                            .iter()
+                            .map(|event| event.sequence)
+                            .collect::<Vec<_>>(),
                         vec![0, 1, 2, 3]
                     );
                     assert_eq!(events[2].kind, RunEventKind::ToolExecutionStarted);
