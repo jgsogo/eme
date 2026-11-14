@@ -500,10 +500,16 @@ async fn times_out_individual_tool_calls_without_timing_out_the_run() {
 #[tokio::test]
 async fn truncates_tool_output_to_the_configured_utf8_byte_limit() {
     let completed = Arc::new(AtomicBool::new(false));
-    let model = Arc::new(MockModel::new(vec![ModelTurn {
-        content: None,
-        tool_calls: vec![test_tool_call()],
-    }]));
+    let model = Arc::new(MockModel::new(vec![
+        ModelTurn {
+            content: None,
+            tool_calls: vec![test_tool_call()],
+        },
+        ModelTurn {
+            content: Some("Done.".into()),
+            tool_calls: Vec::new(),
+        },
+    ]));
     let runtime = AgentRuntime::new(
         model,
         Arc::new(LimitedTools {
