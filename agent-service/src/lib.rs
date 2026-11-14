@@ -12,5 +12,5 @@ pub use manager::{
     CancelRunError, CancelRunOutcome, ExecutionOutcome, RunExecutor, RunManager,
     RunManagerConfigError, SubmitRunError,
 };
-pub use run::{InvalidRunTransition, Run, RunId, RunStatus};
+pub use run::{InvalidRunTransition, Run, RunEvent, RunEventKind, RunId, RunStatus};
 pub use runtime_executor::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent};
