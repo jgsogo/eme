@@ -3,7 +3,7 @@ use std::sync::Arc;
 use agent_runtime::{Agent, AgentRuntime, CancellationToken, RunStatus as RuntimeRunStatus};
 use async_trait::async_trait;
 
-use crate::{ExecutionOutcome, RunExecutor, RunId};
+use crate::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId};
 
 /// An agent definition paired with the runtime configured to execute it.
 pub struct ResolvedAgent {
@@ -40,18 +40,44 @@ impl RunExecutor for AgentRuntimeExecutor {
         input: String,
         cancellation: CancellationToken,
     ) -> Result<ExecutionOutcome, String> {
+        self.execute_with_events(run_id, agent_name, input, cancellation)
+            .await
+            .map(|report| report.outcome)
+    }
+
+    async fn execute_with_events(
+        &self,
+        run_id: RunId,
+        agent_name: String,
+        input: String,
+        cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
         let resolved = self.resolver.resolve(&agent_name)?;
         let result = resolved
             .runtime
             .run_with_id(run_id.as_uuid(), &resolved.agent, input, cancellation)
-            .await
-            .map_err(|failure| failure.to_string())?;
+            .await;
 
-        Ok(match result.status {
+        let result = match result {
+            Ok(result) => result,
+            Err(failure) => {
+                return Ok(ExecutionReport {
+                    outcome: ExecutionOutcome::Failed(failure.to_string()),
+                    runtime_events: failure.events,
+                });
+            }
+        };
+
+        let outcome = match result.status {
             RuntimeRunStatus::Completed => ExecutionOutcome::Completed(result.response),
             RuntimeRunStatus::Cancelled => ExecutionOutcome::Cancelled,
             RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
             RuntimeRunStatus::MaxIterationsReached => ExecutionOutcome::MaxIterationsReached,
+        };
+
+        Ok(ExecutionReport {
+            outcome,
+            runtime_events: result.events,
         })
     }
 }
