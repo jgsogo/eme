@@ -44,6 +44,17 @@ struct ConfiguredAgentResolver {
 }
 
 impl ConfiguredAgentResolver {
+    fn agent_catalog(&self) -> agent_server::AgentCatalog {
+        agent_server::AgentCatalog::new(self.agents.definitions().map(|agent| {
+            agent_server::AgentListItem {
+                name: agent.name.clone(),
+                description: agent.description.clone(),
+                model: agent.model.clone(),
+                tools: agent.tools.clone(),
+            }
+        }))
+    }
+
     fn load(data_dir: &std::path::Path) -> Result<Self> {
         let models = ModelRegistry::load(data_dir).context("loading model providers")?;
 
@@ -98,6 +109,7 @@ async fn main() -> Result<()> {
             )
         })?,
     );
+    let agents = resolver.agent_catalog();
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
@@ -111,6 +123,8 @@ async fn main() -> Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(manager.clone()))
+            .app_data(web::Data::new(agents.clone()))
+            .service(agent_server::agents_api())
             .service(agent_server::runs_api())
     })
     .bind(bind_address)
