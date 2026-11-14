@@ -1,0 +1,29 @@
+name = "google_calendar_events"
+description = "List events from the primary Google Calendar for a specific calendar-local day or an explicit time period. Returns the event data supplied by Google Calendar."
+
+[parameters]
+type = "object"
+additionalProperties = false
+anyOf = [
+    { required = ["date"] },
+    { required = ["time_min", "time_max"] }
+]
+
+[parameters.properties.date]
+type = "string"
+format = "date"
+description = "Calendar-local date in YYYY-MM-DD format."
+
+[parameters.properties.time_min]
+type = "string"
+format = "date-time"
+description = "Inclusive period start as an RFC 3339 timestamp with timezone."
+
+[parameters.properties.time_max]
+type = "string"
+format = "date-time"
+description = "Exclusive period end as an RFC 3339 timestamp with timezone."
+
+[parameters.properties.time_zone]
+type = "string"
+description = "Optional IANA timezone override for a date query, e.g. Europe/Madrid. Defaults to the primary calendar timezone."
