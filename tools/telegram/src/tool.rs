@@ -61,7 +61,11 @@ impl Tool for TgAskUser {
                     .ask_yes_no(question, timeout)
                     .await
                     .map_err(|e| e.to_string())?;
-                Ok(if answer { "yes".to_owned() } else { "no".to_owned() })
+                Ok(if answer {
+                    "yes".to_owned()
+                } else {
+                    "no".to_owned()
+                })
             }
             other => Err(format!(
                 "Invalid 'kind' value '{other}'. Expected 'text' or 'yes_no'."

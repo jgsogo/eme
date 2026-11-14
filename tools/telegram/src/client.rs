@@ -40,8 +40,7 @@ pub struct TelegramClient {
 
 impl TelegramClient {
     pub fn from_env() -> Result<Self, TelegramError> {
-        let token =
-            std::env::var("TELEGRAM_BOT_TOKEN").map_err(|_| TelegramError::MissingToken)?;
+        let token = std::env::var("TELEGRAM_BOT_TOKEN").map_err(|_| TelegramError::MissingToken)?;
         let chat_id = std::env::var("TELEGRAM_CHAT_ID")
             .ok()
             .and_then(|s| s.parse::<i64>().ok())
@@ -138,9 +137,7 @@ impl TelegramClient {
             }
 
             let remaining = deadline.saturating_duration_since(Instant::now());
-            let poll_secs = (remaining.as_secs() as u32)
-                .min(POLL_TIMEOUT_SECS)
-                .max(1);
+            let poll_secs = (remaining.as_secs() as u32).min(POLL_TIMEOUT_SECS).max(1);
 
             let mut params = GetUpdatesParams::builder()
                 .timeout(poll_secs)
@@ -189,9 +186,7 @@ impl TelegramClient {
             }
 
             let remaining = deadline.saturating_duration_since(Instant::now());
-            let poll_secs = (remaining.as_secs() as u32)
-                .min(POLL_TIMEOUT_SECS)
-                .max(1);
+            let poll_secs = (remaining.as_secs() as u32).min(POLL_TIMEOUT_SECS).max(1);
 
             let mut params = GetUpdatesParams::builder()
                 .timeout(poll_secs)
