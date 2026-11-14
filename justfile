@@ -24,4 +24,8 @@ ex-basic-agent-cf:
     # cargo run -p agent-runtime --example basic_agent -- cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8 "{{justfile_directory()}}/data"
     cargo run -p agent-runtime --example basic_agent -- cloudflare/@cf/zai-org/glm-4.7-flash "{{justfile_directory()}}/data"
 
-    
+azn-tts device speech:
+    @echo "Amazon TTS to device '{{ device }}': {{ speech }}"
+    /home/jgsogo/github/alexa-remote-control/alexa_remote_control.sh -d "{{ device }}" -e "speak:{{ speech }}"
+
+azn-totoro-echo speech: (azn-tts "Totoro Echo" speech)

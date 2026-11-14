@@ -61,6 +61,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "alexa-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-runtime",
+ "async-trait",
+ "serde_json",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
