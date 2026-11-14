@@ -19,9 +19,8 @@ impl Tool for MeteosourceWeather {
                 errors: vec!["Missing or invalid 'location' argument".into()],
             })?;
 
-        let api_key = std::env::var("METEOSOURCE_APIKEY").map_err(|_| {
-            ToolError::Configuration("METEOSOURCE_APIKEY env var not set".into())
-        })?;
+        let api_key = std::env::var("METEOSOURCE_APIKEY")
+            .map_err(|_| ToolError::Configuration("METEOSOURCE_APIKEY env var not set".into()))?;
 
         let client = MeteosourceClient::new(api_key);
         let weather = client

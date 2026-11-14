@@ -56,13 +56,7 @@ impl MeteosourceClient {
         location: &str,
     ) -> Result<Value, MeteosourceError> {
         let places: Vec<Place> = self
-            .get_json(
-                "find_places",
-                &[
-                    ("text", location),
-                    ("language", "en"),
-                ],
-            )
+            .get_json("find_places", &[("text", location), ("language", "en")])
             .await?;
 
         let place = places
@@ -113,7 +107,12 @@ impl MeteosourceClient {
         if !status.is_success() {
             let detail = serde_json::from_str::<Value>(&body)
                 .ok()
-                .and_then(|value| value.get("detail").and_then(Value::as_str).map(str::to_owned))
+                .and_then(|value| {
+                    value
+                        .get("detail")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
                 .unwrap_or(body);
             return Err(MeteosourceError::Api { status, detail });
         }
@@ -167,8 +166,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client =
-            MeteosourceClient::with_base_url("test-key".into(), server.uri());
+        let client = MeteosourceClient::with_base_url("test-key".into(), server.uri());
         let result = client
             .weather_for_location("Salamanca, Spain")
             .await
@@ -188,8 +186,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client =
-            MeteosourceClient::with_base_url("test-key".into(), server.uri());
+        let client = MeteosourceClient::with_base_url("test-key".into(), server.uri());
         let error = client.weather_for_location("Nowhere").await.unwrap_err();
 
         assert!(matches!(error, MeteosourceError::PlaceNotFound(_)));
@@ -207,8 +204,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client =
-            MeteosourceClient::with_base_url("test-key".into(), server.uri());
+        let client = MeteosourceClient::with_base_url("test-key".into(), server.uri());
         let error = client.weather_for_location("Salamanca").await.unwrap_err();
 
         assert!(error.to_string().contains("Rate limit exceeded"));
