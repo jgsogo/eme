@@ -38,16 +38,12 @@ impl RunExecutor for AgentRuntimeExecutor {
         run_id: RunId,
         agent_name: String,
         input: String,
+        cancellation: CancellationToken,
     ) -> Result<ExecutionOutcome, String> {
         let resolved = self.resolver.resolve(&agent_name)?;
         let result = resolved
             .runtime
-            .run_with_id(
-                run_id.as_uuid(),
-                &resolved.agent,
-                input,
-                CancellationToken::new(),
-            )
+            .run_with_id(run_id.as_uuid(), &resolved.agent, input, cancellation)
             .await
             .map_err(|failure| failure.to_string())?;
 
@@ -122,7 +118,12 @@ mod tests {
         let executor = executor();
 
         let outcome = executor
-            .execute(RunId::new(), "assistant".into(), "hello".into())
+            .execute(
+                RunId::new(),
+                "assistant".into(),
+                "hello".into(),
+                agent_runtime::CancellationToken::new(),
+            )
             .await
             .unwrap();
 
@@ -137,7 +138,12 @@ mod tests {
         let executor = executor();
 
         let error = executor
-            .execute(RunId::new(), "missing".into(), "hello".into())
+            .execute(
+                RunId::new(),
+                "missing".into(),
+                "hello".into(),
+                agent_runtime::CancellationToken::new(),
+            )
             .await
             .unwrap_err();
 
