@@ -257,8 +257,7 @@ tools = [
 
     #[test]
     fn reports_duplicate_tool_references() {
-        let (_directory, models, agents) =
-            fixture("test/test-model", &["test_tool", "test_tool"]);
+        let (_directory, models, agents) = fixture("test/test-model", &["test_tool", "test_tool"]);
         let tools = registered_tool();
         let issues = agents.validate_references(&models, &tools).unwrap_err();
 
