@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::Path, sync::Arc};
+use std::{collections::BTreeMap, path::Path, sync::Arc, time::Duration};
 
 use agent_config::{ConfigError, read_toml};
 use async_trait::async_trait;
@@ -19,6 +19,9 @@ pub enum ToolError {
 
     #[error("Tool execution failed: {0}")]
     Execution(String),
+
+    #[error("Tool execution timed out after {0:?}")]
+    Timeout(Duration),
 }
 
 /// Executes tools requested by the model.
