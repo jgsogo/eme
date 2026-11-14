@@ -5,6 +5,7 @@ edition = "2024"
 description = "Orchestration and lifecycle management for concurrent agent runs."
 
 [dependencies]
+agent-runtime = { path = "../agent-runtime" }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
