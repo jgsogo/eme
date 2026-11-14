@@ -1,6 +1,8 @@
-use agent_runtime::{Tool, ToolDefinition, ToolRegistry};
+use std::path::PathBuf;
+
+use agent_runtime::{Tool, ToolRegistry};
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 struct Calculator;
 
@@ -24,22 +26,9 @@ impl Tool for Calculator {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tools = ToolRegistry::new();
 
-    tools.register(
-        ToolDefinition {
-            name: "calculator".into(),
-            description: "Multiplies two integers.".into(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "a": { "type": "integer" },
-                    "b": { "type": "integer" }
-                },
-                "required": ["a", "b"],
-                "additionalProperties": false
-            }),
-        },
-        Calculator,
-    )?;
+    let definition_path =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("examples/data/calculator.toml");
+    tools.register_from_file(definition_path, Calculator)?;
 
     println!("Registered tools:");
     for definition in tools.definitions() {

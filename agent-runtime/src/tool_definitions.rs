@@ -4,6 +4,12 @@ use agent_config::{ConfigError, read_toml_dir};
 
 use crate::ToolDefinition;
 
+/// Metadata-only catalogue of tool definitions.
+///
+/// Executable tools should be bound through `ToolRegistry::register_from_file`,
+/// which loads the definition and implementation together. This registry is
+/// useful when a caller needs to inspect or discover definitions without
+/// constructing executable implementations.
 #[derive(Default)]
 pub struct ToolDefinitionRegistry {
     definitions: BTreeMap<String, ToolDefinition>,
