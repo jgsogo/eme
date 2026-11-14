@@ -12,6 +12,7 @@ use agent_runtime::{
 use agent_service::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager};
 use anyhow::{Context, Result};
 use clap::Parser;
+use telegram_tool::TelegramGateway;
 
 /// Start the agent platform HTTP server.
 #[derive(Debug, Parser)]
@@ -61,12 +62,16 @@ impl ConfiguredAgentResolver {
         }))
     }
 
-    fn load(data_dir: &std::path::Path) -> Result<Self> {
+    fn load(
+        data_dir: &std::path::Path,
+        telegram_gateway: Option<Arc<TelegramGateway>>,
+    ) -> Result<Self> {
         let models = ModelRegistry::load(data_dir).context("loading model providers")?;
 
         let mut tools = ToolRegistry::new();
         alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
-        telegram_tool::register_tools(&mut tools).context("registering Telegram tools")?;
+        telegram_tool::register_tools(&mut tools, telegram_gateway)
+            .context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
         let tools = Arc::new(tools);
 
@@ -74,24 +79,16 @@ impl ConfiguredAgentResolver {
             AgentRegistry::load_validated(data_dir.join("agents"), &models, tools.as_ref())
                 .context("loading and validating agent definitions")?;
 
-        Ok(Self {
-            agents,
-            models,
-            tools,
-        })
+        Ok(Self { agents, models, tools })
     }
 }
 
 impl AgentRuntimeResolver for ConfiguredAgentResolver {
     fn resolve(&self, agent_name: &str) -> Result<ResolvedAgent, String> {
-        let definition = self
-            .agents
-            .get(agent_name)
+        let definition = self.agents.get(agent_name)
             .ok_or_else(|| format!("unknown agent '{agent_name}'"))?;
 
-        let client = self
-            .models
-            .resolve_model(&definition.model)
+        let client = self.models.resolve_model(&definition.model)
             .map_err(|error| error.to_string())?;
 
         let agent = Agent::from(definition);
@@ -114,16 +111,24 @@ async fn console_ui() -> impl Responder {
 #[actix_web::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+
+    // Construct one gateway and share it with the bot adapter and all Telegram
+    // tools. No other component is allowed to call getUpdates for this token.
+    let telegram_gateway = match std::env::var("TELEGRAM_BOT_TOKEN") {
+        Ok(token) => {
+            let allowed = telegram::allowed_users_from_env()?;
+            Some((TelegramGateway::new(&token), allowed))
+        }
+        Err(_) => None,
+    };
+    let gateway_for_tools = telegram_gateway.as_ref().map(|(gateway, _)| gateway.clone());
+
     let resolver = Arc::new(
-        ConfiguredAgentResolver::load(&args.data_dir).with_context(|| {
-            format!(
-                "loading platform configuration from {}",
-                args.data_dir.display()
-            )
-        })?,
+        ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools)
+            .with_context(|| format!("loading platform configuration from {}", args.data_dir.display()))?,
     );
-    if resolver.agents.get(&args.telegram_agent).is_none() {
-        return Err(anyhow::anyhow!("Telegram agent '{}' is not configured", args.telegram_agent));
+    if telegram_gateway.is_some() && resolver.agents.get(&args.telegram_agent).is_none() {
+        anyhow::bail!("Telegram agent '{}' is not configured", args.telegram_agent);
     }
 
     let agents = resolver.agent_catalog();
@@ -131,16 +136,16 @@ async fn main() -> Result<()> {
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
 
-    if let Ok(token) = std::env::var("TELEGRAM_BOT_TOKEN") {
-        let allowed = telegram::allowed_users_from_env()?;
-        let bot_manager = manager.clone();
-        let bot_agent = args.telegram_agent.clone();
-        tokio::spawn(async move {
-            telegram::run_bot(token, allowed, bot_agent, bot_manager).await;
-        });
-        println!("Telegram bot enabled (agent: {})", args.telegram_agent);
+    if let Some((gateway, allowed)) = telegram_gateway {
+        // Subscribe before starting the poller so the first update cannot be lost.
+        let updates = gateway.subscribe();
+        tokio::spawn(gateway.clone().run());
+        tokio::spawn(telegram::run_bot(
+            gateway, allowed, args.telegram_agent.clone(), manager.clone(), updates,
+        ));
+        println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
     } else {
-        println!("Telegram bot disabled (TELEGRAM_BOT_TOKEN is not set)");
+        println!("Telegram gateway disabled (TELEGRAM_BOT_TOKEN is not set)");
     }
 
     let bind_address = (args.host, args.port);
