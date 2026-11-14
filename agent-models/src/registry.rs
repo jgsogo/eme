@@ -114,6 +114,23 @@ impl Registry {
         Ok(Self { providers })
     }
 
+    /// Returns whether a provider/model pair is declared in the loaded configuration.
+    ///
+    /// This check does not read credentials or construct a provider client.
+    pub fn contains_model(&self, model_name: &str) -> bool {
+        let Some((provider_name, model_name)) = model_name.split_once('/') else {
+            return false;
+        };
+
+        if provider_name.is_empty() || model_name.is_empty() {
+            return false;
+        }
+
+        self.providers
+            .get(provider_name)
+            .is_some_and(|provider| provider.models.iter().any(|model| model.name == model_name))
+    }
+
     pub fn models_with_capability(
         &self,
         capability: ModelCapability,
