@@ -16,7 +16,7 @@ export TELEGRAM_ALLOWED_USERS="123456789"
 cargo run -p agent-server
 ```
 
-Long polling requires exclusive ownership of Telegram's `getUpdates` for this bot token. Do not run another independent polling consumer (including `tg_ask_user`) with the same token concurrently.
+The `telegram-tool` crate provides the shared `TelegramGateway`. It is the sole owner of `getUpdates` and dispatches incoming messages to the bot adapter or an active `tg_ask_user` request. The bot and tools share the same gateway instance; do not create another gateway or poller for the same token.
 
 ## Responsibilities
 
