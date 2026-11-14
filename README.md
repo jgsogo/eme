@@ -222,7 +222,6 @@ The project is under active development. Areas being explored include:
 Install [pre-commit](https://pre-commit.com/) and enable the repository hooks:
 
 ```bash
-pipx install pre-commit
 pre-commit install
 ```
 
