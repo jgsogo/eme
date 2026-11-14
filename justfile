@@ -29,3 +29,6 @@ azn-tts device speech:
     /home/jgsogo/github/alexa-remote-control/alexa_remote_control.sh -d "{{ device }}" -e "speak:{{ speech }}"
 
 azn-totoro-echo speech: (azn-tts "Totoro Echo" speech)
+
+basic_agent:
+    cargo run -p agent-runtime --example basic_agent

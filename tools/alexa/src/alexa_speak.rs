@@ -113,11 +113,12 @@ async fn exchange_refresh_token(
     refresh_token: &str,
 ) -> Result<String, AlexaError> {
     let url = format!("https://api.{AMAZON}/ap/exchangetoken/cookies");
+    let domain = format!("www.{AMAZON}");
 
     let mut form = HashMap::new();
     form.insert("app_name", "Amazon Alexa");
     form.insert("requested_token_type", "auth_cookies");
-    form.insert("domain", &format!("www.{AMAZON}")[..]);
+    form.insert("domain", domain.as_str());
     form.insert("source_token_type", "refresh_token");
     form.insert("source_token", refresh_token);
 
@@ -214,7 +215,7 @@ async fn resolve_device(
     csrf: &str,
     device_name: &str,
 ) -> Result<(String, String, String), AlexaError> {
-    let mut headers = common_headers(cookie_header, csrf);
+    let headers = common_headers(cookie_header, csrf);
 
     // customerId
     let me: UserMe = client
@@ -308,12 +309,4 @@ fn common_headers(cookie_header: &str, csrf: &str) -> HeaderMap {
     h.insert(ORIGIN, HeaderValue::from_static("https://alexa.amazon.es"));
     h.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     h
-}
-
-// --- Ejemplo de uso ---
-#[tokio::main]
-async fn main() -> Result<(), AlexaError> {
-    alexa_speak("Echo Salon", "Hola, esto es una prueba desde Rust").await?;
-    println!("TTS enviado");
-    Ok(())
 }
