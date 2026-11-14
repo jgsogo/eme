@@ -13,9 +13,10 @@ use frankenstein::AsyncTelegramApi;
 use frankenstein::client_reqwest::Bot;
 use frankenstein::methods::{AnswerCallbackQueryParams, GetUpdatesParams, SendMessageParams};
 use frankenstein::types::{
-    AllowedUpdate, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyMarkup,
+    AllowedUpdate, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage, Message,
+    ReplyMarkup,
 };
-use frankenstein::updates::{MaybeInaccessibleMessage, UpdateContent};
+use frankenstein::updates::UpdateContent;
 use thiserror::Error;
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
@@ -105,6 +106,7 @@ impl TelegramClient {
                     .callback_data("no")
                     .build(),
             ]],
+            force_reply: None,
         };
 
         let params = SendMessageParams::builder()
@@ -161,7 +163,7 @@ impl TelegramClient {
                     if message.message_id <= after_message_id {
                         continue;
                     }
-                    if let Some(text) = message.text {
+                    if let Some(text) = &message.text {
                         let text = text.trim();
                         if !text.is_empty() {
                             return Ok(text.to_owned());
