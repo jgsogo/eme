@@ -137,7 +137,10 @@ async fn get_run_events(manager: Data<RunManager>, run_id: Path<String>) -> impl
 
     match manager.events(run_id).await {
         Some(events) => HttpResponse::Ok().json(
-            events.into_iter().map(RunEventResponse::from).collect::<Vec<_>>(),
+            events
+                .into_iter()
+                .map(RunEventResponse::from)
+                .collect::<Vec<_>>(),
         ),
         None => HttpResponse::NotFound().finish(),
     }
@@ -319,7 +322,9 @@ mod tests {
                 let response = test::call_service(&app, request).await;
                 let events: Value = test::read_body_json(response).await;
                 if events.as_array().is_some_and(|events| {
-                    events.last().is_some_and(|event| event["kind"] == "completed")
+                    events
+                        .last()
+                        .is_some_and(|event| event["kind"] == "completed")
                 }) {
                     assert_eq!(events[0]["sequence"], 0);
                     assert_eq!(events[0]["kind"], "queued");
