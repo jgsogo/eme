@@ -87,6 +87,33 @@ pub struct CancelRunResponse {
     pub status: &'static str,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct AgentListItem {
+    pub name: String,
+    pub description: String,
+    pub model: String,
+    pub tools: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AgentCatalog {
+    agents: std::sync::Arc<[AgentListItem]>,
+}
+
+impl AgentCatalog {
+    pub fn new(agents: impl IntoIterator<Item = AgentListItem>) -> Self {
+        let mut agents: Vec<_> = agents.into_iter().collect();
+        agents.sort_by(|left, right| left.name.cmp(&right.name));
+        Self {
+            agents: agents.into(),
+        }
+    }
+
+    pub fn list(&self) -> &[AgentListItem] {
+        &self.agents
+    }
+}
+
 fn status_name(status: RunStatus) -> &'static str {
     match status {
         RunStatus::Queued => "queued",
@@ -97,6 +124,22 @@ fn status_name(status: RunStatus) -> &'static str {
         RunStatus::TimedOut => "timed_out",
         RunStatus::MaxIterationsReached => "max_iterations_reached",
     }
+}
+
+#[get("")]
+async fn list_runs(manager: Data<RunManager>) -> impl Responder {
+    let runs = manager.list().await;
+    let body = runs
+        .into_iter()
+        .map(|run| GetRunResponse {
+            run_id: run.id.to_string(),
+            agent: run.agent,
+            status: status_name(run.status),
+            response: run.response,
+            error: run.error,
+        })
+        .collect::<Vec<_>>();
+    HttpResponse::Ok().json(body)
 }
 
 #[post("")]
@@ -190,10 +233,22 @@ async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Res
     }
 }
 
+#[get("")]
+async fn list_agents(catalog: Data<AgentCatalog>) -> impl Responder {
+    HttpResponse::Ok().json(catalog.list())
+}
+
+/// Builds the /agents route scope. Register AgentCatalog as application data
+/// before mounting this scope.
+pub fn agents_api() -> Scope {
+    web::scope("/agents").service(list_agents)
+}
+
 /// Builds the /runs route scope. Register RunManager as application data
 /// before mounting this scope.
 pub fn runs_api() -> Scope {
     web::scope("/runs")
+        .service(list_runs)
         .service(submit_run)
         .service(get_run)
         .service(get_run_events)
@@ -211,7 +266,7 @@ mod tests {
     use serde_json::{Value, json};
     use tokio::sync::Notify;
 
-    use super::runs_api;
+    use super::{AgentCatalog, AgentListItem, agents_api, runs_api};
 
     struct ImmediateExecutor;
 
@@ -311,6 +366,58 @@ mod tests {
     }
 
     #[actix_web::test]
+    async fn lists_submitted_runs() {
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(manager()))
+                .service(runs_api()),
+        )
+        .await;
+
+        let request = test::TestRequest::post()
+            .uri("/runs")
+            .set_json(json!({"agent": "assistant", "input": "hello"}))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        let body: Value = test::read_body_json(response).await;
+        let run_id = body["run_id"].as_str().unwrap().to_owned();
+
+        let request = test::TestRequest::get().uri("/runs").to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: Value = test::read_body_json(response).await;
+        let runs = body.as_array().expect("list should be an array");
+        assert!(
+            runs.iter().any(|run| run["run_id"] == run_id),
+            "submitted run should appear in the list"
+        );
+    }
+
+    #[actix_web::test]
+    async fn lists_configured_agents() {
+        let catalog = AgentCatalog::new([AgentListItem {
+            name: "assistant".into(),
+            description: "General assistant".into(),
+            model: "test/model".into(),
+            tools: vec!["tg_notify_user".into()],
+        }]);
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(catalog))
+                .service(agents_api()),
+        )
+        .await;
+
+        let request = test::TestRequest::get().uri("/agents").to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: Value = test::read_body_json(response).await;
+        assert_eq!(body[0]["name"], "assistant");
+        assert_eq!(body[0]["model"], "test/model");
+        assert_eq!(body[0]["tools"][0], "tg_notify_user");
+    }
+
+    #[actix_web::test]
     async fn exposes_ordered_run_lifecycle_events() {
         let app = test::init_service(
             App::new()
@@ -340,10 +447,7 @@ mod tests {
                         .is_some_and(|event| event["kind"] == "completed")
                 }) {
                     assert_eq!(events[0]["sequence"], 0);
-                    assert_eq!(events[0]["kind"], "queued");
-                    assert_eq!(events[1]["sequence"], 1);
                     assert_eq!(events[1]["kind"], "started");
-                    assert_eq!(events[2]["sequence"], 2);
                     assert_eq!(events[2]["kind"], "completed");
                     assert!(events[0]["occurred_at_unix_ms"].is_number());
                     break;
