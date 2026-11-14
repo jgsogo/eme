@@ -572,7 +572,6 @@ impl AgentRuntime {
     }
 }
 
-
 #[cfg(test)]
 mod external_run_id_tests {
     use std::sync::Arc;
