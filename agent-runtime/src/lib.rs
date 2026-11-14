@@ -1,3 +1,4 @@
+use serde::Deserialize;
 use serde_json::Value;
 
 pub mod model;
@@ -11,6 +12,8 @@ pub use runtime::{
     RunEventKind, RunFailure, RunResult, RunStatus, RuntimeError,
 };
 pub use tool::{Tool, ToolDispatcher, ToolError, ToolRegistry};
+mod tool_definitions;
+pub use tool_definitions::ToolDefinitionRegistry;
 
 /// Configuration for an agent.
 #[derive(Debug, Clone)]
@@ -23,7 +26,7 @@ pub struct Agent {
 }
 
 /// Description of a tool exposed to the model.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ToolDefinition {
     pub name: String,
     pub description: String,
