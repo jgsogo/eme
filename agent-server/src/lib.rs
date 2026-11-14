@@ -51,7 +51,10 @@ async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) 
         return HttpResponse::BadRequest().body("input must not be empty");
     }
 
-    match manager.submit(request.agent.clone(), request.input.clone()).await {
+    match manager
+        .submit(request.agent.clone(), request.input.clone())
+        .await
+    {
         Ok(run_id) => HttpResponse::Accepted().json(SubmitRunResponse {
             run_id: run_id.to_string(),
             status: "queued",
@@ -113,8 +116,7 @@ mod tests {
     }
 
     fn manager() -> RunManager {
-        RunManager::new(Arc::new(ImmediateExecutor), 1, 8)
-            .expect("valid run manager configuration")
+        RunManager::new(Arc::new(ImmediateExecutor), 1, 8).expect("valid run manager configuration")
     }
 
     #[actix_web::test]
