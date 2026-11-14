@@ -17,4 +17,5 @@ tools = [
     "tg_notify_user",
     "tg_ask_user",
     "meteosource",
+    "web_search",
 ]
