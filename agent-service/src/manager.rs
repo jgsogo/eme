@@ -129,12 +129,7 @@ impl RunManager {
                     };
 
                     let result = executor
-                        .execute(
-                            run.id,
-                            run.agent.clone(),
-                            run.input.clone(),
-                            cancellation,
-                        )
+                        .execute(run.id, run.agent.clone(), run.input.clone(), cancellation)
                         .await;
 
                     let mut runs = runs.lock().await;
@@ -385,7 +380,10 @@ mod tests {
             manager.cancel(queued).await,
             Ok(CancelRunOutcome::CancelledBeforeStart)
         );
-        assert_eq!(manager.get(queued).await.unwrap().status, RunStatus::Cancelled);
+        assert_eq!(
+            manager.get(queued).await.unwrap().status,
+            RunStatus::Cancelled
+        );
         assert_eq!(
             manager.cancel(queued).await,
             Ok(CancelRunOutcome::AlreadyFinished)
