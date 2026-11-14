@@ -1,6 +1,10 @@
 use std::{
     collections::VecDeque,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
 };
 
 use tokio::sync::Notify;
@@ -412,4 +416,120 @@ async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
     assert!(result.messages.iter().any(|message| {
         matches!(message, Message::Tool { tool_call_id, content, .. } if tool_call_id == "call-1" && content == "tool result")
     }));
+}
+
+struct LimitedTools {
+    delay: Duration,
+    output: String,
+    completed: Arc<AtomicBool>,
+}
+
+#[async_trait]
+impl ToolDispatcher for LimitedTools {
+    fn definition(&self, name: &str) -> Option<ToolDefinition> {
+        (name == "test").then(|| ToolDefinition {
+            name: "test".into(),
+            description: "A test tool".into(),
+            parameters: json!({"type": "object"}),
+        })
+    }
+
+    async fn execute(&self, _name: &str, _arguments: Value) -> Result<String, ToolError> {
+        tokio::time::sleep(self.delay).await;
+        self.completed.store(true, Ordering::SeqCst);
+        Ok(self.output.clone())
+    }
+}
+
+fn test_agent() -> Agent {
+    Agent {
+        id: "test-agent".into(),
+        system_prompt: None,
+        tool_names: vec!["test".into()],
+        max_iterations: 2,
+    }
+}
+
+fn test_tool_call() -> ToolCall {
+    ToolCall {
+        id: "call-1".into(),
+        name: "test".into(),
+        arguments: json!({}),
+        provider_metadata: None,
+    }
+}
+
+#[tokio::test]
+async fn times_out_individual_tool_calls_without_timing_out_the_run() {
+    let completed = Arc::new(AtomicBool::new(false));
+    let model = Arc::new(MockModel::new(vec![
+        ModelTurn {
+            content: None,
+            tool_calls: vec![test_tool_call()],
+        },
+        ModelTurn {
+            content: Some("The tool timed out.".into()),
+            tool_calls: Vec::new(),
+        },
+    ]));
+    let runtime = AgentRuntime::new(
+        model.clone(),
+        Arc::new(LimitedTools {
+            delay: Duration::from_millis(100),
+            output: "late result".into(),
+            completed: completed.clone(),
+        }),
+        Arc::new(AllowListPolicy::new(["test"])),
+    )
+    .with_timeout(Duration::from_secs(1))
+    .with_tool_timeout(Duration::from_millis(10));
+
+    let result = runtime
+        .run(&test_agent(), "Run the tool", CancellationToken::new())
+        .await
+        .unwrap();
+
+    assert_eq!(result.status, agent_runtime::RunStatus::Completed);
+    assert!(!completed.load(Ordering::SeqCst));
+    assert!(result.messages.iter().any(|message| {
+        matches!(message, Message::Tool { content, is_error: true, .. } if content.contains("timed out"))
+    }));
+    assert_eq!(model.requests.lock().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn truncates_tool_output_to_the_configured_utf8_byte_limit() {
+    let completed = Arc::new(AtomicBool::new(false));
+    let model = Arc::new(MockModel::new(vec![ModelTurn {
+        content: None,
+        tool_calls: vec![test_tool_call()],
+    }]));
+    let runtime = AgentRuntime::new(
+        model,
+        Arc::new(LimitedTools {
+            delay: Duration::ZERO,
+            output: "é".repeat(100),
+            completed: completed.clone(),
+        }),
+        Arc::new(AllowListPolicy::new(["test"])),
+    )
+    .with_max_tool_output_bytes(32);
+
+    let result = runtime
+        .run(&test_agent(), "Run the tool", CancellationToken::new())
+        .await
+        .unwrap();
+
+    let content = result
+        .messages
+        .iter()
+        .find_map(|message| match message {
+            Message::Tool { content, .. } => Some(content),
+            _ => None,
+        })
+        .unwrap();
+
+    assert!(completed.load(Ordering::SeqCst));
+    assert!(content.len() <= 32);
+    assert!(content.ends_with("[tool output truncated]"));
 }
