@@ -246,6 +246,19 @@ impl RunManager {
         }
     }
 
+    /// Returns a snapshot of all known runs, newest first by creation time.
+    pub async fn list(&self) -> Vec<Run> {
+        let mut runs: Vec<Run> = self
+            .runs
+            .lock()
+            .await
+            .values()
+            .map(|entry| entry.run.clone())
+            .collect();
+        runs.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+        runs
+    }
+
     /// Returns an ordered snapshot of a run's lifecycle events.
     pub async fn events(&self, run_id: RunId) -> Option<Vec<RunEvent>> {
         self.runs
