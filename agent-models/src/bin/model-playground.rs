@@ -24,10 +24,12 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     let args = Args::parse();
-    log::debug!("Execute prompt using model '{}'", args.model);
+    tracing::debug!(model = %args.model, "executing prompt");
 
     let registry = Registry::load(&args.data_dir)?;
     let client = registry.resolve_model(&args.model)?;
