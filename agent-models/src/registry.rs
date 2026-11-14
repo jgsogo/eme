@@ -4,10 +4,10 @@ use crate::{
     models::{ModelCapability, ModelConfig},
     providers::{GeminiClient, OpenAICompatibleClient},
 };
+use agent_config::{ConfigError, read_toml_dir};
 use serde::Deserialize;
-use std::fs;
-use std::path::Path;
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
+use std::{collections::BTreeMap, path::Path};
 
 #[derive(Debug, Deserialize)]
 struct ProviderConfig {
@@ -20,9 +20,10 @@ struct ProviderConfig {
 }
 
 impl ProviderConfig {
-    fn validate(&self) -> Result<(), ModelError> {
-        let invalid =
-            |reason: &str| ModelError::InvalidProviderConfig(format!("{}: {reason}", self.name));
+    fn validate(&self, path: &Path) -> Result<(), ConfigError> {
+        let invalid = |reason: &str| {
+            ConfigError::invalid("provider", Some(path), format!("{}: {reason}", self.name))
+        };
 
         if self.name.trim().is_empty() {
             return Err(invalid("provider name cannot be empty"));
@@ -51,7 +52,6 @@ impl ProviderConfig {
 
         match self.client.as_str() {
             "gemini" => Ok(()),
-
             "openai-compatible" => {
                 let base_url = self
                     .base_url
@@ -73,7 +73,6 @@ impl ProviderConfig {
 
                 Ok(())
             }
-
             client => Err(invalid(&format!("unsupported client '{client}'"))),
         }
     }
@@ -84,31 +83,23 @@ pub struct Registry {
 }
 
 impl Registry {
-    pub fn load(data_dir: impl AsRef<Path>) -> Result<Self, ModelError> {
+    pub fn load(data_dir: impl AsRef<Path>) -> Result<Self, ConfigError> {
+        let providers_dir = data_dir.as_ref().join("providers");
+        let loaded = read_toml_dir::<ProviderConfig>(&providers_dir)?;
+
+        if loaded.is_empty() {
+            return Err(ConfigError::no_files("provider", providers_dir));
+        }
+
         let mut providers = BTreeMap::new();
 
-        let providers_dir = data_dir.as_ref().join("providers");
-
-        for entry in fs::read_dir(providers_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
-            if path.extension().is_none_or(|ext| ext != "toml") {
-                continue;
-            }
-
-            let contents = fs::read_to_string(path)?;
-            let config: ProviderConfig = toml::from_str(&contents)?;
-            config.validate()?;
+        for (path, config) in loaded {
+            config.validate(&path)?;
             let name = config.name.clone();
 
             if providers.insert(name.clone(), config).is_some() {
-                return Err(ModelError::DuplicateProvider(name));
+                return Err(ConfigError::duplicate("provider", name, Some(path)));
             }
-        }
-
-        if providers.is_empty() {
-            return Err(ModelError::NoProvidersFound);
         }
 
         Ok(Self { providers })
@@ -135,7 +126,6 @@ impl Registry {
         &self,
         capability: ModelCapability,
     ) -> Vec<(String, ModelConfig)> {
-        // Return models supporting this capability.
         let mut result = Vec::<(String, ModelConfig)>::new();
         for (provider_name, provider_cfg) in self.providers.iter() {
             for model in provider_cfg.models.iter() {
@@ -172,7 +162,6 @@ impl Registry {
 
         match provider.client.as_str() {
             "gemini" => Ok(Arc::new(GeminiClient::new(key, model))),
-
             "openai-compatible" => {
                 let base_url = match (&provider.account_id_env, &provider.base_url) {
                     (Some(account_id_env), Some(url)) => {
@@ -186,7 +175,6 @@ impl Registry {
 
                 Ok(Arc::new(OpenAICompatibleClient::new(&base_url, key, model)))
             }
-
             _ => Err(ModelError::UnsupportedProvider(provider.client.clone())),
         }
     }

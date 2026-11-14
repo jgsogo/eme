@@ -1,5 +1,6 @@
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
+use agent_config::{ConfigError, read_toml_dir};
 use agent_models::registry::Registry as ModelRegistry;
 
 use crate::{AgentDefinition, ToolRegistry};
@@ -10,45 +11,30 @@ pub struct AgentRegistry {
 }
 
 impl AgentRegistry {
-    pub fn load(data_dir: impl AsRef<Path>) -> Result<Self, String> {
+    pub fn load(data_dir: impl AsRef<Path>) -> Result<Self, ConfigError> {
         let data_dir = data_dir.as_ref();
+        let loaded = read_toml_dir::<AgentDefinition>(data_dir)?;
 
-        let entries = fs::read_dir(data_dir).map_err(|error| {
-            format!(
-                "Failed to read agent directory {}: {error}",
-                data_dir.display()
-            )
-        })?;
+        if loaded.is_empty() {
+            return Err(ConfigError::no_files("agent", data_dir));
+        }
 
         let mut registry = Self::default();
 
-        for entry in entries {
-            let entry = entry.map_err(|error| error.to_string())?;
-            let path = entry.path();
-
-            if path.extension().and_then(|ext| ext.to_str()) != Some("toml") {
-                continue;
-            }
-
-            let contents = fs::read_to_string(&path)
-                .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
-
-            let definition: AgentDefinition = toml::from_str(&contents)
-                .map_err(|error| format!("Invalid agent definition {}: {error}", path.display()))?;
-
+        for (path, definition) in loaded {
             if definition.name.trim().is_empty() {
-                return Err(format!("Agent name cannot be empty in {}", path.display()));
+                return Err(ConfigError::invalid(
+                    "agent",
+                    Some(path),
+                    "agent name cannot be empty",
+                ));
             }
 
             if registry.agents.contains_key(&definition.name) {
-                return Err(format!("Agent '{}' is already registered", definition.name));
+                return Err(ConfigError::duplicate("agent", definition.name, Some(path)));
             }
 
             registry.agents.insert(definition.name.clone(), definition);
-        }
-
-        if registry.agents.is_empty() {
-            return Err("No agent definitions found".into());
         }
 
         Ok(registry)
@@ -59,20 +45,13 @@ impl AgentRegistry {
         data_dir: impl AsRef<Path>,
         models: &ModelRegistry,
         tools: &ToolRegistry,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, ConfigError> {
         let registry = Self::load(data_dir)?;
-        registry
-            .validate_references(models, tools)
-            .map_err(|issues| {
-                format!(
-                    "Agent configuration validation failed:\n- {}",
-                    issues.join("\n- ")
-                )
-            })?;
+        registry.validate_references(models, tools)?;
         Ok(registry)
     }
 
-    /// Check all cross-references and return every issue in one pass.
+    /// Check all cross-references and report every issue in one structured error.
     ///
     /// Model checks inspect provider configuration only; they do not require API
     /// credentials. Tool checks require an executable implementation to have
@@ -81,7 +60,7 @@ impl AgentRegistry {
         &self,
         models: &ModelRegistry,
         tools: &ToolRegistry,
-    ) -> Result<(), Vec<String>> {
+    ) -> Result<(), ConfigError> {
         let mut issues = Vec::new();
 
         for agent in self.agents.values() {
@@ -111,7 +90,11 @@ impl AgentRegistry {
         if issues.is_empty() {
             Ok(())
         } else {
-            Err(issues)
+            Err(ConfigError::invalid(
+                "agent references",
+                None::<&Path>,
+                issues.join("; "),
+            ))
         }
     }
 
@@ -240,28 +223,23 @@ tools = [
     fn reports_all_missing_references_together() {
         let (_directory, models, agents) = fixture("missing/model", &["missing_tool"]);
         let tools = ToolRegistry::new();
-        let issues = agents.validate_references(&models, &tools).unwrap_err();
+        let error = agents.validate_references(&models, &tools).unwrap_err();
 
-        assert_eq!(issues.len(), 2);
-        assert!(
-            issues
-                .iter()
-                .any(|issue| issue.contains("unknown model 'missing/model'"))
-        );
-        assert!(
-            issues
-                .iter()
-                .any(|issue| issue.contains("tool 'missing_tool'"))
-        );
+        let message = error.to_string();
+        assert!(message.contains("unknown model 'missing/model'"));
+        assert!(message.contains("tool 'missing_tool'"));
     }
 
     #[test]
     fn reports_duplicate_tool_references() {
         let (_directory, models, agents) = fixture("test/test-model", &["test_tool", "test_tool"]);
         let tools = registered_tool();
-        let issues = agents.validate_references(&models, &tools).unwrap_err();
+        let error = agents.validate_references(&models, &tools).unwrap_err();
 
-        assert_eq!(issues.len(), 1);
-        assert!(issues[0].contains("lists tool 'test_tool' more than once"));
+        assert!(
+            error
+                .to_string()
+                .contains("lists tool 'test_tool' more than once")
+        );
     }
 }

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::ToolDefinition;
+use agent_config::ConfigError;
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -39,7 +40,7 @@ pub trait Tool: Send + Sync {
 /// In-memory registry of executable tools.
 #[derive(Default)]
 pub struct ToolRegistry {
-    tools: BTreeMap<String, RegisteredTool>, // use a BTreeMap to keep order deterministic (it will help debugging)
+    tools: BTreeMap<String, RegisteredTool>,
 }
 
 struct RegisteredTool {
@@ -57,13 +58,22 @@ impl ToolRegistry {
         &mut self,
         definition: ToolDefinition,
         implementation: impl Tool + 'static,
-    ) -> Result<(), String> {
+    ) -> Result<(), ConfigError> {
         if self.tools.contains_key(&definition.name) {
-            return Err(format!("Tool '{}' is already registered", definition.name));
+            return Err(ConfigError::duplicate(
+                "tool",
+                &definition.name,
+                None::<&std::path::Path>,
+            ));
         }
 
-        let validator = jsonschema::validator_for(&definition.parameters)
-            .map_err(|error| format!("Invalid schema for tool '{}': {error}", definition.name))?;
+        let validator = jsonschema::validator_for(&definition.parameters).map_err(|error| {
+            ConfigError::invalid(
+                "tool",
+                None::<&std::path::Path>,
+                format!("invalid schema for '{}': {error}", definition.name),
+            )
+        })?;
 
         self.tools.insert(
             definition.name.clone(),
