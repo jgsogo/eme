@@ -1,3 +1,17 @@
+//! Alexa text-to-speech (TTS) implementation.
+//!
+//! This module is a Rust port of the TTS-related logic from
+//! [alexa-remote-control](https://github.com/thorsten-gehrig/alexa-remote-control).
+//! It follows that project's flow to authenticate with Amazon Alexa, resolve the
+//! target Echo device, and submit an `Alexa.Speak` command.
+//!
+//! This is intentionally a focused port of the TTS functionality, not a
+//! reimplementation of the full alexa-remote-control script or a general-purpose
+//! Alexa API client.
+//!
+//! The upstream project remains the reference for the underlying Alexa Remote
+//! API interactions and behavior.
+
 use reqwest::{
     Client,
     header::{CONTENT_TYPE, COOKIE, HeaderMap, HeaderValue, ORIGIN, REFERER, USER_AGENT},
