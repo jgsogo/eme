@@ -278,7 +278,6 @@ async fn stops_after_max_iterations() {
     assert_eq!(tools.calls.lock().unwrap().len(), 2);
 }
 
-
 struct BlockingModel {
     started: Arc<Notify>,
     release: Arc<Notify>,
@@ -336,11 +335,13 @@ async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
     assert!(result.messages.iter().any(|message| {
         matches!(message, Message::Assistant { content: Some(content), .. } if content == "Model response")
     }));
-    assert!(result.events.iter().any(|event| {
-        matches!(event.kind, agent_runtime::RunEventKind::Cancelled)
-    }));
+    assert!(
+        result
+            .events
+            .iter()
+            .any(|event| { matches!(event.kind, agent_runtime::RunEventKind::Cancelled) })
+    );
 }
-
 
 struct BlockingTools {
     started: Arc<Notify>,
