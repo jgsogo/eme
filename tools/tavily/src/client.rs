@@ -163,8 +163,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client =
-            TavilyClient::with_base_url("test-key".into(), server.uri()).unwrap();
+        let client = TavilyClient::with_base_url("test-key".into(), server.uri()).unwrap();
         let response = client.search(&request()).await.unwrap();
 
         assert_eq!(response.results.len(), 1);
