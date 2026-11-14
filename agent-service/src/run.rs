@@ -137,10 +137,10 @@ impl Run {
             (
                 RunStatus::Running,
                 RunStatus::Completed
-                    | RunStatus::Failed
-                    | RunStatus::Cancelled
-                    | RunStatus::TimedOut
-                    | RunStatus::MaxIterationsReached,
+                | RunStatus::Failed
+                | RunStatus::Cancelled
+                | RunStatus::TimedOut
+                | RunStatus::MaxIterationsReached,
             ) => true,
             _ => false,
         };
