@@ -7,4 +7,7 @@ description = "Executable service exposing the AI agent platform to external cli
 [dependencies]
 actix-web = "4"
 agent-service = { path = "../agent-service" }
+async-trait = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
