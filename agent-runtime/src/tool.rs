@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
-use crate::ToolDefinition;
 use agent_config::{ConfigError, read_toml};
 use async_trait::async_trait;
 use serde_json::Value;
-use std::collections::BTreeMap;
+
+use crate::ToolDefinition;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ToolError {
@@ -168,7 +166,6 @@ impl ToolDispatcher for ToolRegistry {
             .map_err(ToolError::Execution)
     }
 }
-
 
 #[cfg(test)]
 mod registration_tests {
