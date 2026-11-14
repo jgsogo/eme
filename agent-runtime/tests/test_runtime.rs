@@ -10,9 +10,10 @@ use std::{
 use tokio::sync::Notify;
 
 use agent_runtime::{
-    Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, Message, ModelRequest,
-    ModelTurn, ToolCall, ToolDefinition, ToolDispatcher, ToolError,
+    Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
+    ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolDefinition, ToolDispatcher, ToolError,
 };
+use agent_models::error::ModelError;
 use async_trait::async_trait;
 use serde_json::{Value, json};
 
@@ -32,14 +33,14 @@ impl MockModel {
 
 #[async_trait]
 impl AgentModel for MockModel {
-    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, String> {
+    async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, ModelError> {
         self.requests.lock().unwrap().push(request);
 
         self.responses
             .lock()
             .unwrap()
             .pop_front()
-            .ok_or_else(|| "No more mock responses".to_string())
+            .ok_or_else(|| ModelError::InvalidResponse("No more mock responses".into()))
     }
 }
 
@@ -222,7 +223,16 @@ async fn denies_unauthorized_tool_execution() {
                 content,
                 ..
             } if tool_call_id == "call-1"
-                && content.contains("Tool execution denied")
+                && content.contains("Authorization denied")
+        )
+    }));
+    assert!(result.events.iter().any(|event| {
+        matches!(
+            &event.kind,
+            agent_runtime::RunEventKind::ToolExecutionFinished {
+                error_category: Some(ErrorCategory::Authorization),
+                ..
+            }
         )
     }));
 }
@@ -289,7 +299,7 @@ struct BlockingModel {
 
 #[async_trait]
 impl AgentModel for BlockingModel {
-    async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, String> {
+    async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, ModelError> {
         self.started.notify_one();
         self.release.notified().await;
         Ok(ModelTurn {
@@ -336,6 +346,7 @@ async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
 
     let result = run.await.unwrap();
     assert_eq!(result.status, agent_runtime::RunStatus::Cancelled);
+    assert_eq!(result.status.error_category(), Some(ErrorCategory::Cancellation));
     assert!(result.messages.iter().any(|message| {
         matches!(message, Message::Assistant { content: Some(content), .. } if content == "Model response")
     }));
@@ -413,6 +424,7 @@ async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
 
     let result = run.await.unwrap();
     assert_eq!(result.status, agent_runtime::RunStatus::Cancelled);
+    assert_eq!(result.status.error_category(), Some(ErrorCategory::Cancellation));
     assert!(result.messages.iter().any(|message| {
         matches!(message, Message::Tool { tool_call_id, content, .. } if tool_call_id == "call-1" && content == "tool result")
     }));
@@ -494,6 +506,15 @@ async fn times_out_individual_tool_calls_without_timing_out_the_run() {
     assert!(result.messages.iter().any(|message| {
         matches!(message, Message::Tool { content, is_error: true, .. } if content.contains("timed out"))
     }));
+    assert!(result.events.iter().any(|event| {
+        matches!(
+            &event.kind,
+            agent_runtime::RunEventKind::ToolExecutionFinished {
+                error_category: Some(ErrorCategory::Timeout),
+                ..
+            }
+        )
+    }));
     assert_eq!(model.requests.lock().unwrap().len(), 2);
 }
 
@@ -538,4 +559,54 @@ async fn truncates_tool_output_to_the_configured_utf8_byte_limit() {
     assert!(completed.load(Ordering::SeqCst));
     assert!(content.len() <= 32);
     assert!(content.ends_with("[tool output truncated]"));
+}
+
+
+#[tokio::test]
+async fn model_failures_keep_their_category() {
+    let runtime = AgentRuntime::new(
+        Arc::new(MockModel::new(Vec::new())),
+        Arc::new(MockTools {
+            calls: Mutex::new(Vec::new()),
+        }),
+        Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+    );
+
+    let failure = match runtime
+        .run(&test_agent(), "Fail", CancellationToken::new())
+        .await
+    {
+        Err(failure) => failure,
+        Ok(_) => panic!("Expected a model failure"),
+    };
+
+    assert_eq!(failure.category(), ErrorCategory::Model);
+    assert!(matches!(
+        failure.error,
+        RuntimeError::Model(ModelError::InvalidResponse(_))
+    ));
+    assert!(failure.events.iter().any(|event| {
+        matches!(
+            &event.kind,
+            agent_runtime::RunEventKind::ModelFailed {
+                category: ErrorCategory::Model,
+                ..
+            }
+        )
+    }));
+}
+
+#[test]
+fn configuration_errors_have_a_stable_category() {
+    let error = RuntimeError::from(agent_config::ConfigError::invalid(
+        "agent",
+        None::<std::path::PathBuf>,
+        "invalid definition",
+    ));
+
+    assert_eq!(error.category(), ErrorCategory::Configuration);
+    assert_eq!(
+        ToolError::Configuration("missing setting".into()).category(),
+        ErrorCategory::Configuration
+    );
 }
