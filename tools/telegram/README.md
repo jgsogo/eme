@@ -9,12 +9,12 @@ The crate currently implements two tools:
 - `tg_notify_user` — send a one-way notification
 - `tg_ask_user` — ask a question and wait for the reply (free text or yes/no buttons)
 
-A full control bot for the agent platform is out of scope for this crate today; that can be layered on later without changing these tools.
+The crate also exposes a shared `TelegramGateway`. The server owns one gateway per bot token and shares it with the inbound bot adapter and tools.
 
 ## Responsibilities
 
 - **Tool implementations:** model-facing definitions and argument schemas for each Telegram capability.
-- **Telegram Bot API integration:** authenticate with a bot token, send messages, poll for replies and callback queries.
+- **Telegram Bot API integration:** one shared gateway authenticates with the bot token, owns the only update poller, and routes replies to waiting interactive requests or broadcasts normal messages.
 - **Configuration boundary:** read the bot token and target chat id from the environment so secrets are not model-controlled arguments.
 - **Error reporting:** translate Telegram API and timeout failures into tool errors for the runtime.
 
@@ -26,7 +26,7 @@ A full control bot for the agent platform is out of scope for this crate today; 
 | `TELEGRAM_CHAT_ID` | yes | Numeric chat id of the user to contact |
 | `TELEGRAM_ASK_TIMEOUT_SECS` | no | How long `tg_ask_user` waits for a reply (default: 120) |
 
-The target user must have already started a conversation with the bot (or the bot must be allowed to message them).
+The target user must have already started a conversation with the bot. The server's inbound adapter additionally requires `TELEGRAM_ALLOWED_USERS`.
 
 ## Tools
 
@@ -54,10 +54,10 @@ Returns:
 
 ## Boundaries
 
-- `telegram-tool` owns Telegram-specific integration code and the implementations of its tools.
+- `telegram-tool` owns Telegram-specific integration code, the shared gateway, and the implementations of its tools.
 - `agent-runtime` owns registration, argument validation, authorization, and dispatch.
 - Credentials stay outside model-controlled arguments.
 
 ## Non-goals
 
-This crate does not own agent execution, scheduling, conversation management, or authorization decisions. It is not a general-purpose Telegram bot framework; its public purpose is the set of Telegram capabilities the agent platform exposes as tools.
+This crate does not own agent execution, scheduling, conversation management, or authorization decisions. The gateway serializes interactive requests so concurrent `tg_ask_user` calls cannot steal each other's replies. Messages not consumed by a pending interactive request are broadcast to subscribers.
