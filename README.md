@@ -52,6 +52,8 @@ The platform is organized around a separation of responsibilities:
 
 ### Main components
 
+The workspace will separate provider integration, individual agent execution, external tool integrations, and service-level orchestration into dedicated crates. Each crate's README will describe its intended purpose, responsibilities, boundaries, and non-goals.
+
 #### `agent-models`
 
 Provider-independent model integration.
