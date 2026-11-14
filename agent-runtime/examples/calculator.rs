@@ -9,15 +9,19 @@ struct Calculator;
 #[async_trait]
 impl Tool for Calculator {
     async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
-        let a = arguments["a"].as_i64().ok_or_else(|| ToolError::InvalidArguments {
-            tool_name: "calculator".into(),
-            errors: vec!["Missing or invalid argument: a".into()],
-        })?;
+        let a = arguments["a"]
+            .as_i64()
+            .ok_or_else(|| ToolError::InvalidArguments {
+                tool_name: "calculator".into(),
+                errors: vec!["Missing or invalid argument: a".into()],
+            })?;
 
-        let b = arguments["b"].as_i64().ok_or_else(|| ToolError::InvalidArguments {
-            tool_name: "calculator".into(),
-            errors: vec!["Missing or invalid argument: b".into()],
-        })?;
+        let b = arguments["b"]
+            .as_i64()
+            .ok_or_else(|| ToolError::InvalidArguments {
+                tool_name: "calculator".into(),
+                errors: vec!["Missing or invalid argument: b".into()],
+            })?;
 
         let result = a
             .checked_mul(b)

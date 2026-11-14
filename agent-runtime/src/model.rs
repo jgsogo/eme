@@ -96,10 +96,7 @@ impl AgentModel for ModelAdapter {
             max_tokens: self.max_tokens,
         };
 
-        let response: ConversationResponse = self
-            .client
-            .complete_conversation(request)
-            .await?;
+        let response: ConversationResponse = self.client.complete_conversation(request).await?;
 
         Ok(ModelTurn {
             content: response.content,

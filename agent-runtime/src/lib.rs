@@ -17,8 +17,8 @@ pub mod model;
 pub mod policy;
 pub mod runtime;
 pub mod tool;
-pub use model::{AgentModel, ModelAdapter};
 pub use error::{ErrorCategory, RuntimeError};
+pub use model::{AgentModel, ModelAdapter};
 pub use policy::{AllowListPolicy, Authorization, AuthorizationError, PolicyEngine};
 pub use runtime::{
     AgentRuntime, CancellationToken, CollectingEventSink, EventSink, NoopEventSink, RunEvent,
