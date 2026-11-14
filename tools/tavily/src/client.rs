@@ -197,8 +197,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client =
-            TavilyClient::with_base_url("test-key".into(), server.uri()).unwrap();
+        let client = TavilyClient::with_base_url("test-key".into(), server.uri()).unwrap();
         let response = client.search(&request).await.unwrap();
 
         assert!(response.results.is_empty());
@@ -215,8 +214,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client =
-            TavilyClient::with_base_url("test-key".into(), server.uri()).unwrap();
+        let client = TavilyClient::with_base_url("test-key".into(), server.uri()).unwrap();
         let error = client.search(&request()).await.unwrap_err();
 
         assert!(error.to_string().contains("Rate limit exceeded"));
