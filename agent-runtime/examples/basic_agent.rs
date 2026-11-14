@@ -4,6 +4,7 @@ use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, CancellationToken, ModelAdapter,
     ToolRegistry,
 };
+use anyhow::{Context, Result};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,7 +15,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../data");
 
     let mut tools = ToolRegistry::new();
-    alexa_tool::register_tools(&mut tools)?;
+    alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
+    telegram_tool::register_tools(&mut tools).context("registering Telegram tools")?;
+    meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
 
     let model_registry = agent_models::registry::Registry::load(&data_dir)?;
     let agents = AgentRegistry::load_validated(data_dir.join("agents"), &model_registry, &tools)?;
