@@ -34,8 +34,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let input = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
     if input.is_empty() {
-        return Err("Usage: basic_agent <prompt>\nExample: basic_agent \"Ask Alexa to say Hello\""
-            .into());
+        return Err(
+            "Usage: basic_agent <prompt>\nExample: basic_agent \"Ask Alexa to say Hello\"".into(),
+        );
     }
 
     let result = runtime.run(&agent, input, CancellationToken::new()).await?;

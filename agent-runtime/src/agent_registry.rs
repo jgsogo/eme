@@ -63,7 +63,12 @@ impl AgentRegistry {
         let registry = Self::load(data_dir)?;
         registry
             .validate_references(models, tools)
-            .map_err(|issues| format!("Agent configuration validation failed:\n- {}", issues.join("\n- ")))?;
+            .map_err(|issues| {
+                format!(
+                    "Agent configuration validation failed:\n- {}",
+                    issues.join("\n- ")
+                )
+            })?;
         Ok(registry)
     }
 
@@ -128,7 +133,7 @@ mod tests {
 
     use agent_models::registry::Registry as ModelRegistry;
     use async_trait::async_trait;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     use crate::{Tool, ToolDefinition, ToolRegistry};
 
@@ -138,10 +143,8 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let path = std::env::temp_dir().join(format!(
-                "agent-registry-test-{}",
-                uuid::Uuid::new_v4()
-            ));
+            let path =
+                std::env::temp_dir().join(format!("agent-registry-test-{}", uuid::Uuid::new_v4()));
             fs::create_dir_all(path.join("agents")).unwrap();
             fs::create_dir_all(path.join("providers")).unwrap();
             Self(path)
@@ -228,11 +231,9 @@ tools = [
         let tools = registered_tool();
 
         assert!(agents.validate_references(&models, &tools).is_ok());
-        assert!(AgentRegistry::load_validated(
-            directory.path().join("agents"),
-            &models,
-            &tools
-        ).is_ok());
+        assert!(
+            AgentRegistry::load_validated(directory.path().join("agents"), &models, &tools).is_ok()
+        );
     }
 
     #[test]
@@ -242,13 +243,22 @@ tools = [
         let issues = agents.validate_references(&models, &tools).unwrap_err();
 
         assert_eq!(issues.len(), 2);
-        assert!(issues.iter().any(|issue| issue.contains("unknown model 'missing/model'")));
-        assert!(issues.iter().any(|issue| issue.contains("tool 'missing_tool'")));
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.contains("unknown model 'missing/model'"))
+        );
+        assert!(
+            issues
+                .iter()
+                .any(|issue| issue.contains("tool 'missing_tool'"))
+        );
     }
 
     #[test]
     fn reports_duplicate_tool_references() {
-        let (_directory, models, agents) = fixture("test/test-model", &["test_tool", "test_tool"]);
+        let (_directory, models, agents) =
+            fixture("test/test-model", &["test_tool", "test_tool"]);
         let tools = registered_tool();
         let issues = agents.validate_references(&models, &tools).unwrap_err();
 
