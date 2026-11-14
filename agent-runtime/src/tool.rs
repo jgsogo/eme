@@ -1,10 +1,10 @@
-use std::{collections::BTreeMap, path::Path, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use agent_config::{ConfigError, read_toml};
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::ToolDefinition;
+use crate::{ErrorCategory, ToolDefinition};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ToolError {
@@ -17,11 +17,22 @@ pub enum ToolError {
         errors: Vec<String>,
     },
 
+    #[error("Tool configuration failed: {0}")]
+    Configuration(String),
+
     #[error("Tool execution failed: {0}")]
     Execution(String),
+}
 
-    #[error("Tool execution timed out after {0:?}")]
-    Timeout(Duration),
+impl ToolError {
+    pub fn category(&self) -> ErrorCategory {
+        match self {
+            Self::Configuration(_) => ErrorCategory::Configuration,
+            Self::UnknownTool(_) | Self::InvalidArguments { .. } | Self::Execution(_) => {
+                ErrorCategory::Tool
+            }
+        }
+    }
 }
 
 /// Executes tools requested by the model.
@@ -37,7 +48,7 @@ pub trait ToolDispatcher: Send + Sync {
 /// An executable tool.
 #[async_trait]
 pub trait Tool: Send + Sync {
-    async fn execute(&self, arguments: Value) -> Result<String, String>;
+    async fn execute(&self, arguments: Value) -> Result<String, ToolError>;
 }
 
 /// In-memory registry of executable tools.
@@ -163,10 +174,7 @@ impl ToolDispatcher for ToolRegistry {
             });
         }
 
-        tool.implementation
-            .execute(arguments)
-            .await
-            .map_err(ToolError::Execution)
+        tool.implementation.execute(arguments).await
     }
 }
 
@@ -201,7 +209,7 @@ mod registration_tests {
 
     #[async_trait]
     impl Tool for NoopTool {
-        async fn execute(&self, _arguments: Value) -> Result<String, String> {
+        async fn execute(&self, _arguments: Value) -> Result<String, ToolError> {
             Ok(String::new())
         }
     }
