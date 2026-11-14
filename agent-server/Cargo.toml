@@ -3,3 +3,11 @@ name = "agent-server"
 version = "0.1.0"
 edition = "2024"
 description = "Executable service exposing the AI agent platform to external clients."
+
+[dependencies]
+actix-web = "4"
+agent-service = { path = "../agent-service" }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
