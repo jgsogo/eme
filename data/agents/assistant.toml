@@ -13,5 +13,5 @@ has successfully completed it.
 max_iterations = 10
 
 tools = [
-    "alexa",
+    "alexa_speak",
 ]
