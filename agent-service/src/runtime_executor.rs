@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use agent_runtime::{
-    Agent, AgentRuntime, CancellationToken, RunStatus as RuntimeRunStatus,
-};
+use agent_runtime::{Agent, AgentRuntime, CancellationToken, RunStatus as RuntimeRunStatus};
 use async_trait::async_trait;
 
 use crate::{ExecutionOutcome, RunExecutor, RunId};
