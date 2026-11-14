@@ -62,6 +62,7 @@ impl ConfiguredAgentResolver {
         alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
         telegram_tool::register_tools(&mut tools).context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
+        tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         let tools = Arc::new(tools);
 
         let agents =
