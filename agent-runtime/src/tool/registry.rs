@@ -1,9 +1,9 @@
-use std::{collections::BTreeMap, path::Path, sync::Arc};
+use super::{RegisteredTool, Tool, ToolDispatcher, ToolError};
+use crate::ToolDefinition;
 use agent_config::{ConfigError, read_toml};
 use async_trait::async_trait;
 use serde_json::Value;
-use crate::ToolDefinition;
-use super::{RegisteredTool, Tool, ToolDispatcher, ToolError};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 /// In-memory registry of executable tools.
 #[derive(Default)]
@@ -96,8 +96,6 @@ impl ToolRegistry {
     }
 }
 
-
-
 #[async_trait]
 impl ToolDispatcher for ToolRegistry {
     fn definition(&self, name: &str) -> Option<ToolDefinition> {
@@ -127,8 +125,6 @@ impl ToolDispatcher for ToolRegistry {
         tool.implementation.execute(arguments).await
     }
 }
-
-
 
 #[cfg(test)]
 mod registration_tests {
