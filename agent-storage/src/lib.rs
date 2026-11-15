@@ -143,7 +143,10 @@ impl ConversationStore {
         &self,
         owner: &str,
     ) -> Result<Option<Conversation>, ConversationStoreError> {
-        let _guard = self.lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let active = self.read_active_index()?;
         active
             .get(owner)
@@ -158,7 +161,10 @@ impl ConversationStore {
         owner: &str,
         id: ConversationId,
     ) -> Result<(), ConversationStoreError> {
-        let _guard = self.lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let conversation = self.read_conversation(id)?;
         if conversation.owner != owner {
             return Err(ConversationStoreError::OwnerMismatch {
@@ -174,7 +180,10 @@ impl ConversationStore {
 
     /// Loads a conversation by its stable identifier.
     pub fn get(&self, id: ConversationId) -> Result<Conversation, ConversationStoreError> {
-        let _guard = self.lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         self.read_conversation(id)
     }
 
@@ -184,7 +193,10 @@ impl ConversationStore {
         id: ConversationId,
         messages: Vec<Message>,
     ) -> Result<Conversation, ConversationStoreError> {
-        let _guard = self.lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut conversation = self.read_conversation(id)?;
         conversation.messages = messages;
         conversation.updated_at = Utc::now();
