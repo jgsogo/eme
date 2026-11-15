@@ -1,4 +1,4 @@
-use super::*;
+use super::super::*;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct TokenResponse {
