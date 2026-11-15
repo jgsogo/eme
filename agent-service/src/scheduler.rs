@@ -98,6 +98,8 @@ async fn run_scheduler(
                 continue;
             };
             let scheduled_at = task.next_run;
+            let task_name = task.name.clone();
+            let agent_name = task.agent.clone();
 
             if let Some(schedule) = &task.schedule {
                 if let Some(next_run) = next_occurrence(schedule, task.timezone, now) {
@@ -113,8 +115,8 @@ async fn run_scheduler(
                 .await
             {
                 Ok(run_id) => tracing::info!(
-                    task = %task.name,
-                    agent = %task.agent,
+                    task = %task_name,
+                    agent = %agent_name,
                     run_id = %run_id,
                     scheduled_at = %scheduled_at,
                     "scheduled task submitted"
