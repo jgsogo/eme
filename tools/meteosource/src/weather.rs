@@ -1,7 +1,7 @@
 #[path = "types/mod.rs"]
 mod types;
-use types::{MeteosourceError, Place};
 pub(crate) use types::MeteosourceClient;
+use types::{MeteosourceError, Place};
 
 use reqwest::Client;
 use serde::de::DeserializeOwned;
