@@ -6,7 +6,7 @@ use chrono_tz::Tz;
 use cron::Schedule;
 use serde::Deserialize;
 
-use crate::ScheduledTask;
+use crate::scheduler::ScheduledTask;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
