@@ -3,18 +3,18 @@ use super::{SearchDepth, SearchTopic, TimeRange};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct Arguments {
-    pub(super) query: String,
+pub(crate) struct Arguments {
+    pub(crate) query: String,
     #[serde(default = "default_max_results")]
-    pub(super) max_results: u8,
+    pub(crate) max_results: u8,
     #[serde(default = "default_search_depth")]
-    pub(super) search_depth: SearchDepth,
+    pub(crate) search_depth: SearchDepth,
     #[serde(default)]
-    pub(super) topic: SearchTopic,
+    pub(crate) topic: SearchTopic,
     #[serde(default)]
-    pub(super) time_range: Option<TimeRange>,
+    pub(crate) time_range: Option<TimeRange>,
     #[serde(default)]
-    pub(super) include_domains: Option<Vec<String>>,
+    pub(crate) include_domains: Option<Vec<String>>,
     #[serde(default)]
-    pub(super) exclude_domains: Option<Vec<String>>,
+    pub(crate) exclude_domains: Option<Vec<String>>,
 }
