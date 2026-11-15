@@ -15,6 +15,7 @@ telegram-tool = { path = "../tools/telegram" }
 meteosource-tool = { path = "../tools/meteosource" }
 google-tool = { path = "../tools/google" }
 tavily-tool = { path = "../tools/tavily" }
+common-tools = { path = "../tools/common" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }

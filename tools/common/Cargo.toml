@@ -1,0 +1,15 @@
+[package]
+name = "common-tools"
+version = "0.1.0"
+edition = "2024"
+description = "Generic, environment-independent tools for AI agents."
+
+[dependencies]
+agent-config = { path = "../../agent-config" }
+agent-runtime = { path = "../../agent-runtime" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
