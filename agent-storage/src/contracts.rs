@@ -3,6 +3,10 @@
 //! Implementations must preserve the ordering and uniqueness guarantees
 //! documented by each trait. The contracts intentionally use platform-owned
 //! records rather than depending on the service or HTTP crates.
+//!
+//! Each method is an atomic storage operation. The traits do not imply a
+//! transaction across multiple method calls or across the three stores; callers
+//! must not assume cross-record rollback unless a backend adds that capability.
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
