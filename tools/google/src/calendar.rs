@@ -1,10 +1,13 @@
 mod types;
-use types::*;
+use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError, TokenResponse};
+pub(super) use types::GoogleCalendarEvents;
 
 use chrono::{DateTime, LocalResult, NaiveDate, TimeZone};
 use chrono_tz::Tz;
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
+use serde::Deserialize;
 use serde_json::{Value, json};
+use thiserror::Error;
 use url::Url;
 
 use agent_runtime::{Tool, ToolError};
