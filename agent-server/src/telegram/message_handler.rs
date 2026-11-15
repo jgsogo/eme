@@ -20,6 +20,19 @@ pub(super) async fn handle_message(
     auth: &Arc<TelegramAuth>,
     message: IncomingMessage,
 ) {
+    // Replies are reserved for interactive Telegram tool calls. If the gateway
+    // did not match one to a pending question (e.g. it expired), never turn it
+    // into a fresh agent prompt.
+    if message.reply_to_message_id.is_some() {
+        warn!(
+            chat_id = message.chat_id,
+            message_id = message.message_id,
+            reply_to_message_id = message.reply_to_message_id,
+            "Ignoring Telegram reply without a matching pending question"
+        );
+        return;
+    }
+
     if message.is_bot {
         return;
     }
