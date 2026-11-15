@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use crate::{Agent, ToolCall};
 use super::{Authorization, AuthorizationError, PolicyEngine};
+use crate::{Agent, ToolCall};
 
 /// Allows execution of explicitly configured tools.
 pub struct AllowListPolicy {
