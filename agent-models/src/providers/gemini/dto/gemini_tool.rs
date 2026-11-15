@@ -1,6 +1,6 @@
 use super::*;
 use serde::{Serialize};
 #[derive(Serialize)]
-pub(super) struct GeminiTool {
-    pub(super) function_declarations: Vec<FunctionDeclaration>,
+pub(in crate::providers::gemini) struct GeminiTool {
+    pub(in crate::providers::gemini) function_declarations: Vec<FunctionDeclaration>,
 }
