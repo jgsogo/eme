@@ -8,7 +8,7 @@ use std::{
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, get, post,
-    web::{self, Data, Path},
+    web::{self, Data},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
