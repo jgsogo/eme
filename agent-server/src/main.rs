@@ -17,6 +17,7 @@ use agent_storage::ConversationStore;
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
+use agent_server::auth::TelegramAuth;
 
 /// Start the agent platform HTTP server.
 #[derive(Debug, Parser)]
@@ -139,6 +140,14 @@ async fn main() -> Result<()> {
         .as_ref()
         .map(|(gateway, _)| gateway.clone());
 
+    let cookie_secure = std::env::var("WEB_COOKIE_SECURE")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    let telegram_auth = Arc::new(TelegramAuth::new(
+        std::env::var("TELEGRAM_BOT_USERNAME").ok(),
+        cookie_secure,
+    ));
+
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools).with_context(|| {
             format!(
@@ -186,6 +195,7 @@ async fn main() -> Result<()> {
             telegram_agents,
             manager.clone(),
             Arc::clone(&conversation_store),
+            Arc::clone(&telegram_auth),
             updates,
         ));
         println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
@@ -204,7 +214,9 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
+            .app_data(web::Data::from(Arc::clone(&telegram_auth)))
             .service(console_ui)
+            .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
             .service(agent_server::agents_api())
             .service(agent_server::runs_api())
