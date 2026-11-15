@@ -30,30 +30,6 @@ impl OpenAICompatibleClient {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #[async_trait]
 impl ConversationClient for OpenAICompatibleClient {
     async fn complete_conversation(
