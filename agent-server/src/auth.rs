@@ -10,7 +10,7 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, get, post,
     web::{self, Data, Path},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 const SESSION_COOKIE: &str = "eme_session";
@@ -152,6 +152,11 @@ impl TelegramAuth {
     }
 }
 
+#[derive(Deserialize)]
+struct LoginStatusRequest {
+    token: String,
+}
+
 #[derive(Serialize)]
 struct StartLoginResponse {
     token: String,
@@ -174,9 +179,9 @@ async fn start_login(auth: Data<TelegramAuth>) -> impl Responder {
     })
 }
 
-#[get("/telegram/status/{token}")]
-async fn login_status(auth: Data<TelegramAuth>, token: Path<String>) -> impl Responder {
-    match auth.poll_login(&token) {
+#[post("/telegram/status")]
+async fn login_status(auth: Data<TelegramAuth>, request: web::Json<LoginStatusRequest>) -> impl Responder {
+    match auth.poll_login(&request.token) {
         Some(session) => HttpResponse::Ok()
             .insert_header((
                 actix_web::http::header::SET_COOKIE,
