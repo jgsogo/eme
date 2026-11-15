@@ -75,9 +75,7 @@ async fn run_scheduler(
             continue;
         };
 
-        let delay = (next_run - Utc::now())
-            .to_std()
-            .unwrap_or(Duration::ZERO);
+        let delay = (next_run - Utc::now()).to_std().unwrap_or(Duration::ZERO);
 
         tokio::select! {
             _ = time::sleep(delay) => {}
@@ -110,7 +108,10 @@ async fn run_scheduler(
                 }
             }
 
-            match manager.submit(task.agent.clone(), task.prompt.clone()).await {
+            match manager
+                .submit(task.agent.clone(), task.prompt.clone())
+                .await
+            {
                 Ok(run_id) => tracing::info!(
                     task = %task.name,
                     agent = %task.agent,
