@@ -7,7 +7,10 @@ use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
-use agent_service::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager};
+use agent_service::{
+    AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager, TaskRegistry,
+    TaskScheduler,
+};
 use anyhow::{Context, Result};
 use clap::Parser;
 
@@ -15,7 +18,7 @@ use clap::Parser;
 #[derive(Debug, Parser)]
 #[command(version, about)]
 struct Args {
-    /// Directory containing providers/, agents/, and tool data.
+    /// Directory containing providers/, agents/, tasks/, and tool data.
     #[arg(long, default_value = "data")]
     data_dir: PathBuf,
 
@@ -117,10 +120,16 @@ async fn main() -> Result<()> {
             )
         })?,
     );
+    let task_registry = TaskRegistry::load(
+        args.data_dir.join("tasks"),
+        resolver.agents.definitions().map(|agent| agent.name.clone()),
+    )
+    .context("loading scheduled tasks")?;
     let agents = resolver.agent_catalog();
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
+    let task_scheduler = TaskScheduler::start(task_registry, manager.clone());
 
     let bind_address = (args.host, args.port);
     println!(
@@ -128,7 +137,7 @@ async fn main() -> Result<()> {
         bind_address.0, bind_address.1
     );
 
-    HttpServer::new(move || {
+    let server_result = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
@@ -139,6 +148,8 @@ async fn main() -> Result<()> {
     .bind(bind_address)
     .with_context(|| format!("binding HTTP server to {}:{}", args.host, args.port))?
     .run()
-    .await
-    .context("running HTTP server")
+    .await;
+
+    task_scheduler.shutdown().await;
+    server_result.context("running HTTP server")
 }
