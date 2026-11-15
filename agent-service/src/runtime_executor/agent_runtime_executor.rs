@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use super::{AgentRuntimeResolver, ResolvedAgent};
+use crate::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId};
 use agent_runtime::{CancellationToken, RunStatus as RuntimeRunStatus};
 use async_trait::async_trait;
-use crate::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId};
-use super::{AgentRuntimeResolver, ResolvedAgent};
+use std::sync::Arc;
 
 /// Adapts the agent runtime to the service's run executor contract.
 pub struct AgentRuntimeExecutor {
