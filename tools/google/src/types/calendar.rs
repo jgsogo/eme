@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct Calendar {
+pub(crate) struct Calendar {
     #[serde(rename = "timeZone")]
-    pub(super) time_zone: String,
+    pub(crate) time_zone: String,
 }
