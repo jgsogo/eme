@@ -3,6 +3,7 @@
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use agent_server::auth::TelegramAuth;
 use agent_service::{RunId, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
 use anyhow::{Context, Result};
@@ -286,6 +287,7 @@ async fn handle_message(
     manager: &RunManager,
     store: &Arc<ConversationStore>,
     active_conversations: &Arc<Mutex<HashSet<ConversationId>>>,
+    auth: &Arc<TelegramAuth>,
     message: IncomingMessage,
 ) {
     if message.is_bot {
@@ -308,10 +310,31 @@ async fn handle_message(
         return;
     }
 
-    let owner = format!("telegram:{}:{}", message.chat_id, user_id);
     let mut parts = prompt.splitn(2, char::is_whitespace);
     let command = parts.next().unwrap_or_default();
     let arguments = parts.next().unwrap_or_default().trim();
+
+    if command == "/start" && arguments.starts_with("auth_") {
+        if message.chat_id != user_id {
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "Please complete web login in a private chat with this bot.",
+                )
+                .await;
+            return;
+        }
+        let token = arguments.trim_start_matches("auth_");
+        let response = if auth.complete_login(token, user_id) {
+            "Web login approved. You can return to the EME console."
+        } else {
+            "This login link is invalid or has expired. Please start again from the EME console."
+        };
+        let _ = gateway.send_message(message.chat_id, response).await;
+        return;
+    }
+
+    let owner = format!("telegram:{user_id}");
     if handle_command(
         gateway,
         &owner,
@@ -409,6 +432,7 @@ pub async fn run_bot(
     agents: Vec<String>,
     manager: RunManager,
     store: Arc<ConversationStore>,
+    auth: Arc<TelegramAuth>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
     let active_conversations = Arc::new(Mutex::new(HashSet::new()));
@@ -423,6 +447,7 @@ pub async fn run_bot(
                     &manager,
                     &store,
                     &active_conversations,
+                    &auth,
                     message,
                 )
                 .await;

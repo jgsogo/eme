@@ -1,9 +1,11 @@
 //! HTTP API for submitting, inspecting, and cancelling agent runs.
 
+pub mod auth;
+
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use actix_web::{
-    HttpResponse, Responder, Scope, get, post,
+    HttpRequest, HttpResponse, Responder, Scope, get, post,
     web::{self, Data, Json, Path},
 };
 use agent_service::{
@@ -129,8 +131,30 @@ fn status_name(status: RunStatus) -> &'static str {
 }
 
 #[get("")]
-async fn list_runs(manager: Data<RunManager>) -> impl Responder {
-    let runs = manager.list().await;
+async fn list_runs(
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    manager: Data<RunManager>,
+) -> impl Responder {
+    let owner = auth
+        .as_ref()
+        .and_then(|auth| auth.owner_for_request(&request));
+    let allowed = auth.as_ref().map(|auth| {
+        owner
+            .as_ref()
+            .map(|owner| auth.runs_for_owner(owner))
+            .unwrap_or_default()
+    });
+    let runs = manager
+        .list()
+        .await
+        .into_iter()
+        .filter(|run| {
+            allowed
+                .as_ref()
+                .is_none_or(|ids| ids.contains(&run.id.to_string()))
+        })
+        .collect::<Vec<_>>();
     let body = runs
         .into_iter()
         .map(|run| GetRunResponse {
@@ -145,7 +169,12 @@ async fn list_runs(manager: Data<RunManager>) -> impl Responder {
 }
 
 #[post("")]
-async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) -> impl Responder {
+async fn submit_run(
+    http_request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    manager: Data<RunManager>,
+    request: Json<SubmitRunRequest>,
+) -> impl Responder {
     if request.agent.trim().is_empty() {
         return HttpResponse::BadRequest().body("agent must not be empty");
     }
@@ -157,10 +186,17 @@ async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) 
         .submit(request.agent.clone(), request.input.clone())
         .await
     {
-        Ok(run_id) => HttpResponse::Accepted().json(SubmitRunResponse {
-            run_id: run_id.to_string(),
-            status: "queued",
-        }),
+        Ok(run_id) => {
+            if let Some(auth) = auth.as_ref() {
+                if let Some(owner) = auth.owner_for_request(&http_request) {
+                    auth.register_run(run_id.to_string(), &owner);
+                }
+            }
+            HttpResponse::Accepted().json(SubmitRunResponse {
+                run_id: run_id.to_string(),
+                status: "queued",
+            })
+        }
         Err(SubmitRunError::QueueFull) => {
             HttpResponse::ServiceUnavailable().body("run queue is full")
         }
@@ -235,7 +271,13 @@ async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Res
     }
 }
 
-const WEB_CONVERSATION_OWNER: &str = "web:default";
+fn authenticated_owner(
+    request: &HttpRequest,
+    auth: &crate::auth::TelegramAuth,
+) -> Result<String, HttpResponse> {
+    auth.owner_for_request(request)
+        .ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
+}
 
 #[derive(Debug, Deserialize)]
 pub struct CreateConversationRequest {
@@ -278,8 +320,16 @@ fn conversation_error(error: ConversationStoreError) -> HttpResponse {
 }
 
 #[get("")]
-async fn list_conversations(store: Data<Arc<ConversationStore>>) -> impl Responder {
-    match store.list(WEB_CONVERSATION_OWNER) {
+async fn list_conversations(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    match store.list(&owner) {
         Ok(conversations) => HttpResponse::Ok().json(
             conversations
                 .into_iter()
@@ -292,10 +342,16 @@ async fn list_conversations(store: Data<Arc<ConversationStore>>) -> impl Respond
 
 #[post("")]
 async fn create_conversation(
+    request_http: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     catalog: Data<AgentCatalog>,
     request: Json<CreateConversationRequest>,
 ) -> impl Responder {
+    let owner = match authenticated_owner(&request_http, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
     let agent = request.agent.trim();
     if agent.is_empty() {
         return HttpResponse::BadRequest().body("agent must not be empty");
@@ -304,7 +360,7 @@ async fn create_conversation(
         return HttpResponse::BadRequest().body("unknown agent");
     }
 
-    match store.create(WEB_CONVERSATION_OWNER, agent) {
+    match store.create(&owner, agent) {
         Ok(conversation) => HttpResponse::Created().json(ConversationSummary::from(conversation)),
         Err(error) => conversation_error(error),
     }
@@ -312,9 +368,15 @@ async fn create_conversation(
 
 #[get("/{conversation_id}")]
 async fn get_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
     let id = match ConversationId::from_str(conversation_id.as_str()) {
         Ok(id) => id,
         Err(_) => {
@@ -323,9 +385,7 @@ async fn get_conversation(
     };
 
     match store.get(id) {
-        Ok(conversation) if conversation.owner == WEB_CONVERSATION_OWNER => {
-            HttpResponse::Ok().json(conversation)
-        }
+        Ok(conversation) if conversation.owner == owner => HttpResponse::Ok().json(conversation),
         Ok(_) => HttpResponse::NotFound().finish(),
         Err(error) => conversation_error(error),
     }
@@ -333,11 +393,17 @@ async fn get_conversation(
 
 #[post("/{conversation_id}/runs")]
 async fn continue_conversation(
+    request_http: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     manager: Data<RunManager>,
     conversation_id: Path<String>,
     request: Json<ContinueConversationRequest>,
 ) -> impl Responder {
+    let owner = match authenticated_owner(&request_http, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
     let input = request.input.trim();
     if input.is_empty() {
         return HttpResponse::BadRequest().body("input must not be empty");
@@ -351,7 +417,7 @@ async fn continue_conversation(
     };
 
     let conversation = match store.get(id) {
-        Ok(conversation) if conversation.owner == WEB_CONVERSATION_OWNER => conversation,
+        Ok(conversation) if conversation.owner == owner => conversation,
         Ok(_) => return HttpResponse::NotFound().finish(),
         Err(error) => return conversation_error(error),
     };
@@ -365,6 +431,7 @@ async fn continue_conversation(
         .await
     {
         Ok(run_id) => {
+            auth.register_run(run_id.to_string(), &owner);
             let manager = manager.get_ref().clone();
             let store = store.get_ref().clone();
             tokio::spawn(async move {

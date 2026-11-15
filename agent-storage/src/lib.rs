@@ -63,7 +63,7 @@ impl FromStr for ConversationId {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {
     pub id: ConversationId,
-    /// Stable external identity, for example `telegram:<chat_id>:<user_id>`.
+    /// Stable external identity, for example `telegram:<user_id>`.
     pub owner: String,
     pub agent: String,
     pub created_at: DateTime<Utc>,

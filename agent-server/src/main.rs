@@ -4,11 +4,19 @@ use std::{net::IpAddr, path::PathBuf, sync::Arc};
 
 mod telegram;
 
-use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use actix_web::{
+    App, Error, HttpResponse, HttpServer, Responder,
+    body::{EitherBody, MessageBody},
+    dev::{ServiceRequest, ServiceResponse},
+    get,
+    middleware::{self, Next},
+    web,
+};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
+use agent_server::auth::TelegramAuth;
 use agent_service::{
     AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager, TaskRegistry,
     TaskScheduler,
@@ -115,6 +123,41 @@ impl AgentRuntimeResolver for ConfiguredAgentResolver {
     }
 }
 
+async fn require_telegram_session<B>(
+    request: ServiceRequest,
+    next: Next<B>,
+) -> Result<ServiceResponse<EitherBody<B>>, Error>
+where
+    B: MessageBody + 'static,
+{
+    let path = request.path();
+    if path == "/" || path.starts_with("/auth/") {
+        return Ok(next.call(request).await?.map_into_left_body());
+    }
+
+    let auth = request.app_data::<web::Data<TelegramAuth>>();
+    let owner = auth.and_then(|auth| auth.owner_for_request(request.request()));
+    let Some(owner) = owner else {
+        return Ok(request
+            .into_response(HttpResponse::Unauthorized().finish())
+            .map_into_right_body());
+    };
+
+    if let Some(run_id) = path
+        .strip_prefix("/runs/")
+        .and_then(|path| path.split('/').next())
+    {
+        let owns_run = auth.is_some_and(|auth| auth.owns_run(run_id, &owner));
+        if !owns_run {
+            return Ok(request
+                .into_response(HttpResponse::NotFound().finish())
+                .map_into_right_body());
+        }
+    }
+
+    Ok(next.call(request).await?.map_into_left_body())
+}
+
 #[get("/")]
 async fn console_ui() -> impl Responder {
     HttpResponse::Ok()
@@ -138,6 +181,14 @@ async fn main() -> Result<()> {
     let gateway_for_tools = telegram_gateway
         .as_ref()
         .map(|(gateway, _)| gateway.clone());
+
+    let cookie_secure = std::env::var("WEB_COOKIE_SECURE")
+        .map(|value| value.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    let telegram_auth = Arc::new(TelegramAuth::new(
+        std::env::var("TELEGRAM_BOT_USERNAME").ok(),
+        cookie_secure,
+    ));
 
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools).with_context(|| {
@@ -186,6 +237,7 @@ async fn main() -> Result<()> {
             telegram_agents,
             manager.clone(),
             Arc::clone(&conversation_store),
+            Arc::clone(&telegram_auth),
             updates,
         ));
         println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
@@ -201,10 +253,13 @@ async fn main() -> Result<()> {
 
     let server_result = HttpServer::new(move || {
         App::new()
+            .wrap(middleware::from_fn(require_telegram_session))
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
+            .app_data(web::Data::from(Arc::clone(&telegram_auth)))
             .service(console_ui)
+            .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
             .service(agent_server::agents_api())
             .service(agent_server::runs_api())
