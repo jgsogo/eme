@@ -85,8 +85,7 @@ impl TelegramGateway {
     }
 
     pub fn from_env() -> Result<Arc<Self>, TelegramError> {
-        let token =
-            std::env::var("TELEGRAM_BOT_TOKEN").map_err(|_| TelegramError::MissingToken)?;
+        let token = std::env::var("TELEGRAM_BOT_TOKEN").map_err(|_| TelegramError::MissingToken)?;
         Ok(Self::new(&token))
     }
 
@@ -265,12 +264,13 @@ impl TelegramGateway {
                                 }
                             }
                             UpdateContent::CallbackQuery(query) => {
-                                let chat_id = query.message.as_ref().and_then(|message| match message {
-                                    MaybeInaccessibleMessage::Message(message) => {
-                                        Some(message.chat.id)
-                                    }
-                                    _ => None,
-                                });
+                                let chat_id =
+                                    query.message.as_ref().and_then(|message| match message {
+                                        MaybeInaccessibleMessage::Message(message) => {
+                                            Some(message.chat.id)
+                                        }
+                                        _ => None,
+                                    });
                                 let answer = match query.data.as_deref() {
                                     Some("yes") => Some(true),
                                     Some("no") => Some(false),
@@ -295,11 +295,13 @@ impl TelegramGateway {
                                         Some(actual),
                                         Some(value),
                                     ) if *expected == actual
-                                        && query.message.as_ref().is_some_and(|message| match message {
-                                            MaybeInaccessibleMessage::Message(message) => {
-                                                message.message_id == *question_message_id
+                                        && query.message.as_ref().is_some_and(|message| {
+                                            match message {
+                                                MaybeInaccessibleMessage::Message(message) => {
+                                                    message.message_id == *question_message_id
+                                                }
+                                                _ => false,
                                             }
-                                            _ => false,
                                         }) =>
                                     {
                                         Some(value)

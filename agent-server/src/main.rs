@@ -7,8 +7,7 @@ mod telegram;
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
-    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher,
-    ToolRegistry,
+    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
 use agent_service::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager};
 use anyhow::{Context, Result};

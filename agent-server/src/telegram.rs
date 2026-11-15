@@ -40,12 +40,7 @@ fn truncate(text: &str) -> String {
     )
 }
 
-async fn report(
-    gateway: Arc<TelegramGateway>,
-    chat_id: i64,
-    manager: RunManager,
-    id: RunId,
-) {
+async fn report(gateway: Arc<TelegramGateway>, chat_id: i64, manager: RunManager, id: RunId) {
     loop {
         match manager.get(id).await {
             Some(run) if run.status.is_terminal() => {
