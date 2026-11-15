@@ -1,8 +1,8 @@
 use super::*;
 use serde::{Serialize};
 #[derive(Serialize)]
-pub(super) struct ApiTool {
+pub(in crate::providers::openai_compatible) struct ApiTool {
     #[serde(rename = "type")]
-    pub(super) kind: String,
-    pub(super) function: ApiFunctionDefinition,
+    pub(in crate::providers::openai_compatible) kind: String,
+    pub(in crate::providers::openai_compatible) function: ApiFunctionDefinition,
 }
