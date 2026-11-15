@@ -1,5 +1,5 @@
 use super::*;
-use serde::{Serialize};
+use serde::Serialize;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(in crate::providers::gemini) struct GenerateContentRequest {
