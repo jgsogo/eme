@@ -1,7 +1,8 @@
 //! Shared Telegram integration for tools and inbound message adapters.
 //!
-//! A single TelegramGateway owns update polling and dispatches incoming events
-//! to subscribers or to an active interactive tool request.
+//! A single TelegramGateway owns update polling. Replies to interactive tool
+//! questions are routed by Telegram message ID; all other messages are
+//! broadcast to inbound adapters.
 
 mod client;
 mod tool;
