@@ -139,10 +139,7 @@ impl ConversationStore {
     }
 
     /// Returns the active conversation for owner, if one has been created.
-    pub fn active(
-        &self,
-        owner: &str,
-    ) -> Result<Option<Conversation>, ConversationStoreError> {
+    pub fn active(&self, owner: &str) -> Result<Option<Conversation>, ConversationStoreError> {
         let _guard = self
             .lock
             .lock()
@@ -205,9 +202,7 @@ impl ConversationStore {
     }
 
     fn conversation_path(&self, id: ConversationId) -> PathBuf {
-        self.root
-            .join("conversations")
-            .join(format!("{id}.json"))
+        self.root.join("conversations").join(format!("{id}.json"))
     }
 
     fn read_conversation(
@@ -233,9 +228,7 @@ impl ConversationStore {
         Ok(())
     }
 
-    fn read_active_index(
-        &self,
-    ) -> Result<HashMap<String, ConversationId>, ConversationStoreError> {
+    fn read_active_index(&self) -> Result<HashMap<String, ConversationId>, ConversationStoreError> {
         let path = self.root.join("active-conversations.json");
         match fs::read(path) {
             Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
