@@ -1,6 +1,6 @@
 use super::*;
 use serde::{Serialize};
 #[derive(Serialize)]
-pub(super) struct SystemInstruction {
-    pub(super) parts: Vec<Part>,
+pub(in crate::providers::gemini) struct SystemInstruction {
+    pub(in crate::providers::gemini) parts: Vec<Part>,
 }
