@@ -1,4 +1,5 @@
-use super::super::*;
+use super::super::{SearchDepth, SearchTopic, TimeRange};
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct Arguments {
