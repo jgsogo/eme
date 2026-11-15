@@ -25,7 +25,6 @@ use agent_storage::ConversationStore;
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
-use agent_server::auth::TelegramAuth;
 
 /// Start the agent platform HTTP server.
 #[derive(Debug, Parser)]
@@ -144,7 +143,10 @@ where
             .map_into_right_body());
     };
 
-    if let Some(run_id) = path.strip_prefix("/runs/").and_then(|path| path.split('/').next()) {
+    if let Some(run_id) = path
+        .strip_prefix("/runs/")
+        .and_then(|path| path.split('/').next())
+    {
         let owns_run = auth.is_some_and(|auth| auth.owns_run(run_id, &owner));
         if !owns_run {
             return Ok(request
