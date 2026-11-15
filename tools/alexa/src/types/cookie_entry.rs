@@ -1,9 +1,9 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct CookieEntry {
+pub(crate) struct CookieEntry {
     #[serde(rename = "Name")]
-    pub(super) name: String,
+    pub(crate) name: String,
     #[serde(rename = "Value")]
-    pub(super) value: String,
+    pub(crate) value: String,
 }
