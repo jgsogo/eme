@@ -121,7 +121,8 @@ mod tests {
     };
     use async_trait::async_trait;
 
-    use super::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent};
+    use super::{AgentRuntimeExecutor, AgentRuntimeResolver};
+    use crate::ResolvedAgent;
     use crate::{ExecutionOutcome, RunExecutor, RunId};
 
     struct FixedModel;
