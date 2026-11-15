@@ -2,6 +2,6 @@ use super::Device;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct DevicesResponse {
-    pub(super) devices: Vec<Device>,
+pub(crate) struct DevicesResponse {
+    pub(crate) devices: Vec<Device>,
 }
