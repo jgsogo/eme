@@ -7,6 +7,7 @@ use crate::error::ModelError;
 use reqwest::Client;
 use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
+use reqwest::Client;
 
 pub struct GeminiClient {
     http: Client,
@@ -33,36 +34,6 @@ impl GeminiClient {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #[async_trait]
 impl ConversationClient for GeminiClient {
