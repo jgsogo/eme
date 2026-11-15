@@ -161,6 +161,11 @@ async fn main() -> Result<()> {
     }
 
     let agents = resolver.agent_catalog();
+    let telegram_agents = resolver
+        .agents
+        .definitions()
+        .map(|agent| agent.name.clone())
+        .collect::<Vec<_>>();
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
@@ -178,8 +183,9 @@ async fn main() -> Result<()> {
             gateway,
             allowed,
             args.telegram_agent.clone(),
+            telegram_agents,
             manager.clone(),
-            conversation_store,
+            Arc::clone(&conversation_store),
             updates,
         ));
         println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
@@ -197,7 +203,9 @@ async fn main() -> Result<()> {
         App::new()
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
+            .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .service(console_ui)
+            .service(agent_server::conversations_api())
             .service(agent_server::agents_api())
             .service(agent_server::runs_api())
     })
