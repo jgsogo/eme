@@ -266,6 +266,8 @@ dependencies = [
  "tavily-tool",
  "telegram-tool",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
