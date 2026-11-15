@@ -41,7 +41,7 @@ pub(crate) struct SearchResponse {
     #[serde(default)]
     pub results: Vec<SearchResult>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub response_time: Option<String>,
+    pub response_time: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -150,7 +150,7 @@ mod tests {
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "query": "Rust agent frameworks",
-                "response_time": "1.23",
+                "response_time": 1.23,
                 "results": [{
                     "title": "An article",
                     "url": "https://example.com/article",
@@ -169,6 +169,7 @@ mod tests {
         assert_eq!(response.results.len(), 1);
         assert_eq!(response.results[0].title, "An article");
         assert_eq!(response.results[0].score, Some(0.92));
+        assert_eq!(response.response_time, Some(1.23));
     }
 
     #[tokio::test]
