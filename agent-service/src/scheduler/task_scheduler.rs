@@ -1,10 +1,10 @@
-use std::{collections::HashMap, time::Duration};
+use super::ScheduledTask;
+use crate::{RunManager, TaskRegistry};
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
+use std::{collections::HashMap, time::Duration};
 use tokio::{sync::watch, task::JoinHandle, time};
-use crate::{RunManager, TaskRegistry};
-use super::ScheduledTask;
 
 /// Drives configured tasks and submits due work to the existing run manager.
 pub struct TaskScheduler {
