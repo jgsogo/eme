@@ -4,7 +4,7 @@ mod gateway;
 mod incoming_message;
 #[path = "client/pending_reply.rs"]
 mod pending_reply;
-pub(super) use pending_reply::PendingReply;
+use pending_reply::PendingReply;
 #[path = "client/telegram_error.rs"]
 mod telegram_error;
 
