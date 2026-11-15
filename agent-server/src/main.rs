@@ -5,13 +5,18 @@ use std::{net::IpAddr, path::PathBuf, sync::Arc};
 mod telegram;
 
 use actix_web::{
-    App, Error, HttpResponse, HttpServer, Responder, body::{EitherBody, MessageBody},
-    dev::{ServiceRequest, ServiceResponse}, get, middleware::{self, Next}, web,
+    App, Error, HttpResponse, HttpServer, Responder,
+    body::{EitherBody, MessageBody},
+    dev::{ServiceRequest, ServiceResponse},
+    get,
+    middleware::{self, Next},
+    web,
 };
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
+use agent_server::auth::TelegramAuth;
 use agent_service::{
     AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager, TaskRegistry,
     TaskScheduler,
