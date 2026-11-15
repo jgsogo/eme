@@ -59,11 +59,7 @@ impl TaskRegistry {
                 ));
             }
             if !names.insert(definition.name.clone()) {
-                return Err(ConfigError::duplicate(
-                    "task",
-                    definition.name,
-                    Some(path),
-                ));
+                return Err(ConfigError::duplicate("task", definition.name, Some(path)));
             }
             if definition.agent.trim().is_empty() {
                 return Err(ConfigError::invalid(
@@ -76,7 +72,10 @@ impl TaskRegistry {
                 return Err(ConfigError::invalid(
                     "task",
                     Some(path),
-                    format!("task '{}' references unknown agent '{}'", definition.name, definition.agent),
+                    format!(
+                        "task '{}' references unknown agent '{}'",
+                        definition.name, definition.agent
+                    ),
                 ));
             }
             if definition.prompt.trim().is_empty() {
@@ -201,10 +200,8 @@ mod tests {
 
     impl TestDirectory {
         fn new() -> Self {
-            let path = std::env::temp_dir().join(format!(
-                "agent-task-registry-test-{}",
-                uuid::Uuid::new_v4()
-            ));
+            let path = std::env::temp_dir()
+                .join(format!("agent-task-registry-test-{}", uuid::Uuid::new_v4()));
             fs::create_dir_all(&path).unwrap();
             Self(path)
         }
@@ -284,11 +281,13 @@ prompt = "Do the thing"
 schedule = "0 0 8 * * *"
 "#,
         );
-        assert!(TaskRegistry::load(directory.path(), agent_names())
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("unknown agent"));
+        assert!(
+            TaskRegistry::load(directory.path(), agent_names())
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("unknown agent")
+        );
 
         fs::remove_file(directory.path().join("unknown.toml")).unwrap();
         directory.write(
@@ -300,11 +299,13 @@ prompt = "Do the thing"
 schedule = "not a cron expression"
 "#,
         );
-        assert!(TaskRegistry::load(directory.path(), agent_names())
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("invalid cron expression"));
+        assert!(
+            TaskRegistry::load(directory.path(), agent_names())
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("invalid cron expression")
+        );
     }
 
     #[test]
@@ -320,11 +321,13 @@ schedule = "0 0 8 * * *"
 at = "2026-11-20T09:00:00+01:00"
 "#,
         );
-        assert!(TaskRegistry::load(directory.path(), agent_names())
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("exactly one"));
+        assert!(
+            TaskRegistry::load(directory.path(), agent_names())
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("exactly one")
+        );
 
         fs::remove_file(directory.path().join("invalid.toml")).unwrap();
         directory.write(
@@ -336,11 +339,13 @@ prompt = " "
 schedule = "0 0 8 * * *"
 "#,
         );
-        assert!(TaskRegistry::load(directory.path(), agent_names())
-            .err()
-            .unwrap()
-            .to_string()
-            .contains("prompt cannot be empty"));
+        assert!(
+            TaskRegistry::load(directory.path(), agent_names())
+                .err()
+                .unwrap()
+                .to_string()
+                .contains("prompt cannot be empty")
+        );
     }
 
     #[test]
