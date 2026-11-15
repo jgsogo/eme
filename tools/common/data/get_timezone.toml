@@ -1,0 +1,8 @@
+name="get_timezone"
+description="Get the current date and time and UTC offset for an IANA timezone. Defaults to UTC."
+[parameters]
+type="object"
+additionalProperties=false
+[parameters.properties.timezone]
+type="string"
+description="IANA timezone, for example Europe/Madrid."
