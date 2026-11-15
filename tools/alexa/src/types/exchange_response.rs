@@ -1,4 +1,5 @@
-use super::super::*;
+use super::ExchangeInner;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ExchangeResponse {
