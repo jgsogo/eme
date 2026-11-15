@@ -3,7 +3,6 @@ use options::*;
 
 use agent_runtime::{Tool, ToolError};
 use async_trait::async_trait;
-use serde::Deserialize;
 use serde_json::Value;
 
 use crate::client::{SearchRequest, TavilyClient};
