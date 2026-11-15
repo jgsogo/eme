@@ -5,7 +5,7 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use agent_service::{RunId, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
-use crate::auth::TelegramAuth;
+use agent_server::auth::TelegramAuth;
 use anyhow::{Context, Result};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::{Mutex, broadcast};
