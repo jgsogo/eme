@@ -7,6 +7,8 @@
 mod manager;
 mod run;
 mod runtime_executor;
+mod scheduler;
+mod task;
 
 pub use manager::{
     CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor, RunManager,
@@ -14,3 +16,5 @@ pub use manager::{
 };
 pub use run::{InvalidRunTransition, Run, RunEvent, RunEventKind, RunId, RunStatus};
 pub use runtime_executor::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent};
+pub use scheduler::TaskScheduler;
+pub use task::TaskRegistry;
