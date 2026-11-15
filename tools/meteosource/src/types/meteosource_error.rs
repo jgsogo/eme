@@ -1,4 +1,5 @@
-use super::super::*;
+use reqwest::StatusCode;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub(crate) pub(super) enum MeteosourceError {
