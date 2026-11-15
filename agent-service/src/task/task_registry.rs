@@ -3,7 +3,8 @@ use agent_config::{ConfigError, read_toml_dir};
 use chrono::Utc;
 use chrono_tz::Tz;
 use cron::Schedule;
-use super::{ScheduledTask, TaskDefinition};
+use crate::scheduler::ScheduledTask;
+use super::TaskDefinition;
 
 /// Loads and validates task definitions from a TOML directory.
 pub struct TaskRegistry {
