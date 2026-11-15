@@ -1,65 +1,13 @@
+#[path = "types/mod.rs"]
+mod types;
+pub(crate) use types::{SearchRequest, SearchResponse, TavilyClient, TavilyError};
+
 use std::time::Duration;
 
-use reqwest::{Client, StatusCode};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use reqwest::Client;
 
 const DEFAULT_BASE_URL: &str = "https://api.tavily.com";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
-
-#[derive(Debug, Error)]
-pub(crate) enum TavilyError {
-    #[error("HTTP request failed: {0}")]
-    Http(#[from] reqwest::Error),
-
-    #[error("Tavily returned HTTP {status}: {detail}")]
-    Api { status: StatusCode, detail: String },
-
-    #[error("Invalid response from Tavily: {0}")]
-    Json(#[from] serde_json::Error),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub(crate) struct SearchRequest {
-    pub query: String,
-    pub search_depth: String,
-    pub topic: String,
-    pub max_results: u8,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_range: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub include_domains: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub exclude_domains: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub(crate) struct SearchResponse {
-    pub query: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub answer: Option<String>,
-    #[serde(default)]
-    pub results: Vec<SearchResult>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub response_time: Option<f64>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub(crate) struct SearchResult {
-    pub title: String,
-    pub url: String,
-    pub content: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub score: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub published_date: Option<String>,
-}
-
-pub(crate) struct TavilyClient {
-    client: Client,
-    api_key: String,
-    base_url: String,
-}
 
 impl TavilyClient {
     pub(crate) fn new(api_key: String) -> Result<Self, TavilyError> {

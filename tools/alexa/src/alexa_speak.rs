@@ -12,81 +12,21 @@
 //! The upstream project remains the reference for the underlying Alexa Remote
 //! API interactions and behavior.
 
+#[path = "types/mod.rs"]
+mod types;
+use types::*;
+
 use reqwest::{
     Client,
     header::{CONTENT_TYPE, COOKIE, HeaderMap, HeaderValue, ORIGIN, REFERER, USER_AGENT},
 };
-use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
-use thiserror::Error;
 
 const AMAZON: &str = "amazon.es";
 const ALEXA: &str = "alexa.amazon.es";
 const TTS_LOCALE: &str = "es-ES";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:1.0) bash-script/1.0";
-
-#[derive(Error, Debug)]
-pub enum AlexaError {
-    #[error("AMAZON_ALEXA_REFRESH_TOKEN env var not set")]
-    MissingToken,
-    #[error("HTTP error: {0}")]
-    Http(#[from] reqwest::Error),
-    #[error("Auth failed: {0}")]
-    Auth(String),
-    #[error("Device '{0}' not found")]
-    DeviceNotFound(String),
-    #[error("API error: {0}")]
-    Api(String),
-    #[error("JSON parse error: {0}")]
-    Json(#[from] serde_json::Error),
-}
-
-#[derive(Debug, Deserialize)]
-struct CookieEntry {
-    #[serde(rename = "Name")]
-    name: String,
-    #[serde(rename = "Value")]
-    value: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct ExchangeResponse {
-    response: ExchangeInner,
-}
-
-#[derive(Debug, Deserialize)]
-struct ExchangeInner {
-    tokens: Tokens,
-}
-
-#[derive(Debug, Deserialize)]
-struct Tokens {
-    cookies: HashMap<String, Vec<CookieEntry>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct DevicesResponse {
-    devices: Vec<Device>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Device {
-    #[serde(rename = "accountName")]
-    account_name: String,
-    #[serde(rename = "deviceType")]
-    device_type: String,
-    #[serde(rename = "serialNumber")]
-    serial_number: String,
-    #[serde(rename = "deviceFamily")]
-    #[allow(dead_code)]
-    device_family: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct UserMe {
-    id: String,
-}
 
 /// Envía un TTS (Alexa.Speak) a un dispositivo Echo.
 ///

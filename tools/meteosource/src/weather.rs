@@ -1,42 +1,13 @@
-use reqwest::{Client, StatusCode};
-use serde::Deserialize;
+#[path = "types/mod.rs"]
+mod types;
+pub(crate) use types::MeteosourceClient;
+use types::{MeteosourceError, Place};
+
+use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use thiserror::Error;
 
 const DEFAULT_BASE_URL: &str = "https://www.meteosource.com/api/v1/free";
-
-#[derive(Debug, Error)]
-pub(crate) enum MeteosourceError {
-    #[error("HTTP request failed: {0}")]
-    Http(#[from] reqwest::Error),
-
-    #[error("Meteosource returned HTTP {status}: {detail}")]
-    Api { status: StatusCode, detail: String },
-
-    #[error("No location matching '{0}' was found")]
-    PlaceNotFound(String),
-
-    #[error("Invalid response from Meteosource: {0}")]
-    Json(#[from] serde_json::Error),
-}
-
-#[derive(Debug, Deserialize)]
-struct Place {
-    name: String,
-    place_id: String,
-    #[serde(default)]
-    country: Option<String>,
-    #[serde(default)]
-    timezone: Option<String>,
-}
-
-/// Small client for the Meteosource place-search and point-weather endpoints.
-pub(crate) struct MeteosourceClient {
-    client: Client,
-    api_key: String,
-    base_url: String,
-}
 
 impl MeteosourceClient {
     pub(crate) fn new(api_key: String) -> Self {
