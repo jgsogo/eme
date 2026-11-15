@@ -55,7 +55,7 @@ pub struct StoredRunEvent {
 }
 
 /// A message in a conversation, optionally associated with the run that added it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredMessage {
     pub conversation_id: Uuid,
     pub run_id: Option<Uuid>,
