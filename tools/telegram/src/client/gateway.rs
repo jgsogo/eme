@@ -18,7 +18,7 @@ use frankenstein::{
     },
     updates::UpdateContent,
 };
-use tokio::sync::{Mutex, broadcast};
+use tokio::sync::{Mutex, broadcast, oneshot};
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
 const POLL_TIMEOUT_SECS: u32 = 20;
