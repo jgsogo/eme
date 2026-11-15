@@ -18,7 +18,6 @@ use frankenstein::{
     },
     updates::UpdateContent,
 };
-use thiserror::Error;
 use tokio::sync::{Mutex, broadcast};
 
 const DEFAULT_TIMEOUT_SECS: u64 = 120;
