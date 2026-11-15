@@ -1,5 +1,5 @@
-use agent_runtime::{Message, RunEvent as RuntimeEvent};
 use super::ExecutionOutcome;
+use agent_runtime::{Message, RunEvent as RuntimeEvent};
 
 /// Runtime outcome and the events emitted while executing it.
 #[derive(Debug, Clone)]
