@@ -1,5 +1,3 @@
-mod gemini_client;
-pub(super) use gemini_client::GeminiClient;
 mod generate_content_request;
 pub(super) use generate_content_request::GenerateContentRequest;
 mod gemini_tool;
