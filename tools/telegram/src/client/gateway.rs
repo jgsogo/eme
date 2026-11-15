@@ -84,14 +84,13 @@ impl TelegramGateway {
         // Serialize registration with update dispatch. This prevents an
         // already-fetched update from being mistaken for the answer.
         let dispatch = self.dispatch_lock.lock().await;
+        let params = SendMessageParams::builder()
+            .chat_id(chat_id)
+            .text(question)
+            .build();
         let sent = self
             .bot
-            .send_message(
-                &SendMessageParams::builder()
-                    .chat_id(chat_id)
-                    .text(question)
-                    .build(),
-            )
+            .send_message(&params)
             .await
             .map_err(|error| TelegramError::Api(error.to_string()))?;
 
@@ -196,47 +195,7 @@ impl TelegramGateway {
                                     text: message.text.clone(),
                                 };
                                 let mut pending = self.pending.lock().await;
-                                pending.retain(|_, reply| match reply {
-                                    PendingReply::Text { sender } => !sender.is_closed(),
-                                    PendingReply::YesNo { sender } => !sender.is_closed(),
-                                });
-
-                                let key = event
-                                    .reply_to_message_id
-                                    .map(|question_id| (event.chat_id, question_id));
-                                let answer = event
-                                    .text
-                                    .as_deref()
-                                    .map(str::trim)
-                                    .filter(|text| !text.is_empty())
-                                    .map(str::to_owned);
-
-                                let consumed = if !event.is_bot {
-                                    match (key, answer) {
-                                        (Some(key), Some(answer)) => {
-                                            match pending.remove(&key) {
-                                                Some(PendingReply::Text { sender }) => {
-                                                    let _ = sender.send(answer);
-                                                    true
-                                                }
-                                                Some(reply @ PendingReply::YesNo { .. }) => {
-                                                    // A text reply is not a yes/no button
-                                                    // response. Keep the interaction pending.
-                                                    pending.insert(key, reply);
-                                                    false
-                                                }
-                                                None => false,
-                                            }
-                                        }
-                                        _ => false,
-                                    }
-                                } else {
-                                    false
-                                };
-
-                                if !consumed {
-                                    let _ = self.events.send(event);
-                                }
+                                dispatch_message(event, &mut pending, &self.events);
                             }
                             UpdateContent::CallbackQuery(query) => {
                                 let message_key =
@@ -252,25 +211,7 @@ impl TelegramGateway {
                                     _ => None,
                                 };
                                 let mut pending = self.pending.lock().await;
-                                pending.retain(|_, reply| match reply {
-                                    PendingReply::Text { sender } => !sender.is_closed(),
-                                    PendingReply::YesNo { sender } => !sender.is_closed(),
-                                });
-
-                                let consumed = match (message_key, answer) {
-                                    (Some(key), Some(value)) => match pending.remove(&key) {
-                                        Some(PendingReply::YesNo { sender }) => {
-                                            let _ = sender.send(value);
-                                            true
-                                        }
-                                        Some(reply @ PendingReply::Text { .. }) => {
-                                            pending.insert(key, reply);
-                                            false
-                                        }
-                                        None => false,
-                                    },
-                                    _ => false,
-                                };
+                                let consumed = dispatch_callback(message_key, answer, &mut pending);
 
                                 if consumed {
                                     let ack = AnswerCallbackQueryParams::builder()
@@ -292,6 +233,85 @@ impl TelegramGateway {
     }
 }
 
+/// Route a normal Telegram message either to its matching interactive tool
+/// call or to inbound subscribers. A reply is consumed only when it matches
+/// the chat and message ID of a pending text question.
+fn dispatch_message(
+    event: IncomingMessage,
+    pending: &mut HashMap<(i64, i32), PendingReply>,
+    events: &broadcast::Sender<IncomingMessage>,
+) {
+    pending.retain(|_, reply| match reply {
+        PendingReply::Text { sender } => !sender.is_closed(),
+        PendingReply::YesNo { sender } => !sender.is_closed(),
+    });
+
+    let key = event
+        .reply_to_message_id
+        .map(|question_id| (event.chat_id, question_id));
+    let answer = event
+        .text
+        .as_deref()
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_owned);
+
+    let consumed = if !event.is_bot {
+        match (key, answer) {
+            (Some(key), Some(answer)) => match pending.remove(&key) {
+                Some(PendingReply::Text { sender }) => {
+                    // Even if the waiting task was cancelled concurrently,
+                    // this is still a reply, never a fresh inbound prompt.
+                    let _ = sender.send(answer);
+                    true
+                }
+                Some(reply @ PendingReply::YesNo { .. }) => {
+                    // A text reply is not a yes/no button response. Keep the
+                    // interaction pending. The inbound adapter will ignore this
+                    // reply rather than treating it as a fresh prompt.
+                    pending.insert(key, reply);
+                    false
+                }
+                None => false,
+            },
+            _ => false,
+        }
+    } else {
+        false
+    };
+
+    if !consumed {
+        let _ = events.send(event);
+    }
+}
+
+/// Route an inline-button response to the matching yes/no interaction.
+fn dispatch_callback(
+    message_key: Option<(i64, i32)>,
+    answer: Option<bool>,
+    pending: &mut HashMap<(i64, i32), PendingReply>,
+) -> bool {
+    pending.retain(|_, reply| match reply {
+        PendingReply::Text { sender } => !sender.is_closed(),
+        PendingReply::YesNo { sender } => !sender.is_closed(),
+    });
+
+    match (message_key, answer) {
+        (Some(key), Some(value)) => match pending.remove(&key) {
+            Some(PendingReply::YesNo { sender }) => {
+                let _ = sender.send(value);
+                true
+            }
+            Some(reply @ PendingReply::Text { .. }) => {
+                pending.insert(key, reply);
+                false
+            }
+            None => false,
+        },
+        _ => false,
+    }
+}
+
 pub fn configured_chat_id() -> Result<i64, TelegramError> {
     std::env::var("TELEGRAM_CHAT_ID")
         .ok()
@@ -305,4 +325,237 @@ pub fn default_timeout() -> Duration {
         .and_then(|value| value.parse::<u64>().ok())
         .map(Duration::from_secs)
         .unwrap_or_else(|| Duration::from_secs(DEFAULT_TIMEOUT_SECS))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn incoming(reply_to_message_id: Option<i32>) -> IncomingMessage {
+        IncomingMessage {
+            chat_id: 42,
+            user_id: Some(7),
+            is_bot: false,
+            message_id: 200,
+            reply_to_message_id,
+            text: Some("  the answer  ".to_owned()),
+        }
+    }
+
+    #[tokio::test]
+    async fn matching_reply_delivers_exact_text_and_is_not_broadcast() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+
+        dispatch_message(incoming(Some(100)), &mut pending, &events);
+
+        assert_eq!(receiver.await.unwrap(), "the answer");
+        assert!(matches!(
+            subscriber.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn reply_to_an_unrelated_message_does_not_satisfy_pending_question() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+
+        dispatch_message(incoming(Some(999)), &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert_eq!(
+            subscriber.try_recv().unwrap().reply_to_message_id,
+            Some(999)
+        );
+    }
+
+    #[test]
+    fn ordinary_message_is_broadcast_without_consuming_pending_question() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+
+        dispatch_message(incoming(None), &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, None);
+    }
+
+    #[test]
+    fn reply_from_another_chat_does_not_satisfy_pending_question() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+        let mut event = incoming(Some(100));
+        event.chat_id = 43;
+
+        dispatch_message(event, &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert_eq!(subscriber.try_recv().unwrap().chat_id, 43);
+    }
+
+    #[tokio::test]
+    async fn concurrent_questions_in_one_chat_are_matched_out_of_order() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (first_sender, first_receiver) = oneshot::channel();
+        let (second_sender, second_receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert(
+            (42, 100),
+            PendingReply::Text {
+                sender: first_sender,
+            },
+        );
+        pending.insert(
+            (42, 101),
+            PendingReply::Text {
+                sender: second_sender,
+            },
+        );
+
+        dispatch_message(incoming(Some(101)), &mut pending, &events);
+        dispatch_message(incoming(Some(100)), &mut pending, &events);
+
+        assert_eq!(second_receiver.await.unwrap(), "the answer");
+        assert_eq!(first_receiver.await.unwrap(), "the answer");
+        assert!(pending.is_empty());
+        assert!(matches!(
+            subscriber.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
+    fn late_reply_after_waiter_has_timed_out_is_not_delivered_or_dropped() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+        drop(receiver);
+
+        dispatch_message(incoming(Some(100)), &mut pending, &events);
+
+        assert!(pending.is_empty());
+        assert_eq!(
+            subscriber.try_recv().unwrap().reply_to_message_id,
+            Some(100)
+        );
+    }
+
+    #[test]
+    fn text_reply_does_not_resolve_yes_no_question() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+
+        dispatch_message(incoming(Some(100)), &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert_eq!(
+            subscriber.try_recv().unwrap().reply_to_message_id,
+            Some(100)
+        );
+    }
+
+    #[test]
+    fn empty_or_non_text_reply_does_not_resolve_text_question() {
+        for text in [Some(String::new()), None] {
+            let (events, _) = broadcast::channel(4);
+            let mut subscriber = events.subscribe();
+            let (sender, mut receiver) = oneshot::channel();
+            let mut pending = HashMap::new();
+            pending.insert((42, 100), PendingReply::Text { sender });
+            let mut event = incoming(Some(100));
+            event.text = text;
+
+            dispatch_message(event, &mut pending, &events);
+
+            assert!(receiver.try_recv().is_err());
+            assert!(pending.contains_key(&(42, 100)));
+            assert_eq!(
+                subscriber.try_recv().unwrap().reply_to_message_id,
+                Some(100)
+            );
+        }
+    }
+
+    #[test]
+    fn bot_reply_does_not_resolve_text_question() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+        let mut event = incoming(Some(100));
+        event.is_bot = true;
+
+        dispatch_message(event, &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert!(subscriber.try_recv().unwrap().is_bot);
+    }
+
+    #[tokio::test]
+    async fn callback_for_matching_yes_no_message_delivers_answer() {
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+
+        assert!(dispatch_callback(Some((42, 100)), Some(true), &mut pending));
+        assert!(receiver.await.unwrap());
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn callback_for_wrong_message_does_not_consume_pending_question() {
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+
+        assert!(!dispatch_callback(
+            Some((42, 999)),
+            Some(false),
+            &mut pending
+        ));
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+    }
+
+    #[test]
+    fn callback_does_not_consume_text_question_or_unknown_button_data() {
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+
+        assert!(!dispatch_callback(
+            Some((42, 100)),
+            Some(true),
+            &mut pending
+        ));
+        assert!(!dispatch_callback(Some((42, 100)), None, &mut pending));
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+    }
 }
