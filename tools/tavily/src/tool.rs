@@ -1,3 +1,6 @@
+mod options;
+use options::*;
+
 use agent_runtime::{Tool, ToolError};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -8,39 +11,12 @@ use crate::client::{SearchRequest, TavilyClient};
 /// Searches the web using Tavily.
 pub struct WebSearch;
 
-#[derive(Debug, Deserialize)]
-struct Arguments {
-    query: String,
-    #[serde(default = "default_max_results")]
-    max_results: u8,
-    #[serde(default = "default_search_depth")]
-    search_depth: SearchDepth,
-    #[serde(default)]
-    topic: SearchTopic,
-    #[serde(default)]
-    time_range: Option<TimeRange>,
-    #[serde(default)]
-    include_domains: Option<Vec<String>>,
-    #[serde(default)]
-    exclude_domains: Option<Vec<String>>,
-}
-
 fn default_max_results() -> u8 {
     5
 }
 
 fn default_search_depth() -> SearchDepth {
     SearchDepth::Basic
-}
-
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-enum SearchDepth {
-    #[default]
-    Basic,
-    Advanced,
-    Fast,
-    UltraFast,
 }
 
 impl SearchDepth {
@@ -54,15 +30,6 @@ impl SearchDepth {
     }
 }
 
-#[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum SearchTopic {
-    #[default]
-    General,
-    News,
-    Finance,
-}
-
 impl SearchTopic {
     fn as_str(&self) -> &'static str {
         match self {
@@ -71,15 +38,6 @@ impl SearchTopic {
             Self::Finance => "finance",
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "lowercase")]
-enum TimeRange {
-    Day,
-    Week,
-    Month,
-    Year,
 }
 
 impl TimeRange {
