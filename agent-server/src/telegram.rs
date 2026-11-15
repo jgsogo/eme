@@ -3,9 +3,9 @@
 
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use agent_server::auth::TelegramAuth;
 use agent_service::{RunId, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
-use agent_server::auth::TelegramAuth;
 use anyhow::{Context, Result};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::{Mutex, broadcast};
@@ -316,7 +316,12 @@ async fn handle_message(
 
     if command == "/start" && arguments.starts_with("auth_") {
         if message.chat_id != user_id {
-            let _ = gateway.send_message(message.chat_id, "Please complete web login in a private chat with this bot.").await;
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "Please complete web login in a private chat with this bot.",
+                )
+                .await;
             return;
         }
         let token = arguments.trim_start_matches("auth_");
@@ -332,7 +337,13 @@ async fn handle_message(
     let legacy_owner = format!("telegram:{}:{}", message.chat_id, user_id);
     let owner = format!("telegram:{user_id}");
     if let Err(error) = store.migrate_owner(&legacy_owner, &owner) {
-        send_error(gateway, message.chat_id, "migrate conversation ownership", error).await;
+        send_error(
+            gateway,
+            message.chat_id,
+            "migrate conversation ownership",
+            error,
+        )
+        .await;
         return;
     }
     if handle_command(
