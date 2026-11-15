@@ -4,12 +4,11 @@ description = "List events from an explicitly selected Google Calendar for a cal
 [parameters]
 type = "object"
 additionalProperties = false
-required = ["calendar_id"]
 
 [parameters.properties.calendar_id]
 type = "string"
 minLength = 1
-description = "Required Google Calendar ID. Use the Calendar ID shown in that calendar's settings; use 'primary' only when explicitly selecting the account's primary calendar."
+description = "Optional Google Calendar ID. Defaults to GOOGLE_CALENDAR_ID when omitted. Use the Calendar ID shown in that calendar's settings; set 'primary' explicitly only when selecting the account's primary calendar."
 
 [parameters.properties.date]
 type = "string"
