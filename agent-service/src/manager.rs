@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use agent_runtime::{
-    CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
+    CancellationToken, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
 };
 use async_trait::async_trait;
 use thiserror::Error;
@@ -34,7 +34,27 @@ pub trait RunExecutor: Send + Sync + 'static {
             .map(|outcome| ExecutionReport {
                 outcome,
                 runtime_events: Vec::new(),
+                messages: None,
             })
+    }
+
+    async fn execute_with_history(
+        &self,
+        run_id: RunId,
+        agent: String,
+        input: String,
+        history: Vec<Message>,
+        cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        let mut report = self
+            .execute_with_events(run_id, agent, input, cancellation)
+            .await?;
+        if history.is_empty() {
+            return Ok(report);
+        }
+        // Executors that do not support history retain their previous behavior.
+        report.messages = None;
+        Ok(report)
     }
 }
 
@@ -53,6 +73,8 @@ pub enum ExecutionOutcome {
 pub struct ExecutionReport {
     pub outcome: ExecutionOutcome,
     pub runtime_events: Vec<RuntimeEvent>,
+    /// Complete model-visible history after execution, when supported.
+    pub messages: Option<Vec<Message>>,
 }
 
 /// Configuration errors for a run manager.
@@ -95,6 +117,7 @@ struct ManagedRun {
     run: Run,
     cancellation: CancellationToken,
     events: Vec<RunEvent>,
+    history: Vec<Message>,
 }
 
 impl ManagedRun {
@@ -199,7 +222,7 @@ impl RunManager {
                         break;
                     };
 
-                    let (run, cancellation) = {
+                    let (run, cancellation, history) = {
                         let mut runs = runs.lock().await;
                         let Some(entry) = runs.get_mut(&run_id) else {
                             continue;
@@ -211,14 +234,19 @@ impl RunManager {
                         }
                         entry.record(RunEventKind::Started);
 
-                        (entry.run.clone(), entry.cancellation.clone())
+                        (
+                            entry.run.clone(),
+                            entry.cancellation.clone(),
+                            entry.history.clone(),
+                        )
                     };
 
                     let result = executor
-                        .execute_with_events(
+                        .execute_with_history(
                             run.id,
                             run.agent.clone(),
                             run.input.clone(),
+                            history,
                             cancellation,
                         )
                         .await;
@@ -234,6 +262,9 @@ impl RunManager {
                         if let Ok(report) = &result {
                             for runtime_event in &report.runtime_events {
                                 entry.record_runtime(runtime_event);
+                            }
+                            if let Some(messages) = &report.messages {
+                                entry.history = messages.clone();
                             }
                         }
                         let event = match result {
@@ -312,6 +343,45 @@ impl RunManager {
                         error_category: None,
                         occurred_at: std::time::SystemTime::now(),
                     }],
+                    history: Vec::new(),
+                },
+            );
+        }
+
+        if self.sender.try_send(run_id).is_err() {
+            self.runs.lock().await.remove(&run_id);
+            return Err(SubmitRunError::QueueFull);
+        }
+
+        Ok(run_id)
+    }
+
+    /// Accepts a run that continues an existing conversation history.
+    pub async fn submit_with_history(
+        &self,
+        agent: impl Into<String>,
+        input: impl Into<String>,
+        history: Vec<Message>,
+    ) -> Result<RunId, SubmitRunError> {
+        let run = Run::new(agent, input);
+        let run_id = run.id;
+
+        {
+            let mut runs = self.runs.lock().await;
+            runs.insert(
+                run_id,
+                ManagedRun {
+                    run,
+                    cancellation: CancellationToken::new(),
+                    events: vec![RunEvent {
+                        sequence: 0,
+                        kind: RunEventKind::Queued,
+                        iteration: None,
+                        tool_name: None,
+                        error_category: None,
+                        occurred_at: std::time::SystemTime::now(),
+                    }],
+                    history,
                 },
             );
         }
