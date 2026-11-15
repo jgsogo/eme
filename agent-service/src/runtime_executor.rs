@@ -64,6 +64,7 @@ impl RunExecutor for AgentRuntimeExecutor {
                 return Ok(ExecutionReport {
                     outcome: ExecutionOutcome::Failed(failure.to_string()),
                     runtime_events: failure.events,
+                    messages: None,
                 });
             }
         };
