@@ -161,7 +161,10 @@ async fn handle_message(
             Ok(conversation) => conversation,
             Err(error) => {
                 let _ = gateway
-                    .send_message(message.chat_id, &format!("Could not create conversation: {error}"))
+                    .send_message(
+                        message.chat_id,
+                        &format!("Could not create conversation: {error}"),
+                    )
                     .await;
                 return;
             }
