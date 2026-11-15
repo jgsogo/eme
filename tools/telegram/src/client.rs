@@ -4,7 +4,7 @@
 //! adapters subscribe to its dispatcher instead of calling getUpdates
 //! independently.
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use frankenstein::{
     AsyncTelegramApi,
@@ -43,18 +43,16 @@ pub struct IncomingMessage {
     pub user_id: Option<i64>,
     pub is_bot: bool,
     pub message_id: i32,
+    /// Message ID being replied to, if this is a Telegram reply.
+    pub reply_to_message_id: Option<i32>,
     pub text: Option<String>,
 }
 
 enum PendingReply {
     Text {
-        chat_id: i64,
-        after_message_id: i32,
         sender: oneshot::Sender<String>,
     },
     YesNo {
-        chat_id: i64,
-        question_message_id: i32,
         sender: oneshot::Sender<bool>,
     },
 }
@@ -62,12 +60,11 @@ enum PendingReply {
 /// Owns the Bot API client and the sole getUpdates polling loop.
 ///
 /// Create one gateway per bot token and share its Arc with tools and inbound
-/// adapters. The gateway routes replies to an active interactive tool first;
-/// all other messages are broadcast to normal message handlers.
+/// adapters. Interactive replies are correlated by the Telegram message ID
+/// they reply to; all other messages are broadcast to normal message handlers.
 pub struct TelegramGateway {
     bot: Bot,
-    pending: Mutex<Option<PendingReply>>,
-    interactive_lock: Mutex<()>,
+    pending: Mutex<HashMap<(i64, i32), PendingReply>>,
     dispatch_lock: Mutex<()>,
     events: broadcast::Sender<IncomingMessage>,
 }
@@ -77,8 +74,7 @@ impl TelegramGateway {
         let (events, _) = broadcast::channel(EVENT_CAPACITY);
         Arc::new(Self {
             bot: Bot::new(token),
-            pending: Mutex::new(None),
-            interactive_lock: Mutex::new(()),
+            pending: Mutex::new(HashMap::new()),
             dispatch_lock: Mutex::new(()),
             events,
         })
@@ -116,12 +112,11 @@ impl TelegramGateway {
         question: &str,
         timeout: Duration,
     ) -> Result<String, TelegramError> {
-        let _guard = self.interactive_lock.lock().await;
         let (sender, receiver) = oneshot::channel();
 
-        // Serialize registration with update dispatch. This also prevents an
+        // Serialize registration with update dispatch. This prevents an
         // already-fetched update from being mistaken for the answer.
-        let _dispatch = self.dispatch_lock.lock().await;
+        let dispatch = self.dispatch_lock.lock().await;
         let sent = self
             .bot
             .send_message(
@@ -133,18 +128,18 @@ impl TelegramGateway {
             .await
             .map_err(|error| TelegramError::Api(error.to_string()))?;
 
-        *self.pending.lock().await = Some(PendingReply::Text {
-            chat_id,
-            after_message_id: sent.result.message_id,
-            sender,
-        });
-        drop(_dispatch);
+        let key = (chat_id, sent.result.message_id);
+        self.pending
+            .lock()
+            .await
+            .insert(key, PendingReply::Text { sender });
+        drop(dispatch);
 
         match tokio::time::timeout(timeout, receiver).await {
             Ok(Ok(answer)) => Ok(answer),
             Ok(Err(_)) => Err(TelegramError::DispatcherClosed),
             Err(_) => {
-                self.pending.lock().await.take();
+                self.pending.lock().await.remove(&key);
                 Err(TelegramError::Timeout(timeout))
             }
         }
@@ -156,9 +151,8 @@ impl TelegramGateway {
         question: &str,
         timeout: Duration,
     ) -> Result<bool, TelegramError> {
-        let _guard = self.interactive_lock.lock().await;
         let (sender, receiver) = oneshot::channel();
-        let _dispatch = self.dispatch_lock.lock().await;
+        let dispatch = self.dispatch_lock.lock().await;
 
         let keyboard = InlineKeyboardMarkup {
             inline_keyboard: vec![vec![
@@ -184,18 +178,19 @@ impl TelegramGateway {
             .send_message(&params)
             .await
             .map_err(|error| TelegramError::Api(error.to_string()))?;
-        *self.pending.lock().await = Some(PendingReply::YesNo {
-            chat_id,
-            question_message_id: sent.result.message_id,
-            sender,
-        });
-        drop(_dispatch);
+
+        let key = (chat_id, sent.result.message_id);
+        self.pending
+            .lock()
+            .await
+            .insert(key, PendingReply::YesNo { sender });
+        drop(dispatch);
 
         match tokio::time::timeout(timeout, receiver).await {
             Ok(Ok(answer)) => Ok(answer),
             Ok(Err(_)) => Err(TelegramError::DispatcherClosed),
             Err(_) => {
-                self.pending.lock().await.take();
+                self.pending.lock().await.remove(&key);
                 Err(TelegramError::Timeout(timeout))
             }
         }
@@ -221,53 +216,66 @@ impl TelegramGateway {
                             UpdateContent::Message(message) => {
                                 let event = IncomingMessage {
                                     chat_id: message.chat.id,
-                                    user_id: message.from.as_ref().map(|user| i64::try_from(user.id).expect("user.id (u64) from frankenstein library doesn't fit into i64!")),
+                                    user_id: message
+                                        .from
+                                        .as_ref()
+                                        .and_then(|user| i64::try_from(user.id).ok()),
                                     is_bot: message.from.as_ref().is_some_and(|user| user.is_bot),
                                     message_id: message.message_id,
+                                    reply_to_message_id: message
+                                        .reply_to_message
+                                        .as_ref()
+                                        .map(|reply| reply.message_id),
                                     text: message.text.clone(),
                                 };
                                 let mut pending = self.pending.lock().await;
+                                pending.retain(|_, reply| match reply {
+                                    PendingReply::Text { sender } => !sender.is_closed(),
+                                    PendingReply::YesNo { sender } => !sender.is_closed(),
+                                });
 
-                                if pending.as_ref().is_some_and(|pending| match pending {
-                                    PendingReply::Text { sender, .. } => sender.is_closed(),
-                                    PendingReply::YesNo { sender, .. } => sender.is_closed(),
-                                }) {
-                                    pending.take();
-                                }
+                                let key = event
+                                    .reply_to_message_id
+                                    .map(|question_id| (event.chat_id, question_id));
+                                let answer = event
+                                    .text
+                                    .as_deref()
+                                    .map(str::trim)
+                                    .filter(|text| !text.is_empty())
+                                    .map(str::to_owned);
 
-                                let consumed = match pending.as_ref() {
-                                    Some(PendingReply::Text {
-                                        chat_id,
-                                        after_message_id,
-                                        ..
-                                    }) if *chat_id == event.chat_id
-                                        && event.message_id > *after_message_id
-                                        && !event.is_bot =>
-                                    {
-                                        event
-                                            .text
-                                            .as_deref()
-                                            .map(str::trim)
-                                            .filter(|text| !text.is_empty())
-                                            .map(str::to_owned)
-                                    }
-                                    _ => None,
-                                };
-
-                                if let Some(answer) = consumed {
-                                    if let Some(PendingReply::Text { sender, .. }) = pending.take()
-                                    {
-                                        let _ = sender.send(answer);
+                                let consumed = if !event.is_bot {
+                                    match (key, answer) {
+                                        (Some(key), Some(answer)) => {
+                                            match pending.remove(&key) {
+                                                Some(PendingReply::Text { sender }) => {
+                                                    let _ = sender.send(answer);
+                                                    true
+                                                }
+                                                Some(reply @ PendingReply::YesNo { .. }) => {
+                                                    // A text reply is not a yes/no button
+                                                    // response. Keep the interaction pending.
+                                                    pending.insert(key, reply);
+                                                    false
+                                                }
+                                                None => false,
+                                            }
+                                        }
+                                        _ => false,
                                     }
                                 } else {
+                                    false
+                                };
+
+                                if !consumed {
                                     let _ = self.events.send(event);
                                 }
                             }
                             UpdateContent::CallbackQuery(query) => {
-                                let chat_id =
+                                let message_key =
                                     query.message.as_ref().and_then(|message| match message {
                                         MaybeInaccessibleMessage::Message(message) => {
-                                            Some(message.chat.id)
+                                            Some((message.chat.id, message.message_id))
                                         }
                                         _ => None,
                                     });
@@ -277,43 +285,27 @@ impl TelegramGateway {
                                     _ => None,
                                 };
                                 let mut pending = self.pending.lock().await;
+                                pending.retain(|_, reply| match reply {
+                                    PendingReply::Text { sender } => !sender.is_closed(),
+                                    PendingReply::YesNo { sender } => !sender.is_closed(),
+                                });
 
-                                if pending.as_ref().is_some_and(|pending| match pending {
-                                    PendingReply::Text { sender, .. } => sender.is_closed(),
-                                    PendingReply::YesNo { sender, .. } => sender.is_closed(),
-                                }) {
-                                    pending.take();
-                                }
-
-                                let consumed = match (pending.as_ref(), chat_id, answer) {
-                                    (
-                                        Some(PendingReply::YesNo {
-                                            chat_id: expected,
-                                            question_message_id,
-                                            ..
-                                        }),
-                                        Some(actual),
-                                        Some(value),
-                                    ) if *expected == actual
-                                        && query.message.as_ref().is_some_and(|message| {
-                                            match message {
-                                                MaybeInaccessibleMessage::Message(message) => {
-                                                    message.message_id == *question_message_id
-                                                }
-                                                _ => false,
-                                            }
-                                        }) =>
-                                    {
-                                        Some(value)
-                                    }
-                                    _ => None,
+                                let consumed = match (message_key, answer) {
+                                    (Some(key), Some(value)) => match pending.remove(&key) {
+                                        Some(PendingReply::YesNo { sender }) => {
+                                            let _ = sender.send(value);
+                                            true
+                                        }
+                                        Some(reply @ PendingReply::Text { .. }) => {
+                                            pending.insert(key, reply);
+                                            false
+                                        }
+                                        None => false,
+                                    },
+                                    _ => false,
                                 };
 
-                                if let Some(value) = consumed {
-                                    if let Some(PendingReply::YesNo { sender, .. }) = pending.take()
-                                    {
-                                        let _ = sender.send(value);
-                                    }
+                                if consumed {
                                     let ack = AnswerCallbackQueryParams::builder()
                                         .callback_query_id(query.id)
                                         .build();
