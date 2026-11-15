@@ -58,6 +58,32 @@ async function createConversation(){const agent=$("agent").value;if(!agent)retur
 async function sendMessage(){const input=$("prompt").value.trim();if(!input||!state.selected||state.runId)return;const id=state.selected;$("prompt").value="";setComposerEnabled(false);setStatus("Queued…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input})});state.runId=result.run_id;$("cancel-run").hidden=false;setStatus("Running · "+result.run_id.slice(0,8));await pollRun(id,result.run_id)}catch(e){setStatus(e.message,"error");setComposerEnabled(true);$("prompt").value=input}}
 async function pollRun(conversationId,runId){clearInterval(state.pollTimer);renderRunEvents([]);const poll=async()=>{try{const [run,events]=await Promise.all([api("/runs/"+encodeURIComponent(runId)),api("/runs/"+encodeURIComponent(runId)+"/events")]);renderRunEvents(events);if(!TERMINAL.has(run.status)){setStatus("Running · "+run.status);return}clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;await selectConversation(conversationId);await loadConversations();if(run.status==="completed")setStatus("Completed","ok");else setStatus(run.error||run.status,"error");setComposerEnabled(state.selected===conversationId)}catch(e){clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;setStatus("Unable to retrieve run: "+e.message,"error");setComposerEnabled(true)}};await poll();if(state.runId)state.pollTimer=setInterval(poll,1000)}
 $("cancel-run").addEventListener("click",async()=>{if(!state.runId)return;try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(e){setStatus(e.message,"error")}});$("agent").addEventListener("change",updateAgentDescription);$("new-conversation").addEventListener("click",createConversation);$("refresh").addEventListener("click",()=>loadConversations().catch(e=>setStatus(e.message,"error")));$("conversations").addEventListener("click",e=>{const item=e.target.closest("li[data-id]");if(item&&!state.runId)selectConversation(item.dataset.id)});$("composer").addEventListener("submit",e=>{e.preventDefault();sendMessage()});$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
-(async()=>{try{state.agents=await api("/agents");renderAgents();await loadConversations();$("connection").textContent="Connected";if(state.conversations.length)await selectConversation(state.conversations[0].id)}catch(e){$("connection").textContent="Connection failed";setStatus(e.message,"error")}})();
+async function showConsole(){
+ $("login-screen").hidden=true;document.querySelector("main").hidden=false;$("logout").hidden=false;
+ state.agents=await api("/agents");renderAgents();await loadConversations();$("connection").textContent="Connected";
+ if(state.conversations.length)await selectConversation(state.conversations[0].id)
+}
+async function showLogin(){
+ document.querySelector("main").hidden=true;$("login-screen").hidden=false;$("logout").hidden=true;$("connection").textContent="Sign in"
+}
+$("login-start").addEventListener("click",async()=>{
+ const status=$("login-status"),link=$("login-link");$("login-start").disabled=true;status.textContent="Creating a one-time login link…";link.hidden=true;
+ try{
+  const login=await api("/auth/telegram/start",{method:"POST"});
+  if(!login.bot_url)throw new Error("Set TELEGRAM_BOT_USERNAME on agent-server to enable Telegram login links.");
+  link.href=login.bot_url;link.hidden=false;status.textContent="Open the link and press Start in your private chat with the bot. Waiting for confirmation…";
+  const deadline=Date.now()+login.expires_in_seconds*1000;
+  while(Date.now()<deadline){
+   const result=await api("/auth/telegram/status/"+encodeURIComponent(login.token));
+   if(result.authenticated){await showConsole();return}
+   await new Promise(resolve=>setTimeout(resolve,1000))
+  }
+  status.textContent="This login link expired. Please try again."
+ }catch(e){status.textContent=e.message}finally{$("login-start").disabled=false}
+});
+$("logout").addEventListener("click",async()=>{
+ try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];renderConversations();await showLogin()}
+});
+(async()=>{try{await api("/auth/session");await showConsole()}catch(e){await showLogin()}})();
 </script>
 </body></html>
