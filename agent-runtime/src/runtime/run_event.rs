@@ -1,5 +1,5 @@
-use uuid::Uuid;
 use super::RunEventKind;
+use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct RunEvent {
@@ -7,4 +7,3 @@ pub struct RunEvent {
     pub iteration: usize,
     pub kind: RunEventKind,
 }
-
