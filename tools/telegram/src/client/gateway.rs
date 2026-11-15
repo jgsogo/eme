@@ -285,8 +285,8 @@ fn dispatch_message(
                 }
                 Some(reply @ PendingReply::YesNo { .. }) => {
                     // A text reply is not a yes/no button response. Keep the
-                    // interaction pending and let the inbound adapter decide
-                    // how to handle this unmatched reply.
+                    // interaction pending. The inbound adapter will ignore this
+                    // reply rather than treating it as a fresh prompt.
                     pending.insert(key, reply);
                     false
                 }
