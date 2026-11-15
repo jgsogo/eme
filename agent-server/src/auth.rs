@@ -54,7 +54,9 @@ impl TelegramAuth {
     }
 
     fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-        mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        mutex
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     fn create_login(&self) -> (String, Option<String>) {
@@ -134,9 +136,7 @@ impl TelegramAuth {
 
     fn clear_cookie(&self) -> String {
         let secure = if self.cookie_secure { "; Secure" } else { "" };
-        format!(
-            "{SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure}"
-        )
+        format!("{SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure}")
     }
 
     fn poll_login(&self, token: &str) -> Option<String> {
@@ -194,7 +194,10 @@ async fn start_login(auth: Data<TelegramAuth>) -> impl Responder {
 }
 
 #[post("/telegram/status")]
-async fn login_status(auth: Data<TelegramAuth>, request: web::Json<LoginStatusRequest>) -> impl Responder {
+async fn login_status(
+    auth: Data<TelegramAuth>,
+    request: web::Json<LoginStatusRequest>,
+) -> impl Responder {
     match auth.poll_login(&request.token) {
         Some(session) => HttpResponse::Ok()
             .insert_header((
