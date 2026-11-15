@@ -3,10 +3,8 @@ use types::*;
 
 use chrono::{DateTime, LocalResult, NaiveDate, TimeZone};
 use chrono_tz::Tz;
-use reqwest::{Client, StatusCode};
-use serde::Deserialize;
+use reqwest::Client;
 use serde_json::{Value, json};
-use thiserror::Error;
 use url::Url;
 
 use agent_runtime::{Tool, ToolError};
