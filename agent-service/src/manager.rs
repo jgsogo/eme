@@ -46,15 +46,12 @@ pub trait RunExecutor: Send + Sync + 'static {
         history: Vec<Message>,
         cancellation: CancellationToken,
     ) -> Result<ExecutionReport, String> {
-        let mut report = self
-            .execute_with_events(run_id, agent, input, cancellation)
-            .await?;
-        if history.is_empty() {
-            return Ok(report);
+        if !history.is_empty() {
+            return Err("this run executor does not support conversation history".into());
         }
-        // Executors that do not support history retain their previous behavior.
-        report.messages = None;
-        Ok(report)
+
+        self.execute_with_events(run_id, agent, input, cancellation)
+            .await
     }
 }
 
