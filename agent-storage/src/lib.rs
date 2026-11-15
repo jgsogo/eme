@@ -7,7 +7,7 @@
 
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
     str::FromStr,
@@ -116,7 +116,10 @@ impl ConversationStore {
             return Err(ConversationStoreError::EmptyAgent);
         }
 
-        let _guard = self.lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let now = Utc::now();
         let conversation = Conversation {
             id: ConversationId::new(),
@@ -243,7 +246,11 @@ fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), io::Error> {
     let parent = path.parent().expect("storage file always has a parent");
     fs::create_dir_all(parent)?;
 
-    let temporary = parent.join(format!(".{}.{}.tmp", path.file_name().unwrap().to_string_lossy(), Uuid::new_v4()));
+    let temporary = parent.join(format!(
+        ".{}.{}.tmp",
+        path.file_name().unwrap().to_string_lossy(),
+        Uuid::new_v4()
+    ));
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -333,7 +340,10 @@ mod tests {
             .unwrap();
         let loaded = store.get(conversation.id).unwrap();
 
-        assert_eq!(serde_json::to_value(loaded.messages).unwrap(), serde_json::to_value(messages).unwrap());
+        assert_eq!(
+            serde_json::to_value(loaded.messages).unwrap(),
+            serde_json::to_value(messages).unwrap()
+        );
         fs::remove_dir_all(directory).unwrap();
     }
 
@@ -368,7 +378,10 @@ mod tests {
 
         let second = store.create("telegram:123:456", "assistant").unwrap();
 
-        assert_eq!(store.active("telegram:123:456").unwrap().unwrap().id, second.id);
+        assert_eq!(
+            store.active("telegram:123:456").unwrap().unwrap().id,
+            second.id
+        );
         assert_eq!(store.get(first.id).unwrap().messages.len(), 1);
 
         fs::remove_dir_all(directory).unwrap();
