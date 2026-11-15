@@ -8,7 +8,7 @@ additionalProperties = false
 [parameters.properties.calendar_id]
 type = "string"
 minLength = 1
-description = "Optional Google Calendar ID. Defaults to GOOGLE_CALENDAR_ID when omitted. Use the Calendar ID shown in that calendar's settings; set 'primary' explicitly only when selecting the account's primary calendar."
+description = "Optional Google Calendar ID. Defaults to GOOGLE_CALENDAR_ID when omitted. The selected ID must also be listed in GOOGLE_CALENDAR_ALLOWED_IDS; the special 'primary' alias is not permitted."
 
 [parameters.properties.date]
 type = "string"
