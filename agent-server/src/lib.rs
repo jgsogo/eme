@@ -238,65 +238,134 @@ async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Res
 const WEB_CONVERSATION_OWNER: &str = "web:default";
 
 #[derive(Debug, Deserialize)]
-pub struct CreateConversationRequest { pub agent: String }
+pub struct CreateConversationRequest {
+    pub agent: String,
+}
+
 #[derive(Debug, Deserialize)]
-pub struct ContinueConversationRequest { pub input: String }
+pub struct ContinueConversationRequest {
+    pub input: String,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ConversationSummary {
-    pub id: String, pub agent: String, pub created_at: String, pub updated_at: String, pub message_count: usize,
+    pub id: String,
+    pub agent: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub message_count: usize,
 }
+
 impl From<Conversation> for ConversationSummary {
-    fn from(c: Conversation) -> Self {
-        Self { id: c.id.to_string(), agent: c.agent, created_at: c.created_at.to_rfc3339(), updated_at: c.updated_at.to_rfc3339(), message_count: c.messages.len() }
+    fn from(conversation: Conversation) -> Self {
+        Self {
+            id: conversation.id.to_string(),
+            agent: conversation.agent,
+            created_at: conversation.created_at.to_rfc3339(),
+            updated_at: conversation.updated_at.to_rfc3339(),
+            message_count: conversation.messages.len(),
+        }
     }
 }
+
 fn conversation_error(error: ConversationStoreError) -> HttpResponse {
     match error {
-        ConversationStoreError::NotFound(_) | ConversationStoreError::OwnerMismatch { .. } => HttpResponse::NotFound().finish(),
+        ConversationStoreError::NotFound(_) | ConversationStoreError::OwnerMismatch { .. } => {
+            HttpResponse::NotFound().finish()
+        }
         other => HttpResponse::InternalServerError().body(other.to_string()),
     }
 }
+
 #[get("")]
 async fn list_conversations(store: Data<Arc<ConversationStore>>) -> impl Responder {
     match store.list(WEB_CONVERSATION_OWNER) {
-        Ok(items) => HttpResponse::Ok().json(items.into_iter().map(ConversationSummary::from).collect::<Vec<_>>()),
+        Ok(conversations) => HttpResponse::Ok().json(
+            conversations
+                .into_iter()
+                .map(ConversationSummary::from)
+                .collect::<Vec<_>>(),
+        ),
         Err(error) => conversation_error(error),
     }
 }
+
 #[post("")]
-async fn create_conversation(store: Data<Arc<ConversationStore>>, catalog: Data<AgentCatalog>, request: Json<CreateConversationRequest>) -> impl Responder {
+async fn create_conversation(
+    store: Data<Arc<ConversationStore>>,
+    catalog: Data<AgentCatalog>,
+    request: Json<CreateConversationRequest>,
+) -> impl Responder {
     let agent = request.agent.trim();
-    if agent.is_empty() { return HttpResponse::BadRequest().body("agent must not be empty"); }
-    if !catalog.list().iter().any(|item| item.name == agent) { return HttpResponse::BadRequest().body("unknown agent"); }
+    if agent.is_empty() {
+        return HttpResponse::BadRequest().body("agent must not be empty");
+    }
+    if !catalog.list().iter().any(|item| item.name == agent) {
+        return HttpResponse::BadRequest().body("unknown agent");
+    }
+
     match store.create(WEB_CONVERSATION_OWNER, agent) {
-        Ok(c) => HttpResponse::Created().json(ConversationSummary::from(c)),
+        Ok(conversation) => {
+            HttpResponse::Created().json(ConversationSummary::from(conversation))
+        }
         Err(error) => conversation_error(error),
     }
 }
+
 #[get("/{conversation_id}")]
-async fn get_conversation(store: Data<Arc<ConversationStore>>, conversation_id: Path<String>) -> impl Responder {
+async fn get_conversation(
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+) -> impl Responder {
     let id = match ConversationId::from_str(conversation_id.as_str()) {
-        Ok(id) => id, Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().body("invalid conversation identifier");
+        }
     };
+
     match store.get(id) {
-        Ok(c) if c.owner == WEB_CONVERSATION_OWNER => HttpResponse::Ok().json(c),
+        Ok(conversation) if conversation.owner == WEB_CONVERSATION_OWNER => {
+            HttpResponse::Ok().json(conversation)
+        }
         Ok(_) => HttpResponse::NotFound().finish(),
         Err(error) => conversation_error(error),
     }
 }
+
 #[post("/{conversation_id}/runs")]
-async fn continue_conversation(store: Data<Arc<ConversationStore>>, manager: Data<RunManager>, conversation_id: Path<String>, request: Json<ContinueConversationRequest>) -> impl Responder {
+async fn continue_conversation(
+    store: Data<Arc<ConversationStore>>,
+    manager: Data<RunManager>,
+    conversation_id: Path<String>,
+    request: Json<ContinueConversationRequest>,
+) -> impl Responder {
     let input = request.input.trim();
-    if input.is_empty() { return HttpResponse::BadRequest().body("input must not be empty"); }
+    if input.is_empty() {
+        return HttpResponse::BadRequest().body("input must not be empty");
+    }
+
     let id = match ConversationId::from_str(conversation_id.as_str()) {
-        Ok(id) => id, Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().body("invalid conversation identifier");
+        }
     };
-    let c = match store.get(id) {
-        Ok(c) if c.owner == WEB_CONVERSATION_OWNER => c,
+
+    let conversation = match store.get(id) {
+        Ok(conversation) if conversation.owner == WEB_CONVERSATION_OWNER => conversation,
         Ok(_) => return HttpResponse::NotFound().finish(),
         Err(error) => return conversation_error(error),
     };
-    match manager.submit_with_history(c.agent.clone(), input.to_owned(), c.messages).await {
+
+    match manager
+        .submit_with_history(
+            conversation.agent.clone(),
+            input.to_owned(),
+            conversation.messages,
+        )
+        .await
+    {
         Ok(run_id) => {
             let manager = manager.get_ref().clone();
             let store = store.get_ref().clone();
@@ -306,7 +375,9 @@ async fn continue_conversation(store: Data<Arc<ConversationStore>>, manager: Dat
                         Some(run) if run.status.is_terminal() => {
                             if let Some(messages) = manager.history(run_id).await {
                                 if let Err(error) = store.save_messages(id, messages) {
-                                    eprintln!("failed to persist conversation {id}: {error}");
+                                    eprintln!(
+                                        "failed to persist conversation {id}: {error}"
+                                    );
                                 }
                             }
                             break;
@@ -316,13 +387,24 @@ async fn continue_conversation(store: Data<Arc<ConversationStore>>, manager: Dat
                     }
                 }
             });
-            HttpResponse::Accepted().json(SubmitRunResponse { run_id: run_id.to_string(), status: "queued" })
+
+            HttpResponse::Accepted().json(SubmitRunResponse {
+                run_id: run_id.to_string(),
+                status: "queued",
+            })
         }
-        Err(SubmitRunError::QueueFull) => HttpResponse::ServiceUnavailable().body("run queue is full"),
+        Err(SubmitRunError::QueueFull) => {
+            HttpResponse::ServiceUnavailable().body("run queue is full")
+        }
     }
 }
+
 pub fn conversations_api() -> Scope {
-    web::scope("/conversations").service(list_conversations).service(create_conversation).service(get_conversation).service(continue_conversation)
+    web::scope("/conversations")
+        .service(list_conversations)
+        .service(create_conversation)
+        .service(get_conversation)
+        .service(continue_conversation)
 }
 
 #[get("")]
