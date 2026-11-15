@@ -1,11 +1,11 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct Place {
-    pub(super) name: String,
-    pub(super) place_id: String,
+pub(crate) struct Place {
+    pub(crate) name: String,
+    pub(crate) place_id: String,
     #[serde(default)]
-    pub(super) country: Option<String>,
+    pub(crate) country: Option<String>,
     #[serde(default)]
-    pub(super) timezone: Option<String>,
+    pub(crate) timezone: Option<String>,
 }
