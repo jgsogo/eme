@@ -1,0 +1,12 @@
+name="convert_timezone"
+description="Convert an RFC 3339 or local datetime between IANA timezones."
+[parameters]
+type="object"
+required=["datetime","from_timezone","to_timezone"]
+additionalProperties=false
+[parameters.properties.datetime]
+type="string"
+[parameters.properties.from_timezone]
+type="string"
+[parameters.properties.to_timezone]
+type="string"
