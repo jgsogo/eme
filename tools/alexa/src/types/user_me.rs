@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct UserMe {
-    pub(super) id: String,
+pub(crate) struct UserMe {
+    pub(crate) id: String,
 }
