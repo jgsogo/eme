@@ -139,13 +139,17 @@ where
     let auth = request.app_data::<web::Data<TelegramAuth>>();
     let owner = auth.and_then(|auth| auth.owner_for_request(request.request()));
     let Some(owner) = owner else {
-        return Ok(request.into_response(HttpResponse::Unauthorized().finish()).map_into_right_body());
+        return Ok(request
+            .into_response(HttpResponse::Unauthorized().finish())
+            .map_into_right_body());
     };
 
     if let Some(run_id) = path.strip_prefix("/runs/").and_then(|path| path.split('/').next()) {
         let owns_run = auth.is_some_and(|auth| auth.owns_run(run_id, &owner));
         if !owns_run {
-            return Ok(request.into_response(HttpResponse::NotFound().finish()).map_into_right_body());
+            return Ok(request
+                .into_response(HttpResponse::NotFound().finish())
+                .map_into_right_body());
         }
     }
 
