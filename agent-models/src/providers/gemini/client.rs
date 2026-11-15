@@ -7,6 +7,7 @@ use crate::error::ModelError;
 use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
 use reqwest::Client;
+use serde_json::Value;
 
 pub struct GeminiClient {
     http: Client,
