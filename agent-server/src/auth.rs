@@ -128,7 +128,12 @@ impl TelegramAuth {
     fn poll_login(&self, token: &str) -> Option<String> {
         let mut pending = Self::lock(&self.pending);
         pending.retain(|_, login| login.expires_at > Instant::now());
-        pending.get(token).and_then(|login| login.session.clone())
+        let login = pending.get_mut(token)?;
+        let session = login.session.take();
+        if session.is_some() {
+            pending.remove(token);
+        }
+        session
     }
 
     fn logout(&self, request: &HttpRequest) {
