@@ -136,7 +136,9 @@ async fn list_runs(
     auth: Option<Data<crate::auth::TelegramAuth>>,
     manager: Data<RunManager>,
 ) -> impl Responder {
-    let owner = auth.as_ref().and_then(|auth| auth.owner_for_request(&request));
+    let owner = auth
+        .as_ref()
+        .and_then(|auth| auth.owner_for_request(&request));
     let allowed = auth.as_ref().map(|auth| {
         owner
             .as_ref()
