@@ -6,6 +6,7 @@ use agent_runtime::{
 use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
+use tracing::info;
 
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
 
@@ -238,6 +239,8 @@ impl RunManager {
                         )
                     };
 
+                    info!(run_id = %run.id, agent = %run.agent, "agent run started");
+
                     let result = executor
                         .execute_with_history(
                             run.id,
@@ -306,6 +309,7 @@ impl RunManager {
                             }
                         };
                         entry.record(event);
+                        info!(run_id = %run_id, agent = %entry.run.agent, status = ?entry.run.status, "agent run finished");
                     }
                 }
             });
@@ -350,6 +354,7 @@ impl RunManager {
             return Err(SubmitRunError::QueueFull);
         }
 
+        info!(run_id = %run_id, "agent run queued");
         Ok(run_id)
     }
 
@@ -388,6 +393,7 @@ impl RunManager {
             return Err(SubmitRunError::QueueFull);
         }
 
+        info!(run_id = %run_id, "agent conversation run queued");
         Ok(run_id)
     }
 
