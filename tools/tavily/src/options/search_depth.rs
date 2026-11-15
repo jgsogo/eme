@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum SearchDepth {
+pub(crate) enum SearchDepth {
     #[default]
     Basic,
     Advanced,
