@@ -1,4 +1,7 @@
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 /// Shared cancellation signal for an agent run.
 ///
@@ -27,4 +30,3 @@ impl CancellationToken {
         self.cancelled.load(Ordering::Relaxed)
     }
 }
-
