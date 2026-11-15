@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, Deserialize)]
-struct Calendar {
+pub(super) struct Calendar {
     #[serde(rename = "timeZone")]
     pub(super) time_zone: String,
 }
