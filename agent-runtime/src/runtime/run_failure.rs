@@ -1,6 +1,6 @@
-use uuid::Uuid;
+use super::RunEvent;
 use crate::{ErrorCategory, Message, RuntimeError};
-use super::{RunEvent};
+use uuid::Uuid;
 
 #[derive(Debug, thiserror::Error)]
 #[error("Agent run {run_id} failed: {error}")]
@@ -18,4 +18,3 @@ impl RunFailure {
         self.error.category()
     }
 }
-
