@@ -1,6 +1,3 @@
-mod types;
-use types::*;
-
 //! Alexa text-to-speech (TTS) implementation.
 //!
 //! This module is a Rust port of the TTS-related logic from
@@ -14,6 +11,9 @@ use types::*;
 //!
 //! The upstream project remains the reference for the underlying Alexa Remote
 //! API interactions and behavior.
+
+mod types;
+use types::*;
 
 use reqwest::{
     Client,
