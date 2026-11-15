@@ -213,11 +213,7 @@ mod tests {
             Err(StorageError::AlreadyExists(_))
         ));
         assert_eq!(
-            store
-                .list_runs(Some(conversation_id))
-                .await
-                .unwrap()
-                .len(),
+            store.list_runs(Some(conversation_id)).await.unwrap().len(),
             1
         );
         assert!(store.get_run(run_id).await.unwrap().is_some());
@@ -271,7 +267,10 @@ mod tests {
         let store = InMemoryStorage::default();
         let conversation_id = Uuid::new_v4();
         let run_id = Uuid::new_v4();
-        store.insert_run(run(run_id, Some(conversation_id))).await.unwrap();
+        store
+            .insert_run(run(run_id, Some(conversation_id)))
+            .await
+            .unwrap();
 
         let message = StoredMessage {
             conversation_id,
