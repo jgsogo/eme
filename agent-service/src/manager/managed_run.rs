@@ -1,5 +1,7 @@
-use agent_runtime::{CancellationToken, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind};
-use crate::{RunEvent, RunEventKind, Run};
+use crate::{Run, RunEvent, RunEventKind};
+use agent_runtime::{
+    CancellationToken, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
+};
 
 pub(super) struct ManagedRun {
     pub(super) run: Run,
