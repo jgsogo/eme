@@ -4,6 +4,7 @@ use self::dto::*;
 use async_trait::async_trait;
 
 use crate::client::ConversationClient;
+use reqwest::Client;
 use crate::error::ModelError;
 use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
