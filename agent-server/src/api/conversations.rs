@@ -1,0 +1,273 @@
+use std::{str::FromStr, sync::Arc, time::Duration};
+
+use actix_web::{
+    HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
+    web::{self, Data, Json, Path},
+};
+use agent_service::{RunManager, SubmitRunError};
+use agent_storage::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
+use serde::{Deserialize, Serialize};
+use tokio::time::sleep;
+
+use super::types::{AgentCatalog, SubmitRunResponse};
+
+fn authenticated_owner(
+    request: &HttpRequest,
+    auth: &crate::auth::TelegramAuth,
+) -> Result<String, HttpResponse> {
+    auth.owner_for_request(request)
+        .ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateConversationRequest {
+    pub agent: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateConversationRequest {
+    pub title: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContinueConversationRequest {
+    pub input: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConversationSummary {
+    pub id: String,
+    pub agent: String,
+    pub title: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub message_count: usize,
+}
+
+impl From<Conversation> for ConversationSummary {
+    fn from(conversation: Conversation) -> Self {
+        Self {
+            id: conversation.id.to_string(),
+            agent: conversation.agent,
+            title: conversation.title,
+            created_at: conversation.created_at.to_rfc3339(),
+            updated_at: conversation.updated_at.to_rfc3339(),
+            message_count: conversation.messages.len(),
+        }
+    }
+}
+
+fn conversation_error(error: ConversationStoreError) -> HttpResponse {
+    match error {
+        ConversationStoreError::NotFound(_) | ConversationStoreError::OwnerMismatch { .. } => {
+            HttpResponse::NotFound().finish()
+        }
+        other => HttpResponse::InternalServerError().body(other.to_string()),
+    }
+}
+
+#[get("")]
+async fn list_conversations(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    match store.list(&owner) {
+        Ok(conversations) => HttpResponse::Ok().json(
+            conversations
+                .into_iter()
+                .map(ConversationSummary::from)
+                .collect::<Vec<_>>(),
+        ),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[post("")]
+async fn create_conversation(
+    request_http: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    catalog: Data<AgentCatalog>,
+    request: Json<CreateConversationRequest>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request_http, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let agent = request.agent.trim();
+    if agent.is_empty() {
+        return HttpResponse::BadRequest().body("agent must not be empty");
+    }
+    if !catalog.list().iter().any(|item| item.name == agent) {
+        return HttpResponse::BadRequest().body("unknown agent");
+    }
+
+    match store.create(&owner, agent) {
+        Ok(conversation) => HttpResponse::Created().json(ConversationSummary::from(conversation)),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[get("/{conversation_id}")]
+async fn get_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().body("invalid conversation identifier");
+        }
+    };
+
+    match store.get(id) {
+        Ok(conversation) if conversation.owner == owner => HttpResponse::Ok().json(conversation),
+        Ok(_) => HttpResponse::NotFound().finish(),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[put("/{conversation_id}")]
+async fn rename_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+    request_body: Json<UpdateConversationRequest>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let title = request_body.title.trim();
+    if title.is_empty() {
+        return HttpResponse::BadRequest().body("title must not be empty");
+    }
+    if title.chars().count() > 120 {
+        return HttpResponse::BadRequest().body("title must be at most 120 characters");
+    }
+
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+
+    match store.rename(&owner, id, title) {
+        Ok(conversation) => HttpResponse::Ok().json(ConversationSummary::from(conversation)),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[delete("/{conversation_id}")]
+async fn delete_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+
+    match store.delete(&owner, id) {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[post("/{conversation_id}/runs")]
+async fn continue_conversation(
+    request_http: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    manager: Data<RunManager>,
+    conversation_id: Path<String>,
+    request: Json<ContinueConversationRequest>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request_http, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let input = request.input.trim();
+    if input.is_empty() {
+        return HttpResponse::BadRequest().body("input must not be empty");
+    }
+
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().body("invalid conversation identifier");
+        }
+    };
+
+    let conversation = match store.get(id) {
+        Ok(conversation) if conversation.owner == owner => conversation,
+        Ok(_) => return HttpResponse::NotFound().finish(),
+        Err(error) => return conversation_error(error),
+    };
+
+    match manager
+        .submit_with_history(
+            conversation.agent.clone(),
+            input.to_owned(),
+            conversation.messages,
+        )
+        .await
+    {
+        Ok(run_id) => {
+            auth.register_run(run_id.to_string(), &owner);
+            let manager = manager.get_ref().clone();
+            let store = store.get_ref().clone();
+            tokio::spawn(async move {
+                loop {
+                    match manager.get(run_id).await {
+                        Some(run) if run.status.is_terminal() => {
+                            if let Some(messages) = manager.history(run_id).await {
+                                if let Err(error) = store.save_messages(id, messages) {
+                                    eprintln!("failed to persist conversation {id}: {error}");
+                                }
+                            }
+                            break;
+                        }
+                        Some(_) => sleep(Duration::from_millis(250)).await,
+                        None => break,
+                    }
+                }
+            });
+
+            HttpResponse::Accepted().json(SubmitRunResponse {
+                run_id: run_id.to_string(),
+                status: "queued",
+            })
+        }
+        Err(SubmitRunError::QueueFull) => {
+            HttpResponse::ServiceUnavailable().body("run queue is full")
+        }
+    }
+}
+
+pub fn conversations_api() -> Scope {
+    web::scope("/conversations")
+        .service(list_conversations)
+        .service(create_conversation)
+        .service(get_conversation)
+        .service(rename_conversation)
+        .service(delete_conversation)
+        .service(continue_conversation)
+}
