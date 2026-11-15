@@ -211,25 +211,8 @@ impl TelegramGateway {
                                     _ => None,
                                 };
                                 let mut pending = self.pending.lock().await;
-                                pending.retain(|_, reply| match reply {
-                                    PendingReply::Text { sender } => !sender.is_closed(),
-                                    PendingReply::YesNo { sender } => !sender.is_closed(),
-                                });
-
-                                let consumed = match (message_key, answer) {
-                                    (Some(key), Some(value)) => match pending.remove(&key) {
-                                        Some(PendingReply::YesNo { sender }) => {
-                                            let _ = sender.send(value);
-                                            true
-                                        }
-                                        Some(reply @ PendingReply::Text { .. }) => {
-                                            pending.insert(key, reply);
-                                            false
-                                        }
-                                        None => false,
-                                    },
-                                    _ => false,
-                                };
+                                let consumed =
+                                    dispatch_callback(message_key, answer, &mut pending);
 
                                 if consumed {
                                     let ack = AnswerCallbackQueryParams::builder()
@@ -300,6 +283,33 @@ fn dispatch_message(
 
     if !consumed {
         let _ = events.send(event);
+    }
+}
+
+/// Route an inline-button response to the matching yes/no interaction.
+fn dispatch_callback(
+    message_key: Option<(i64, i32)>,
+    answer: Option<bool>,
+    pending: &mut HashMap<(i64, i32), PendingReply>,
+) -> bool {
+    pending.retain(|_, reply| match reply {
+        PendingReply::Text { sender } => !sender.is_closed(),
+        PendingReply::YesNo { sender } => !sender.is_closed(),
+    });
+
+    match (message_key, answer) {
+        (Some(key), Some(value)) => match pending.remove(&key) {
+            Some(PendingReply::YesNo { sender }) => {
+                let _ = sender.send(value);
+                true
+            }
+            Some(reply @ PendingReply::Text { .. }) => {
+                pending.insert(key, reply);
+                false
+            }
+            None => false,
+        },
+        _ => false,
     }
 }
 
@@ -399,5 +409,127 @@ mod tests {
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
         assert_eq!(subscriber.try_recv().unwrap().chat_id, 43);
+
+    #[tokio::test]
+    async fn concurrent_questions_in_one_chat_are_matched_out_of_order() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (first_sender, first_receiver) = oneshot::channel();
+        let (second_sender, second_receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender: first_sender });
+        pending.insert((42, 101), PendingReply::Text { sender: second_sender });
+
+        dispatch_message(incoming(Some(101)), &mut pending, &events);
+        dispatch_message(incoming(Some(100)), &mut pending, &events);
+
+        assert_eq!(second_receiver.await.unwrap(), "the answer");
+        assert_eq!(first_receiver.await.unwrap(), "the answer");
+        assert!(pending.is_empty());
+        assert!(matches!(
+            subscriber.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+    }
+
+    #[test]
+    fn late_reply_after_waiter_has_timed_out_is_not_delivered_or_dropped() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+        drop(receiver);
+
+        dispatch_message(incoming(Some(100)), &mut pending, &events);
+
+        assert!(pending.is_empty());
+        assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, Some(100));
+    }
+
+    #[test]
+    fn text_reply_does_not_resolve_yes_no_question() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+
+        dispatch_message(incoming(Some(100)), &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, Some(100));
+    }
+
+    #[test]
+    fn empty_or_non_text_reply_does_not_resolve_text_question() {
+        for text in [Some(String::new()), None] {
+            let (events, _) = broadcast::channel(4);
+            let mut subscriber = events.subscribe();
+            let (sender, mut receiver) = oneshot::channel();
+            let mut pending = HashMap::new();
+            pending.insert((42, 100), PendingReply::Text { sender });
+            let mut event = incoming(Some(100));
+            event.text = text;
+
+            dispatch_message(event, &mut pending, &events);
+
+            assert!(receiver.try_recv().is_err());
+            assert!(pending.contains_key(&(42, 100)));
+            assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, Some(100));
+        }
+    }
+
+    #[test]
+    fn bot_reply_does_not_resolve_text_question() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+        let mut event = incoming(Some(100));
+        event.is_bot = true;
+
+        dispatch_message(event, &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert!(subscriber.try_recv().unwrap().is_bot);
+    }
+
+    #[tokio::test]
+    async fn callback_for_matching_yes_no_message_delivers_answer() {
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+
+        assert!(dispatch_callback(Some((42, 100)), Some(true), &mut pending));
+        assert_eq!(receiver.await.unwrap(), true);
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn callback_for_wrong_message_does_not_consume_pending_question() {
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+
+        assert!(!dispatch_callback(Some((42, 999)), Some(false), &mut pending));
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+    }
+
+    #[test]
+    fn callback_does_not_consume_text_question_or_unknown_button_data() {
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Text { sender });
+
+        assert!(!dispatch_callback(Some((42, 100)), Some(true), &mut pending));
+        assert!(!dispatch_callback(Some((42, 100)), None, &mut pending));
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+    }
     }
 }
