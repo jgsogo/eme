@@ -623,6 +623,48 @@ mod external_run_id_tests {
     }
 
     #[tokio::test]
+    async fn run_with_history_keeps_previous_messages_and_appends_new_input() {
+        let runtime = AgentRuntime::new(
+            Arc::new(FixedModel),
+            Arc::new(ToolRegistry::new()),
+            Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+        );
+        let agent = Agent {
+            id: "test-agent".into(),
+            system_prompt: None,
+            tool_names: Vec::new(),
+            max_iterations: 2,
+        };
+        let history = vec![crate::Message::User {
+            content: "previous turn".into(),
+        }];
+
+        let result = runtime
+            .run_with_history(
+                Uuid::new_v4(),
+                &agent,
+                history,
+                "current turn",
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            &result.messages[0],
+            crate::Message::User { content } if content == "previous turn"
+        ));
+        assert!(matches!(
+            &result.messages[1],
+            crate::Message::User { content } if content == "current turn"
+        ));
+        assert!(matches!(
+            &result.messages[2],
+            crate::Message::Assistant { content: Some(content), .. } if content == "completed"
+        ));
+    }
+
+    #[tokio::test]
     async fn run_with_id_preserves_the_callers_identifier_in_result_and_events() {
         let runtime = AgentRuntime::new(
             Arc::new(FixedModel),
