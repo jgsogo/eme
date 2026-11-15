@@ -1,9 +1,15 @@
-use std::{collections::BTreeMap, path::{Path, PathBuf}, sync::Arc};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 use agent_config::{ConfigError, read_toml};
 use async_trait::async_trait;
 use serde_json::Value;
-use crate::{ErrorCategory, ToolDefinition};
+use crate::ToolDefinition;
 use super::{RegisteredTool, Tool, ToolDispatcher, ToolError};
+
+/// In-memory registry of executable tools.
+#[derive(Default)]
+pub struct ToolRegistry {
+    tools: BTreeMap<String, RegisteredTool>,
+}
 
 impl ToolRegistry {
     pub fn new() -> Self {
