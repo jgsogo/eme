@@ -3,4 +3,4 @@ mod task_scheduler;
 
 pub use task_scheduler::TaskScheduler;
 
-use scheduled_task::ScheduledTask;
+pub(crate) use scheduled_task::ScheduledTask;
