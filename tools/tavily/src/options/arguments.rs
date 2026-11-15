@@ -1,4 +1,4 @@
-use super::super::{SearchDepth, SearchTopic, TimeRange};
+use super::{SearchDepth, SearchTopic, TimeRange};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
