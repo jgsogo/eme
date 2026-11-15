@@ -3,6 +3,7 @@ use serde::Deserialize;
 use crate::models::ModelConfig;
 use std::path::Path;
 
+#[derive(Debug, Deserialize)]
 pub(super) struct ProviderConfig {
     pub(super) name: String,
     pub(super) client: String,
