@@ -5,7 +5,7 @@ pub mod auth;
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, Scope, get, post,
+    HttpRequest, HttpResponse, Responder, Scope, get, post, put,
     web::{self, Data, Json, Path},
 };
 use agent_service::{
@@ -285,6 +285,11 @@ pub struct CreateConversationRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateConversationRequest {
+    pub title: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ContinueConversationRequest {
     pub input: String,
 }
@@ -293,6 +298,7 @@ pub struct ContinueConversationRequest {
 pub struct ConversationSummary {
     pub id: String,
     pub agent: String,
+    pub title: String,
     pub created_at: String,
     pub updated_at: String,
     pub message_count: usize,
@@ -303,6 +309,7 @@ impl From<Conversation> for ConversationSummary {
         Self {
             id: conversation.id.to_string(),
             agent: conversation.agent,
+            title: conversation.title,
             created_at: conversation.created_at.to_rfc3339(),
             updated_at: conversation.updated_at.to_rfc3339(),
             message_count: conversation.messages.len(),
@@ -391,6 +398,37 @@ async fn get_conversation(
     }
 }
 
+#[put("/{conversation_id}")]
+async fn rename_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+    request_body: Json<UpdateConversationRequest>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let title = request_body.title.trim();
+    if title.is_empty() {
+        return HttpResponse::BadRequest().body("title must not be empty");
+    }
+    if title.chars().count() > 120 {
+        return HttpResponse::BadRequest().body("title must be at most 120 characters");
+    }
+
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+
+    match store.rename(&owner, id, title) {
+        Ok(conversation) => HttpResponse::Ok().json(ConversationSummary::from(conversation)),
+        Err(error) => conversation_error(error),
+    }
+}
+
 #[post("/{conversation_id}/runs")]
 async fn continue_conversation(
     request_http: HttpRequest,
@@ -467,6 +505,7 @@ pub fn conversations_api() -> Scope {
         .service(list_conversations)
         .service(create_conversation)
         .service(get_conversation)
+        .service(rename_conversation)
         .service(continue_conversation)
 }
 
