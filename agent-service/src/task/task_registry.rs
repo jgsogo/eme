@@ -1,10 +1,10 @@
-use std::{collections::HashSet, path::Path};
+use super::task_definition::TaskDefinition;
+use crate::scheduler::ScheduledTask;
 use agent_config::{ConfigError, read_toml_dir};
 use chrono::Utc;
 use chrono_tz::Tz;
 use cron::Schedule;
-use crate::scheduler::ScheduledTask;
-use super::task_definition::TaskDefinition;
+use std::{collections::HashSet, path::Path};
 
 /// Loads and validates task definitions from a TOML directory.
 pub struct TaskRegistry {
