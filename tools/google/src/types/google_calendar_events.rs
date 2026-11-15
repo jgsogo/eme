@@ -16,7 +16,7 @@ impl Tool for GoogleCalendarEvents {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .ok_or_else(|| {
-                pub(super) ToolError::Configuration(
+                ToolError::Configuration(
                     "Set 'calendar_id' in the tool arguments or configure GOOGLE_CALENDAR_ID."
                         .into(),
                 )
