@@ -1,3 +1,4 @@
+#[path = "types/mod.rs"]
 mod types;
 use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError, TokenResponse};
 pub(super) use types::GoogleCalendarEvents;
