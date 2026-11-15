@@ -108,7 +108,9 @@ impl RunExecutor for AgentRuntimeExecutor {
                     RuntimeRunStatus::Completed => ExecutionOutcome::Completed(result.response),
                     RuntimeRunStatus::Cancelled => ExecutionOutcome::Cancelled,
                     RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
-                    RuntimeRunStatus::MaxIterationsReached => ExecutionOutcome::MaxIterationsReached,
+                    RuntimeRunStatus::MaxIterationsReached => {
+                        ExecutionOutcome::MaxIterationsReached
+                    },
                 };
                 Ok(ExecutionReport {
                     outcome,
