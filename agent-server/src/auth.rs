@@ -111,7 +111,11 @@ impl TelegramAuth {
     }
 
     pub fn runs_for_owner(&self, owner: &str) -> Vec<String> {
-        Self::lock(&self.run_owners).iter().filter(|(_, run_owner)| run_owner.as_str() == owner).map(|(run_id, _)| run_id.clone()).collect()
+        Self::lock(&self.run_owners)
+            .iter()
+            .filter(|(_, run_owner)| run_owner.as_str() == owner)
+            .map(|(run_id, _)| run_id.clone())
+            .collect()
     }
 
     pub fn owner_for_request(&self, request: &HttpRequest) -> Option<String> {
