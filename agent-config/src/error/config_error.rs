@@ -1,7 +1,4 @@
-use std::{
-    io,
-    path::PathBuf,
-};
+use std::{io, path::PathBuf};
 
 /// Errors produced while loading or validating configuration.
 #[derive(Debug, thiserror::Error)]
