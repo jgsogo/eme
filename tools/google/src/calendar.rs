@@ -263,10 +263,11 @@ impl Tool for GoogleCalendarEvents {
     async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
         // An explicit tool argument takes precedence over the configured default.
         // There is deliberately no implicit fallback to Google's "primary" calendar.
+        let configured_calendar_id = std::env::var("GOOGLE_CALENDAR_ID").ok();
         let calendar_id = arguments
             .get("calendar_id")
             .and_then(Value::as_str)
-            .or_else(|| std::env::var("GOOGLE_CALENDAR_ID").ok().leak())
+            .or(configured_calendar_id.as_deref())
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| ToolError::Configuration(
                 "Set 'calendar_id' in the tool arguments or configure GOOGLE_CALENDAR_ID.".into(),
