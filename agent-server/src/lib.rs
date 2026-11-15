@@ -5,7 +5,7 @@ pub mod auth;
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, Scope, get, post, put,
+    HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path},
 };
 use agent_service::{
@@ -429,6 +429,28 @@ async fn rename_conversation(
     }
 }
 
+#[delete("/{conversation_id}")]
+async fn delete_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+
+    match store.delete(&owner, id) {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => conversation_error(error),
+    }
+}
+
 #[post("/{conversation_id}/runs")]
 async fn continue_conversation(
     request_http: HttpRequest,
@@ -506,6 +528,7 @@ pub fn conversations_api() -> Scope {
         .service(create_conversation)
         .service(get_conversation)
         .service(rename_conversation)
+        .service(delete_conversation)
         .service(continue_conversation)
 }
 
