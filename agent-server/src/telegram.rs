@@ -1,11 +1,7 @@
 //! Telegram inbound adapter. It consumes events from the shared gateway;
 //! it never polls Telegram directly.
 
-use std::{
-    collections::HashSet,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use agent_service::{RunId, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
@@ -128,13 +124,19 @@ async fn handle_message(
                 let _ = gateway
                     .send_message(
                         message.chat_id,
-                        &format!("Started a new conversation ({}) with agent '{agent}'.", conversation.id),
+                        &format!(
+                            "Started a new conversation ({}) with agent '{agent}'.",
+                            conversation.id
+                        ),
                     )
                     .await;
             }
             Err(error) => {
                 let _ = gateway
-                    .send_message(message.chat_id, &format!("Could not create conversation: {error}"))
+                    .send_message(
+                        message.chat_id,
+                        &format!("Could not create conversation: {error}"),
+                    )
                     .await;
             }
         }
@@ -145,7 +147,9 @@ async fn handle_message(
         let _ = gateway
             .send_message(
                 message.chat_id,
-                &format!("Send a prompt to chat with the '{agent}' agent. Use /new to start a new conversation."),
+                &format!(
+                    "Send a prompt to chat with the '{agent}' agent. Use /new to start a new conversation."
+                ),
             )
             .await;
         return;
@@ -164,7 +168,10 @@ async fn handle_message(
         },
         Err(error) => {
             let _ = gateway
-                .send_message(message.chat_id, &format!("Could not load conversation: {error}"))
+                .send_message(
+                    message.chat_id,
+                    &format!("Could not load conversation: {error}"),
+                )
                 .await;
             return;
         }
