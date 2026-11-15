@@ -1,5 +1,4 @@
-mod dto;
-use self::dto::*;
+use super::dto::*;
 
 use async_trait::async_trait;
 
