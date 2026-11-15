@@ -1,6 +1,6 @@
 use super::*;
 use serde::{Deserialize};
 #[derive(Deserialize)]
-pub(super) struct CandidateContent {
-    pub(super) parts: Vec<PartResponse>,
+pub(in crate::providers::gemini) struct CandidateContent {
+    pub(in crate::providers::gemini) parts: Vec<PartResponse>,
 }
