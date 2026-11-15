@@ -12,6 +12,7 @@ members = [
     "tools/meteosource",
     "tools/google",
     "tools/tavily",
+    "tools/common",
 ]
 
 [workspace.dependencies]
