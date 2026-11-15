@@ -558,4 +558,20 @@ mod tests {
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
     }
+
+    #[test]
+    fn questions_have_a_concise_question_marker() {
+        assert_eq!(
+            format_question("Which option should I use?"),
+            "❓ Question\n\nWhich option should I use?"
+        );
+    }
+
+    #[test]
+    fn notifications_have_a_distinct_notification_marker() {
+        assert_eq!(
+            format_notification("The task has completed."),
+            "🔔 Notification\n\nThe task has completed."
+        );
+    }
 }
