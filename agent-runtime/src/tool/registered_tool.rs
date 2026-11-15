@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use crate::ToolDefinition;
 use super::Tool;
+use crate::ToolDefinition;
 
 /// Registered implementation and its compiled argument validator.
 pub(super) struct RegisteredTool {
