@@ -275,11 +275,7 @@ impl ConversationStore {
     ///
     /// If the conversation is currently active for that owner, its active
     /// pointer is removed as part of the same process-local critical section.
-    pub fn delete(
-        &self,
-        owner: &str,
-        id: ConversationId,
-    ) -> Result<(), ConversationStoreError> {
+    pub fn delete(&self, owner: &str, id: ConversationId) -> Result<(), ConversationStoreError> {
         let _guard = self
             .lock
             .lock()
