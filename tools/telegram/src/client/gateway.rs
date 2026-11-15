@@ -36,6 +36,16 @@ pub struct TelegramGateway {
     events: broadcast::Sender<IncomingMessage>,
 }
 
+/// Add a concise marker to questions that require a user response.
+fn format_question(question: &str) -> String {
+    format!("❓ Question\\n\\n{question}")
+}
+
+/// Distinguish one-way notifications from questions that require a response.
+fn format_notification(message: &str) -> String {
+    format!("🔔 Notification\\n\\n{message}")
+}
+
 impl TelegramGateway {
     pub fn new(token: &str) -> Arc<Self> {
         let (events, _) = broadcast::channel(EVENT_CAPACITY);
