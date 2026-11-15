@@ -173,7 +173,11 @@ impl ConversationStore {
         for entry in fs::read_dir(directory)? {
             let entry = entry?;
             if !entry.file_type()?.is_file()
-                || entry.path().extension().and_then(|extension| extension.to_str()) != Some("json")
+                || entry
+                    .path()
+                    .extension()
+                    .and_then(|extension| extension.to_str())
+                    != Some("json")
             {
                 continue;
             }
