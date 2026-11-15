@@ -52,7 +52,7 @@ The platform is organized around a separation of responsibilities:
 
 ### Main components
 
-The workspace separates provider integration, individual agent execution, and external tool integrations into dedicated crates. Service-level orchestration and transport are being introduced in separate crates. Each crate's README describes its purpose, responsibilities, boundaries, and non-goals.
+The workspace separates provider integration, individual agent execution, and tool integrations into dedicated crates. Service-level orchestration and transport are being introduced in separate crates. Each crate's README describes its purpose, responsibilities, boundaries, and non-goals.
 
 #### `agent-models`
 
@@ -87,11 +87,19 @@ The model proposes tool calls, but it does not execute them directly. The runtim
 
 #### Tool integration crates
 
-Tool crates implement capabilities that agents can invoke through the runtime. They own the integration with the external system; the runtime remains responsible for validating, authorizing, and dispatching calls.
+Tool crates implement capabilities that agents can invoke through the runtime. They own integrations with external systems where applicable; the runtime remains responsible for validating, authorizing, and dispatching calls.
+
+##### `tools/common` (`common-tools`)
+
+Generic tools backed by information available directly from the runtime environment. These tools do not need an external service or web search.
+
+Current tool:
+
+- `get_current_datetime`: returns the current UTC timestamp in RFC 3339 format, plus Unix timestamps in seconds and milliseconds.
 
 ##### `tools/alexa` (`alexa-tool`)
 
-The Alexa integration crate will contain the platform's collection of Alexa-related tools. It currently provides `alexa_speak`, which sends speech to an Alexa device, and is intended to grow as additional Alexa capabilities are implemented.
+The Alexa integration crate contains Alexa-related tools. It currently provides `alexa_speak`, which sends speech to an Alexa device.
 
 Alexa-specific authentication, service interaction, and reusable device-resolution logic belong in this crate. Tool definitions expose individual operations to agents without making credentials or privileged configuration model-controlled.
 
@@ -111,24 +119,6 @@ The persistence layer will define storage contracts for runs, conversation messa
 
 The executable service will compose the platform components and expose them to external clients. It will own application startup and shutdown, the HTTP API for submitting and managing runs, and client-facing event streaming. Run orchestration will belong to `agent-service`, while persistence will belong to `agent-storage`.
 
-The intended dependency direction is:
-
-```text
-                 External Clients
-                        |
-                        v
-                  agent-server
-                  /          \\
-                 v            v
-          agent-service   agent-storage
-                 |
-                 v
-            agent-runtime
-              /      \\
-             v        v
-       agent-models  Tools
-```
-
 ## Current capabilities
 
 The `basic_agent` example demonstrates an end-to-end agent workflow:
@@ -142,15 +132,6 @@ The `basic_agent` example demonstrates an end-to-end agent workflow:
 7. Continue the interaction until the agent completes.
 
 The example includes an addition tool and demonstrates tool-failure recovery: a deprecated tool returns an error, the model receives that error, and it can select an alternative tool.
-
-### Verified integrations
-
-| Provider | Model | Result |
-|---|---|---|
-| Google Gemini | Gemini 3.5 Flash Lite | End-to-end tool calling |
-| Cloudflare Workers AI | GLM-4.7-Flash | End-to-end tool calling and failure recovery |
-
-These are development tests, not a claim of compatibility with every model or provider.
 
 ## Getting started
 
@@ -197,23 +178,10 @@ export CLOUDFLARE_ACCOUNT_ID="..."
 From the repository root:
 
 ```bash
-cargo run -p agent-runtime --example basic_agent -- \\
-  cloudflare/@cf/zai-org/glm-4.7-flash \\
+cargo run -p agent-runtime --example basic_agent -- \
+  cloudflare/@cf/zai-org/glm-4.7-flash \
   ./data
 ```
-
-The example accepts:
-
-```text
-basic_agent <provider/model> [data-dir]
-```
-
-Alternatively, the model and data directory can be provided through:
-
-- `AGENT_MODEL`
-- `AGENT_DATA_DIR`
-
-The example runs an agent that answers an arithmetic question using a registered tool.
 
 ## Design principles
 
@@ -241,66 +209,15 @@ Agent execution is a sequence of meaningful events, not a single opaque model in
 
 Events provide the foundation for debugging, auditing, monitoring, and eventually durable execution.
 
-## Roadmap
-
-The project is under active development. Areas being explored include:
-
-- [x] Provider-independent conversation API.
-- [x] Gemini integration.
-- [x] OpenAI-compatible model integration.
-- [x] Agent runtime and multi-turn execution.
-- [x] Tool registration and dispatch.
-- [x] JSON Schema argument validation.
-- [x] Deterministic tool allow-list authorization.
-- [x] Tool error propagation and recovery.
-- [x] Cancellation and execution timeouts.
-- [x] Runtime event collection.
-- [ ] More comprehensive authorization policies and permission boundaries.
-- [ ] Human approval for sensitive or irreversible actions.
-- [ ] More external tool integrations.
-- [ ] HTTP API for submitting and managing agent runs.
-- [ ] Persistent execution state and event storage.
-- [ ] Checkpoints, retries, and recovery after process restarts.
-- [ ] Deployment and operational observability.
-
 ## Development
 
-Install [pre-commit](https://pre-commit.com/) and enable the repository hooks:
+Install `pre-commit` and enable the repository hooks:
 
 ```bash
 pre-commit install
-```
-
-Run all hooks against the repository manually:
-
-```bash
 pre-commit run --all-files
-```
-
-Build the workspace:
-
-```bash
 cargo build
-```
-
-Run the tests:
-
-```bash
 cargo test
 ```
-
-Run the basic agent:
-
-```bash
-cargo run -p agent-runtime --example basic_agent -- \\
-  <provider/model> \\
-  ./data
-```
-
-## Project direction
-
-The long-term ambition is to provide a foundation for agents that can do useful work in real environments without giving up control over execution.
-
-That means treating model interaction, tool execution, authorization, state management, and observability as distinct engineering concerns.
 
 **The objective is not simply to make agents more capable. It is to make their execution controllable, inspectable, and reliable.**
