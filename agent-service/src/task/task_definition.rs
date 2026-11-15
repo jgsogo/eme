@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct TaskDefinition {
+pub(super) struct TaskDefinition {
     name: String,
     #[serde(default)]
     description: String,
