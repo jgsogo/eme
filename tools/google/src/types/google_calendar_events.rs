@@ -39,8 +39,8 @@ impl Tool for GoogleCalendarEvents {
         let has_period = time_min.is_some() || time_max.is_some();
         if has_date == has_period || (has_period && (time_min.is_none() || time_max.is_none())) {
             return Err(ToolError::InvalidArguments {
-                pub(super) tool_name: "google_calendar_events".into(),
-                pub(super) errors: vec![
+                tool_name: "google_calendar_events".into(),
+                errors: vec![
                     "Provide either 'date' or both 'time_min' and 'time_max', but not both.".into(),
                 ],
             });
@@ -57,7 +57,7 @@ impl Tool for GoogleCalendarEvents {
                 .await
         }
         .map_err(|error| ToolError::Execution(error.to_string()))?;
-        pub(super) serde_json::to_string_pretty(&result)
+        serde_json::to_string_pretty(&result)
             .map_err(|error| ToolError::Execution(error.to_string()))
     }
 }
