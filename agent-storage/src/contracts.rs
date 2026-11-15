@@ -72,6 +72,8 @@ pub enum StorageError {
     AlreadyExists(String),
     #[error("record not found: {0}")]
     NotFound(String),
+    #[error("invalid record association: {0}")]
+    InvalidAssociation(String),
     #[error("sequence {sequence} already exists for {stream}")]
     DuplicateSequence { stream: String, sequence: u64 },
     #[error("expected sequence {expected} for {stream}, got {actual}")]
