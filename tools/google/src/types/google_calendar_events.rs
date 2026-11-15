@@ -1,5 +1,5 @@
-use super::GoogleCalendarClient;
 use super::super::{is_calendar_allowed, required_env};
+use super::GoogleCalendarClient;
 use agent_runtime::{Tool, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
