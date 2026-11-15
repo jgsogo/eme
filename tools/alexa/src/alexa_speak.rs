@@ -21,6 +21,7 @@ use reqwest::{
     header::{CONTENT_TYPE, COOKIE, HeaderMap, HeaderValue, ORIGIN, REFERER, USER_AGENT},
 };
 use serde_json::json;
+use std::collections::HashMap;
 
 const AMAZON: &str = "amazon.es";
 const ALEXA: &str = "alexa.amazon.es";
