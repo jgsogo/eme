@@ -3,7 +3,7 @@
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use actix_web::{
-    HttpResponse, Responder, Scope, get, post,
+    HttpRequest, HttpResponse, Responder, Scope, get, post,
     web::{self, Data, Json, Path},
 };
 use agent_service::{
@@ -235,7 +235,9 @@ async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Res
     }
 }
 
-const WEB_CONVERSATION_OWNER: &str = "web:default";
+fn authenticated_owner(request: &HttpRequest, auth: &crate::auth::TelegramAuth) -> Result<String, HttpResponse> {
+    auth.owner_for_request(request).ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
+}
 
 #[derive(Debug, Deserialize)]
 pub struct CreateConversationRequest {
@@ -278,8 +280,9 @@ fn conversation_error(error: ConversationStoreError) -> HttpResponse {
 }
 
 #[get("")]
-async fn list_conversations(store: Data<Arc<ConversationStore>>) -> impl Responder {
-    match store.list(WEB_CONVERSATION_OWNER) {
+async fn list_conversations(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, store: Data<Arc<ConversationStore>>) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) { Ok(owner) => owner, Err(response) => return response };
+    match store.list(&owner) {
         Ok(conversations) => HttpResponse::Ok().json(
             conversations
                 .into_iter()
@@ -292,10 +295,13 @@ async fn list_conversations(store: Data<Arc<ConversationStore>>) -> impl Respond
 
 #[post("")]
 async fn create_conversation(
+    request_http: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     catalog: Data<AgentCatalog>,
     request: Json<CreateConversationRequest>,
 ) -> impl Responder {
+    let owner = match authenticated_owner(&request_http, &auth) { Ok(owner) => owner, Err(response) => return response };
     let agent = request.agent.trim();
     if agent.is_empty() {
         return HttpResponse::BadRequest().body("agent must not be empty");
@@ -304,7 +310,7 @@ async fn create_conversation(
         return HttpResponse::BadRequest().body("unknown agent");
     }
 
-    match store.create(WEB_CONVERSATION_OWNER, agent) {
+    match store.create(&owner, agent) {
         Ok(conversation) => HttpResponse::Created().json(ConversationSummary::from(conversation)),
         Err(error) => conversation_error(error),
     }
@@ -312,9 +318,12 @@ async fn create_conversation(
 
 #[get("/{conversation_id}")]
 async fn get_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) { Ok(owner) => owner, Err(response) => return response };
     let id = match ConversationId::from_str(conversation_id.as_str()) {
         Ok(id) => id,
         Err(_) => {
@@ -323,7 +332,7 @@ async fn get_conversation(
     };
 
     match store.get(id) {
-        Ok(conversation) if conversation.owner == WEB_CONVERSATION_OWNER => {
+        Ok(conversation) if conversation.owner == owner => {
             HttpResponse::Ok().json(conversation)
         }
         Ok(_) => HttpResponse::NotFound().finish(),
@@ -333,11 +342,14 @@ async fn get_conversation(
 
 #[post("/{conversation_id}/runs")]
 async fn continue_conversation(
+    request_http: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     manager: Data<RunManager>,
     conversation_id: Path<String>,
     request: Json<ContinueConversationRequest>,
 ) -> impl Responder {
+    let owner = match authenticated_owner(&request_http, &auth) { Ok(owner) => owner, Err(response) => return response };
     let input = request.input.trim();
     if input.is_empty() {
         return HttpResponse::BadRequest().body("input must not be empty");
@@ -351,7 +363,7 @@ async fn continue_conversation(
     };
 
     let conversation = match store.get(id) {
-        Ok(conversation) if conversation.owner == WEB_CONVERSATION_OWNER => conversation,
+        Ok(conversation) if conversation.owner == owner => conversation,
         Ok(_) => return HttpResponse::NotFound().finish(),
         Err(error) => return conversation_error(error),
     };
