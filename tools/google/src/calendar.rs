@@ -261,14 +261,16 @@ pub struct GoogleCalendarEvents;
 #[async_trait]
 impl Tool for GoogleCalendarEvents {
     async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+        // An explicit tool argument takes precedence over the configured default.
+        // There is deliberately no implicit fallback to Google's "primary" calendar.
         let calendar_id = arguments
             .get("calendar_id")
             .and_then(Value::as_str)
+            .or_else(|| std::env::var("GOOGLE_CALENDAR_ID").ok().leak())
             .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| ToolError::InvalidArguments {
-                tool_name: "google_calendar_events".into(),
-                errors: vec!["'calendar_id' is required and must be a non-empty string.".into()],
-            })?;
+            .ok_or_else(|| ToolError::Configuration(
+                "Set 'calendar_id' in the tool arguments or configure GOOGLE_CALENDAR_ID.".into(),
+            ))?;
         let date = arguments.get("date").and_then(Value::as_str);
         let time_min = arguments.get("time_min").and_then(Value::as_str);
         let time_max = arguments.get("time_max").and_then(Value::as_str);
