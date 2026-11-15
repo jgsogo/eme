@@ -1,0 +1,10 @@
+name="calculate_date_difference"
+description="Calculate signed elapsed and calendar-day differences between two ISO dates or timestamps."
+[parameters]
+type="object"
+required=["start","end"]
+additionalProperties=false
+[parameters.properties.start]
+type="string"
+[parameters.properties.end]
+type="string"
