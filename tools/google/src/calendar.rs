@@ -348,7 +348,7 @@ mod tests {
     async fn gets_selected_calendar_day_and_follows_pagination() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/calendars/team%40example.com"))
+            .and(path("/calendars/team@example.com"))
             .and(bearer_token("token"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(json!({"timeZone":"Europe/Madrid"})),
@@ -356,7 +356,7 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("GET"))
-            .and(path("/calendars/team%40example.com/events"))
+            .and(path("/calendars/team@example.com/events"))
             .and(query_param("timeMin", "2026-11-14T00:00:00+01:00"))
             .and(query_param("timeMax", "2026-11-15T00:00:00+01:00"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
@@ -366,7 +366,7 @@ mod tests {
             .mount(&server)
             .await;
         Mock::given(method("GET"))
-            .and(path("/calendars/team%40example.com/events"))
+            .and(path("/calendars/team@example.com/events"))
             .and(query_param("pageToken", "next"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"items":[{"id":"two"}]})))
             .mount(&server)
