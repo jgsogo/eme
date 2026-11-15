@@ -2,9 +2,9 @@ use serde::Deserialize;
 use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct EventsPage {
+pub(crate) struct EventsPage {
     #[serde(default)]
-    pub(super) items: Vec<Value>,
+    pub(crate) items: Vec<Value>,
     #[serde(rename = "nextPageToken")]
-    pub(super) next_page_token: Option<String>,
+    pub(crate) next_page_token: Option<String>,
 }
