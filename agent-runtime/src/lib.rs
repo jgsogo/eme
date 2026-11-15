@@ -1,15 +1,15 @@
 //! Execution engine for an individual AI agent run.
 //!
-//! This crate will coordinate the agent conversation loop, model adaptation,
+//! This crate coordinates the agent conversation loop, model adaptation,
 //! tool registration and dispatch, argument validation, deterministic
 //! authorization, execution limits, cancellation, and runtime events.
 //!
-//! It will execute individual runs. Managing concurrent runs and their
-//! service-level lifecycle will belong to `agent-service`; provider-specific
-//! integrations will belong to `agent-models`; persistence and external
-//! transport will belong to their respective platform crates.
+//! It executes individual runs. Managing concurrent runs and their
+//! service-level lifecycle belongs to `agent-service`; provider-specific
+//! integrations belong to `agent-models`; persistence and external
+//! transport belong to their respective platform crates.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod error;
@@ -55,7 +55,7 @@ pub struct ToolDefinition {
 }
 
 /// A tool invocation requested by the model.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
@@ -64,7 +64,7 @@ pub struct ToolCall {
 }
 
 /// A message in the conversation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Message {
     User {
         content: String,

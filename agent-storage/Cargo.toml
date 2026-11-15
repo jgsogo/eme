@@ -3,3 +3,11 @@ name = "agent-storage"
 version = "0.1.0"
 edition = "2024"
 description = "Persistence contracts and storage backends for agent execution data."
+
+[dependencies]
+agent-runtime = { path = "../agent-runtime" }
+chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
