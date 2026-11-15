@@ -1,5 +1,5 @@
-use std::time::SystemTime;
 use super::RunEventKind;
+use std::time::SystemTime;
 
 /// An immutable, ordered entry in a run's lifecycle history.
 #[derive(Debug, Clone)]
