@@ -32,3 +32,7 @@ azn-totoro-echo speech: (azn-tts "Totoro Echo" speech)
 
 basic_agent *args:
     cargo run -p agent-runtime --example basic_agent -- "$@"
+
+
+run:
+    cargo run -p agent-server -- --data-dir "{{justfile_directory()}}/data" --host 0.0.0.0 --port 8080
