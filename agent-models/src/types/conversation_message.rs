@@ -1,10 +1,15 @@
-use serde_json::Value;
 use super::ToolCall;
+use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub enum ConversationMessage {
-    User { content: String },
-    Assistant { content: Option<String>, tool_calls: Vec<ToolCall> },
+    User {
+        content: String,
+    },
+    Assistant {
+        content: Option<String>,
+        tool_calls: Vec<ToolCall>,
+    },
     Tool {
         tool_call_id: String,
         name: String,
