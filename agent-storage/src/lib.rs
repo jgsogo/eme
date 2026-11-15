@@ -63,7 +63,7 @@ impl FromStr for ConversationId {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {
     pub id: ConversationId,
-    /// Stable external identity, for example `telegram:<chat_id>:<user_id>`.
+    /// Stable external identity, for example `telegram:<user_id>`.
     pub owner: String,
     pub agent: String,
     pub created_at: DateTime<Utc>,
@@ -219,54 +219,6 @@ impl ConversationStore {
         let mut active = self.read_active_index()?;
         active.insert(owner.to_owned(), id);
         self.write_active_index(&active)
-    }
-
-    /// Moves conversations from a legacy channel-scoped owner to a canonical user owner.
-    ///
-    /// This is used to migrate Telegram conversations from
-    /// `telegram:<chat_id>:<user_id>` to `telegram:<user_id>` without
-    /// discarding their history.
-    pub fn migrate_owner(&self, from: &str, to: &str) -> Result<usize, ConversationStoreError> {
-        if from.trim().is_empty() || to.trim().is_empty() {
-            return Err(ConversationStoreError::EmptyOwner);
-        }
-        if from == to {
-            return Ok(0);
-        }
-
-        let _guard = self
-            .lock
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let directory = self.root.join("conversations");
-        let mut migrated = 0;
-
-        for entry in fs::read_dir(directory)? {
-            let entry = entry?;
-            if !entry.file_type()?.is_file()
-                || entry
-                    .path()
-                    .extension()
-                    .and_then(|extension| extension.to_str())
-                    != Some("json")
-            {
-                continue;
-            }
-            let bytes = fs::read(entry.path())?;
-            let mut conversation: Conversation = serde_json::from_slice(&bytes)?;
-            if conversation.owner == from {
-                conversation.owner = to.to_owned();
-                self.write_conversation(&conversation)?;
-                migrated += 1;
-            }
-        }
-
-        let mut active = self.read_active_index()?;
-        if let Some(id) = active.remove(from) {
-            active.entry(to.to_owned()).or_insert(id);
-            self.write_active_index(&active)?;
-        }
-        Ok(migrated)
     }
 
     /// Loads a conversation by its stable identifier.
@@ -476,27 +428,6 @@ mod tests {
             store.set_active("owner-b", conversation.id),
             Err(ConversationStoreError::OwnerMismatch { .. })
         ));
-
-        fs::remove_dir_all(directory).unwrap();
-    }
-
-    #[test]
-    fn migrates_legacy_owner_and_active_conversation() {
-        let directory = temporary_directory();
-        let store = ConversationStore::open(&directory).unwrap();
-        let conversation = store.create("telegram:123:123", "assistant").unwrap();
-
-        let migrated = store
-            .migrate_owner("telegram:123:123", "telegram:123")
-            .unwrap();
-
-        assert_eq!(migrated, 1);
-        assert_eq!(store.get(conversation.id).unwrap().owner, "telegram:123");
-        assert_eq!(
-            store.active("telegram:123").unwrap().unwrap().id,
-            conversation.id
-        );
-        assert!(store.list("telegram:123:123").unwrap().is_empty());
 
         fs::remove_dir_all(directory).unwrap();
     }
