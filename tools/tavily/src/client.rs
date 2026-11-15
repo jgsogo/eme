@@ -1,5 +1,5 @@
 mod types;
-use types::*;
+pub(crate) use types::{SearchRequest, SearchResponse, SearchResult, TavilyClient, TavilyError};
 
 use std::time::Duration;
 
