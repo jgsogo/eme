@@ -161,6 +161,39 @@ impl ConversationStore {
             .transpose()
     }
 
+    /// Lists all conversations belonging to owner, newest activity first.
+    pub fn list(&self, owner: &str) -> Result<Vec<Conversation>, ConversationStoreError> {
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let directory = self.root.join("conversations");
+        let mut conversations = Vec::new();
+
+        for entry in fs::read_dir(directory)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_file()
+                || entry.path().extension().and_then(|extension| extension.to_str()) != Some("json")
+            {
+                continue;
+            }
+
+            let bytes = fs::read(entry.path())?;
+            let conversation: Conversation = serde_json::from_slice(&bytes)?;
+            if conversation.owner == owner {
+                conversations.push(conversation);
+            }
+        }
+
+        conversations.sort_by(|left, right| {
+            right
+                .updated_at
+                .cmp(&left.updated_at)
+                .then_with(|| right.id.to_string().cmp(&left.id.to_string()))
+        });
+        Ok(conversations)
+    }
+
     /// Selects an existing conversation as the active one for its owner.
     pub fn set_active(
         &self,
@@ -358,6 +391,26 @@ mod tests {
             serde_json::to_value(loaded.messages).unwrap(),
             serde_json::to_value(messages).unwrap()
         );
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn lists_only_conversations_for_the_requested_owner() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+
+        let first = store.create("owner-a", "assistant").unwrap();
+        let other = store.create("owner-b", "assistant").unwrap();
+        let second = store.create("owner-a", "assistant").unwrap();
+
+        let conversations = store.list("owner-a").unwrap();
+        assert_eq!(conversations.len(), 2);
+        assert!(conversations.iter().any(|item| item.id == first.id));
+        assert!(conversations.iter().any(|item| item.id == second.id));
+        assert!(conversations.iter().all(|item| item.owner == "owner-a"));
+        assert!(store.list("owner-c").unwrap().is_empty());
+        assert_ne!(first.id, other.id);
+
         fs::remove_dir_all(directory).unwrap();
     }
 
