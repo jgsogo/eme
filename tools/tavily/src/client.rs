@@ -3,9 +3,7 @@ pub(crate) use types::{SearchRequest, SearchResponse, SearchResult, TavilyClient
 
 use std::time::Duration;
 
-use reqwest::{Client, StatusCode};
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
+use reqwest::Client;
 
 const DEFAULT_BASE_URL: &str = "https://api.tavily.com";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
