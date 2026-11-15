@@ -1,4 +1,4 @@
-use super::super::*;
+use reqwest::Client;
 
 pub(super) struct GoogleCalendarClient {
     pub(super) client: Client,
