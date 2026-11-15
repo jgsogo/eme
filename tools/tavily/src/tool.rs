@@ -1,3 +1,4 @@
+#[path = "options/mod.rs"]
 mod options;
 use options::*;
 
