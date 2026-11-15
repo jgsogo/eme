@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, Deserialize)]
-struct EventsPage {
+pub(super) struct EventsPage {
     #[serde(default)]
     pub(super) items: Vec<Value>,
     #[serde(rename = "nextPageToken")]
