@@ -125,10 +125,10 @@ impl RunEventStore for InMemoryStorage {
 impl ConversationMessageStore for InMemoryStorage {
     async fn append_message(&self, message: StoredMessage) -> Result<(), StorageError> {
         let mut state = self.state.write().await;
-        if let Some(run_id) = message.run_id
-            && !state.runs.contains_key(&run_id)
-        {
-            return Err(StorageError::NotFound(format!("run {run_id}")));
+        if let Some(run_id) = message.run_id {
+            if !state.runs.contains_key(&run_id) {
+                return Err(StorageError::NotFound(format!("run {run_id}")));
+            }
         }
 
         let messages = state.messages.entry(message.conversation_id).or_default();
