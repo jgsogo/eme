@@ -36,6 +36,16 @@ pub struct TelegramGateway {
     events: broadcast::Sender<IncomingMessage>,
 }
 
+/// Add a concise marker to questions that require a user response.
+fn format_question(question: &str) -> String {
+    format!("❓ Question\n\n{question}")
+}
+
+/// Distinguish one-way notifications from questions that require a response.
+fn format_notification(message: &str) -> String {
+    format!("🔔 Notification\n\n{message}")
+}
+
 impl TelegramGateway {
     pub fn new(token: &str) -> Arc<Self> {
         let (events, _) = broadcast::channel(EVENT_CAPACITY);
@@ -70,7 +80,7 @@ impl TelegramGateway {
 
     pub async fn notify_configured_chat(&self, text: &str) -> Result<(), TelegramError> {
         let chat_id = configured_chat_id()?;
-        self.send_message(chat_id, text).await
+        self.send_message(chat_id, &format_notification(text)).await
     }
 
     pub async fn ask_text(
@@ -86,7 +96,7 @@ impl TelegramGateway {
         let dispatch = self.dispatch_lock.lock().await;
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
-            .text(question)
+            .text(&format_question(question))
             .build();
         let sent = self
             .bot
@@ -135,7 +145,7 @@ impl TelegramGateway {
         };
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
-            .text(question)
+            .text(&format_question(question))
             .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
             .build();
 
@@ -557,5 +567,21 @@ mod tests {
         assert!(!dispatch_callback(Some((42, 100)), None, &mut pending));
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
+    }
+
+    #[test]
+    fn questions_have_a_concise_question_marker() {
+        assert_eq!(
+            format_question("Which option should I use?"),
+            "❓ Question\n\nWhich option should I use?"
+        );
+    }
+
+    #[test]
+    fn notifications_have_a_distinct_notification_marker() {
+        assert_eq!(
+            format_notification("The task has completed."),
+            "🔔 Notification\n\nThe task has completed."
+        );
     }
 }
