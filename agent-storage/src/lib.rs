@@ -226,11 +226,7 @@ impl ConversationStore {
     /// This is used to migrate Telegram conversations from
     /// `telegram:<chat_id>:<user_id>` to `telegram:<user_id>` without
     /// discarding their history.
-    pub fn migrate_owner(
-        &self,
-        from: &str,
-        to: &str,
-    ) -> Result<usize, ConversationStoreError> {
+    pub fn migrate_owner(&self, from: &str, to: &str) -> Result<usize, ConversationStoreError> {
         if from.trim().is_empty() || to.trim().is_empty() {
             return Err(ConversationStoreError::EmptyOwner);
         }
@@ -238,14 +234,21 @@ impl ConversationStore {
             return Ok(0);
         }
 
-        let _guard = self.lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let directory = self.root.join("conversations");
         let mut migrated = 0;
 
         for entry in fs::read_dir(directory)? {
             let entry = entry?;
             if !entry.file_type()?.is_file()
-                || entry.path().extension().and_then(|extension| extension.to_str()) != Some("json")
+                || entry
+                    .path()
+                    .extension()
+                    .and_then(|extension| extension.to_str())
+                    != Some("json")
             {
                 continue;
             }
