@@ -1,5 +1,5 @@
 mod dto;
-use dto::*;
+use self::dto::*;
 
 use async_trait::async_trait;
 
@@ -7,11 +7,13 @@ use crate::client::ConversationClient;
 use crate::error::ModelError;
 use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
-pub 
+pub struct GeminiClient {
+    http: Client,
+    base_url: String,
+    api_key: String,
+    model: String,
+}
 
 impl GeminiClient {
     pub fn new(key: impl Into<String>, model: impl Into<String>) -> Self {
