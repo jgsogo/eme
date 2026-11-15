@@ -1,12 +1,12 @@
 mod google_calendar_error;
-pub(super) use google_calendar_error::GoogleCalendarError;
+pub(crate) use google_calendar_error::GoogleCalendarError;
 mod calendar;
-pub(super) use calendar::Calendar;
+pub(crate) use calendar::Calendar;
 mod events_page;
-pub(super) use events_page::EventsPage;
+pub(crate) use events_page::EventsPage;
 mod token_response;
-pub(super) use token_response::TokenResponse;
+pub(crate) use token_response::TokenResponse;
 mod google_calendar_client;
-pub(super) use google_calendar_client::GoogleCalendarClient;
+pub(crate) use google_calendar_client::GoogleCalendarClient;
 mod google_calendar_events;
-pub(super) use google_calendar_events::GoogleCalendarEvents;
+pub(crate) use google_calendar_events::GoogleCalendarEvents;
