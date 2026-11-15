@@ -1,4 +1,4 @@
-use super::super::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct SearchResult {
