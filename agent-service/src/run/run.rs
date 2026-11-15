@@ -1,5 +1,5 @@
-use std::time::SystemTime;
 use super::{InvalidRunTransition, RunId, RunStatus};
+use std::time::SystemTime;
 
 /// Service-level representation of a submitted run.
 ///
