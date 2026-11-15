@@ -12,6 +12,7 @@
 //! The upstream project remains the reference for the underlying Alexa Remote
 //! API interactions and behavior.
 
+#[path = "types/mod.rs"]
 mod types;
 use types::*;
 
