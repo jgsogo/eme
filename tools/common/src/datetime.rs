@@ -1,5 +1,7 @@
 use agent_runtime::{Tool, ToolError};
+use async_trait::async_trait;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, SecondsFormat, TimeZone, Utc};
+use chrono_tz::Tz;
 use serde_json::{Value, json};
 pub struct CurrentDateTime;
 pub struct GetTimezone;
@@ -9,11 +11,13 @@ pub struct GetDateInfo;
 pub struct ParseDateTime;
 fn output(v: Value) -> Result<String, ToolError> {
     serde_json::to_string_pretty(&v).map_err(|e| ToolError::Execution(e.to_string()))
+}
 fn req<'a>(a: &'a Value, k: &str) -> Result<&'a str, ToolError> {
     a.get(k)
         .and_then(Value::as_str)
         .filter(|s| !s.is_empty())
         .ok_or_else(|| ToolError::Execution(format!("'{k}' must be a non-empty string")))
+}
 fn tz(s: &str) -> Result<Tz, ToolError> {
     s.parse()
         .map_err(|_| ToolError::Execution(format!("unknown IANA timezone '{s}'")))
