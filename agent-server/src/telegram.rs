@@ -132,7 +132,10 @@ async fn handle_command(
                     let _ = gateway
                         .send_message(
                             chat_id,
-                            &format!("Started a new conversation ({}) with agent '{agent}'.", conversation.id),
+                            &format!(
+                                "Started a new conversation ({}) with agent '{agent}'.",
+                                conversation.id
+                            ),
                         )
                         .await;
                 }
@@ -150,7 +153,10 @@ async fn handle_command(
             };
             if conversations.is_empty() {
                 let _ = gateway
-                    .send_message(chat_id, "No conversations yet. Send a message to start one.")
+                    .send_message(
+                        chat_id,
+                        "No conversations yet. Send a message to start one.",
+                    )
                     .await;
                 return true;
             }
@@ -163,7 +169,11 @@ async fn handle_command(
             };
             let mut lines = vec!["Conversations (newest activity first):".to_owned()];
             for conversation in conversations.iter().take(10) {
-                let marker = if Some(conversation.id) == active_id { " [active]" } else { "" };
+                let marker = if Some(conversation.id) == active_id {
+                    " [active]"
+                } else {
+                    ""
+                };
                 lines.push(format!(
                     "{}{} — {} — {} — {} messages",
                     conversation.id,
@@ -174,10 +184,15 @@ async fn handle_command(
                 ));
             }
             if conversations.len() > 10 {
-                lines.push(format!("{} older conversations omitted.", conversations.len() - 10));
+                lines.push(format!(
+                    "{} older conversations omitted.",
+                    conversations.len() - 10
+                ));
             }
             lines.push("Use /use <conversation-id> to continue one.".into());
-            let _ = gateway.send_message(chat_id, &truncate(&lines.join("\n"))).await;
+            let _ = gateway
+                .send_message(chat_id, &truncate(&lines.join("\n")))
+                .await;
             true
         }
         "/use" => {
@@ -195,12 +210,16 @@ async fn handle_command(
                                 chat_id,
                                 &format!(
                                     "Continuing conversation {} with '{}' ({} messages).",
-                                    conversation.id, conversation.agent, conversation.messages.len()
+                                    conversation.id,
+                                    conversation.agent,
+                                    conversation.messages.len()
                                 ),
                             )
                             .await;
                     }
-                    Err(error) => send_error(gateway, chat_id, "load the conversation", error).await,
+                    Err(error) => {
+                        send_error(gateway, chat_id, "load the conversation", error).await
+                    }
                 },
                 Err(error) => send_error(gateway, chat_id, "select the conversation", error).await,
             }
@@ -216,7 +235,11 @@ async fn handle_command(
             };
             let mut lines = vec!["Configured agents:".to_owned()];
             for agent in agents {
-                let marker = if active_agent.as_deref() == Some(agent.as_str()) { " [active]" } else { "" };
+                let marker = if active_agent.as_deref() == Some(agent.as_str()) {
+                    " [active]"
+                } else {
+                    ""
+                };
                 lines.push(format!("- {agent}{marker}"));
             }
             lines.push("Use /agent <name> to start a new conversation.".into());
@@ -226,7 +249,10 @@ async fn handle_command(
         "/agent" => {
             let Some(agent) = agents.iter().find(|agent| agent.as_str() == arguments) else {
                 let _ = gateway
-                    .send_message(chat_id, "Unknown agent. Use /agents to list available agents.")
+                    .send_message(
+                        chat_id,
+                        "Unknown agent. Use /agents to list available agents.",
+                    )
                     .await;
                 return true;
             };
@@ -263,12 +289,20 @@ async fn handle_message(
     if message.is_bot {
         return;
     }
-    let Some(user_id) = message.user_id else { return; };
-    let Some(prompt) = message.text.map(|text| text.trim().to_owned()).filter(|text| !text.is_empty()) else {
+    let Some(user_id) = message.user_id else {
+        return;
+    };
+    let Some(prompt) = message
+        .text
+        .map(|text| text.trim().to_owned())
+        .filter(|text| !text.is_empty())
+    else {
         return;
     };
     if !allowed.contains(&user_id) {
-        let _ = gateway.send_message(message.chat_id, "You are not authorized to use this bot.").await;
+        let _ = gateway
+            .send_message(message.chat_id, "You are not authorized to use this bot.")
+            .await;
         return;
     }
 
@@ -276,11 +310,24 @@ async fn handle_message(
     let mut parts = prompt.splitn(2, char::is_whitespace);
     let command = parts.next().unwrap_or_default();
     let arguments = parts.next().unwrap_or_default().trim();
-    if handle_command(gateway, &owner, default_agent, agents, store, message.chat_id, command, arguments).await {
+    if handle_command(
+        gateway,
+        &owner,
+        default_agent,
+        agents,
+        store,
+        message.chat_id,
+        command,
+        arguments,
+    )
+    .await
+    {
         return;
     }
     if command.starts_with('/') {
-        let _ = gateway.send_message(message.chat_id, "Unknown command. Use /help.").await;
+        let _ = gateway
+            .send_message(message.chat_id, "Unknown command. Use /help.")
+            .await;
         return;
     }
 
@@ -294,7 +341,13 @@ async fn handle_message(
             }
         },
         Err(error) => {
-            send_error(gateway, message.chat_id, "load the active conversation", error).await;
+            send_error(
+                gateway,
+                message.chat_id,
+                "load the active conversation",
+                error,
+            )
+            .await;
             return;
         }
     };
@@ -314,11 +367,17 @@ async fn handle_message(
     }
 
     match manager
-        .submit_with_history(conversation.agent.clone(), prompt, conversation.messages.clone())
+        .submit_with_history(
+            conversation.agent.clone(),
+            prompt,
+            conversation.messages.clone(),
+        )
         .await
     {
         Ok(id) => {
-            let _ = gateway.send_message(message.chat_id, &format!("Run {id} queued.")).await;
+            let _ = gateway
+                .send_message(message.chat_id, &format!("Run {id} queued."))
+                .await;
             tokio::spawn(report(
                 gateway.clone(),
                 message.chat_id,
@@ -332,7 +391,10 @@ async fn handle_message(
         Err(SubmitRunError::QueueFull) => {
             active_conversations.lock().await.remove(&conversation.id);
             let _ = gateway
-                .send_message(message.chat_id, "The agent queue is full; try again shortly.")
+                .send_message(
+                    message.chat_id,
+                    "The agent queue is full; try again shortly.",
+                )
                 .await;
         }
     }
