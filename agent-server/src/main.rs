@@ -4,7 +4,10 @@ use std::{net::IpAddr, path::PathBuf, sync::Arc};
 
 mod telegram;
 
-use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use actix_web::{
+    App, Error, HttpResponse, HttpServer, Responder, body::{EitherBody, MessageBody},
+    dev::{ServiceRequest, ServiceResponse}, get, middleware::{self, Next}, web,
+};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
@@ -116,6 +119,30 @@ impl AgentRuntimeResolver for ConfiguredAgentResolver {
     }
 }
 
+async fn require_telegram_session<B>(
+    request: ServiceRequest,
+    next: Next<B>,
+) -> Result<ServiceResponse<EitherBody<B>>, Error>
+where
+    B: MessageBody + 'static,
+{
+    let path = request.path();
+    if path == "/" || path.starts_with("/auth/") {
+        return Ok(next.call(request).await?.map_into_left_body());
+    }
+
+    let authenticated = request
+        .app_data::<web::Data<TelegramAuth>>()
+        .is_some_and(|auth| auth.owner_for_request(request.request()).is_some());
+    if !authenticated {
+        return Ok(request
+            .into_response(HttpResponse::Unauthorized().finish())
+            .map_into_right_body());
+    }
+
+    Ok(next.call(request).await?.map_into_left_body())
+}
+
 #[get("/")]
 async fn console_ui() -> impl Responder {
     HttpResponse::Ok()
@@ -211,6 +238,7 @@ async fn main() -> Result<()> {
 
     let server_result = HttpServer::new(move || {
         App::new()
+            .wrap(middleware::from_fn(require_telegram_session))
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
