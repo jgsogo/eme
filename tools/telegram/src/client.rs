@@ -49,12 +49,8 @@ pub struct IncomingMessage {
 }
 
 enum PendingReply {
-    Text {
-        sender: oneshot::Sender<String>,
-    },
-    YesNo {
-        sender: oneshot::Sender<bool>,
-    },
+    Text { sender: oneshot::Sender<String> },
+    YesNo { sender: oneshot::Sender<bool> },
 }
 
 /// Owns the Bot API client and the sole getUpdates polling loop.
