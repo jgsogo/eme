@@ -64,6 +64,7 @@ impl RunExecutor for AgentRuntimeExecutor {
                 return Ok(ExecutionReport {
                     outcome: ExecutionOutcome::Failed(failure.to_string()),
                     runtime_events: failure.events,
+                    messages: None,
                 });
             }
         };
@@ -78,7 +79,51 @@ impl RunExecutor for AgentRuntimeExecutor {
         Ok(ExecutionReport {
             outcome,
             runtime_events: result.events,
+            messages: None,
         })
+    }
+    async fn execute_with_history(
+        &self,
+        run_id: RunId,
+        agent_name: String,
+        input: String,
+        history: Vec<agent_runtime::Message>,
+        cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        let resolved = self.resolver.resolve(&agent_name)?;
+        let result = resolved
+            .runtime
+            .run_with_history(
+                run_id.as_uuid(),
+                &resolved.agent,
+                history,
+                input,
+                cancellation,
+            )
+            .await;
+
+        match result {
+            Ok(result) => {
+                let outcome = match result.status {
+                    RuntimeRunStatus::Completed => ExecutionOutcome::Completed(result.response),
+                    RuntimeRunStatus::Cancelled => ExecutionOutcome::Cancelled,
+                    RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
+                    RuntimeRunStatus::MaxIterationsReached => {
+                        ExecutionOutcome::MaxIterationsReached
+                    }
+                };
+                Ok(ExecutionReport {
+                    outcome,
+                    runtime_events: result.events,
+                    messages: Some(result.messages),
+                })
+            }
+            Err(failure) => Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Failed(failure.to_string()),
+                runtime_events: failure.events,
+                messages: Some(failure.messages),
+            }),
+        }
     }
 }
 

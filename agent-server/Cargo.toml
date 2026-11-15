@@ -9,6 +9,7 @@ actix-web = "4"
 agent-models = { path = "../agent-models" }
 agent-runtime = { path = "../agent-runtime" }
 agent-service = { path = "../agent-service" }
+agent-storage = { path = "../agent-storage" }
 alexa-tool = { path = "../tools/alexa" }
 telegram-tool = { path = "../tools/telegram" }
 meteosource-tool = { path = "../tools/meteosource" }

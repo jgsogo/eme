@@ -13,6 +13,7 @@ use agent_service::{
     AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent, RunManager, TaskRegistry,
     TaskScheduler,
 };
+use agent_storage::ConversationStore;
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
@@ -164,6 +165,10 @@ async fn main() -> Result<()> {
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
     let task_scheduler = TaskScheduler::start(task_registry, manager.clone());
+    let conversation_store = Arc::new(
+        ConversationStore::open(args.data_dir.join("conversations"))
+            .context("opening conversation storage")?,
+    );
 
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
@@ -174,6 +179,7 @@ async fn main() -> Result<()> {
             allowed,
             args.telegram_agent.clone(),
             manager.clone(),
+            conversation_store,
             updates,
         ));
         println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
