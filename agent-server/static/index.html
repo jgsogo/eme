@@ -74,7 +74,7 @@ $("login-start").addEventListener("click",async()=>{
   link.href=login.bot_url;link.hidden=false;status.textContent="Open the link and press Start in your private chat with the bot. Waiting for confirmation…";
   const deadline=Date.now()+login.expires_in_seconds*1000;
   while(Date.now()<deadline){
-   const result=await api("/auth/telegram/status/"+encodeURIComponent(login.token));
+   const result=await api("/auth/telegram/status",{method:"POST",body:JSON.stringify({token:login.token})});
    if(result.authenticated){await showConsole();return}
    await new Promise(resolve=>setTimeout(resolve,1000))
   }
