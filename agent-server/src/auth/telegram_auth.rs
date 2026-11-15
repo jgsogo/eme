@@ -4,6 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use actix_web::HttpRequest;
 use uuid::Uuid;
 
 pub(super) const SESSION_COOKIE: &str = "eme_session";
