@@ -1,0 +1,12 @@
+name="parse_datetime"
+description="Parse a date/time string, optionally using a chrono strftime format and IANA timezone."
+[parameters]
+type="object"
+required=["value"]
+additionalProperties=false
+[parameters.properties.value]
+type="string"
+[parameters.properties.format]
+type="string"
+[parameters.properties.timezone]
+type="string"
