@@ -1,3 +1,5 @@
+use super::dto::*;
+
 use async_trait::async_trait;
 
 use crate::client::ConversationClient;
@@ -5,7 +7,6 @@ use crate::error::ModelError;
 use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub struct GeminiClient {
@@ -32,127 +33,6 @@ impl GeminiClient {
             model: model.into(),
         }
     }
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct GenerateContentRequest {
-    contents: Vec<Content>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    system_instruction: Option<SystemInstruction>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    generation_config: Option<GenerationConfig>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<GeminiTool>>,
-}
-
-#[derive(Serialize)]
-struct GeminiTool {
-    function_declarations: Vec<FunctionDeclaration>,
-}
-
-#[derive(Serialize)]
-struct FunctionDeclaration {
-    name: String,
-    description: String,
-    parameters: serde_json::Value,
-}
-
-#[derive(Serialize)]
-struct Content {
-    role: String,
-    parts: Vec<Part>,
-}
-
-#[derive(Serialize)]
-struct SystemInstruction {
-    parts: Vec<Part>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Part {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    function_call: Option<FunctionCall>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    function_response: Option<FunctionResponse>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    thought_signature: Option<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FunctionCall {
-    name: String,
-    args: serde_json::Value,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FunctionResponse {
-    name: String,
-    response: serde_json::Value,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct GenerationConfig {
-    temperature: Option<f32>,
-    max_output_tokens: Option<u32>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GenerateResponse {
-    candidates: Option<Vec<Candidate>>,
-    usage_metadata: Option<UsageMetadata>,
-}
-
-#[derive(Deserialize)]
-struct Candidate {
-    content: CandidateContent,
-}
-
-#[derive(Deserialize)]
-struct CandidateContent {
-    parts: Vec<PartResponse>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PartResponse {
-    text: Option<String>,
-    function_call: Option<ResponseFunctionCall>,
-    thought_signature: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ResponseFunctionCall {
-    name: String,
-    args: serde_json::Value,
-    id: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct UsageMetadata {
-    prompt_token_count: u32,
-    candidates_token_count: u32,
 }
 
 #[async_trait]

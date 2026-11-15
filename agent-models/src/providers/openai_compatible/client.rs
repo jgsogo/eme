@@ -1,3 +1,5 @@
+use super::dto::*;
+
 use crate::client::ConversationClient;
 
 use crate::error::ModelError;
@@ -5,7 +7,6 @@ use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
 use async_trait::async_trait;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 
 pub struct OpenAICompatibleClient {
     http: Client,
@@ -27,93 +28,6 @@ impl OpenAICompatibleClient {
             model: model.into(),
         }
     }
-}
-
-#[derive(Deserialize)]
-struct ApiResponse {
-    choices: Vec<Choice>,
-    usage: Option<ApiUsage>,
-}
-
-#[derive(Deserialize)]
-struct Choice {
-    message: ApiMessageResponse,
-}
-
-#[derive(Deserialize)]
-struct ApiMessageResponse {
-    content: Option<String>,
-    tool_calls: Option<Vec<ApiToolCallResponse>>,
-}
-
-#[derive(Deserialize)]
-struct ApiToolCallResponse {
-    id: String,
-    function: ApiFunctionCallResponse,
-}
-
-#[derive(Deserialize)]
-struct ApiFunctionCallResponse {
-    name: String,
-    arguments: String,
-}
-
-#[derive(Deserialize)]
-struct ApiUsage {
-    prompt_tokens: u32,
-    completion_tokens: u32,
-}
-
-#[derive(Serialize)]
-struct ApiConversationRequest {
-    model: String,
-    messages: Vec<ApiConversationMessage>,
-    tools: Option<Vec<ApiTool>>,
-    temperature: Option<f32>,
-    max_tokens: Option<u32>,
-}
-
-#[derive(Serialize)]
-struct ApiConversationMessage {
-    role: String,
-    content: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_calls: Option<Vec<ApiToolCall>>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<String>,
-}
-
-#[derive(Serialize)]
-struct ApiToolCall {
-    id: String,
-    #[serde(rename = "type")]
-    kind: String,
-    function: ApiFunctionCall,
-}
-
-#[derive(Serialize)]
-struct ApiFunctionCall {
-    name: String,
-    arguments: String,
-}
-
-#[derive(Serialize)]
-struct ApiTool {
-    #[serde(rename = "type")]
-    kind: String,
-    function: ApiFunctionDefinition,
-}
-
-#[derive(Serialize)]
-struct ApiFunctionDefinition {
-    name: String,
-    description: String,
-    parameters: serde_json::Value,
 }
 
 #[async_trait]
