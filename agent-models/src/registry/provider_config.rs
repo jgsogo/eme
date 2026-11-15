@@ -1,6 +1,6 @@
+use crate::models::ModelConfig;
 use agent_config::ConfigError;
 use serde::Deserialize;
-use crate::models::ModelConfig;
 use std::path::Path;
 
 #[derive(Debug, Deserialize)]
