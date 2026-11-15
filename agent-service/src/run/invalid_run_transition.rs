@@ -1,5 +1,5 @@
-use thiserror::Error;
 use super::RunStatus;
+use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 #[error("invalid run state transition: {from:?} -> {to:?}")]
