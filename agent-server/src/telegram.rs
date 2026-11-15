@@ -1,13 +1,17 @@
 //! Telegram inbound adapter. It consumes events from the shared gateway;
 //! it never polls Telegram directly.
 
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    sync::Arc,
+    time::Duration,
+};
 
 use agent_service::{RunId, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
 use anyhow::{Context, Result};
 use telegram_tool::{IncomingMessage, TelegramGateway};
-use tokio::sync::broadcast;
+use tokio::sync::{Mutex, broadcast};
 
 pub fn allowed_users_from_env() -> Result<HashSet<i64>> {
     let value = std::env::var("TELEGRAM_ALLOWED_USERS")
@@ -47,6 +51,7 @@ async fn report(
     manager: RunManager,
     store: Arc<ConversationStore>,
     conversation_id: ConversationId,
+    active_conversations: Arc<Mutex<HashSet<ConversationId>>>,
     id: RunId,
 ) {
     loop {
@@ -71,6 +76,7 @@ async fn report(
                     }
                 }
 
+                active_conversations.lock().await.remove(&conversation_id);
                 if let Err(error) = gateway.send_message(chat_id, &truncate(&text)).await {
                     eprintln!("Telegram result delivery failed: {error}");
                 }
@@ -89,6 +95,7 @@ async fn handle_message(
     agent: &str,
     manager: &RunManager,
     store: &Arc<ConversationStore>,
+    active_conversations: &Arc<Mutex<HashSet<ConversationId>>>,
     message: IncomingMessage,
 ) {
     if message.is_bot {
@@ -163,6 +170,20 @@ async fn handle_message(
         }
     };
 
+    {
+        let mut active = active_conversations.lock().await;
+        if active.contains(&conversation.id) {
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "This conversation already has a run in progress. Please wait for its response or use /new to start another conversation.",
+                )
+                .await;
+            return;
+        }
+        active.insert(conversation.id);
+    }
+
     match manager
         .submit_with_history(agent.to_owned(), prompt, conversation.messages.clone())
         .await
@@ -177,10 +198,12 @@ async fn handle_message(
                 manager.clone(),
                 store.clone(),
                 conversation.id,
+                active_conversations.clone(),
                 id,
             ));
         }
         Err(SubmitRunError::QueueFull) => {
+            active_conversations.lock().await.remove(&conversation.id);
             let _ = gateway
                 .send_message(
                     message.chat_id,
@@ -199,10 +222,20 @@ pub async fn run_bot(
     store: Arc<ConversationStore>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
+    let active_conversations = Arc::new(Mutex::new(HashSet::new()));
     loop {
         match updates.recv().await {
             Ok(message) => {
-                handle_message(&gateway, &allowed, &agent, &manager, &store, message).await;
+                handle_message(
+                    &gateway,
+                    &allowed,
+                    &agent,
+                    &manager,
+                    &store,
+                    &active_conversations,
+                    message,
+                )
+                .await;
             }
             Err(broadcast::error::RecvError::Lagged(skipped)) => {
                 eprintln!("Telegram dispatcher lagged; skipped {skipped} messages");
