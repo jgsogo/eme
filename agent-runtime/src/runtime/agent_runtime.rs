@@ -2,13 +2,13 @@ use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
-use crate::{
-    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
-    RuntimeError, ToolDispatcher, ToolError,
-};
 use super::{
     CancellationToken, EventSink, NoopEventSink, RunEvent, RunEventKind, RunFailure, RunResult,
     RunStatus,
+};
+use crate::{
+    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
+    RuntimeError, ToolDispatcher, ToolError,
 };
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -39,7 +39,6 @@ enum StopReason {
     Cancelled,
     TimedOut,
 }
-
 
 pub struct AgentRuntime {
     model: Arc<dyn AgentModel>,
