@@ -6,11 +6,11 @@ use actix_web::{
     HttpResponse, Responder, Scope, get, post,
     web::{self, Data, Json, Path},
 };
-use agent_storage::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
 use agent_service::{
     CancelRunError, CancelRunOutcome, RunEvent, RunEventKind, RunId, RunManager, RunStatus,
     SubmitRunError,
 };
+use agent_storage::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
@@ -305,9 +305,7 @@ async fn create_conversation(
     }
 
     match store.create(WEB_CONVERSATION_OWNER, agent) {
-        Ok(conversation) => {
-            HttpResponse::Created().json(ConversationSummary::from(conversation))
-        }
+        Ok(conversation) => HttpResponse::Created().json(ConversationSummary::from(conversation)),
         Err(error) => conversation_error(error),
     }
 }
@@ -375,9 +373,7 @@ async fn continue_conversation(
                         Some(run) if run.status.is_terminal() => {
                             if let Some(messages) = manager.history(run_id).await {
                                 if let Err(error) = store.save_messages(id, messages) {
-                                    eprintln!(
-                                        "failed to persist conversation {id}: {error}"
-                                    );
+                                    eprintln!("failed to persist conversation {id}: {error}");
                                 }
                             }
                             break;
