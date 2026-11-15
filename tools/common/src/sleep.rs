@@ -1,0 +1,4 @@
+use agent_runtime::{Tool,ToolError};use async_trait::async_trait;use serde_json::{Value,json};use std::time::Duration;
+const MAX:u64=30;pub struct Sleep;
+#[async_trait]impl Tool for Sleep{async fn execute(&self,a:Value)->Result<String,ToolError>{let s=a.get("seconds").and_then(Value::as_u64).ok_or_else(||ToolError::Execution("'seconds' must be a non-negative integer".into()))?;if s>MAX{return Err(ToolError::Execution(format!("sleep cannot exceed {MAX} seconds")))}tokio::time::sleep(Duration::from_secs(s)).await;serde_json::to_string_pretty(&json!({"slept":true,"duration_seconds":s})).map_err(|e|ToolError::Execution(e.to_string()))}}
+#[cfg(test)]mod tests{use super::*;#[tokio::test]async fn zero_sleep(){let v:Value=serde_json::from_str(&Sleep.execute(json!({"seconds":0})).await.unwrap()).unwrap();assert_eq!(v["slept"],true);}#[tokio::test]async fn max_is_enforced(){assert!(Sleep.execute(json!({"seconds":31})).await.is_err());}}
