@@ -1,7 +1,7 @@
 use super::super::*;
 
 pub(crate) struct TavilyClient {
-    client: Client,
-    api_key: String,
-    base_url: String,
+    pub(super) client: Client,
+    pub(super) api_key: String,
+    pub(super) base_url: String,
 }
