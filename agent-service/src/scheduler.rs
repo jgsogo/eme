@@ -100,6 +100,7 @@ async fn run_scheduler(
             let scheduled_at = task.next_run;
             let task_name = task.name.clone();
             let agent_name = task.agent.clone();
+            let prompt = task.prompt.clone();
 
             if let Some(schedule) = &task.schedule {
                 if let Some(next_run) = next_occurrence(schedule, task.timezone, now) {
@@ -111,7 +112,7 @@ async fn run_scheduler(
             }
 
             match manager
-                .submit(task.agent.clone(), task.prompt.clone())
+                .submit(agent_name.clone(), prompt)
                 .await
             {
                 Ok(run_id) => tracing::info!(
