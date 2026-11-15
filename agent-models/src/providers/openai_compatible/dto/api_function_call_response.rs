@@ -1,7 +1,7 @@
 use super::*;
 use serde::{Deserialize};
 #[derive(Deserialize)]
-pub(super) struct ApiFunctionCallResponse {
-    pub(super) name: String,
-    pub(super) arguments: String,
+pub(in crate::providers::openai_compatible) struct ApiFunctionCallResponse {
+    pub(in crate::providers::openai_compatible) name: String,
+    pub(in crate::providers::openai_compatible) arguments: String,
 }
