@@ -1,4 +1,4 @@
-use super::super::*;
+use reqwest::Client;
 
 pub(crate) struct TavilyClient {
     pub(super) client: Client,
