@@ -1,3 +1,4 @@
+#[path = "types/mod.rs"]
 mod types;
 use types::{MeteosourceError, Place};
 pub(crate) use types::MeteosourceClient;
