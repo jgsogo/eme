@@ -6,6 +6,7 @@ use agent_runtime::{
 use async_trait::async_trait;
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
+use tracing::{debug, info, warn};
 
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
 
@@ -238,6 +239,8 @@ impl RunManager {
                         )
                     };
 
+                    info!(run_id = %run.id, agent = %run.agent, "agent run started");
+
                     let result = executor
                         .execute_with_history(
                             run.id,
@@ -247,6 +250,26 @@ impl RunManager {
                             cancellation,
                         )
                         .await;
+
+                    if let Ok(report) = &result {
+                        for event in &report.runtime_events {
+                            match &event.kind {
+                                RuntimeEventKind::ModelRequested => debug!(run_id = %run_id, iteration = event.iteration, "model request started"),
+                                RuntimeEventKind::ModelResponded { .. } => debug!(run_id = %run_id, iteration = event.iteration, "model response received"),
+                                RuntimeEventKind::ToolExecutionStarted { name, .. } => info!(run_id = %run_id, iteration = event.iteration, tool = %name, "tool execution started"),
+                                RuntimeEventKind::ToolExecutionFinished { name, error_category, .. } => {
+                                    if let Some(category) = error_category {
+                                        warn!(run_id = %run_id, iteration = event.iteration, tool = %name, error_category = %error_category_name(*category), "tool execution failed");
+                                    } else {
+                                        info!(run_id = %run_id, iteration = event.iteration, tool = %name, "tool execution finished");
+                                    }
+                                }
+                                RuntimeEventKind::ModelFailed { category, .. } => warn!(run_id = %run_id, iteration = event.iteration, error_category = %error_category_name(*category), "model request failed"),
+                                RuntimeEventKind::Cancelled => info!(run_id = %run_id, iteration = event.iteration, "runtime cancellation observed"),
+                                RuntimeEventKind::TimedOut => warn!(run_id = %run_id, iteration = event.iteration, "runtime timed out"),
+                            }
+                        }
+                    }
 
                     let mut runs = runs.lock().await;
                     if let Some(entry) = runs.get_mut(&run_id) {
@@ -306,6 +329,7 @@ impl RunManager {
                             }
                         };
                         entry.record(event);
+                        info!(run_id = %run_id, agent = %entry.run.agent, status = ?entry.run.status, "agent run finished");
                     }
                 }
             });
@@ -350,6 +374,7 @@ impl RunManager {
             return Err(SubmitRunError::QueueFull);
         }
 
+        info!(run_id = %run_id, "agent run queued");
         Ok(run_id)
     }
 
@@ -388,6 +413,7 @@ impl RunManager {
             return Err(SubmitRunError::QueueFull);
         }
 
+        info!(run_id = %run_id, "agent conversation run queued");
         Ok(run_id)
     }
 

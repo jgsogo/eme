@@ -25,6 +25,7 @@ use agent_storage::ConversationStore;
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
+use tracing::{info, warn};
 
 /// Start the agent platform HTTP server.
 #[derive(Debug, Parser)]
@@ -167,7 +168,17 @@ async fn console_ui() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+
     let args = Args::parse();
+    info!(data_dir = %args.data_dir.display(), host = %args.host, port = args.port,
+        max_concurrent_runs = args.max_concurrent_runs, max_queued_runs = args.max_queued_runs,
+        "starting agent platform");
 
     // Construct one gateway and share it with the bot adapter and all Telegram
     // tools. No other component is allowed to call getUpdates for this token.
@@ -198,6 +209,8 @@ async fn main() -> Result<()> {
             )
         })?,
     );
+    info!(agents = resolver.agents.definitions().count(), "agent definitions loaded");
+
     let task_registry = TaskRegistry::load(
         args.data_dir.join("tasks"),
         resolver
@@ -221,6 +234,7 @@ async fn main() -> Result<()> {
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
     let task_scheduler = TaskScheduler::start(task_registry, manager.clone());
+    info!("task scheduler started");
     let conversation_store = Arc::new(
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
@@ -240,19 +254,17 @@ async fn main() -> Result<()> {
             Arc::clone(&telegram_auth),
             updates,
         ));
-        println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
+        info!(agent = %args.telegram_agent, "Telegram gateway enabled");
     } else {
-        println!("Telegram gateway disabled (TELEGRAM_BOT_TOKEN is not set)");
+        info!("Telegram gateway disabled (TELEGRAM_BOT_TOKEN is not set)");
     }
 
     let bind_address = (args.host, args.port);
-    println!(
-        "Agent platform listening on http://{}:{}",
-        bind_address.0, bind_address.1
-    );
+    info!(address = %format!("http://{}:{}", bind_address.0, bind_address.1), "HTTP server listening");
 
     let server_result = HttpServer::new(move || {
         App::new()
+            .wrap(middleware::Logger::default())
             .wrap(middleware::from_fn(require_telegram_session))
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
@@ -270,5 +282,8 @@ async fn main() -> Result<()> {
     .await;
 
     task_scheduler.shutdown().await;
+    if let Err(error) = &server_result {
+        warn!(%error, "HTTP server stopped with an error");
+    }
     server_result.context("running HTTP server")
 }
