@@ -1,4 +1,4 @@
-//! Persistent conversation storage.
+//! Persistent conversation storage and execution persistence contracts.
 //!
 //! Conversations are stored as JSON documents. The active conversation for
 //! each external owner is kept in a separate index. Writes use a temporary
@@ -19,6 +19,15 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
+
+mod contracts;
+mod memory;
+
+pub use contracts::{
+    ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
+    StoredRunEvent, StoredRunStatus,
+};
+pub use memory::InMemoryStorage;
 
 /// Stable identifier assigned to a logical conversation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
