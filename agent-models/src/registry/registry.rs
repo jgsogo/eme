@@ -9,7 +9,6 @@ use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use super::provider_config::ProviderConfig;
 
-
 pub struct Registry {
     providers: BTreeMap<String, ProviderConfig>,
 }
