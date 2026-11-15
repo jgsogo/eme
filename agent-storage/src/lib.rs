@@ -478,6 +478,22 @@ mod tests {
     }
 
     #[test]
+    fn migrates_legacy_owner_and_active_conversation() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("telegram:123:123", "assistant").unwrap();
+
+        let migrated = store.migrate_owner("telegram:123:123", "telegram:123").unwrap();
+
+        assert_eq!(migrated, 1);
+        assert_eq!(store.get(conversation.id).unwrap().owner, "telegram:123");
+        assert_eq!(store.active("telegram:123").unwrap().unwrap().id, conversation.id);
+        assert!(store.list("telegram:123:123").unwrap().is_empty());
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
     fn new_conversation_replaces_active_without_deleting_previous_history() {
         let directory = temporary_directory();
         let store = ConversationStore::open(&directory).unwrap();
