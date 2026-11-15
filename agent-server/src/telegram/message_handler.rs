@@ -172,7 +172,6 @@ pub(super) async fn handle_message(
     }
 }
 
-
 /// Only non-reply messages from a user can start a new inbound run.
 fn is_new_prompt(message: &IncomingMessage) -> bool {
     !message.is_bot && message.user_id.is_some() && message.reply_to_message_id.is_none()
