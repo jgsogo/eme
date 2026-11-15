@@ -1,4 +1,7 @@
-use super::super::*;
+use super::super::{GoogleCalendarClient, is_calendar_allowed, required_env};
+use agent_runtime::{Tool, ToolError};
+use async_trait::async_trait;
+use serde_json::Value;
 
 /// Read-only Google Calendar events tool.
 pub(super) struct GoogleCalendarEvents;
