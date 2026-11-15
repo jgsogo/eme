@@ -1,4 +1,4 @@
-use super::*;
+use super::super::*;
 
 /// Read-only Google Calendar events tool.
 pub(super) struct GoogleCalendarEvents;
