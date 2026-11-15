@@ -406,12 +406,17 @@ mod tests {
         let store = ConversationStore::open(&directory).unwrap();
         let conversation = store.create("owner-a", "assistant").unwrap();
 
-        let renamed = store.rename("owner-a", conversation.id, "  Project planning  ").unwrap();
+        let renamed = store
+            .rename("owner-a", conversation.id, "  Project planning  ")
+            .unwrap();
         assert_eq!(renamed.title, "Project planning");
 
         drop(store);
         let reopened = ConversationStore::open(&directory).unwrap();
-        assert_eq!(reopened.get(conversation.id).unwrap().title, "Project planning");
+        assert_eq!(
+            reopened.get(conversation.id).unwrap().title,
+            "Project planning"
+        );
 
         fs::remove_dir_all(directory).unwrap();
     }
