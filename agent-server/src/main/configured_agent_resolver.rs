@@ -42,6 +42,7 @@ impl ConfiguredAgentResolver {
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
         google_tool::register_tools(&mut tools).context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
+        common_tools::register_tools(&mut tools).context("registering common tools")?;
         let tools = Arc::new(tools);
 
         let agents =
