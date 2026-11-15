@@ -126,8 +126,14 @@ impl ConversationMessageStore for InMemoryStorage {
     async fn append_message(&self, message: StoredMessage) -> Result<(), StorageError> {
         let mut state = self.state.write().await;
         if let Some(run_id) = message.run_id {
-            if !state.runs.contains_key(&run_id) {
+            let Some(run) = state.runs.get(&run_id) else {
                 return Err(StorageError::NotFound(format!("run {run_id}")));
+            };
+            if run.conversation_id != Some(message.conversation_id) {
+                return Err(StorageError::InvalidAssociation(format!(
+                    "run {run_id} does not belong to conversation {}",
+                    message.conversation_id
+                )));
             }
         }
 
