@@ -34,6 +34,4 @@ For now, browser sessions are held in memory. Restarting `agent-server` invalida
 
 ## Conversation identity
 
-New Telegram conversations and web conversations use the same owner key, `telegram:<user_id>`. On the next message from a Telegram user, conversations created by the previous `telegram:<chat_id>:<user_id>` scheme are migrated to the canonical owner without changing their history.
-
-The Telegram user ID is stable; usernames and display names are not used as identity keys.
+Telegram and web conversations use the same owner key, `telegram:<user_id>`. The Telegram user ID is stable; usernames and display names are not used as identity keys.
