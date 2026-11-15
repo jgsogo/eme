@@ -10,4 +10,3 @@ fn truncates_long_text() {
 fn truncation_preserves_short_text() {
     assert_eq!(truncate("hello"), "hello");
 }
-
