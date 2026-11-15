@@ -4,14 +4,10 @@ pub(super) use types::GoogleCalendarEvents;
 
 use chrono::{DateTime, LocalResult, NaiveDate, TimeZone};
 use chrono_tz::Tz;
-use reqwest::{Client, StatusCode};
-use serde::Deserialize;
+use reqwest::Client;
 use serde_json::{Value, json};
-use thiserror::Error;
 use url::Url;
 
-use agent_runtime::{Tool, ToolError};
-use async_trait::async_trait;
 
 const API_BASE_URL: &str = "https://www.googleapis.com/calendar/v3";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
