@@ -409,6 +409,7 @@ mod tests {
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
         assert_eq!(subscriber.try_recv().unwrap().chat_id, 43);
+    }
 
     #[tokio::test]
     async fn concurrent_questions_in_one_chat_are_matched_out_of_order() {
@@ -530,6 +531,5 @@ mod tests {
         assert!(!dispatch_callback(Some((42, 100)), None, &mut pending));
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
-    }
     }
 }
