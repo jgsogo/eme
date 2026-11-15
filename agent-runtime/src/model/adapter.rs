@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
+use super::AgentModel;
+use crate::{Message, ModelRequest, ModelTurn, ToolCall};
 use agent_models::{
     client::ConversationClient,
     error::ModelError,
     types::{ConversationMessage, ConversationRequest, ConversationResponse},
 };
-use crate::{Message, ModelRequest, ModelTurn, ToolCall};
-use super::AgentModel;
+use async_trait::async_trait;
 
 /// Adapts an agent-models conversation client to the runtime interface.
 pub struct ModelAdapter {
