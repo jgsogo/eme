@@ -1,15 +1,21 @@
 //! Executable entry point for the agent platform HTTP service.
 
+#[path = "main/args.rs"]
 mod args;
+#[path = "main/auth_middleware.rs"]
 mod auth_middleware;
+#[path = "main/configured_agent_resolver.rs"]
 mod configured_agent_resolver;
+#[path = "main/console.rs"]
 mod console;
+#[path = "main/console_event_sink.rs"]
 mod console_event_sink;
 mod telegram;
 
 use std::sync::Arc;
 
 use actix_web::{App, HttpServer, middleware, web};
+use agent_server::auth::TelegramAuth;
 use agent_service::{AgentRuntimeExecutor, RunManager, TaskRegistry, TaskScheduler};
 use agent_storage::ConversationStore;
 use anyhow::{Context, Result};
