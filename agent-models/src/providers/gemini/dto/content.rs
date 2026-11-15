@@ -1,7 +1,7 @@
 use super::*;
 use serde::{Serialize};
 #[derive(Serialize)]
-pub(super) struct Content {
-    pub(super) role: String,
-    pub(super) parts: Vec<Part>,
+pub(in crate::providers::gemini) struct Content {
+    pub(in crate::providers::gemini) role: String,
+    pub(in crate::providers::gemini) parts: Vec<Part>,
 }
