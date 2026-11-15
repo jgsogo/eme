@@ -398,7 +398,10 @@ async fn continue_conversation(
     conversation_id: Path<String>,
     request: Json<ContinueConversationRequest>,
 ) -> impl Responder {
-    let owner = match authenticated_owner(&request_http, &auth) { Ok(owner) => owner, Err(response) => return response };
+    let owner = match authenticated_owner(&request_http, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
     let input = request.input.trim();
     if input.is_empty() {
         return HttpResponse::BadRequest().body("input must not be empty");
