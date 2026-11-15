@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, Error)]
-pub(crate) enum MeteosourceError {
+pub(crate) pub(super) enum MeteosourceError {
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
 
