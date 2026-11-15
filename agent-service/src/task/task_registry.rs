@@ -4,7 +4,7 @@ use chrono::Utc;
 use chrono_tz::Tz;
 use cron::Schedule;
 use crate::scheduler::ScheduledTask;
-use super::TaskDefinition;
+use super::task_definition::TaskDefinition;
 
 /// Loads and validates task definitions from a TOML directory.
 pub struct TaskRegistry {
