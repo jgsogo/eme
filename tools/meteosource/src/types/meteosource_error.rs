@@ -2,7 +2,7 @@ use reqwest::StatusCode;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(crate) pub(super) enum MeteosourceError {
+pub(super) enum MeteosourceError {
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
 
