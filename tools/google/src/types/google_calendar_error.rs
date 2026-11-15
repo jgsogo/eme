@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, Error)]
-enum GoogleCalendarError {
+pub(super) enum GoogleCalendarError {
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
     #[error("Google Calendar returned HTTP {status}: {detail}")]
