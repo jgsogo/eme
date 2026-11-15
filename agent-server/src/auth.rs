@@ -107,7 +107,9 @@ impl TelegramAuth {
     }
 
     pub fn owns_run(&self, run_id: &str, owner: &str) -> bool {
-        Self::lock(&self.run_owners).get(run_id).is_some_and(|run_owner| run_owner == owner)
+        Self::lock(&self.run_owners)
+            .get(run_id)
+            .is_some_and(|run_owner| run_owner == owner)
     }
 
     pub fn runs_for_owner(&self, owner: &str) -> Vec<String> {
