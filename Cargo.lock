@@ -254,6 +254,7 @@ dependencies = [
  "agent-models",
  "agent-runtime",
  "agent-service",
+ "agent-storage",
  "alexa-tool",
  "anyhow",
  "async-trait",
