@@ -2,16 +2,16 @@ use super::*;
 use serde::{Serialize};
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct Part {
+pub(in crate::providers::gemini) struct Part {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) text: Option<String>,
+    pub(in crate::providers::gemini) text: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) function_call: Option<FunctionCall>,
+    pub(in crate::providers::gemini) function_call: Option<FunctionCall>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) function_response: Option<FunctionResponse>,
+    pub(in crate::providers::gemini) function_response: Option<FunctionResponse>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) thought_signature: Option<String>,
+    pub(in crate::providers::gemini) thought_signature: Option<String>,
 }
