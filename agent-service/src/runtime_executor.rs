@@ -110,7 +110,7 @@ impl RunExecutor for AgentRuntimeExecutor {
                     RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
                     RuntimeRunStatus::MaxIterationsReached => {
                         ExecutionOutcome::MaxIterationsReached
-                    },
+                    }
                 };
                 Ok(ExecutionReport {
                     outcome,
