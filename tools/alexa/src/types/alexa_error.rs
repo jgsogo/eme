@@ -1,4 +1,4 @@
-use super::super::*;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub(super) pub(super) enum AlexaError {
