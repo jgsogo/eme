@@ -1,4 +1,5 @@
-use super::super::*;
+use super::Tokens;
+use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ExchangeInner {
