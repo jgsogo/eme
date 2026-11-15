@@ -1,3 +1,6 @@
+mod types;
+use types::*;
+
 //! Alexa text-to-speech (TTS) implementation.
 //!
 //! This module is a Rust port of the TTS-related logic from
