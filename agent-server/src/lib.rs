@@ -1,5 +1,7 @@
 //! HTTP API for submitting, inspecting, and cancelling agent runs.
 
+pub mod auth;
+
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use actix_web::{
