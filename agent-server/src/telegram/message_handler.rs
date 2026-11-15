@@ -5,6 +5,7 @@ use agent_service::{RunManager, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::Mutex;
+use tracing::warn;
 
 use super::{commands::handle_command, formatting::send_error, report::report};
 
@@ -33,8 +34,12 @@ pub(super) async fn handle_message(
         return;
     };
     if !allowed.contains(&user_id) {
+        warn!(
+            telegram_user_id = user_id,
+            "Rejected unauthorized Telegram user"
+        );
         let _ = gateway
-            .send_message(message.chat_id, "You are not authorized to use this bot.")
+            .send_message(message.chat_id, "You are not authorized to use EME.")
             .await;
         return;
     }
