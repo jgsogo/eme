@@ -1,0 +1,16 @@
+name = "daily-weather"
+description = "Daily weather report for Salamanca"
+
+agent = "assistant"
+
+prompt = """
+Retrieve the weather forecast for Salamanca, Spain.
+Summarize the expected weather for today, including minimum and
+maximum temperatures, precipitation probability and wind.
+"""
+
+# Run every day at 08:00 local time.
+schedule = "0 0 8 * * *"
+timezone = "Europe/Madrid"
+
+enabled = true
