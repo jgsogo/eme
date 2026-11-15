@@ -1,29 +1,34 @@
-# agent-service
+# Agent service
 
-## Purpose
+Orchestration and lifecycle management for concurrent agent runs.
 
-The `agent-service` crate will provide the orchestration layer for running multiple independent agent executions as a long-lived service.
+## Scheduled tasks
 
-It will sit between service interfaces (such as the HTTP API provided by `agent-server`) and the single-run execution engine in `agent-runtime`. Its responsibility will be to manage runs as independent units of work, rather than to implement model interaction or tool execution itself.
+The service can load scheduled agent executions from TOML files in
+`data/tasks/`. Each file selects an existing agent, provides the prompt to
+execute, and defines either a recurring cron schedule or a one-time RFC3339
+timestamp.
 
-## Responsibilities
+Recurring task example:
 
-The crate will implement:
+```toml
+name = "daily-weather"
+description = "Daily weather report"
+agent = "assistant"
+prompt = "Retrieve and summarize today's weather forecast for Salamanca."
+schedule = "0 0 8 * * *"
+timezone = "Europe/Madrid"
+enabled = true
+```
 
-- **Run management:** creation of run identities, submission, lookup, and lifecycle transitions.
-- **Scheduling and admission control:** bounded queues, worker coordination, and configurable concurrency limits.
-- **Execution supervision:** starting agent runs through `agent-runtime`, tracking their progress, and collecting their outcomes.
-- **Cancellation and deadlines:** coordinating cancellation requests and execution limits for individual runs.
-- **Run events:** routing execution events to the appropriate run and making them available to storage and subscribers.
-- **Service-level coordination:** connecting runtime execution with persistence without coupling the runtime to a particular database or transport.
+Cron expressions use six fields (seconds, minutes, hours, day of month, month,
+day of week). The optional timezone defaults to UTC. One-time tasks use
+`at = "2026-11-20T09:00:00+01:00"`; the timestamp must include its UTC offset
+and cannot be combined with `schedule` or `timezone`.
 
-## Boundaries
-
-- `agent-runtime` will remain responsible for executing one agent run, including model interaction, tool dispatch, and policy enforcement.
-- `agent-service` will manage many runs and their lifecycle. It will not own HTTP routing or a concrete persistence implementation.
-- `agent-storage` will provide the persistence contracts and storage implementations used by the service.
-- `agent-server` will expose service operations to external clients.
-
-## Non-goals
-
-This crate will not implement provider-specific model clients, individual tools, HTTP endpoints, or database-specific queries. Those responsibilities will remain in their respective crates.
+Tasks are validated at startup. Disabled tasks are not scheduled, and expired
+one-time tasks are ignored. Each due task is submitted through `RunManager`,
+so normal execution concurrency and queue limits still apply. A full queue is
+logged and the occurrence is skipped; missed recurring occurrences are not
+replayed after a restart. Task definitions are reloaded only when the server
+restarts.
