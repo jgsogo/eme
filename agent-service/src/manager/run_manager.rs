@@ -6,6 +6,7 @@ use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
 use agent_runtime::{CancellationToken, Message};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, mpsc};
+use tracing::info;
 
 /// Coordinates run admission, in-memory state, and bounded execution.
 #[derive(Clone)]
@@ -68,6 +69,8 @@ impl RunManager {
                             entry.history.clone(),
                         )
                     };
+
+                    info!(run_id = %run.id, agent = %run.agent, "agent run started");
 
                     let result = executor
                         .execute_with_history(
@@ -137,6 +140,7 @@ impl RunManager {
                             }
                         };
                         entry.record(event);
+                        info!(run_id = %run_id, agent = %entry.run.agent, status = ?entry.run.status, "agent run finished");
                     }
                 }
             });
@@ -181,6 +185,7 @@ impl RunManager {
             return Err(SubmitRunError::QueueFull);
         }
 
+        info!(run_id = %run_id, "agent run queued");
         Ok(run_id)
     }
 
@@ -219,6 +224,7 @@ impl RunManager {
             return Err(SubmitRunError::QueueFull);
         }
 
+        info!(run_id = %run_id, "agent conversation run queued");
         Ok(run_id)
     }
 
