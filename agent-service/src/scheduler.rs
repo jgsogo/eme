@@ -111,10 +111,7 @@ async fn run_scheduler(
                 }
             }
 
-            match manager
-                .submit(agent_name.clone(), prompt)
-                .await
-            {
+            match manager.submit(agent_name.clone(), prompt).await {
                 Ok(run_id) => tracing::info!(
                     task = %task_name,
                     agent = %agent_name,
