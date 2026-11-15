@@ -4,6 +4,7 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use agent_service::{RunId, RunManager, RunStatus, SubmitRunError};
+use agent_storage::{ConversationId, ConversationStore};
 use anyhow::{Context, Result};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::broadcast;
@@ -40,7 +41,14 @@ fn truncate(text: &str) -> String {
     )
 }
 
-async fn report(gateway: Arc<TelegramGateway>, chat_id: i64, manager: RunManager, id: RunId) {
+async fn report(
+    gateway: Arc<TelegramGateway>,
+    chat_id: i64,
+    manager: RunManager,
+    store: Arc<ConversationStore>,
+    conversation_id: ConversationId,
+    id: RunId,
+) {
     loop {
         match manager.get(id).await {
             Some(run) if run.status.is_terminal() => {
@@ -56,6 +64,12 @@ async fn report(gateway: Arc<TelegramGateway>, chat_id: i64, manager: RunManager
                     RunStatus::MaxIterationsReached => "Maximum iterations reached.".into(),
                     _ => unreachable!(),
                 };
+
+                if let Some(messages) = manager.history(id).await {
+                    if let Err(error) = store.save_messages(conversation_id, messages) {
+                        eprintln!("Telegram conversation persistence failed: {error}");
+                    }
+                }
 
                 if let Err(error) = gateway.send_message(chat_id, &truncate(&text)).await {
                     eprintln!("Telegram result delivery failed: {error}");
@@ -74,6 +88,7 @@ async fn handle_message(
     allowed: &HashSet<i64>,
     agent: &str,
     manager: &RunManager,
+    store: &Arc<ConversationStore>,
     message: IncomingMessage,
 ) {
     if message.is_bot {
@@ -98,17 +113,60 @@ async fn handle_message(
         return;
     }
 
+    let owner = format!("telegram:{}:{}", message.chat_id, user_id);
+
+    if prompt == "/new" {
+        match store.create(owner, agent) {
+            Ok(conversation) => {
+                let _ = gateway
+                    .send_message(
+                        message.chat_id,
+                        &format!("Started a new conversation ({}) with agent '{agent}'.", conversation.id),
+                    )
+                    .await;
+            }
+            Err(error) => {
+                let _ = gateway
+                    .send_message(message.chat_id, &format!("Could not create conversation: {error}"))
+                    .await;
+            }
+        }
+        return;
+    }
+
     if prompt == "/start" || prompt == "/help" {
         let _ = gateway
             .send_message(
                 message.chat_id,
-                &format!("Send a prompt to run the '{agent}' agent."),
+                &format!("Send a prompt to chat with the '{agent}' agent. Use /new to start a new conversation."),
             )
             .await;
         return;
     }
 
-    match manager.submit(agent.to_owned(), prompt).await {
+    let conversation = match store.active(&owner) {
+        Ok(Some(conversation)) => conversation,
+        Ok(None) => match store.create(owner, agent) {
+            Ok(conversation) => conversation,
+            Err(error) => {
+                let _ = gateway
+                    .send_message(message.chat_id, &format!("Could not create conversation: {error}"))
+                    .await;
+                return;
+            }
+        },
+        Err(error) => {
+            let _ = gateway
+                .send_message(message.chat_id, &format!("Could not load conversation: {error}"))
+                .await;
+            return;
+        }
+    };
+
+    match manager
+        .submit_with_history(agent.to_owned(), prompt, conversation.messages.clone())
+        .await
+    {
         Ok(id) => {
             let _ = gateway
                 .send_message(message.chat_id, &format!("Run {id} queued."))
@@ -117,6 +175,8 @@ async fn handle_message(
                 gateway.clone(),
                 message.chat_id,
                 manager.clone(),
+                store.clone(),
+                conversation.id,
                 id,
             ));
         }
@@ -136,12 +196,13 @@ pub async fn run_bot(
     allowed: HashSet<i64>,
     agent: String,
     manager: RunManager,
+    store: Arc<ConversationStore>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
     loop {
         match updates.recv().await {
             Ok(message) => {
-                handle_message(&gateway, &allowed, &agent, &manager, message).await;
+                handle_message(&gateway, &allowed, &agent, &manager, &store, message).await;
             }
             Err(broadcast::error::RecvError::Lagged(skipped)) => {
                 eprintln!("Telegram dispatcher lagged; skipped {skipped} messages");
