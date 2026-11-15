@@ -66,9 +66,16 @@ pub struct Conversation {
     /// Stable external identity, for example `telegram:<user_id>`.
     pub owner: String,
     pub agent: String,
+    /// User-editable display name. Defaults when reading older conversation files.
+    #[serde(default = "default_conversation_title")]
+    pub title: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub messages: Vec<Message>,
+}
+
+fn default_conversation_title() -> String {
+    "New conversation".to_owned()
 }
 
 #[derive(Debug, Error)]
@@ -88,6 +95,8 @@ pub enum ConversationStoreError {
     EmptyOwner,
     #[error("agent name must not be empty")]
     EmptyAgent,
+    #[error("conversation title must not be empty")]
+    EmptyTitle,
 }
 
 /// File-backed conversation store.
@@ -134,6 +143,7 @@ impl ConversationStore {
             id: ConversationId::new(),
             owner: owner.clone(),
             agent,
+            title: default_conversation_title(),
             created_at: now,
             updated_at: now,
             messages: Vec::new(),
@@ -228,6 +238,37 @@ impl ConversationStore {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         self.read_conversation(id)
+    }
+
+    /// Changes the display title of a conversation belonging to owner.
+    pub fn rename(
+        &self,
+        owner: &str,
+        id: ConversationId,
+        title: impl Into<String>,
+    ) -> Result<Conversation, ConversationStoreError> {
+        let title = title.into();
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(ConversationStoreError::EmptyTitle);
+        }
+
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut conversation = self.read_conversation(id)?;
+        if conversation.owner != owner {
+            return Err(ConversationStoreError::OwnerMismatch {
+                conversation_id: id,
+                owner: owner.to_owned(),
+            });
+        }
+
+        conversation.title = title.to_owned();
+        conversation.updated_at = Utc::now();
+        self.write_conversation(&conversation)?;
+        Ok(conversation)
     }
 
     /// Replaces the complete model-visible history of a conversation.
@@ -353,7 +394,42 @@ mod tests {
 
         assert_eq!(loaded.id, conversation.id);
         assert_eq!(loaded.agent, "assistant");
+        assert_eq!(loaded.title, "New conversation");
         assert!(loaded.messages.is_empty());
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn renames_conversation_and_persists_the_title() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+
+        let renamed = store.rename("owner-a", conversation.id, "  Project planning  ").unwrap();
+        assert_eq!(renamed.title, "Project planning");
+
+        drop(store);
+        let reopened = ConversationStore::open(&directory).unwrap();
+        assert_eq!(reopened.get(conversation.id).unwrap().title, "Project planning");
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn cannot_rename_another_owners_conversation_or_use_an_empty_title() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+
+        assert!(matches!(
+            store.rename("owner-b", conversation.id, "Private title"),
+            Err(ConversationStoreError::OwnerMismatch { .. })
+        ));
+        assert!(matches!(
+            store.rename("owner-a", conversation.id, "  "),
+            Err(ConversationStoreError::EmptyTitle)
+        ));
 
         fs::remove_dir_all(directory).unwrap();
     }
