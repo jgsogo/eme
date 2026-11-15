@@ -2,7 +2,7 @@ use reqwest::StatusCode;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub(super) enum GoogleCalendarError {
+pub(crate) enum GoogleCalendarError {
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
     #[error("Google Calendar returned HTTP {status}: {detail}")]
