@@ -20,6 +20,19 @@ pub(super) async fn handle_message(
     auth: &Arc<TelegramAuth>,
     message: IncomingMessage,
 ) {
+    // Replies are reserved for interactive Telegram tool calls. If the gateway
+    // did not match one to a pending question (e.g. it expired), never turn it
+    // into a fresh agent prompt.
+    if !is_new_prompt(&message) {
+        warn!(
+            chat_id = message.chat_id,
+            message_id = message.message_id,
+            reply_to_message_id = message.reply_to_message_id,
+            "Ignoring Telegram reply without a matching pending question"
+        );
+        return;
+    }
+
     if message.is_bot {
         return;
     }
@@ -156,5 +169,50 @@ pub(super) async fn handle_message(
                 )
                 .await;
         }
+    }
+}
+
+/// Only non-reply messages from a user can start a new inbound run.
+fn is_new_prompt(message: &IncomingMessage) -> bool {
+    !message.is_bot && message.user_id.is_some() && message.reply_to_message_id.is_none()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn message(reply_to_message_id: Option<i32>) -> IncomingMessage {
+        IncomingMessage {
+            chat_id: 42,
+            user_id: Some(7),
+            is_bot: false,
+            message_id: 200,
+            reply_to_message_id,
+            text: Some("hello".to_owned()),
+        }
+    }
+
+    #[test]
+    fn reply_messages_are_not_new_prompts() {
+        assert!(!is_new_prompt(&message(Some(100))));
+    }
+
+    #[test]
+    fn ordinary_user_messages_can_start_new_prompts() {
+        assert!(is_new_prompt(&message(None)));
+    }
+
+    #[test]
+    fn bot_messages_cannot_start_new_prompts() {
+        let mut message = message(None);
+        message.is_bot = true;
+        assert!(!is_new_prompt(&message));
+    }
+
+    #[test]
+    fn messages_without_a_user_id_cannot_start_new_prompts() {
+        let mut message = message(None);
+        message.user_id = None;
+        assert!(!is_new_prompt(&message));
     }
 }
