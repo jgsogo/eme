@@ -1,4 +1,4 @@
-use super::super::SearchResult;
+use super::SearchResult;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
