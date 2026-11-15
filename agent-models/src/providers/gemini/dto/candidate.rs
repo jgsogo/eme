@@ -1,3 +1,4 @@
+use super::*;
 use serde::{Deserialize};
 #[derive(Deserialize)]
 pub(super) struct Candidate {
