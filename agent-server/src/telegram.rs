@@ -334,18 +334,7 @@ async fn handle_message(
         return;
     }
 
-    let legacy_owner = format!("telegram:{}:{}", message.chat_id, user_id);
     let owner = format!("telegram:{user_id}");
-    if let Err(error) = store.migrate_owner(&legacy_owner, &owner) {
-        send_error(
-            gateway,
-            message.chat_id,
-            "migrate conversation ownership",
-            error,
-        )
-        .await;
-        return;
-    }
     if handle_command(
         gateway,
         &owner,
