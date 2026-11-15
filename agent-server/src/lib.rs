@@ -149,7 +149,7 @@ async fn list_runs(request: HttpRequest, auth: Option<Data<crate::auth::Telegram
 }
 
 #[post("")]
-async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) -> impl Responder {
+async fn submit_run(http_request: HttpRequest, auth: Option<Data<crate::auth::TelegramAuth>>, manager: Data<RunManager>, request: Json<SubmitRunRequest>) -> impl Responder {
     if request.agent.trim().is_empty() {
         return HttpResponse::BadRequest().body("agent must not be empty");
     }
@@ -161,10 +161,17 @@ async fn submit_run(manager: Data<RunManager>, request: Json<SubmitRunRequest>) 
         .submit(request.agent.clone(), request.input.clone())
         .await
     {
-        Ok(run_id) => HttpResponse::Accepted().json(SubmitRunResponse {
-            run_id: run_id.to_string(),
-            status: "queued",
-        }),
+        Ok(run_id) => {
+            if let Some(auth) = auth.as_ref() {
+                if let Some(owner) = auth.owner_for_request(&http_request) {
+                    auth.register_run(run_id.to_string(), &owner);
+                }
+            }
+            HttpResponse::Accepted().json(SubmitRunResponse {
+                run_id: run_id.to_string(),
+                status: "queued",
+            })
+        },
         Err(SubmitRunError::QueueFull) => {
             HttpResponse::ServiceUnavailable().body("run queue is full")
         }
