@@ -122,8 +122,8 @@ async fn run_scheduler(
                     "scheduled task submitted"
                 ),
                 Err(error) => tracing::error!(
-                    task = %task.name,
-                    agent = %task.agent,
+                    task = %task_name,
+                    agent = %agent_name,
                     %error,
                     "failed to submit scheduled task"
                 ),
