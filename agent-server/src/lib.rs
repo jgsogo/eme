@@ -388,6 +388,7 @@ async fn continue_conversation(
         .await
     {
         Ok(run_id) => {
+            auth.register_run(run_id.to_string(), &owner);
             let manager = manager.get_ref().clone();
             let store = store.get_ref().clone();
             tokio::spawn(async move {
