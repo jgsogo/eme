@@ -1,5 +1,5 @@
-mod agent_model;
 mod adapter;
+mod agent_model;
 
-pub use agent_model::AgentModel;
 pub use adapter::ModelAdapter;
+pub use agent_model::AgentModel;
