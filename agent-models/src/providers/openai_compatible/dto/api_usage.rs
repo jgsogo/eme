@@ -1,7 +1,7 @@
 use super::*;
 use serde::{Deserialize};
 #[derive(Deserialize)]
-pub(super) struct ApiUsage {
-    pub(super) prompt_tokens: u32,
-    pub(super) completion_tokens: u32,
+pub(in crate::providers::openai_compatible) struct ApiUsage {
+    pub(in crate::providers::openai_compatible) prompt_tokens: u32,
+    pub(in crate::providers::openai_compatible) completion_tokens: u32,
 }
