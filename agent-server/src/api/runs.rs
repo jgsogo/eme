@@ -10,6 +10,7 @@ use actix_web::{
 use agent_service::{
     CancelRunError, CancelRunOutcome, RunId, RunManager, RunStatus, SubmitRunError,
 };
+
 fn status_name(status: RunStatus) -> &'static str {
     match status {
         RunStatus::Queued => "queued",
