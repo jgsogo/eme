@@ -72,9 +72,16 @@ impl GoogleCalendarClient {
         if !status.is_success() {
             let detail = serde_json::from_str::<Value>(&body)
                 .ok()
-                .and_then(|value| value.pointer("/error_description").and_then(Value::as_str).map(str::to_owned))
+                .and_then(|value| {
+                    value
+                        .pointer("/error_description")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
                 .unwrap_or(body);
-            return Err(GoogleCalendarError::OAuth(format!("HTTP {status}: {detail}")));
+            return Err(GoogleCalendarError::OAuth(format!(
+                "HTTP {status}: {detail}"
+            )));
         }
         let token: TokenResponse = serde_json::from_str(&body)?;
         Ok(Self {
@@ -86,7 +93,11 @@ impl GoogleCalendarClient {
 
     #[cfg(test)]
     fn with_base_url(access_token: String, base_url: String) -> Self {
-        Self { client: Client::new(), access_token, base_url }
+        Self {
+            client: Client::new(),
+            access_token,
+            base_url,
+        }
     }
 
     async fn events_for_day(
@@ -104,11 +115,13 @@ impl GoogleCalendarClient {
         let zone: Tz = zone_name.parse().map_err(|_| {
             GoogleCalendarError::InvalidTime(format!("unknown IANA timezone '{zone_name}'"))
         })?;
-        let next_day = date.succ_opt()
+        let next_day = date
+            .succ_opt()
             .ok_or_else(|| GoogleCalendarError::InvalidTime("date is out of range".into()))?;
         let start = local_midnight(zone, date)?;
         let end = local_midnight(zone, next_day)?;
-        self.events_for_bounds(calendar_id, &start, &end, Some(zone_name)).await
+        self.events_for_bounds(calendar_id, &start, &end, Some(zone_name))
+            .await
     }
 
     async fn events_for_period(
@@ -126,12 +139,18 @@ impl GoogleCalendarClient {
                 "'time_min' must be earlier than 'time_max'".into(),
             ));
         }
-        self.events_for_bounds(calendar_id, time_min, time_max, None).await
+        self.events_for_bounds(calendar_id, time_min, time_max, None)
+            .await
     }
 
     async fn calendar_time_zone(&self, calendar_id: &str) -> Result<String, GoogleCalendarError> {
         let url = self.calendar_url(calendar_id, false)?;
-        let response = self.client.get(url).bearer_auth(&self.access_token).send().await?;
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(&self.access_token)
+            .send()
+            .await?;
         let calendar: Calendar = self.decode_response(response).await?;
         Ok(calendar.time_zone)
     }
@@ -144,7 +163,9 @@ impl GoogleCalendarClient {
                 GoogleCalendarError::InvalidTime("invalid Google Calendar API base URL".into())
             })?;
             segments.pop_if_empty().push("calendars").push(calendar_id);
-            if events { segments.push("events"); }
+            if events {
+                segments.push("events");
+            }
         }
         Ok(url)
     }
@@ -160,7 +181,10 @@ impl GoogleCalendarClient {
         let mut events = Vec::new();
         let mut page_token: Option<String> = None;
         loop {
-            let mut request = self.client.get(url.clone()).bearer_auth(&self.access_token)
+            let mut request = self
+                .client
+                .get(url.clone())
+                .bearer_auth(&self.access_token)
                 .query(&[
                     ("timeMin", time_min),
                     ("timeMax", time_max),
@@ -175,7 +199,9 @@ impl GoogleCalendarClient {
             let page: EventsPage = self.decode_response(response).await?;
             events.extend(page.items);
             page_token = page.next_page_token;
-            if page_token.is_none() { break; }
+            if page_token.is_none() {
+                break;
+            }
         }
         Ok(json!({
             "calendar_id": calendar_id,
@@ -194,8 +220,14 @@ impl GoogleCalendarClient {
         let status = response.status();
         let body = response.text().await?;
         if !status.is_success() {
-            let detail = serde_json::from_str::<Value>(&body).ok()
-                .and_then(|value| value.pointer("/error/message").and_then(Value::as_str).map(str::to_owned))
+            let detail = serde_json::from_str::<Value>(&body)
+                .ok()
+                .and_then(|value| {
+                    value
+                        .pointer("/error/message")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
                 .unwrap_or(body);
             return Err(GoogleCalendarError::Api { status, detail });
         }
@@ -208,14 +240,17 @@ fn required_env(name: &str) -> Result<String, GoogleCalendarError> {
 }
 
 fn local_midnight(zone: Tz, date: NaiveDate) -> Result<String, GoogleCalendarError> {
-    let midnight = date.and_hms_opt(0, 0, 0)
+    let midnight = date
+        .and_hms_opt(0, 0, 0)
         .ok_or_else(|| GoogleCalendarError::InvalidTime("invalid local midnight".into()))?;
     let local = match zone.from_local_datetime(&midnight) {
         LocalResult::Single(value) => value,
         LocalResult::Ambiguous(first, _) => first,
-        LocalResult::None => return Err(GoogleCalendarError::InvalidTime(format!(
-            "local midnight does not exist for {date} in {zone}"
-        ))),
+        LocalResult::None => {
+            return Err(GoogleCalendarError::InvalidTime(format!(
+                "local midnight does not exist for {date} in {zone}"
+            )));
+        }
     };
     Ok(local.to_rfc3339())
 }
@@ -226,7 +261,9 @@ pub struct GoogleCalendarEvents;
 #[async_trait]
 impl Tool for GoogleCalendarEvents {
     async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
-        let calendar_id = arguments.get("calendar_id").and_then(Value::as_str)
+        let calendar_id = arguments
+            .get("calendar_id")
+            .and_then(Value::as_str)
             .filter(|value| !value.trim().is_empty())
             .ok_or_else(|| ToolError::InvalidArguments {
                 tool_name: "google_calendar_events".into(),
@@ -241,17 +278,23 @@ impl Tool for GoogleCalendarEvents {
         if has_date == has_period || (has_period && (time_min.is_none() || time_max.is_none())) {
             return Err(ToolError::InvalidArguments {
                 tool_name: "google_calendar_events".into(),
-                errors: vec!["Provide either 'date' or both 'time_min' and 'time_max', but not both.".into()],
+                errors: vec![
+                    "Provide either 'date' or both 'time_min' and 'time_max', but not both.".into(),
+                ],
             });
         }
 
-        let client = GoogleCalendarClient::from_environment().await
+        let client = GoogleCalendarClient::from_environment()
+            .await
             .map_err(|error| ToolError::Configuration(error.to_string()))?;
         let result = if let Some(date) = date {
             client.events_for_day(calendar_id, date, time_zone).await
         } else {
-            client.events_for_period(calendar_id, time_min.unwrap(), time_max.unwrap()).await
-        }.map_err(|error| ToolError::Execution(error.to_string()))?;
+            client
+                .events_for_period(calendar_id, time_min.unwrap(), time_max.unwrap())
+                .await
+        }
+        .map_err(|error| ToolError::Execution(error.to_string()))?;
         serde_json::to_string_pretty(&result)
             .map_err(|error| ToolError::Execution(error.to_string()))
     }
@@ -260,28 +303,44 @@ impl Tool for GoogleCalendarEvents {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::{bearer_token, method, path, query_param}};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{bearer_token, method, path, query_param},
+    };
 
     #[tokio::test]
     async fn gets_selected_calendar_day_and_follows_pagination() {
         let server = MockServer::start().await;
-        Mock::given(method("GET")).and(path("/calendars/team%40example.com"))
+        Mock::given(method("GET"))
+            .and(path("/calendars/team%40example.com"))
             .and(bearer_token("token"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"timeZone":"Europe/Madrid"})))
-            .mount(&server).await;
-        Mock::given(method("GET")).and(path("/calendars/team%40example.com/events"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"timeZone":"Europe/Madrid"})),
+            )
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/calendars/team%40example.com/events"))
             .and(query_param("timeMin", "2026-11-14T00:00:00+01:00"))
             .and(query_param("timeMax", "2026-11-15T00:00:00+01:00"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "items":[{"id":"one"}],"nextPageToken":"next"
-            }))).up_to_n_times(1).mount(&server).await;
-        Mock::given(method("GET")).and(path("/calendars/team%40example.com/events"))
+            })))
+            .up_to_n_times(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/calendars/team%40example.com/events"))
             .and(query_param("pageToken", "next"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"items":[{"id":"two"}]})))
-            .mount(&server).await;
+            .mount(&server)
+            .await;
 
         let client = GoogleCalendarClient::with_base_url("token".into(), server.uri());
-        let events = client.events_for_day("team@example.com", "2026-11-14", None).await.unwrap();
+        let events = client
+            .events_for_day("team@example.com", "2026-11-14", None)
+            .await
+            .unwrap();
         assert_eq!(events["event_count"], 2);
         assert_eq!(events["calendar_id"], "team@example.com");
         assert_eq!(events["time_zone"], "Europe/Madrid");
@@ -291,15 +350,23 @@ mod tests {
     async fn rejects_reversed_period() {
         let server = MockServer::start().await;
         let client = GoogleCalendarClient::with_base_url("token".into(), server.uri());
-        let error = client.events_for_period("calendar-id", "2026-11-15T00:00:00Z", "2026-11-14T00:00:00Z")
-            .await.unwrap_err();
+        let error = client
+            .events_for_period(
+                "calendar-id",
+                "2026-11-15T00:00:00Z",
+                "2026-11-14T00:00:00Z",
+            )
+            .await
+            .unwrap_err();
         assert!(error.to_string().contains("earlier"));
     }
 
     #[test]
     fn local_midnight_uses_daylight_saving_offset() {
         let date = NaiveDate::from_ymd_opt(2026, 11, 14).unwrap();
-        assert_eq!(local_midnight("Europe/Madrid".parse().unwrap(), date).unwrap(),
-            "2026-11-14T00:00:00+01:00");
+        assert_eq!(
+            local_midnight("Europe/Madrid".parse().unwrap(), date).unwrap(),
+            "2026-11-14T00:00:00+01:00"
+        );
     }
 }

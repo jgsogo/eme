@@ -1,0 +1,19 @@
+name = "daily-report"
+description = "Daily report"
+
+agent = "assistant"
+
+prompt = """
+You are going to create a brief report with the folowwing information:
+
+ * weather forecast for Salamanca, Spain
+ * Any relevant news for Salamanca, Spain and the world
+
+Send this information via Telegram
+"""
+
+# Run every day at 08:00 local time.
+schedule = "0 30 7 * * *"
+timezone = "Europe/Madrid"
+
+enabled = true

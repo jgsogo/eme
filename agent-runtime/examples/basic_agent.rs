@@ -16,8 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tools = ToolRegistry::new();
     alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
-    telegram_tool::register_tools(&mut tools).context("registering Telegram tools")?;
+    telegram_tool::register_tools(&mut tools, None).context("registering Telegram tools")?;
     meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
+    tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
 
     let model_registry = agent_models::registry::Registry::load(&data_dir)?;
     let agents = AgentRegistry::load_validated(data_dir.join("agents"), &model_registry, &tools)?;
