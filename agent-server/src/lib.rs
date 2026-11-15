@@ -131,8 +131,10 @@ fn status_name(status: RunStatus) -> &'static str {
 }
 
 #[get("")]
-async fn list_runs(manager: Data<RunManager>) -> impl Responder {
-    let runs = manager.list().await;
+async fn list_runs(request: HttpRequest, auth: Option<Data<crate::auth::TelegramAuth>>, manager: Data<RunManager>) -> impl Responder {
+    let owner = auth.as_ref().and_then(|auth| auth.owner_for_request(&request));
+    let allowed = auth.as_ref().map(|auth| owner.as_ref().map(|owner| auth.runs_for_owner(owner)).unwrap_or_default());
+    let runs = manager.list().await.into_iter().filter(|run| allowed.as_ref().is_none_or(|ids| ids.contains(&run.id.to_string()))).collect::<Vec<_>>();
     let body = runs
         .into_iter()
         .map(|run| GetRunResponse {
