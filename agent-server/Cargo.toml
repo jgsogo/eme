@@ -12,6 +12,7 @@ agent-service = { path = "../agent-service" }
 alexa-tool = { path = "../tools/alexa" }
 telegram-tool = { path = "../tools/telegram" }
 meteosource-tool = { path = "../tools/meteosource" }
+google-tool = { path = "../tools/google" }
 tavily-tool = { path = "../tools/tavily" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }

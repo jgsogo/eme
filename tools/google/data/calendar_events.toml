@@ -1,0 +1,30 @@
+name = "google_calendar_events"
+description = "List events from an explicitly selected Google Calendar for a calendar-local day or an explicit time period."
+
+[parameters]
+type = "object"
+additionalProperties = false
+
+[parameters.properties.calendar_id]
+type = "string"
+minLength = 1
+description = "Optional Google Calendar ID. Defaults to GOOGLE_CALENDAR_ID when omitted. The selected ID must also be listed in GOOGLE_CALENDAR_ALLOWED_IDS; the special 'primary' alias is not permitted."
+
+[parameters.properties.date]
+type = "string"
+format = "date"
+description = "Calendar-local date in YYYY-MM-DD format."
+
+[parameters.properties.time_min]
+type = "string"
+format = "date-time"
+description = "Inclusive period start as an RFC 3339 timestamp with timezone."
+
+[parameters.properties.time_max]
+type = "string"
+format = "date-time"
+description = "Exclusive period end as an RFC 3339 timestamp with timezone."
+
+[parameters.properties.time_zone]
+type = "string"
+description = "Optional IANA timezone override for a date query, e.g. Europe/Madrid. Defaults to the selected calendar's timezone."

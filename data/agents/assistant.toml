@@ -18,4 +18,5 @@ tools = [
     "tg_ask_user",
     "meteosource",
     "web_search",
+    "google_calendar_events",
 ]
