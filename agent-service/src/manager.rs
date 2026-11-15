@@ -452,6 +452,15 @@ impl RunManager {
             .get(&run_id)
             .map(|entry| entry.run.clone())
     }
+
+    /// Returns the latest complete conversation history known for a run.
+    pub async fn history(&self, run_id: RunId) -> Option<Vec<Message>> {
+        self.runs
+            .lock()
+            .await
+            .get(&run_id)
+            .map(|entry| entry.history.clone())
+    }
 }
 
 #[cfg(test)]
@@ -684,6 +693,7 @@ mod tests {
                         name: "weather".into(),
                     },
                 }],
+                messages: None,
             })
         }
     }
