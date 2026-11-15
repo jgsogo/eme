@@ -506,7 +506,7 @@ mod tests {
         pending.insert((42, 100), PendingReply::YesNo { sender });
 
         assert!(dispatch_callback(Some((42, 100)), Some(true), &mut pending));
-        assert_eq!(receiver.await.unwrap(), true);
+        assert!(receiver.await.unwrap());
         assert!(pending.is_empty());
     }
 
