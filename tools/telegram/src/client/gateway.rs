@@ -85,7 +85,7 @@ impl TelegramGateway {
         // already-fetched update from being mistaken for the answer.
         let dispatch = self.dispatch_lock.lock().await;
         let sent = self
-            . .send_message(
+            .send_message(
                 &SendMessageParams::builder()
                     .chat_id(chat_id)
                     .text(question)
