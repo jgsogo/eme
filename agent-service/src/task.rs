@@ -316,7 +316,7 @@ schedule = "not a cron expression"
             r#"
 name = "invalid"
 agent = "assistant"
-prompt = " "
+prompt = "Do the thing"
 schedule = "0 0 8 * * *"
 at = "2026-11-20T09:00:00+01:00"
 "#,
