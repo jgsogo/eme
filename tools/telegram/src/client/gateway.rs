@@ -70,7 +70,7 @@ impl TelegramGateway {
 
     pub async fn notify_configured_chat(&self, text: &str) -> Result<(), TelegramError> {
         let chat_id = configured_chat_id()?;
-        self.send_message(chat_id, text).await
+        self.send_message(chat_id, &format_notification(text)).await
     }
 
     pub async fn ask_text(
@@ -86,7 +86,7 @@ impl TelegramGateway {
         let dispatch = self.dispatch_lock.lock().await;
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
-            .text(question)
+            .text(&format_question(question))
             .build();
         let sent = self
             .bot
@@ -135,7 +135,7 @@ impl TelegramGateway {
         };
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
-            .text(question)
+            .text(&format_question(question))
             .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
             .build();
 
