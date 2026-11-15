@@ -1,0 +1,12 @@
+name = "sleep"
+description = "Wait for a bounded number of seconds."
+
+[parameters]
+type = "object"
+required = ["seconds"]
+additionalProperties = false
+
+[parameters.properties.seconds]
+type = "integer"
+minimum = 0
+maximum = 30

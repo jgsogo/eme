@@ -1,0 +1,9 @@
+name="get_date_info"
+description="Get weekday, ISO week, day of year, leap-year status and month length for a date."
+[parameters]
+type="object"
+required=["date"]
+additionalProperties=false
+[parameters.properties.date]
+type="string"
+description="Date in YYYY-MM-DD format."
