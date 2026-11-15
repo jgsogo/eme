@@ -5,10 +5,6 @@ description = "List events from an explicitly selected Google Calendar for a cal
 type = "object"
 additionalProperties = false
 required = ["calendar_id"]
-anyOf = [
-    { required = ["date"] },
-    { required = ["time_min", "time_max"] }
-]
 
 [parameters.properties.calendar_id]
 type = "string"
