@@ -59,9 +59,7 @@ impl RunStore for InMemoryStorage {
         let mut runs: Vec<_> = state
             .runs
             .values()
-            .filter(|run| {
-                conversation_id.is_none_or(|id| run.conversation_id == Some(id))
-            })
+            .filter(|run| conversation_id.is_none_or(|id| run.conversation_id == Some(id)))
             .cloned()
             .collect();
         runs.sort_by(|left, right| {
@@ -300,6 +298,26 @@ mod tests {
         assert!(matches!(
             store.append_message(invalid).await,
             Err(StorageError::NotFound(_))
+        ));
+
+        let other_conversation = Uuid::new_v4();
+        let other_run = Uuid::new_v4();
+        store
+            .insert_run(run(other_run, Some(other_conversation)))
+            .await
+            .unwrap();
+        let mismatched = StoredMessage {
+            conversation_id,
+            run_id: Some(other_run),
+            sequence: 1,
+            message: Message::User {
+                content: "wrong conversation".into(),
+            },
+            created_at: Utc::now(),
+        };
+        assert!(matches!(
+            store.append_message(mismatched).await,
+            Err(StorageError::InvalidAssociation(_))
         ));
     }
 }
