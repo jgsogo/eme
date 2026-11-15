@@ -1,4 +1,4 @@
-use super::super::*;
+use reqwest::Client;
 
 /// Small client for the Meteosource place-search and point-weather endpoints.
 pub(crate) struct MeteosourceClient {
