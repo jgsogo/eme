@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub(super) struct TokenResponse {
-    pub(super) access_token: String,
+pub(crate) struct TokenResponse {
+    pub(crate) access_token: String,
 }
