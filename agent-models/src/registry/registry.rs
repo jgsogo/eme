@@ -5,13 +5,9 @@ use crate::{
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use agent_config::{ConfigError, read_toml_dir};
-use std::sync::Arc;
+use std::{collections::BTreeMap, path::Path, sync::Arc};
+
 use super::provider_config::ProviderConfig;
-use std::{collections::BTreeMap, path::Path};
-
-#[derive(Debug, Deserialize)]
-
-
 
 
 pub struct Registry {
