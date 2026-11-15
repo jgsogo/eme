@@ -1,4 +1,4 @@
-use super::*;
+use super::super::*;
 
 pub(super) struct GoogleCalendarClient {
     pub(super) client: Client,
