@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub(super) enum SearchTopic {
+pub(crate) enum SearchTopic {
     #[default]
     General,
     News,
