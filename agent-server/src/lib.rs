@@ -246,8 +246,12 @@ async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Res
     }
 }
 
-fn authenticated_owner(request: &HttpRequest, auth: &crate::auth::TelegramAuth) -> Result<String, HttpResponse> {
-    auth.owner_for_request(request).ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
+fn authenticated_owner(
+    request: &HttpRequest,
+    auth: &crate::auth::TelegramAuth,
+) -> Result<String, HttpResponse> {
+    auth.owner_for_request(request)
+        .ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -291,8 +295,15 @@ fn conversation_error(error: ConversationStoreError) -> HttpResponse {
 }
 
 #[get("")]
-async fn list_conversations(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, store: Data<Arc<ConversationStore>>) -> impl Responder {
-    let owner = match authenticated_owner(&request, &auth) { Ok(owner) => owner, Err(response) => return response };
+async fn list_conversations(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
     match store.list(&owner) {
         Ok(conversations) => HttpResponse::Ok().json(
             conversations
@@ -312,7 +323,10 @@ async fn create_conversation(
     catalog: Data<AgentCatalog>,
     request: Json<CreateConversationRequest>,
 ) -> impl Responder {
-    let owner = match authenticated_owner(&request_http, &auth) { Ok(owner) => owner, Err(response) => return response };
+    let owner = match authenticated_owner(&request_http, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
     let agent = request.agent.trim();
     if agent.is_empty() {
         return HttpResponse::BadRequest().body("agent must not be empty");
@@ -334,7 +348,10 @@ async fn get_conversation(
     store: Data<Arc<ConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
-    let owner = match authenticated_owner(&request, &auth) { Ok(owner) => owner, Err(response) => return response };
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
     let id = match ConversationId::from_str(conversation_id.as_str()) {
         Ok(id) => id,
         Err(_) => {
@@ -343,9 +360,7 @@ async fn get_conversation(
     };
 
     match store.get(id) {
-        Ok(conversation) if conversation.owner == owner => {
-            HttpResponse::Ok().json(conversation)
-        }
+        Ok(conversation) if conversation.owner == owner => HttpResponse::Ok().json(conversation),
         Ok(_) => HttpResponse::NotFound().finish(),
         Err(error) => conversation_error(error),
     }
