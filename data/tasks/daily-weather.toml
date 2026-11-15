@@ -1,16 +1,19 @@
-name = "daily-weather"
-description = "Daily weather report for Salamanca"
+name = "daily-report"
+description = "Daily report"
 
 agent = "assistant"
 
 prompt = """
-Retrieve the weather forecast for Salamanca, Spain.
-Summarize the expected weather for today, including minimum and
-maximum temperatures, precipitation probability and wind.
+You are going to create a brief report with the folowwing information:
+
+ * weather forecast for Salamanca, Spain
+ * Any relevant news for Salamanca, Spain and the world
+
+Send this information via Telegram
 """
 
 # Run every day at 08:00 local time.
-schedule = "0 0 8 * * *"
+schedule = "30 7 * * *"
 timezone = "Europe/Madrid"
 
 enabled = true

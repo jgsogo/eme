@@ -2,6 +2,8 @@
 
 use std::{net::IpAddr, path::PathBuf, sync::Arc};
 
+mod telegram;
+
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
@@ -13,6 +15,7 @@ use agent_service::{
 };
 use anyhow::{Context, Result};
 use clap::Parser;
+use telegram_tool::TelegramGateway;
 
 /// Start the agent platform HTTP server.
 #[derive(Debug, Parser)]
@@ -33,6 +36,10 @@ struct Args {
     /// Maximum number of agent runs executing concurrently.
     #[arg(long, default_value_t = 4)]
     max_concurrent_runs: usize,
+
+    /// Agent used for prompts received through Telegram.
+    #[arg(long, default_value = "assistant")]
+    telegram_agent: String,
 
     /// Maximum number of runs waiting in the execution queue.
     #[arg(long, default_value_t = 100)]
@@ -58,12 +65,16 @@ impl ConfiguredAgentResolver {
         }))
     }
 
-    fn load(data_dir: &std::path::Path) -> Result<Self> {
+    fn load(
+        data_dir: &std::path::Path,
+        telegram_gateway: Option<Arc<TelegramGateway>>,
+    ) -> Result<Self> {
         let models = ModelRegistry::load(data_dir).context("loading model providers")?;
 
         let mut tools = ToolRegistry::new();
         alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
-        telegram_tool::register_tools(&mut tools).context("registering Telegram tools")?;
+        telegram_tool::register_tools(&mut tools, telegram_gateway)
+            .context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         let tools = Arc::new(tools);
@@ -112,8 +123,22 @@ async fn console_ui() -> impl Responder {
 #[actix_web::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+
+    // Construct one gateway and share it with the bot adapter and all Telegram
+    // tools. No other component is allowed to call getUpdates for this token.
+    let telegram_gateway = match std::env::var("TELEGRAM_BOT_TOKEN") {
+        Ok(token) => {
+            let allowed = telegram::allowed_users_from_env()?;
+            Some((TelegramGateway::new(&token), allowed))
+        }
+        Err(_) => None,
+    };
+    let gateway_for_tools = telegram_gateway
+        .as_ref()
+        .map(|(gateway, _)| gateway.clone());
+
     let resolver = Arc::new(
-        ConfiguredAgentResolver::load(&args.data_dir).with_context(|| {
+        ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools).with_context(|| {
             format!(
                 "loading platform configuration from {}",
                 args.data_dir.display()
@@ -128,11 +153,32 @@ async fn main() -> Result<()> {
             .map(|agent| agent.name.clone()),
     )
     .context("loading scheduled tasks")?;
+
+    if telegram_gateway.is_some() && resolver.agents.get(&args.telegram_agent).is_none() {
+        anyhow::bail!("Telegram agent '{}' is not configured", args.telegram_agent);
+    }
+
     let agents = resolver.agent_catalog();
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
     let task_scheduler = TaskScheduler::start(task_registry, manager.clone());
+
+    if let Some((gateway, allowed)) = telegram_gateway {
+        // Subscribe before starting the poller so the first update cannot be lost.
+        let updates = gateway.subscribe();
+        tokio::spawn(gateway.clone().run());
+        tokio::spawn(telegram::run_bot(
+            gateway,
+            allowed,
+            args.telegram_agent.clone(),
+            manager.clone(),
+            updates,
+        ));
+        println!("Telegram gateway enabled (agent: {})", args.telegram_agent);
+    } else {
+        println!("Telegram gateway disabled (TELEGRAM_BOT_TOKEN is not set)");
+    }
 
     let bind_address = (args.host, args.port);
     println!(
