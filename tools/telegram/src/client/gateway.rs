@@ -472,7 +472,10 @@ mod tests {
 
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
-        assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, Some(100));
+        assert_eq!(
+            subscriber.try_recv().unwrap().reply_to_message_id,
+            Some(100)
+        );
     }
 
     #[test]
