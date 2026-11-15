@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub(super) enum AlexaError {
+pub(crate) enum AlexaError {
     #[error("AMAZON_ALEXA_REFRESH_TOKEN env var not set")]
     MissingToken,
     #[error("HTTP error: {0}")]
