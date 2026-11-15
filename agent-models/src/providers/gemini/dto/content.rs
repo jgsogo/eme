@@ -1,5 +1,5 @@
 use super::*;
-use serde::{Serialize};
+use serde::Serialize;
 #[derive(Serialize)]
 pub(in crate::providers::gemini) struct Content {
     pub(in crate::providers::gemini) role: String,
