@@ -14,7 +14,7 @@ pub struct TaskScheduler {
 
 impl TaskScheduler {
     /// Start the scheduler in the current Tokio runtime.
-    pub fn start(registry: super::TaskRegistry, manager: RunManager) -> Self {
+    pub fn start(registry: TaskRegistry, manager: RunManager) -> Self {
         let tasks = registry
             .into_tasks()
             .into_iter()
