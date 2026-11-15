@@ -237,7 +237,7 @@ async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Res
 
 const AUTH_USER_HEADER: &str = "x-auth-request-user";
 
-/// Reads the stable Google account identifier supplied by a trusted oauth2-proxy.
+/// Reads the stable Google account ID (the Google provider's default username) supplied by a trusted oauth2-proxy.
 ///
 /// The HTTP server must only be reachable through the reverse proxy, which
 /// overwrites this header after successful authentication.
