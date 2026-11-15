@@ -1,4 +1,5 @@
 use super::{SearchDepth, SearchTopic, TimeRange};
+use super::super::{default_max_results, default_search_depth};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
