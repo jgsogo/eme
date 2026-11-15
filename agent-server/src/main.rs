@@ -122,7 +122,10 @@ async fn main() -> Result<()> {
     );
     let task_registry = TaskRegistry::load(
         args.data_dir.join("tasks"),
-        resolver.agents.definitions().map(|agent| agent.name.clone()),
+        resolver
+            .agents
+            .definitions()
+            .map(|agent| agent.name.clone()),
     )
     .context("loading scheduled tasks")?;
     let agents = resolver.agent_catalog();
