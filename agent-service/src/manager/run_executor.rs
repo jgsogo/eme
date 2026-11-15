@@ -1,7 +1,7 @@
-use agent_runtime::{CancellationToken, Message};
-use async_trait::async_trait;
 use super::{ExecutionOutcome, ExecutionReport};
 use crate::RunId;
+use agent_runtime::{CancellationToken, Message};
+use async_trait::async_trait;
 
 /// Executes the work associated with an accepted run.
 ///
