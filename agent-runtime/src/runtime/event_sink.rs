@@ -1,5 +1,5 @@
-use std::sync::Mutex;
 use super::RunEvent;
+use std::sync::Mutex;
 
 /// Receives runtime events as they occur.
 pub trait EventSink: Send + Sync {
@@ -40,4 +40,3 @@ impl EventSink for CollectingEventSink {
             .push(event.clone());
     }
 }
-
