@@ -6,6 +6,18 @@ The `agent-server` crate will be the executable entry point for running the AI a
 
 It will assemble the platform components, load their configuration, manage application startup and shutdown, and expose agent-run operations to external clients through an HTTP API.
 
+## Telegram bot
+
+Set `TELEGRAM_BOT_TOKEN` to enable the optional long-polling bot and `TELEGRAM_ALLOWED_USERS` to a comma-separated allowlist of numeric Telegram user IDs. Text prompts are submitted through the shared `RunManager` to the configured agent (default: `assistant`); use `--telegram-agent <name>` to select another configured agent. The bot acknowledges queued runs and sends the final result. `/start` and `/help` show usage.
+
+```bash
+export TELEGRAM_BOT_TOKEN="..."
+export TELEGRAM_ALLOWED_USERS="123456789"
+cargo run -p agent-server
+```
+
+The `telegram-tool` crate provides the shared `TelegramGateway`. It is the sole owner of `getUpdates` and dispatches incoming messages to the bot adapter or an active `tg_ask_user` request. The bot and tools share the same gateway instance; do not create another gateway or poller for the same token.
+
 ## Responsibilities
 
 The crate will implement:
