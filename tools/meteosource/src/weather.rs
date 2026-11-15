@@ -1,11 +1,9 @@
 mod types;
 use types::*;
 
-use reqwest::{Client, StatusCode};
-use serde::Deserialize;
+use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use thiserror::Error;
 
 const DEFAULT_BASE_URL: &str = "https://www.meteosource.com/api/v1/free";
 
