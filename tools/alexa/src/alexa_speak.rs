@@ -19,10 +19,7 @@ use reqwest::{
     Client,
     header::{CONTENT_TYPE, COOKIE, HeaderMap, HeaderValue, ORIGIN, REFERER, USER_AGENT},
 };
-use serde::Deserialize;
 use serde_json::json;
-use std::collections::HashMap;
-use thiserror::Error;
 
 const AMAZON: &str = "amazon.es";
 const ALEXA: &str = "alexa.amazon.es";
