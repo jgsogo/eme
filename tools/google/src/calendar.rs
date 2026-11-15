@@ -235,7 +235,6 @@ impl GoogleCalendarClient {
     }
 }
 
-
 fn is_calendar_allowed(calendar_id: &str, allowed_ids: &str) -> bool {
     !calendar_id.eq_ignore_ascii_case("primary")
         && allowed_ids
@@ -279,9 +278,12 @@ impl Tool for GoogleCalendarEvents {
             .or(configured_calendar_id.as_deref())
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| ToolError::Configuration(
-                "Set 'calendar_id' in the tool arguments or configure GOOGLE_CALENDAR_ID.".into(),
-            ))?;
+            .ok_or_else(|| {
+                ToolError::Configuration(
+                    "Set 'calendar_id' in the tool arguments or configure GOOGLE_CALENDAR_ID."
+                        .into(),
+                )
+            })?;
 
         // Fail closed: only calendars explicitly listed in GOOGLE_CALENDAR_ALLOWED_IDS
         // can be queried. The special "primary" alias is never accepted.
