@@ -221,6 +221,51 @@ impl ConversationStore {
         self.write_active_index(&active)
     }
 
+    /// Moves conversations from a legacy channel-scoped owner to a canonical user owner.
+    ///
+    /// This is used to migrate Telegram conversations from
+    /// `telegram:<chat_id>:<user_id>` to `telegram:<user_id>` without
+    /// discarding their history.
+    pub fn migrate_owner(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<usize, ConversationStoreError> {
+        if from.trim().is_empty() || to.trim().is_empty() {
+            return Err(ConversationStoreError::EmptyOwner);
+        }
+        if from == to {
+            return Ok(0);
+        }
+
+        let _guard = self.lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let directory = self.root.join("conversations");
+        let mut migrated = 0;
+
+        for entry in fs::read_dir(directory)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_file()
+                || entry.path().extension().and_then(|extension| extension.to_str()) != Some("json")
+            {
+                continue;
+            }
+            let bytes = fs::read(entry.path())?;
+            let mut conversation: Conversation = serde_json::from_slice(&bytes)?;
+            if conversation.owner == from {
+                conversation.owner = to.to_owned();
+                self.write_conversation(&conversation)?;
+                migrated += 1;
+            }
+        }
+
+        let mut active = self.read_active_index()?;
+        if let Some(id) = active.remove(from) {
+            active.entry(to.to_owned()).or_insert(id);
+            self.write_active_index(&active)?;
+        }
+        Ok(migrated)
+    }
+
     /// Loads a conversation by its stable identifier.
     pub fn get(&self, id: ConversationId) -> Result<Conversation, ConversationStoreError> {
         let _guard = self
