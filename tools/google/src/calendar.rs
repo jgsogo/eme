@@ -235,6 +235,15 @@ impl GoogleCalendarClient {
     }
 }
 
+
+fn is_calendar_allowed(calendar_id: &str, allowed_ids: &str) -> bool {
+    !calendar_id.eq_ignore_ascii_case("primary")
+        && allowed_ids
+            .split(',')
+            .map(str::trim)
+            .any(|allowed_id| !allowed_id.is_empty() && allowed_id == calendar_id)
+}
+
 fn required_env(name: &str) -> Result<String, GoogleCalendarError> {
     std::env::var(name).map_err(|_| GoogleCalendarError::OAuth(format!("{name} env var not set")))
 }
@@ -268,10 +277,21 @@ impl Tool for GoogleCalendarEvents {
             .get("calendar_id")
             .and_then(Value::as_str)
             .or(configured_calendar_id.as_deref())
-            .filter(|value| !value.trim().is_empty())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
             .ok_or_else(|| ToolError::Configuration(
                 "Set 'calendar_id' in the tool arguments or configure GOOGLE_CALENDAR_ID.".into(),
             ))?;
+
+        // Fail closed: only calendars explicitly listed in GOOGLE_CALENDAR_ALLOWED_IDS
+        // can be queried. The special "primary" alias is never accepted.
+        let allowed_calendar_ids = required_env("GOOGLE_CALENDAR_ALLOWED_IDS")
+            .map_err(|error| ToolError::Configuration(error.to_string()))?;
+        if !is_calendar_allowed(calendar_id, &allowed_calendar_ids) {
+            return Err(ToolError::Configuration(format!(
+                "Calendar '{calendar_id}' is not included in GOOGLE_CALENDAR_ALLOWED_IDS."
+            )));
+        }
         let date = arguments.get("date").and_then(Value::as_str);
         let time_min = arguments.get("time_min").and_then(Value::as_str);
         let time_max = arguments.get("time_max").and_then(Value::as_str);
@@ -310,6 +330,17 @@ mod tests {
         Mock, MockServer, ResponseTemplate,
         matchers::{bearer_token, method, path, query_param},
     };
+
+    #[test]
+    fn calendar_allowlist_requires_an_exact_match_and_rejects_primary() {
+        let allowed = "family@example.com, shared@example.com";
+        assert!(is_calendar_allowed("family@example.com", allowed));
+        assert!(is_calendar_allowed("shared@example.com", allowed));
+        assert!(!is_calendar_allowed("other@example.com", allowed));
+        assert!(!is_calendar_allowed("primary", allowed));
+        assert!(!is_calendar_allowed("PRIMARY", allowed));
+        assert!(!is_calendar_allowed("family@example.com.evil", allowed));
+    }
 
     #[tokio::test]
     async fn gets_selected_calendar_day_and_follows_pagination() {
