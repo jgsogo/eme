@@ -1,14 +1,13 @@
 #[path = "types/mod.rs"]
 mod types;
-use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError, TokenResponse};
 pub(super) use types::GoogleCalendarEvents;
+use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError, TokenResponse};
 
 use chrono::{DateTime, LocalResult, NaiveDate, TimeZone};
 use chrono_tz::Tz;
 use reqwest::Client;
 use serde_json::{Value, json};
 use url::Url;
-
 
 const API_BASE_URL: &str = "https://www.googleapis.com/calendar/v3";
 const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
