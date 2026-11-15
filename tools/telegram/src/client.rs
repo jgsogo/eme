@@ -221,7 +221,7 @@ impl TelegramGateway {
                             UpdateContent::Message(message) => {
                                 let event = IncomingMessage {
                                     chat_id: message.chat.id,
-                                    user_id: message.from.as_ref().map(|user| i64::from(user.id)),
+                                    user_id: message.from.as_ref().map(|user| i64::try_from(user.id).expect("user.id (u64) from frankenstein library doesn't fit into i64!")),
                                     is_bot: message.from.as_ref().is_some_and(|user| user.is_bot),
                                     message_id: message.message_id,
                                     text: message.text.clone(),
