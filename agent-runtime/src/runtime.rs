@@ -312,14 +312,30 @@ impl AgentRuntime {
         input: impl Into<String>,
         cancellation: CancellationToken,
     ) -> Result<RunResult, RunFailure> {
+        self.run_with_history(run_id, agent, Vec::new(), input, cancellation)
+            .await
+    }
+
+    /// Runs an agent using an existing conversation history.
+    ///
+    /// The new user input is appended after the supplied history. The returned
+    /// messages contain both the previous history and this run's complete turn.
+    pub async fn run_with_history(
+        &self,
+        run_id: Uuid,
+        agent: &Agent,
+        mut messages: Vec<Message>,
+        input: impl Into<String>,
+        cancellation: CancellationToken,
+    ) -> Result<RunResult, RunFailure> {
         let deadline = self
             .timeout
             .map(|timeout| tokio::time::Instant::now() + timeout);
 
         let mut events = Vec::new();
-        let mut messages = vec![Message::User {
+        messages.push(Message::User {
             content: input.into(),
-        }];
+        });
 
         let tools = match agent
             .tool_names
