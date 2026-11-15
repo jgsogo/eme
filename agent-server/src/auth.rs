@@ -37,6 +37,7 @@ pub struct TelegramAuth {
     cookie_secure: bool,
     pending: Mutex<HashMap<String, PendingLogin>>,
     sessions: Mutex<HashMap<String, Session>>,
+    run_owners: Mutex<HashMap<String, String>>,
 }
 
 impl TelegramAuth {
@@ -48,6 +49,7 @@ impl TelegramAuth {
             cookie_secure,
             pending: Mutex::new(HashMap::new()),
             sessions: Mutex::new(HashMap::new()),
+            run_owners: Mutex::new(HashMap::new()),
         }
     }
 
@@ -96,6 +98,18 @@ impl TelegramAuth {
         );
         login.session = Some(session_token);
         true
+    }
+
+    pub fn register_run(&self, run_id: impl Into<String>, owner: &str) {
+        Self::lock(&self.run_owners).insert(run_id.into(), owner.to_owned());
+    }
+
+    pub fn owns_run(&self, run_id: &str, owner: &str) -> bool {
+        Self::lock(&self.run_owners).get(run_id).is_some_and(|run_owner| run_owner == owner)
+    }
+
+    pub fn runs_for_owner(&self, owner: &str) -> Vec<String> {
+        Self::lock(&self.run_owners).iter().filter(|(_, run_owner)| run_owner.as_str() == owner).map(|(run_id, _)| run_id.clone()).collect()
     }
 
     pub fn owner_for_request(&self, request: &HttpRequest) -> Option<String> {
