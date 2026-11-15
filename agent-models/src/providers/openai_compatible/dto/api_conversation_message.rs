@@ -1,5 +1,5 @@
 use super::*;
-use serde::{Serialize};
+use serde::Serialize;
 #[derive(Serialize)]
 pub(in crate::providers::openai_compatible) struct ApiConversationMessage {
     pub(in crate::providers::openai_compatible) role: String,
