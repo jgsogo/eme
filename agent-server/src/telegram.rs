@@ -243,7 +243,9 @@ async fn handle_command(
                 lines.push(format!("- {agent}{marker}"));
             }
             lines.push("Use /agent <name> to start a new conversation.".into());
-            let _ = gateway.send_message(chat_id, &truncate(&lines.join("\n"))).await;
+            let _ = gateway
+                .send_message(chat_id, &truncate(&lines.join("\n")))
+                .await;
             true
         }
         "/agent" => {
