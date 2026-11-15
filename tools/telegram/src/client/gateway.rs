@@ -84,13 +84,13 @@ impl TelegramGateway {
         // Serialize registration with update dispatch. This prevents an
         // already-fetched update from being mistaken for the answer.
         let dispatch = self.dispatch_lock.lock().await;
+        let params = SendMessageParams::builder()
+            .chat_id(chat_id)
+            .text(question)
+            .build();
         let sent = self
-            .send_message(
-                &SendMessageParams::builder()
-                    .chat_id(chat_id)
-                    .text(question)
-                    .build(),
-            )
+            .bot
+            .send_message(&params)
             .await
             .map_err(|error| TelegramError::Api(error.to_string()))?;
 
