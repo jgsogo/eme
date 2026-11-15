@@ -4,7 +4,7 @@ use agent_config::ConfigError;
 use agent_models::error::ModelError;
 use thiserror::Error;
 
-use crate::{AuthorizationError, ToolError, ErrorCategory};
+use crate::{AuthorizationError, ErrorCategory, ToolError};
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
