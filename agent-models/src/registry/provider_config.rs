@@ -13,7 +13,7 @@ pub(super) struct ProviderConfig {
 }
 
 impl ProviderConfig {
-    fn validate(&self, path: &Path) -> Result<(), ConfigError> {
+    pub(super) fn validate(&self, path: &Path) -> Result<(), ConfigError> {
         let invalid = |reason: &str| {
             ConfigError::invalid("provider", Some(path), format!("{}: {reason}", self.name))
         };
