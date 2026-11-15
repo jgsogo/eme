@@ -271,6 +271,37 @@ impl ConversationStore {
         Ok(conversation)
     }
 
+    /// Permanently deletes a conversation belonging to owner.
+    ///
+    /// If the conversation is currently active for that owner, its active
+    /// pointer is removed as part of the same process-local critical section.
+    pub fn delete(
+        &self,
+        owner: &str,
+        id: ConversationId,
+    ) -> Result<(), ConversationStoreError> {
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let conversation = self.read_conversation(id)?;
+        if conversation.owner != owner {
+            return Err(ConversationStoreError::OwnerMismatch {
+                conversation_id: id,
+                owner: owner.to_owned(),
+            });
+        }
+
+        let mut active = self.read_active_index()?;
+        if active.get(owner) == Some(&id) {
+            active.remove(owner);
+            self.write_active_index(&active)?;
+        }
+
+        fs::remove_file(self.conversation_path(id))?;
+        Ok(())
+    }
+
     /// Replaces the complete model-visible history of a conversation.
     pub fn save_messages(
         &self,
@@ -435,6 +466,43 @@ mod tests {
             store.rename("owner-a", conversation.id, "  "),
             Err(ConversationStoreError::EmptyTitle)
         ));
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn deletes_conversation_and_clears_its_active_pointer() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+
+        store.delete("owner-a", conversation.id).unwrap();
+
+        assert!(matches!(
+            store.get(conversation.id),
+            Err(ConversationStoreError::NotFound(_))
+        ));
+        assert!(store.active("owner-a").unwrap().is_none());
+        assert!(store.list("owner-a").unwrap().is_empty());
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn cannot_delete_another_owners_conversation() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+
+        assert!(matches!(
+            store.delete("owner-b", conversation.id),
+            Err(ConversationStoreError::OwnerMismatch { .. })
+        ));
+        assert!(store.get(conversation.id).is_ok());
+        assert_eq!(
+            store.active("owner-a").unwrap().unwrap().id,
+            conversation.id
+        );
 
         fs::remove_dir_all(directory).unwrap();
     }
