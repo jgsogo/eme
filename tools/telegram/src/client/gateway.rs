@@ -211,8 +211,7 @@ impl TelegramGateway {
                                     _ => None,
                                 };
                                 let mut pending = self.pending.lock().await;
-                                let consumed =
-                                    dispatch_callback(message_key, answer, &mut pending);
+                                let consumed = dispatch_callback(message_key, answer, &mut pending);
 
                                 if consumed {
                                     let ack = AnswerCallbackQueryParams::builder()
@@ -418,8 +417,18 @@ mod tests {
         let (first_sender, first_receiver) = oneshot::channel();
         let (second_sender, second_receiver) = oneshot::channel();
         let mut pending = HashMap::new();
-        pending.insert((42, 100), PendingReply::Text { sender: first_sender });
-        pending.insert((42, 101), PendingReply::Text { sender: second_sender });
+        pending.insert(
+            (42, 100),
+            PendingReply::Text {
+                sender: first_sender,
+            },
+        );
+        pending.insert(
+            (42, 101),
+            PendingReply::Text {
+                sender: second_sender,
+            },
+        );
 
         dispatch_message(incoming(Some(101)), &mut pending, &events);
         dispatch_message(incoming(Some(100)), &mut pending, &events);
@@ -445,7 +454,10 @@ mod tests {
         dispatch_message(incoming(Some(100)), &mut pending, &events);
 
         assert!(pending.is_empty());
-        assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, Some(100));
+        assert_eq!(
+            subscriber.try_recv().unwrap().reply_to_message_id,
+            Some(100)
+        );
     }
 
     #[test]
@@ -516,7 +528,11 @@ mod tests {
         let mut pending = HashMap::new();
         pending.insert((42, 100), PendingReply::YesNo { sender });
 
-        assert!(!dispatch_callback(Some((42, 999)), Some(false), &mut pending));
+        assert!(!dispatch_callback(
+            Some((42, 999)),
+            Some(false),
+            &mut pending
+        ));
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
     }
@@ -527,7 +543,11 @@ mod tests {
         let mut pending = HashMap::new();
         pending.insert((42, 100), PendingReply::Text { sender });
 
-        assert!(!dispatch_callback(Some((42, 100)), Some(true), &mut pending));
+        assert!(!dispatch_callback(
+            Some((42, 100)),
+            Some(true),
+            &mut pending
+        ));
         assert!(!dispatch_callback(Some((42, 100)), None, &mut pending));
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
