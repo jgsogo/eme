@@ -1,4 +1,4 @@
-use super::{AgentRuntimeResolver, ResolvedAgent};
+use super::AgentRuntimeResolver;
 use crate::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId};
 use agent_runtime::{CancellationToken, RunStatus as RuntimeRunStatus};
 use async_trait::async_trait;
