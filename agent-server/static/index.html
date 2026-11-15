@@ -19,7 +19,7 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 </head>
 <body>
 <header><h1>EME Agent Console</h1><div style="display:flex;align-items:center;gap:14px"><button class="secondary" id="logout" hidden>Sign out</button><span id="connection" class="hint">Connecting…</span></div></header>
-<section id="login-screen" hidden><div class="login-card"><h2>Sign in with Telegram</h2><p>Start a secure login from the EME bot. Your Telegram account will identify you across the web console and Telegram conversations.</p><button id="login-start">Continue with Telegram</button><a id="login-link" hidden target="_blank" rel="noopener noreferrer">Open EME bot in Telegram</a><p id="login-status">Your login link will expire after five minutes.</p></div></section>
+<section id="login-screen" hidden><div class="login-card"><h2>Sign in with Telegram</h2><p>Use your Telegram account to sign in to the EME web console.</p><button id="login-start">Continue with Telegram</button><a id="login-link" hidden target="_blank" rel="noopener noreferrer">Open EME bot in Telegram</a><p id="login-status">Your login link will expire after five minutes.</p></div></section>
 <main hidden>
 <aside class="panel sidebar">
   <div class="toolbar"><h2>Conversations</h2><button class="secondary" id="refresh">Refresh</button></div>
@@ -67,11 +67,14 @@ async function showLogin(){
  document.querySelector("main").hidden=true;$("login-screen").hidden=false;$("logout").hidden=true;$("connection").textContent="Sign in"
 }
 $("login-start").addEventListener("click",async()=>{
+ const popup=window.open("about:blank","_blank");
  const status=$("login-status"),link=$("login-link");$("login-start").disabled=true;status.textContent="Creating a one-time login link…";link.hidden=true;
  try{
   const login=await api("/auth/telegram/start",{method:"POST"});
   if(!login.bot_url)throw new Error("Set TELEGRAM_BOT_USERNAME on agent-server to enable Telegram login links.");
-  link.href=login.bot_url;link.hidden=false;status.textContent="Open the link and press Start in your private chat with the bot. Waiting for confirmation…";
+  link.href=login.bot_url;link.textContent=login.bot_url;link.hidden=false;
+  if(popup)popup.location.href=login.bot_url;
+  status.textContent="Open the Telegram URL in the new tab and press Start in your private chat with the bot. Waiting for confirmation…";
   const deadline=Date.now()+login.expires_in_seconds*1000;
   while(Date.now()<deadline){
    const result=await api("/auth/telegram/status",{method:"POST",body:JSON.stringify({token:login.token})});
@@ -79,7 +82,7 @@ $("login-start").addEventListener("click",async()=>{
    await new Promise(resolve=>setTimeout(resolve,1000))
   }
   status.textContent="This login link expired. Please try again."
- }catch(e){status.textContent=e.message}finally{$("login-start").disabled=false}
+ }catch(e){if(popup&&!popup.closed)popup.close();status.textContent=e.message}finally{$("login-start").disabled=false}
 });
 $("logout").addEventListener("click",async()=>{
  try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];renderConversations();await showLogin()}

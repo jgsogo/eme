@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::AgentModel;
-use crate::{Message, ModelRequest, ModelTurn, ToolCall};
+use crate::{ModelRequest, ModelTurn};
 use agent_models::{
     client::ConversationClient,
     error::ModelError,
