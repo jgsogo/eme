@@ -14,7 +14,7 @@ use actix_web::{
 };
 use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
-    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
+    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, EventSink, ModelAdapter, RunEvent, RunEventKind, ToolDispatcher, ToolRegistry,
 };
 use agent_server::auth::TelegramAuth;
 use agent_service::{
@@ -25,7 +25,7 @@ use agent_storage::ConversationStore;
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Start the agent platform HTTP server.
 #[derive(Debug, Parser)]
@@ -54,6 +54,29 @@ struct Args {
     /// Maximum number of runs waiting in the execution queue.
     #[arg(long, default_value_t = 100)]
     max_queued_runs: usize,
+}
+
+/// Sends runtime events to the server console as they happen.
+struct ConsoleEventSink;
+
+impl EventSink for ConsoleEventSink {
+    fn emit(&self, event: &RunEvent) {
+        match &event.kind {
+            RunEventKind::ModelRequested => debug!(run_id = %event.run_id, iteration = event.iteration, "model request started"),
+            RunEventKind::ModelResponded { tool_calls } => debug!(run_id = %event.run_id, iteration = event.iteration, tool_calls, "model response received"),
+            RunEventKind::ToolExecutionStarted { name, .. } => info!(run_id = %event.run_id, iteration = event.iteration, tool = %name, "tool execution started"),
+            RunEventKind::ToolExecutionFinished { name, error_category, .. } => {
+                if let Some(category) = error_category {
+                    warn!(run_id = %event.run_id, iteration = event.iteration, tool = %name, error_category = ?category, "tool execution failed");
+                } else {
+                    info!(run_id = %event.run_id, iteration = event.iteration, tool = %name, "tool execution finished");
+                }
+            }
+            RunEventKind::ModelFailed { category, error } => warn!(run_id = %event.run_id, iteration = event.iteration, error_category = ?category, %error, "model request failed"),
+            RunEventKind::Cancelled => info!(run_id = %event.run_id, iteration = event.iteration, "runtime cancellation observed"),
+            RunEventKind::TimedOut => warn!(run_id = %event.run_id, iteration = event.iteration, "runtime timed out"),
+        }
+    }
 }
 
 /// Resolves configured agent names into concrete runtime instances.
@@ -118,7 +141,10 @@ impl AgentRuntimeResolver for ConfiguredAgentResolver {
         let model = Arc::new(ModelAdapter::new(client));
         let tools: Arc<dyn ToolDispatcher> = self.tools.clone();
         let policy = Arc::new(AllowListPolicy::new(agent.tool_names.clone()));
-        let runtime = Arc::new(AgentRuntime::new(model, tools, policy));
+        let runtime = Arc::new(
+            AgentRuntime::new(model, tools, policy)
+                .with_event_sink(Arc::new(ConsoleEventSink)),
+        );
 
         Ok(ResolvedAgent { agent, runtime })
     }
