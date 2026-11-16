@@ -230,6 +230,15 @@ mod registration_tests {
             captured_context.lock().unwrap().as_ref(),
             Some(&(Some("user-42".into()), Some("trusted-family".into())))
         );
+
+        registry
+            .execute(&ToolContext::default(), "context", serde_json::json!({}))
+            .await
+            .unwrap();
+        assert_eq!(
+            captured_context.lock().unwrap().as_ref(),
+            Some(&(None, None))
+        );
     }
 
     #[test]
