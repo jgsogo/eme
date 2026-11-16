@@ -1,21 +1,21 @@
 name = "alexa_speak"
 description = """Send a text message to an Alexa device, preceded by an optional sound effect.
 
-Available chimes (choose exactly one URI):
-- Default notification chime: soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02
-- Short beep: soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06
-- Bell: soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01
-- Sci-fi radar ping: soundbank://soundlibrary/scifi/amzn_sfx_scifi_radar_high_ping_01
-- Bear roar: soundbank://soundlibrary/animals/amzn_sfx_bear_groan_roar_01
-- Cat meow: soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01
-- Dog bark: soundbank://soundlibrary/animals/amzn_sfx_dog_med_bark_2x_02
+Supported sounds (choose one exact URI):
+- Default short beep: soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06
+- Futuristic effect: soundbank://soundlibrary/aircrafts/futuristic/futuristic_01
+- Steam sound: soundbank://soundlibrary/air/steam/steam_05
+- Water/nature sound: soundbank://soundlibrary/water/nature/nature_08
+- Bird chirp: soundbank://soundlibrary/animals/amzn_sfx_bird_chickadee_chirp_1x_01
+- Forest birds: soundbank://soundlibrary/animals/amzn_sfx_bird_forest_01
+- Robin chirp: soundbank://soundlibrary/animals/amzn_sfx_bird_robin_chirp_1x_01
+- Raven call: soundbank://soundlibrary/animals/amzn_sfx_raven_caw_1x_01
 
-Omit chime to use the default notification chime. These are the sounds currently supported by this tool; the full Amazon catalogue is much larger and not every sound is guaranteed to work with this Alexa endpoint.
+Omit chime to use the default short beep. The JSON schema accepts only the URIs listed above.
 
-Browse and preview sounds, then copy their soundbank URI:
+To browse, preview, and copy additional sound URIs, use the official Alexa Skills Kit Sound Library:
 https://developer.amazon.com/en-US/docs/alexa/custom-skills/ask-soundlibrary.html
-Community-maintained searchable catalogue:
-https://ask-sound-library-links.firebaseapp.com/"""
+The complete catalogue is larger than this tool's allowlist. Add a sound to the allowlist and JSON schema enum before using it here."""
 
 [parameters]
 type = "object"
@@ -30,11 +30,12 @@ description = "The text to send to the Alexa device."
 type = "string"
 description = "Optional Alexa soundbank URI to play before speaking. If omitted, the default notification chime is used. Example: soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01"
 enum = [
-  "soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02",
   "soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06",
-  "soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01",
-  "soundbank://soundlibrary/scifi/amzn_sfx_scifi_radar_high_ping_01",
-  "soundbank://soundlibrary/animals/amzn_sfx_bear_groan_roar_01",
-  "soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01",
-  "soundbank://soundlibrary/animals/amzn_sfx_dog_med_bark_2x_02"
+  "soundbank://soundlibrary/aircrafts/futuristic/futuristic_01",
+  "soundbank://soundlibrary/air/steam/steam_05",
+  "soundbank://soundlibrary/water/nature/nature_08",
+  "soundbank://soundlibrary/animals/amzn_sfx_bird_chickadee_chirp_1x_01",
+  "soundbank://soundlibrary/animals/amzn_sfx_bird_forest_01",
+  "soundbank://soundlibrary/animals/amzn_sfx_bird_robin_chirp_1x_01",
+  "soundbank://soundlibrary/animals/amzn_sfx_raven_caw_1x_01"
 ]
