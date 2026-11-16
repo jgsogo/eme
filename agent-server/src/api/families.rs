@@ -133,7 +133,10 @@ impl LanInvitationConfig {
                 return Err("LAN_BASE_URL has an invalid port".into());
             }
             &host[1..]
-        } else if authority.parse::<IpAddr>().is_ok() {
+        } else if let Ok(ip) = authority.parse::<IpAddr>() {
+            if ip.is_ipv6() {
+                return Err("IPv6 LAN_BASE_URL addresses must be enclosed in brackets".into());
+            }
             authority
         } else {
             let (host, port) = authority
@@ -795,5 +798,7 @@ mod lan_url_tests {
         assert!(LanInvitationConfig::parse("http://8.8.8.8:8080").is_err());
         assert!(LanInvitationConfig::parse("http://192.168.1.20:bad").is_err());
         assert!(LanInvitationConfig::parse("http://192.168.1.20/path").is_err());
+        assert!(LanInvitationConfig::parse("http://::1").is_err());
+        assert!(LanInvitationConfig::parse("http://[fd00::20]:8080").is_ok());
     }
 }
