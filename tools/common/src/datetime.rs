@@ -72,7 +72,7 @@ impl Tool for GetTimezone {
 }
 #[async_trait]
 impl Tool for ConvertTimezone {
-    async fn execute(&self, a: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, a: Value) -> Result<String, ToolError> {
         let f = tz(req(&a, "from_timezone")?)?;
         let t = tz(req(&a, "to_timezone")?)?;
         let d = instant(req(&a, "datetime")?, f)?.with_timezone(&t);
@@ -83,7 +83,7 @@ impl Tool for ConvertTimezone {
 }
 #[async_trait]
 impl Tool for CalculateDateDifference {
-    async fn execute(&self, a: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, a: Value) -> Result<String, ToolError> {
         let s = instant(req(&a, "start")?, chrono_tz::UTC)?;
         let e = instant(req(&a, "end")?, chrono_tz::UTC)?;
         let n = e.signed_duration_since(s).num_seconds();
@@ -94,7 +94,7 @@ impl Tool for CalculateDateDifference {
 }
 #[async_trait]
 impl Tool for GetDateInfo {
-    async fn execute(&self, a: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, a: Value) -> Result<String, ToolError> {
         let d = NaiveDate::parse_from_str(req(&a, "date")?, "%Y-%m-%d")
             .map_err(|e| ToolError::Execution(format!("date must use YYYY-MM-DD: {e}")))?;
         let w = d.iso_week();
@@ -112,7 +112,7 @@ impl Tool for GetDateInfo {
 }
 #[async_trait]
 impl Tool for ParseDateTime {
-    async fn execute(&self, a: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, a: Value) -> Result<String, ToolError> {
         let s = req(&a, "value")?;
         let z = tz(a.get("timezone").and_then(Value::as_str).unwrap_or("UTC"))?;
         let d = if let Some(f) = a.get("format").and_then(Value::as_str) {
