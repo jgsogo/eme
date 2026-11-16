@@ -7,7 +7,7 @@ use super::{
     RunStatus,
 };
 use crate::{
-    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
+    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine, ToolContext,
     RuntimeError, ToolDispatcher, ToolError,
 };
 
@@ -183,7 +183,7 @@ impl AgentRuntime {
         input: impl Into<String>,
         cancellation: CancellationToken,
     ) -> Result<RunResult, RunFailure> {
-        let deadline = self
+        context.run_id = Some(run_id);\n        let deadline = self
             .timeout
             .map(|timeout| tokio::time::Instant::now() + timeout);
 
