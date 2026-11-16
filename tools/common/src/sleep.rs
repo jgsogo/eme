@@ -45,6 +45,6 @@ mod tests {
 
     #[tokio::test]
     async fn max_is_enforced() {
-        assert!(Sleep.execute(json!({"seconds": 31})).await.is_err());
+        assert!(Sleep.execute(&ToolContext::default(), json!({"seconds": 31})).await.is_err());
     }
 }
