@@ -103,8 +103,14 @@ async fn run_scheduler(
             }
 
             match manager
-                .submit(agent_name.clone(), prompt, Vec::new(), ToolContext::default())
-                .await {
+                .submit(
+                    agent_name.clone(),
+                    prompt,
+                    Vec::new(),
+                    ToolContext::default(),
+                )
+                .await
+            {
                 Ok(run_id) => tracing::info!(
                     task = %task_name,
                     agent = %agent_name,
