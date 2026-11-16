@@ -27,14 +27,17 @@ impl RunExecutor for AgentRuntimeExecutor {
         cancellation: CancellationToken,
     ) -> Result<ExecutionReport, String> {
         let resolved = self.resolver.resolve(&agent_name)?;
-        let result = resolved.runtime.run(
-            run_id.as_uuid(),
-            &resolved.agent,
-            context,
-            history,
-            input,
-            cancellation,
-        ).await;
+        let result = resolved
+            .runtime
+            .run(
+                run_id.as_uuid(),
+                &resolved.agent,
+                context,
+                history,
+                input,
+                cancellation,
+            )
+            .await;
 
         match result {
             Ok(result) => {
@@ -42,7 +45,9 @@ impl RunExecutor for AgentRuntimeExecutor {
                     RuntimeRunStatus::Completed => ExecutionOutcome::Completed(result.response),
                     RuntimeRunStatus::Cancelled => ExecutionOutcome::Cancelled,
                     RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
-                    RuntimeRunStatus::MaxIterationsReached => ExecutionOutcome::MaxIterationsReached,
+                    RuntimeRunStatus::MaxIterationsReached => {
+                        ExecutionOutcome::MaxIterationsReached
+                    }
                 };
                 Ok(ExecutionReport {
                     outcome,
@@ -133,7 +138,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(report.outcome, ExecutionOutcome::Completed(Some("runtime response".into())));
+        assert_eq!(
+            report.outcome,
+            ExecutionOutcome::Completed(Some("runtime response".into()))
+        );
     }
 
     #[tokio::test]
