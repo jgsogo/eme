@@ -3,7 +3,7 @@ use super::{
     RunManagerConfigError, SubmitRunError,
 };
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
-use agent_runtime::{CancellationToken, Message};
+use agent_runtime::{CancellationToken, Message, ToolContext};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, mpsc};
 use tracing::info;
@@ -51,7 +51,7 @@ impl RunManager {
                         break;
                     };
 
-                    let (run, cancellation, history) = {
+                    let (run, cancellation, history, context) = {
                         let mut runs = runs.lock().await;
                         let Some(entry) = runs.get_mut(&run_id) else {
                             continue;
@@ -67,17 +67,19 @@ impl RunManager {
                             entry.run.clone(),
                             entry.cancellation.clone(),
                             entry.history.clone(),
+                            entry.context.clone(),
                         )
                     };
 
                     info!(run_id = %run.id, agent = %run.agent, "agent run started");
 
                     let result = executor
-                        .execute_with_history(
+                        .execute_with_context(
                             run.id,
                             run.agent.clone(),
                             run.input.clone(),
                             history,
+                            context,
                             cancellation,
                         )
                         .await;
@@ -176,6 +178,7 @@ impl RunManager {
                         occurred_at: std::time::SystemTime::now(),
                     }],
                     history: Vec::new(),
+                    context: ToolContext::default(),
                 },
             );
         }
@@ -196,6 +199,17 @@ impl RunManager {
         input: impl Into<String>,
         history: Vec<Message>,
     ) -> Result<RunId, SubmitRunError> {
+        self.submit_with_history_and_context(agent, input, history, ToolContext::default()).await
+    }
+
+    /// Accepts a run that continues an existing conversation history.
+    pub async fn submit_with_history_and_context(
+        &self,
+        agent: impl Into<String>,
+        input: impl Into<String>,
+        history: Vec<Message>,
+        context: ToolContext,
+    ) -> Result<RunId, SubmitRunError> {
         let run = Run::new(agent, input);
         let run_id = run.id;
 
@@ -215,6 +229,7 @@ impl RunManager {
                         occurred_at: std::time::SystemTime::now(),
                     }],
                     history,
+                    context: context.clone(),
                 },
             );
         }
