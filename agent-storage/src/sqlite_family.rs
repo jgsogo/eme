@@ -951,7 +951,14 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(
-            store.validate_invitation(&token, &identity("other")).await,
+            store
+                .accept_invitation(
+                    &token,
+                    &identity("other"),
+                    UserId::new(),
+                    FamilyRelationship::Other
+                )
+                .await,
             Err(InvitationStorageError::IdentityMismatch)
         ));
         store
