@@ -26,6 +26,13 @@ impl std::fmt::Display for FamilyId {
         self.0.fmt(f)
     }
 }
+impl FromStr for FamilyId {
+    type Err = uuid::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Uuid::parse_str(value).map(Self)
+    }
+}
 
 /// Permission granted to a member within one family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
