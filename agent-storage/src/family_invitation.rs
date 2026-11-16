@@ -35,17 +35,20 @@ pub struct InvitationToken(String);
 impl InvitationToken {
     pub(crate) fn generate() -> Self {
         // Two independent UUIDv4 values provide 244 bits of CSPRNG-backed entropy.
-        Self(format!(
+        let entropy = format!(
             "{}{}",
             uuid::Uuid::new_v4().simple(),
             uuid::Uuid::new_v4().simple()
-        ))
+        );
+        // Telegram start payloads are limited to 64 characters. The "invite_"
+        // prefix consumes 7, leaving 57 hexadecimal characters (228 random bits).
+        Self(entropy[..57].to_owned())
     }
 
     /// Parse the 64-character hexadecimal token carried by Telegram's
     /// `start` parameter. Telegram limits deep-link payloads to 64 chars.
     pub fn parse(value: &str) -> Option<Self> {
-        if value.len() == 64
+        if value.len() == 57
             && value
                 .bytes()
                 .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
