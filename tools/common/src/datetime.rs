@@ -169,6 +169,6 @@ mod tests {
     }
     #[tokio::test]
     async fn custom_parse() {
-        assert!(ParseDateTime.execute(json!({"value":"15/01/2026 12:30","format":"%d/%m/%Y %H:%M","timezone":"Europe/Madrid"})).await.is_ok());
+        assert!(ParseDateTime.execute(&ToolContext::default(), json!({"value":"15/01/2026 12:30","format":"%d/%m/%Y %H:%M","timezone":"Europe/Madrid"})).await.is_ok());
     }
 }
