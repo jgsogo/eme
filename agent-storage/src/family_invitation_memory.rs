@@ -119,9 +119,19 @@ impl FamilyInvitationStore for InMemoryFamilyInvitationStore {
         accepting_identity: &InvitationTargetIdentity,
     ) -> Result<(), InvitationStorageError> {
         let state = self.state.lock().await;
-        let id = *state.token_index.get(&token.hash()).ok_or(InvitationStorageError::NotFound)?;
-        let invitation = state.invitations.get(&id).ok_or(InvitationStorageError::NotFound)?;
-        if invitation.target_identity.as_ref().is_some_and(|target| target != accepting_identity) {
+        let id = *state
+            .token_index
+            .get(&token.hash())
+            .ok_or(InvitationStorageError::NotFound)?;
+        let invitation = state
+            .invitations
+            .get(&id)
+            .ok_or(InvitationStorageError::NotFound)?;
+        if invitation
+            .target_identity
+            .as_ref()
+            .is_some_and(|target| target != accepting_identity)
+        {
             return Err(InvitationStorageError::IdentityMismatch);
         }
         if invitation.accepted_at.is_some() {
