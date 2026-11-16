@@ -1,6 +1,6 @@
 use super::AgentRuntimeResolver;
 use crate::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId};
-use agent_runtime::{CancellationToken, RunStatus as RuntimeRunStatus};
+use agent_runtime::{CancellationToken, RunStatus as RuntimeRunStatus, ToolContext};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -109,6 +109,47 @@ impl RunExecutor for AgentRuntimeExecutor {
             }),
         }
     }
+    async fn execute_with_context(
+        &self,
+        run_id: RunId,
+        agent_name: String,
+        input: String,
+        history: Vec<agent_runtime::Message>,
+        context: ToolContext,
+        cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        let resolved = self.resolver.resolve(&agent_name)?;
+        let result = resolved.runtime.run_with_context_and_history(
+            run_id.as_uuid(),
+            &resolved.agent,
+            context,
+            history,
+            input,
+            cancellation,
+        ).await;
+
+        match result {
+            Ok(result) => {
+                let outcome = match result.status {
+                    RuntimeRunStatus::Completed => ExecutionOutcome::Completed(result.response),
+                    RuntimeRunStatus::Cancelled => ExecutionOutcome::Cancelled,
+                    RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
+                    RuntimeRunStatus::MaxIterationsReached => ExecutionOutcome::MaxIterationsReached,
+                };
+                Ok(ExecutionReport {
+                    outcome,
+                    runtime_events: result.events,
+                    messages: Some(result.messages),
+                })
+            }
+            Err(failure) => Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Failed(failure.to_string()),
+                runtime_events: failure.events,
+                messages: Some(failure.messages),
+            }),
+        }
+    }
+
 }
 
 #[cfg(test)]
