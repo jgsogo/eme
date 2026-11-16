@@ -1,6 +1,8 @@
 //! Persistent, user-scoped task registry operations.
 
 use chrono::{DateTime, Utc};
+use chrono_tz::Tz;
+use cron::Schedule;
 use std::{
     collections::HashMap,
     fs,
@@ -8,12 +10,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tokio::sync::watch;
-use chrono_tz::Tz;
-use cron::Schedule;
-use std::{fs, path::{Path, PathBuf}};
 use uuid::Uuid;
 
-use super::{default_enabled, Inner, NewTask, StoredTask, Task, TaskError, LEGACY_TASK_OWNER};
+use super::{Inner, NewTask, StoredTask, Task, TaskError, LEGACY_TASK_OWNER};
 
 #[derive(Clone)]
 pub struct TaskRegistry {

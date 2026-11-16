@@ -1,12 +1,9 @@
 //! Tests for task validation, ownership, migration, and persistence.
 
 use super::*;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use std::{fs, path::PathBuf};
 use uuid::Uuid;
-
-use super::*;
-use std::{fs, path::PathBuf};
 
 fn temp_dir() -> PathBuf {
     let path = std::env::temp_dir().join(format!("task-registry-{}", Uuid::new_v4()));

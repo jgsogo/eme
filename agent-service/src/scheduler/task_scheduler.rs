@@ -152,7 +152,7 @@ async fn run_scheduler(
     tracing::info!("task scheduler stopped");
 }
 
-fn next_occurrence(
+pub(super) fn next_occurrence(
     schedule: &Schedule,
     timezone: Tz,
     after: DateTime<Utc>,

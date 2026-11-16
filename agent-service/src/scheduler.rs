@@ -7,3 +7,4 @@ mod tests;
 
 pub use scheduled_task::ScheduledTask;
 pub use task_scheduler::TaskScheduler;
+use task_scheduler::next_occurrence;
