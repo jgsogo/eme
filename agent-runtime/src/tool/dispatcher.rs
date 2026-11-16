@@ -1,4 +1,4 @@
-use crate::{ToolDefinition, ToolError};
+use crate::{ToolContext, ToolDefinition, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -9,5 +9,5 @@ pub trait ToolDispatcher: Send + Sync {
         let _ = name;
         None
     }
-    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError>;
+    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError>;\n\n    /// Executes a tool with trusted context supplied by the platform.\n    /// Existing dispatchers remain source-compatible and may override this.\n    async fn execute_with_context(\n        &self,\n        _context: &ToolContext,\n        name: &str,\n        arguments: Value,\n    ) -> Result<String, ToolError> {\n        self.execute(name, arguments).await\n    }
 }
