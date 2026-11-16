@@ -89,6 +89,9 @@ pub struct Conversation {
     /// User-editable display name. Defaults when reading older conversation files.
     #[serde(default = "default_conversation_title")]
     pub title: String,
+    /// Family explicitly selected for this conversation; absent in legacy records.
+    #[serde(default)]
+    pub selected_family_id: Option<FamilyId>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub messages: Vec<Message>,
@@ -164,6 +167,7 @@ impl ConversationStore {
             owner: owner.clone(),
             agent,
             title: default_conversation_title(),
+            selected_family_id: None,
             created_at: now,
             updated_at: now,
             messages: Vec::new(),
