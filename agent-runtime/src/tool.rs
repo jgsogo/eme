@@ -20,7 +20,10 @@ pub struct ToolContext {
 
 impl ToolContext {
     pub fn new(user_id: impl Into<String>) -> Self {
-        Self { user_id: Some(user_id.into()), ..Self::default() }
+        Self {
+            user_id: Some(user_id.into()),
+            ..Self::default()
+        }
     }
 }
 
