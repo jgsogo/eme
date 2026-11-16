@@ -448,6 +448,7 @@ impl FamilyInvitationStore for SqliteFamilyStore {
             "UPDATE family_invitations SET revoked_at = COALESCE(revoked_at, ?1) WHERE id = ?2 AND family_id = ?3",
             params![Utc::now().to_rfc3339(), invitation_id.to_string(), family_id.to_string()],
         ).map_err(invitation_backend)?;
+        drop(connection);
         self.list_invitations(family_id).await?.into_iter().find(|item| item.id == invitation_id).ok_or(InvitationStorageError::NotFound)
     }
 
@@ -641,9 +642,19 @@ mod tests {
         store.revoke_invitation(family.id, wrong_identity.id).await.unwrap();
         assert!(matches!(store.validate_invitation(&token, &identity("allowed")).await, Err(InvitationStorageError::Revoked)));
         let (_, expired) = store.create_invitation(
-            family.id, owner, None, Utc::now() - Duration::seconds(1),
-        ).await.unwrap_err_or_dummy();
-        let _ = expired;
+            family.id, owner, None, Utc::now() + Duration::days(1),
+        ).await.unwrap();
+        {
+            let connection = store.connection.lock().await;
+            connection.execute(
+                "UPDATE family_invitations SET expires_at = ?1 WHERE token_hash = ?2",
+                params![(Utc::now() - Duration::seconds(1)).to_rfc3339(), expired.hash()],
+            ).unwrap();
+        }
+        assert!(matches!(
+            store.validate_invitation(&expired, &identity("telegram")).await,
+            Err(InvitationStorageError::Expired)
+        ));
         let _ = std::fs::remove_file(path);
     }
 }
