@@ -1,5 +1,5 @@
 use crate::{ModelRequest, ModelTurn};
-use agent_models::error::ModelError;
+use agent_models::ModelError;
 use async_trait::async_trait;
 
 /// Interface used by the agent runtime to interact with a model.

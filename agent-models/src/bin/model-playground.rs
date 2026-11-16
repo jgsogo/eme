@@ -1,7 +1,4 @@
-use agent_models::{
-    registry::Registry,
-    types::{ConversationMessage, ConversationRequest},
-};
+use agent_models::{ConversationMessage, ConversationRequest, Registry};
 
 use anyhow::Result;
 use clap::Parser;

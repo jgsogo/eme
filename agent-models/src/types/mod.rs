@@ -1,3 +1,5 @@
+//! Provider-neutral request, response, message, tool, and token-usage data types.
+
 mod conversation_message;
 mod conversation_request;
 mod conversation_response;

@@ -1,16 +1,17 @@
-//! Provider-independent model integration for the AI agent platform.
-//!
-//! This crate will define the common conversation contract and client
-//! abstraction consumed by the agent runtime. It will provide provider
-//! adapters, provider configuration loading, model resolution, capability
-//! metadata, and a common model error vocabulary.
-//!
-//! Agent execution, tool authorization, and run lifecycle management will
-//! remain outside this crate.
+//! Provider-independent model contracts, provider adapters, and model resolution.
 
-pub mod client;
-pub mod error;
-pub mod models;
-pub mod providers;
-pub mod registry;
-pub mod types;
+mod client;
+mod error;
+mod models;
+mod providers;
+mod registry;
+mod types;
+
+pub use client::ConversationClient;
+pub use error::ModelError;
+pub use models::{ModelCapability, ModelConfig};
+pub use registry::Registry;
+pub use types::{
+    ConversationMessage, ConversationRequest, ConversationResponse, TokenUsage, ToolCall,
+    ToolDefinition,
+};

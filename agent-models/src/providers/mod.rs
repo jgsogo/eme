@@ -1,3 +1,5 @@
+//! Concrete provider clients and their private wire-format implementations.
+
 mod gemini;
 mod openai_compatible;
 

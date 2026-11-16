@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use agent_models::registry::Registry as ModelRegistry;
+use agent_models::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };

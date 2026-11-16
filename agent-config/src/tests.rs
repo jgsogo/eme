@@ -1,3 +1,5 @@
+//! Tests for TOML file and directory loading behavior.
+
 use std::{
     collections::BTreeMap,
     fs,

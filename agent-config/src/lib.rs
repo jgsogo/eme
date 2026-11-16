@@ -1,8 +1,4 @@
-//! Shared configuration loading primitives and error types.
-//!
-//! Domain crates own their configuration schemas and semantic validation.
-//! This crate provides consistent TOML file/directory loading and structured,
-//! path-aware diagnostics.
+//! Shared configuration loading primitives and structured configuration errors.
 
 mod error;
 mod toml;
