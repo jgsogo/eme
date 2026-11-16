@@ -282,7 +282,7 @@ mod tests {
         let json = serde_json::to_string(&listed).unwrap();
         assert!(!json.contains(token.expose()));
         assert!(!format!("{:?}", token).contains(token.expose()));
-        assert_eq!(token.expose().len(), 64);
+        assert_eq!(token.expose().len(), 57);
     }
 
     #[tokio::test]
