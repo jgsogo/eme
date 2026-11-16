@@ -3,16 +3,19 @@ use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
-const SUPPORTED_CHIMES: &[&str] = &[
-    "soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06",
-    "soundbank://soundlibrary/aircrafts/futuristic/futuristic_01",
-    "soundbank://soundlibrary/air/steam/steam_05",
-    "soundbank://soundlibrary/water/nature/nature_08",
-    "soundbank://soundlibrary/animals/amzn_sfx_bird_chickadee_chirp_1x_01",
-    "soundbank://soundlibrary/animals/amzn_sfx_bird_forest_01",
-    "soundbank://soundlibrary/animals/amzn_sfx_bird_robin_chirp_1x_01",
-    "soundbank://soundlibrary/animals/amzn_sfx_raven_caw_1x_01",
-];
+fn valid_chime(chime: &str) -> bool {
+    chime == "none"
+        || chime
+            .strip_prefix("soundbank://soundlibrary/")
+            .is_some_and(|path| {
+                !path.is_empty()
+                    && path
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || b"/_-".contains(&byte))
+            })
+}
+
+
 
 pub struct AlexaSpeak;
 
@@ -30,13 +33,12 @@ impl Tool for AlexaSpeak {
 
         let chime = arguments.get("chime").and_then(Value::as_str);
         if let Some(uri) = chime {
-            if !SUPPORTED_CHIMES.contains(&uri) {
+            if !valid_chime(uri) {
                 return Err(ToolError::InvalidArguments {
                     tool_name: "alexa_speak".into(),
-                    errors: vec![format!(
-                        "Unsupported 'chime'. Choose one of: {}",
-                        SUPPORTED_CHIMES.join(", ")
-                    )],
+                    errors: vec![
+                        "'chime' must be 'none' or a soundbank://soundlibrary/ URI containing only letters, numbers, '/', '_' or '-'".into(),
+                    ],
                 });
             }
         }
@@ -50,5 +52,29 @@ impl Tool for AlexaSpeak {
             .map_err(|error| ToolError::Execution(error.to_string()))?;
 
         Ok(format!("Message sent to Alexa device '{}'.", device_name))
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn accepts_any_sound_library_uri() {
+        assert!(valid_chime("soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02"));
+        assert!(valid_chime("soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01"));
+    }
+
+    #[test]
+    fn accepts_none_to_disable_sound() {
+        assert!(valid_chime("none"));
+    }
+
+    #[test]
+    fn rejects_invalid_chime_values() {
+        assert!(!valid_chime("https://example.com/sound.mp3"));
+        assert!(!valid_chime("soundbank://soundlibrary/"));
+        assert!(!valid_chime("soundbank://soundlibrary/foo\"/><speak>"));
     }
 }
