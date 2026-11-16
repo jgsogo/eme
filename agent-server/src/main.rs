@@ -136,6 +136,13 @@ async fn main() -> Result<()> {
         info!("Telegram gateway disabled (TELEGRAM_BOT_TOKEN is not set)");
     }
 
+    let lan_invitation_config = LanInvitationConfig::from_env()
+        .map_err(anyhow::Error::msg)
+        .context("validating LAN_BASE_URL")?;
+    if lan_invitation_config.is_some() {
+        info!("LAN invitation links enabled");
+    }
+
     let bind_address = (args.host, args.port);
     info!(address = %format!("http://{}:{}", bind_address.0, bind_address.1), "HTTP server listening");
 
@@ -148,8 +155,10 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
+            .app_data(lan_invitation_config.clone().map(web::Data::new))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)))
             .service(console_ui)
+            .service(telegram::invitation_page)
             .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
