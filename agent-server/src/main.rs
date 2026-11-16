@@ -28,7 +28,7 @@ use tracing::{info, warn};
 use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
-use console::console_ui;
+use console::{console_ui, invitation_page};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -158,7 +158,7 @@ async fn main() -> Result<()> {
             .app_data(lan_invitation_config.clone().map(web::Data::new))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)))
             .service(console_ui)
-            .service(telegram::invitation_page)
+            .service(invitation_page)
             .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
