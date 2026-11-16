@@ -339,6 +339,61 @@ mod tests {
         }
     }
 
+    struct ContextCaptureExecutor {
+        received: Arc<std::sync::Mutex<Option<ToolContext>>>,
+    }
+
+    #[async_trait]
+    impl RunExecutor for ContextCaptureExecutor {
+        async fn execute(
+            &self,
+            _run_id: RunId,
+            _agent: String,
+            _input: String,
+            _history: Vec<agent_runtime::Message>,
+            context: ToolContext,
+            _cancellation: CancellationToken,
+        ) -> Result<ExecutionReport, String> {
+            *self.received.lock().unwrap() = Some(context);
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(None),
+                runtime_events: Vec::new(),
+                messages: None,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn trusted_context_survives_queue_and_reaches_executor() {
+        let received = Arc::new(std::sync::Mutex::new(None));
+        let manager = RunManager::new(
+            Arc::new(ContextCaptureExecutor { received: received.clone() }),
+            1,
+            2,
+        ).unwrap();
+        let context = ToolContext {
+            user_id: Some("telegram:42".into()),
+            conversation_id: Some("conversation-1".into()),
+            run_id: None,
+        };
+
+        let run_id = manager.submit("assistant", "hello", Vec::new(), context).await.unwrap();
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                if manager.get(run_id).await.is_some_and(|run| run.status == RunStatus::Completed) {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        }).await.expect("run should complete");
+
+        let received = received.lock().unwrap().clone().unwrap();
+        assert_eq!(received.user_id.as_deref(), Some("telegram:42"));
+        assert_eq!(received.conversation_id.as_deref(), Some("conversation-1"));
+        assert_eq!(received.run_id, Some(run_id.as_uuid()));
+    }
+
     #[tokio::test]
     async fn submitted_run_is_executed_and_reaches_completed_state() {
         let manager = RunManager::new(Arc::new(ImmediateExecutor), 1, 4).unwrap();
