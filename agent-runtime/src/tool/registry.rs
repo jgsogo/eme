@@ -102,7 +102,11 @@ impl ToolDispatcher for ToolRegistry {
         self.definition(name)
     }
 
-    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError> {\n        self.execute_with_context(&ToolContext::default(), name, arguments).await\n    }\n\n    async fn execute_with_context(&self, context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError> {
+        self.execute_with_context(&ToolContext::default(), name, arguments).await
+    }
+
+    async fn execute_with_context(&self, context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError> {
         let tool = self
             .tools
             .get(name)
