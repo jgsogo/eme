@@ -195,6 +195,18 @@ pub struct CreatedInvitation {
     pub lan_url: Option<String>,
 }
 
+#[get("/current-user")]
+async fn current_family_user(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+) -> impl Responder {
+    match authenticated_actor(&request, &auth, &identities) {
+        Ok((user_id, _)) => HttpResponse::Ok().json(serde_json::json!({ "user_id": user_id })),
+        Err(response) => response,
+    }
+}
+
 #[get("")]
 async fn list_families(
     request: HttpRequest,
@@ -578,6 +590,7 @@ async fn accept_invitation(
 
 pub fn families_api() -> Scope {
     web::scope("/families")
+        .service(current_family_user)
         .service(list_families)
         .service(create_family)
         .service(get_family)
@@ -710,6 +723,18 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let listed: Value = test::read_body_json(response).await;
         assert_eq!(listed.as_array().unwrap().len(), 1);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/families/current-user")
+                .insert_header((header::COOKIE, cookie.clone()))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let current_user: Value = test::read_body_json(response).await;
+        assert_eq!(current_user["user_id"], identity.user_id.to_string());
 
         let family_id = family["id"].as_str().unwrap();
         let expires_at = (chrono::Utc::now() + chrono::Duration::days(1)).to_rfc3339();

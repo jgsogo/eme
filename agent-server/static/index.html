@@ -121,27 +121,32 @@ function renderMessages(messages=[]){
 function renderRunEvents(events=[]){$("run-events").innerHTML=events.length?events.map(event=>"<li>"+escapeHtml(event.kind)+(event.tool_name?" · "+escapeHtml(event.tool_name):"")+"</li>").join(""):"<li>No events yet.</li>"}
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId}
 async function loadConversations(){state.conversations=await api("/conversations");renderConversations()}
-async function loadFamilies(){state.families=await api("/families");renderFamilySelector()}
+async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector()}
 function renderFamilySelector(){const selector=$("family-selector"),selected=state.selectedFamilyId||"";selector.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");selector.value=state.families.some(f=>f.id===selected)?selected:"";selector.disabled=!state.selected||!!state.runId;state.selectedFamilyId=selector.value||null}
 function renderFamilyMembers(){
  const target=$("family-members"),details=state.familyDetails;
- $("rename-family").disabled=!details;
+ $("rename-family").disabled=!details||!["owner","admin"].includes(currentFamilyMember()?.role.toLowerCase());
  if(!details){target.textContent="Select a family in the conversation selector to see its members.";renderFamilyLifecycle();return}
  const members=details.members||[];
  target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+members.length+' members</div>'+ (members.length?members.map(m=>{
-  const role=String(m.role).toLowerCase();
-  const actions=role==="owner"?'':'<div class="member-actions"><label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button><button type="button" class="secondary" data-transfer-owner="'+escapeHtml(m.user_id)+'">Make owner</button><button type="button" class="danger" data-remove-member="'+escapeHtml(m.user_id)+'">Remove</button></div>';
+  const role=String(m.role).toLowerCase(),actorRole=currentFamilyMember()?.role.toLowerCase();
+  const isSelf=m.user_id===state.currentUserId,isOwner=actorRole==="owner",isAdmin=actorRole==="admin";
+  const roleControl=!isSelf&&isOwner?'<label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button>':(!isSelf&&isAdmin&&role==="member"?'<button type="button" class="secondary" data-promote-member="'+escapeHtml(m.user_id)+'">Promote to admin</button>':'');
+  const transfer=isOwner&&!isSelf?'<button type="button" class="secondary" data-transfer-owner="'+escapeHtml(m.user_id)+'">Make owner</button>':'';
+  const remove=!isSelf&&(isOwner||(isAdmin&&role==="member"))?'<button type="button" class="danger" data-remove-member="'+escapeHtml(m.user_id)+'">Remove</button>':'';
+  const actions=roleControl||transfer||remove?'<div class="member-actions">'+roleControl+transfer+remove+'</div>':'';
   return '<div class="family-member"><strong>'+escapeHtml(m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span>'+actions+'</div>';
  }).join(""):'<div class="hint">No members.</div>');
 }
+function currentFamilyMember(){
+ return (state.familyDetails?.members||[]).find(member=>member.user_id===state.currentUserId)||null;
+}
 function renderFamilyLifecycle(){
- const family=state.familyDetails?.family;
- const members=state.familyDetails?.members||[];
- const me=members.find(member=>member.role.toLowerCase()==="owner");
- const isOwner=!!me;
- $("leave-family").disabled=!family||isOwner;
+ const family=state.familyDetails?.family,me=currentFamilyMember();
+ const isOwner=me?.role.toLowerCase()==="owner";
+ $("leave-family").disabled=!family||!me||isOwner;
  $("delete-family").disabled=!family||!isOwner;
- $("family-lifecycle-hint").textContent=!family?"Select a family to manage its membership.":isOwner?"Transfer ownership to another member before leaving. Only the owner can delete this family.":"You can leave this family. This removes only your membership.";
+ $("family-lifecycle-hint").textContent=!family?"Select a family to manage its membership.":!me?"Your account is not an active member of this family.":isOwner?"Transfer ownership to another member before leaving. Only the owner can delete this family.":"You can leave this family. This removes only your membership.";
 }
 
 function invitationState(invitation){
@@ -151,9 +156,11 @@ function invitationState(invitation){
  return "Pending";
 }
 function renderFamilyInvitations(){
- const target=$("family-invitations"),family=state.familyDetails?.family;
- $("create-invitation").disabled=!family;
+ const target=$("family-invitations"),family=state.familyDetails?.family,me=currentFamilyMember();
+ const canManage=me&&["owner","admin"].includes(me.role.toLowerCase());
+ $("create-invitation").disabled=!family||!canManage;
  if(!family){target.textContent="Select a family to manage invitations.";return}
+ if(!canManage){target.textContent="Only family owners and admins can manage invitations.";return}
  const items=state.familyInvitations;
  target.innerHTML=items.length?items.map(inv=>{
   const status=invitationState(inv);
@@ -161,7 +168,8 @@ function renderFamilyInvitations(){
  }).join(""):'<div class="hint" style="padding:8px 0">No invitations yet.</div>';
 }
 async function loadFamilyInvitations(familyId){
- if(!familyId){state.familyInvitations=[];renderFamilyInvitations();return}
+ const member=currentFamilyMember();
+ if(!familyId||!member||!["owner","admin"].includes(member.role.toLowerCase())){state.familyInvitations=[];renderFamilyInvitations();return}
  try{state.familyInvitations=await api("/families/"+encodeURIComponent(familyId)+"/invitations");renderFamilyInvitations()}
  catch(e){state.familyInvitations=[];renderFamilyInvitations();setStatus(e.message,"error")}
 }
@@ -192,10 +200,10 @@ async function revokeInvitation(invitationId){
  try{await api("/families/"+encodeURIComponent(family.id)+"/invitations/"+encodeURIComponent(invitationId),{method:"DELETE"});await loadFamilyInvitations(family.id);setStatus("Invitation revoked","ok")}
  catch(e){setStatus(e.message,"error")}
 }
-async function changeMemberRole(userId){
+async function changeMemberRole(userId,roleOverride=null){
  const family=state.familyDetails?.family;if(!family)return;
- const select=document.querySelector('[data-member-role="'+CSS.escape(userId)+'"]');if(!select)return;
- try{await api("/families/"+encodeURIComponent(family.id)+"/members/"+encodeURIComponent(userId)+"/role",{method:"PUT",body:JSON.stringify({role:select.value})});await loadFamilyDetails(family.id);setStatus("Member role updated","ok")}
+ const select=document.querySelector('[data-member-role="'+CSS.escape(userId)+'"]');if(!select&&!roleOverride)return;
+ try{await api("/families/"+encodeURIComponent(family.id)+"/members/"+encodeURIComponent(userId)+"/role",{method:"PUT",body:JSON.stringify({role:roleOverride||select.value})});await loadFamilyDetails(family.id);setStatus("Member role updated","ok")}
  catch(e){setStatus(e.message,"error")}
 }
 async function removeFamilyMember(userId){
@@ -272,7 +280,7 @@ async function deleteConversation(id){const conversation=state.conversations.fin
 async function sendMessage(){const input=$("prompt").value.trim();if(!input||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount;$("prompt").value="";setComposerEnabled(false);setStatus("Queued…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input})});state.runId=result.run_id;$("cancel-run").hidden=false;setStatus("Running · "+result.run_id.slice(0,8));await pollRun(id,result.run_id,previousMessageCount)}catch(e){setStatus(e.message,"error");setComposerEnabled(true);$("prompt").value=input}}
 async function pollRun(conversationId,runId,previousMessageCount){clearInterval(state.pollTimer);renderRunEvents([]);const poll=async()=>{try{const [run,events]=await Promise.all([api("/runs/"+encodeURIComponent(runId)),api("/runs/"+encodeURIComponent(runId)+"/events")]);renderRunEvents(events);if(!TERMINAL.has(run.status)){setStatus("Running · "+run.status);return}clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;let conversation=null;for(let attempt=0;attempt<40;attempt++){conversation=await api("/conversations/"+encodeURIComponent(conversationId));if((conversation.messages||[]).length>previousMessageCount)break;await new Promise(resolve=>setTimeout(resolve,100))}if(state.selected===conversationId){$("conversation-title").textContent=conversation.title||"New conversation";$("conversation-meta").textContent="Agent · "+conversation.agent+" · Conversation "+conversation.id;state.messageCount=(conversation.messages||[]).length;renderMessages(conversation.messages);setComposerEnabled(true)}await loadConversations();if(run.status==="completed")setStatus("Completed","ok");else setStatus(run.error||run.status,"error");setComposerEnabled(state.selected===conversationId);renderFamilySelector()}catch(e){clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;setStatus("Unable to retrieve run: "+e.message,"error");setComposerEnabled(true);renderFamilySelector()}};await poll();if(state.runId)state.pollTimer=setInterval(poll,1000)}
 $("open-conversations").addEventListener("click",()=>setDrawerOpen(true));$("close-conversations").addEventListener("click",closeDrawer);$("drawer-backdrop").addEventListener("click",closeDrawer);document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});window.addEventListener("resize",()=>{if(!mobileDrawer())closeDrawer()});
-$("create-family").addEventListener("click",createFamily);$("leave-family").addEventListener("click",leaveFamily);$("delete-family").addEventListener("click",deleteFamily);$("family-members").addEventListener("click",e=>{const role=e.target.closest("button[data-save-role]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]");if(role)changeMemberRole(role.dataset.saveRole);else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});$("rename-family").addEventListener("click",renameFamily);$("create-invitation").addEventListener("click",createInvitation);$("family-invitations").addEventListener("click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});$("family-selector").addEventListener("change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";await loadFamilyDetails(state.selectedFamilyId);setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});$("rename-conversation").addEventListener("click",renameConversation);$("cancel-run").addEventListener("click",async()=>{if(!state.runId)return;try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(e){setStatus(e.message,"error")}});$("agent").addEventListener("change",updateAgentDescription);$("new-conversation").addEventListener("click",createConversation);$("conversations").addEventListener("click",e=>{const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&!state.runId)selectConversation(item.dataset.id)});$("composer").addEventListener("submit",e=>{e.preventDefault();sendMessage()});$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
+$("create-family").addEventListener("click",createFamily);$("leave-family").addEventListener("click",leaveFamily);$("delete-family").addEventListener("click",deleteFamily);$("family-members").addEventListener("click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]");if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});$("rename-family").addEventListener("click",renameFamily);$("create-invitation").addEventListener("click",createInvitation);$("family-invitations").addEventListener("click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});$("family-selector").addEventListener("change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";await loadFamilyDetails(state.selectedFamilyId);setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});$("rename-conversation").addEventListener("click",renameConversation);$("cancel-run").addEventListener("click",async()=>{if(!state.runId)return;try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(e){setStatus(e.message,"error")}});$("agent").addEventListener("change",updateAgentDescription);$("new-conversation").addEventListener("click",createConversation);$("conversations").addEventListener("click",e=>{const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&!state.runId)selectConversation(item.dataset.id)});$("composer").addEventListener("submit",e=>{e.preventDefault();sendMessage()});$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function showConsole(){
  $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
  if(pendingInviteToken){document.querySelector("main").hidden=true;$("invite-screen").hidden=false;$("connection").textContent="Accept invitation";return}
