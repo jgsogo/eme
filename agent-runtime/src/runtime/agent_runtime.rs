@@ -431,7 +431,7 @@ impl AgentRuntime {
 mod external_run_id_tests {
     use std::sync::Arc;
 
-    use agent_models::error::ModelError;
+    use agent_models::ModelError;
     use async_trait::async_trait;
     use uuid::Uuid;
 

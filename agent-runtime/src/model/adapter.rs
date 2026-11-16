@@ -160,7 +160,7 @@ mod tests {
                 },
                 Message::Assistant {
                     content: None,
-                    tool_calls: vec![agent_models::ToolCall {
+                    tool_calls: vec![ToolCall {
                         id: "call-previous".into(),
                         name: "calculator".into(),
                         arguments: json!({"expression": "2 + 2"}),
