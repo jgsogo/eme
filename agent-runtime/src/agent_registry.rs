@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, path::Path};
 
 use agent_config::{ConfigError, read_toml_dir};
-use agent_models::registry::Registry as ModelRegistry;
+use agent_models::Registry as ModelRegistry;
 
 use crate::{AgentDefinition, ToolRegistry};
 
@@ -114,7 +114,7 @@ mod tests {
         path::{Path, PathBuf},
     };
 
-    use agent_models::registry::Registry as ModelRegistry;
+    use agent_models::Registry as ModelRegistry;
     use async_trait::async_trait;
     use serde_json::{Value, json};
 

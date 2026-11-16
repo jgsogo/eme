@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use agent_config::ConfigError;
-use agent_models::error::ModelError;
+use agent_models::ModelError;
 use thiserror::Error;
 
 use crate::{AuthorizationError, ErrorCategory, ToolError};
