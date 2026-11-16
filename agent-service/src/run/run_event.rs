@@ -1,3 +1,5 @@
+//! Events emitted during a run lifecycle.
+
 use super::RunEventKind;
 use std::time::SystemTime;
 

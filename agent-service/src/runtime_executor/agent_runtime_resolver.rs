@@ -1,3 +1,5 @@
+//! The contract for resolving configured agent names into runtime instances.
+
 use super::ResolvedAgent;
 
 /// Resolves an agent name to its definition and configured runtime.

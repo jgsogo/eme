@@ -1,3 +1,5 @@
+//! Lifecycle states for service-level runs.
+
 /// Public lifecycle state of an agent run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunStatus {

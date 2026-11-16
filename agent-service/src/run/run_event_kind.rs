@@ -1,3 +1,5 @@
+//! Kinds of events emitted during a run lifecycle.
+
 /// An event recorded in the ordered history of a run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunEventKind {

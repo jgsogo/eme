@@ -1,3 +1,5 @@
+//! An agent definition paired with the runtime that executes it.
+
 use agent_runtime::{Agent, AgentRuntime};
 use std::sync::Arc;
 
