@@ -1,6 +1,6 @@
 //! On-disk task representation, including fields migrated from older files.
 
-use chrono::FixedOffset;
+use chrono::{DateTime, FixedOffset};
 use serde::Deserialize;
 use uuid::Uuid;
 

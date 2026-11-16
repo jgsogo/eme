@@ -1,3 +1,5 @@
+//! Defines the service-level state and transitions of an individual run.
+
 use super::{InvalidRunTransition, RunId, RunStatus};
 use std::time::SystemTime;
 

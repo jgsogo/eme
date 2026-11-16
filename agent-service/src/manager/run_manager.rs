@@ -1,3 +1,5 @@
+//! Coordinates run admission, bounded execution, cancellation, and supervision.
+
 use super::{
     CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, ManagedRun, RunExecutor,
     RunManagerConfigError, SubmitRunError,
