@@ -15,8 +15,6 @@ fn valid_chime(chime: &str) -> bool {
             })
 }
 
-
-
 pub struct AlexaSpeak;
 
 #[async_trait]
@@ -55,15 +53,18 @@ impl Tool for AlexaSpeak {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn accepts_any_sound_library_uri() {
-        assert!(valid_chime("soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02"));
-        assert!(valid_chime("soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01"));
+        assert!(valid_chime(
+            "soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02"
+        ));
+        assert!(valid_chime(
+            "soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01"
+        ));
     }
 
     #[test]
