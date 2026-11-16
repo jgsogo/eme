@@ -1,4 +1,4 @@
-use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr}, str::FromStr, sync::Arc};
+use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
@@ -126,9 +126,23 @@ impl LanInvitationConfig {
             return Err("LAN_BASE_URL must contain only an IP address and optional port".into());
         }
         let host = if authority.starts_with('[') {
-            authority.split(']').next().unwrap_or_default().trim_start_matches('[')
+            let (host, suffix) = authority
+                .split_once(']')
+                .ok_or_else(|| "LAN_BASE_URL has an invalid IPv6 address".to_owned())?;
+            if !suffix.is_empty() && (!suffix.starts_with(':') || suffix[1..].parse::<u16>().is_err()) {
+                return Err("LAN_BASE_URL has an invalid port".into());
+            }
+            &host[1..]
+        } else if authority.parse::<IpAddr>().is_ok() {
+            authority
         } else {
-            authority.rsplit_once(':').filter(|(host, port)| !host.contains(':') && port.parse::<u16>().is_ok()).map_or(authority, |(host, _)| host)
+            let (host, port) = authority
+                .split_once(':')
+                .ok_or_else(|| "LAN_BASE_URL must include an IP address".to_owned())?;
+            if host.contains(':') || port.parse::<u16>().is_err() {
+                return Err("LAN_BASE_URL has an invalid address or port".into());
+            }
+            host
         };
         let ip: IpAddr = host.parse().map_err(|_| "LAN_BASE_URL host must be a private or link-local IP address".to_owned())?;
         let allowed = match ip {
@@ -765,5 +779,21 @@ mod tests {
         drop(service);
         drop(identities);
         let _ = std::fs::remove_file(identity_path);
+    }
+}
+
+#[cfg(test)]
+mod lan_url_tests {
+    use super::LanInvitationConfig;
+
+    #[test]
+    fn accepts_only_private_network_addresses_and_builds_invitation_urls() {
+        let config = LanInvitationConfig::parse("http://192.168.1.20:8080/").unwrap();
+        assert_eq!(config.invitation_url("secret"), "http://192.168.1.20:8080/invite/secret");
+        assert!(LanInvitationConfig::parse("https://192.168.1.20").is_err());
+        assert!(LanInvitationConfig::parse("http://example.com:8080").is_err());
+        assert!(LanInvitationConfig::parse("http://8.8.8.8:8080").is_err());
+        assert!(LanInvitationConfig::parse("http://192.168.1.20:bad").is_err());
+        assert!(LanInvitationConfig::parse("http://192.168.1.20/path").is_err());
     }
 }
