@@ -1,3 +1,5 @@
+//! Creation response containing the one-time invitation token.
+
 use agent_storage::FamilyInvitationSummary;
 use serde::Serialize;
 

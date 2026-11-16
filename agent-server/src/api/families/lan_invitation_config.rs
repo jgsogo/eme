@@ -1,3 +1,5 @@
+//! Validated private-network base URL used for invitation links.
+
 use std::net::IpAddr;
 
 /// Explicit LAN base URL used to build invitation links. Only private, loopback,

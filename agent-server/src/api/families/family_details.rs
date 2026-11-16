@@ -1,3 +1,5 @@
+//! Family details together with the current member list.
+
 use agent_storage::{Family, FamilyMember};
 use serde::Serialize;
 

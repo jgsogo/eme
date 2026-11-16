@@ -1,3 +1,5 @@
+//! Acknowledgement returned after a run is queued.
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

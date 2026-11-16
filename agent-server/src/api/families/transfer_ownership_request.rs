@@ -1,3 +1,5 @@
+//! Payload naming the member who should receive family ownership.
+
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

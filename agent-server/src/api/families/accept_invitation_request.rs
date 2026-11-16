@@ -1,3 +1,5 @@
+//! Payload for accepting a family invitation.
+
 use agent_storage::FamilyRelationship;
 use serde::Deserialize;
 

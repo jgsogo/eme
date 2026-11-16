@@ -1,3 +1,5 @@
+//! Public representation of a run's current status and result.
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

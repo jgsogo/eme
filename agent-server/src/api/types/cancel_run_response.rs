@@ -1,3 +1,5 @@
+//! Response describing the outcome of a run cancellation request.
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

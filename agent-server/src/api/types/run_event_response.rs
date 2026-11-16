@@ -1,3 +1,5 @@
+//! Serialized lifecycle event exposed by the run events endpoint.
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
