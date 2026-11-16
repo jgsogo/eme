@@ -2,6 +2,8 @@
 
 mod in_memory_family_store;
 mod state;
+
+pub(super) use state::State;
 #[cfg(test)]
 mod tests;
 
