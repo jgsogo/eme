@@ -75,6 +75,7 @@ impl TaskRegistry {
             tasks: RwLock::new(HashMap::new()), changed,
         }) };
         let mut tasks = HashMap::new();
+        let mut names = std::collections::HashSet::new();
         for entry in fs::read_dir(&directory).map_err(storage_error)? {
             let path = entry.map_err(storage_error)?.path();
             if path.extension().and_then(|x| x.to_str()) != Some("toml") { continue; }
@@ -89,6 +90,9 @@ impl TaskRegistry {
                 timezone: old.timezone, enabled: old.enabled, next_run: None };
             validate(&task)?;
             task.next_run = next_run(&task, Utc::now())?;
+            if !names.insert((task.user_id.clone(), task.name.clone())) {
+                return Err(TaskError::Invalid(format!("duplicate task name '{}' for user '{}'", task.name, task.user_id)));
+            }
             if tasks.insert(id, task.clone()).is_some() { return Err(TaskError::Invalid(format!("duplicate task id {id}"))); }
             let canonical = directory.join(format!("{id}.toml"));
             if path != canonical || !raw.contains("user_id") || !raw.contains("id") {
@@ -113,11 +117,11 @@ impl TaskRegistry {
         let mut result: Vec<_> = self.snapshot().into_iter().filter(|t| t.user_id == user).collect();
         result.sort_by(|a,b| a.name.cmp(&b.name)); result
     }
-    pub fn add(&self, user: &str, mut task: NewTask) -> Result<Task, TaskError> {
+    pub fn add(&self, user: &str, task: NewTask) -> Result<Task, TaskError> {
         if user.trim().is_empty() { return Err(TaskError::Invalid("authenticated user is missing".into())); }
         let mut value = Task { id: Uuid::new_v4(), user_id: user.into(), name: task.name,
             description: task.description, agent: task.agent, prompt: task.prompt,
-            schedule: task.schedule.take(), at: task.at, timezone: task.timezone,
+            schedule: task.schedule, at: task.at, timezone: task.timezone,
             enabled: true, next_run: None };
         validate(&value)?;
         if !self.inner.agents.read().map_err(lock_error)?.contains(&value.agent) { return Err(TaskError::Invalid(format!("unknown agent '{}'", value.agent))); }
@@ -211,6 +215,26 @@ schedule = "0 0 8 * * *"
         assert!(matches!(registry.remove("telegram:2", task.id), Err(TaskError::NotFound)));
         assert!(registry.remove("telegram:1", task.id).is_ok());
         assert!(registry.list("telegram:1").is_empty());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn persists_tasks_across_registry_restarts() {
+        let directory = temp_dir();
+        let registry = TaskRegistry::load(&directory).unwrap();
+        registry.validate_agents(["assistant".to_owned()]).unwrap();
+        let task = registry.add("telegram:7", NewTask {
+            name: "once".into(), description: "one-time job".into(), agent: "assistant".into(),
+            prompt: "do it".into(), schedule: None,
+            at: Some((Utc::now() + chrono::Duration::hours(1)).fixed_offset()),
+            timezone: None,
+        }).unwrap();
+        drop(registry);
+
+        let reloaded = TaskRegistry::load(&directory).unwrap();
+        assert_eq!(reloaded.list("telegram:7").len(), 1);
+        assert_eq!(reloaded.list("telegram:7")[0].id, task.id);
+        assert_eq!(reloaded.list("telegram:7")[0].prompt, "do it");
         fs::remove_dir_all(directory).unwrap();
     }
 }
