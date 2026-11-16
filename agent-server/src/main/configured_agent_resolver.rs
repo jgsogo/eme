@@ -44,13 +44,15 @@ impl ConfiguredAgentResolver {
         google_tool::register_tools(&mut tools).context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         common_tools::register_tools(&mut tools).context("registering common tools")?;
-        tasks_tool::register_tools(&mut tools, task_registry.clone()).context("registering task tools")?;
+        tasks_tool::register_tools(&mut tools, task_registry.clone())
+            .context("registering task tools")?;
         let tools = Arc::new(tools);
 
         let agents =
             AgentRegistry::load_validated(data_dir.join("agents"), &models, tools.as_ref())
                 .context("loading and validating agent definitions")?;
-        task_registry.validate_agents(agents.definitions().map(|agent| agent.name.clone()))
+        task_registry
+            .validate_agents(agents.definitions().map(|agent| agent.name.clone()))
             .context("validating task agent references")?;
 
         Ok(Self {
