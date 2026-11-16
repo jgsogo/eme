@@ -23,6 +23,7 @@ pub(super) async fn handle_message(
     store: &Arc<ConversationStore>,
     identities: &Arc<FileUserIdentityStore>,
     families: &Arc<SqliteFamilyStore>,
+    family_service: &Arc<FamilyService>,
     active_conversations: &Arc<Mutex<HashSet<ConversationId>>>,
     auth: &Arc<TelegramAuth>,
     message: IncomingMessage,
