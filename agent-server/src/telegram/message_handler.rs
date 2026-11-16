@@ -75,20 +75,34 @@ pub(super) async fn handle_message(
             Ok(token) => token,
             Err(_) => {
                 let _ = gateway
-                    .send_message(message.chat_id, "This family invitation is invalid or has expired.")
+                    .send_message(
+                        message.chat_id,
+                        "This family invitation is invalid or has expired.",
+                    )
                     .await;
                 return;
             }
         };
-        let identity = match InvitationTargetIdentity::new("telegram", telegram_user_id.to_string()) {
+        let identity = match InvitationTargetIdentity::new("telegram", telegram_user_id.to_string())
+        {
             Ok(identity) => identity,
             Err(error) => {
-                send_error(gateway, message.chat_id, "prepare your Telegram identity", error).await;
+                send_error(
+                    gateway,
+                    message.chat_id,
+                    "prepare your Telegram identity",
+                    error,
+                )
+                .await;
                 return;
             }
         };
 
-        if families.validate_invitation(&token, &identity).await.is_err() {
+        if families
+            .validate_invitation(&token, &identity)
+            .await
+            .is_err()
+        {
             let _ = gateway
                 .send_message(message.chat_id, "This family invitation is invalid, expired, revoked, or belongs to another Telegram account.")
                 .await;
@@ -97,14 +111,12 @@ pub(super) async fn handle_message(
 
         // Only provision an EME account after the bearer token and optional
         // Telegram identity binding have been checked.
-        let (user, _) = match identities.resolve_or_create(
-            "telegram",
-            &telegram_user_id.to_string(),
-            None,
-        ) {
+        let (user, _) =
+            match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
             Ok(identity) => identity,
             Err(error) => {
-                send_error(gateway, message.chat_id, "create your EME identity", error).await;
+                send_error(gateway, message.chat_id, "create your EME identity", error)
+                        .await;
                 return;
             }
         };
@@ -152,7 +164,8 @@ pub(super) async fn handle_message(
 
     // Existing configured users remain supported. Other users may use the bot
     // only after their Telegram identity has an active family membership.
-    let existing_identity = match identities.find_identity("telegram", &telegram_user_id.to_string()) {
+    let existing_identity =
+        match identities.find_identity("telegram", &telegram_user_id.to_string()) {
         Ok(identity) => identity,
         Err(error) => {
             send_error(gateway, message.chat_id, "look up your EME identity", error).await;
