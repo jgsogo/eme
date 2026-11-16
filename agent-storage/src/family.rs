@@ -98,6 +98,8 @@ pub enum FamilyStorageError {
     NotCurrentOwner,
     #[error("owner role can only be changed by transferring ownership")]
     OwnerRoleRequiresTransfer,
+    #[error("family storage backend failed: {0}")]
+    Backend(String),
 }
 
 /// Family persistence operations. Methods that affect ownership or family
