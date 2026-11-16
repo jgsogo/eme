@@ -4,5 +4,5 @@ use std::net::IpAddr;
 /// or link-local IP addresses are accepted; Host headers are never trusted.
 #[derive(Debug, Clone)]
 pub struct LanInvitationConfig {
-    base_url: String,
+    pub(super) base_url: String,
 }
