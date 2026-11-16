@@ -42,6 +42,20 @@ impl InvitationToken {
         ))
     }
 
+    /// Parse the 64-character hexadecimal token carried by Telegram's
+    /// `start` parameter. Telegram limits deep-link payloads to 64 chars.
+    pub fn parse(value: &str) -> Option<Self> {
+        if value.len() == 64
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            Some(Self(value.to_owned()))
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn hash(&self) -> String {
         format!("{:x}", Sha256::digest(self.0.as_bytes()))
     }
@@ -170,6 +184,15 @@ pub trait FamilyInvitationStore: Send + Sync {
         family_id: FamilyId,
         invitation_id: uuid::Uuid,
     ) -> Result<FamilyInvitationSummary, InvitationStorageError>;
+
+    /// Checks that a token is currently usable without creating a user or
+    /// changing invitation state. This lets transports validate an invitation
+    /// before provisioning a first-time external identity.
+    async fn validate_invitation(
+        &self,
+        token: &InvitationToken,
+        accepting_identity: &InvitationTargetIdentity,
+    ) -> Result<(), InvitationStorageError>;
 
     /// Validates the token and optional identity binding, then creates the
     /// membership and marks the invitation accepted under one transaction.
