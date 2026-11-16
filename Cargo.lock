@@ -237,6 +237,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tavily-tool",
+ "tasks-tool",
  "telegram-tool",
  "thiserror",
  "tokio",
@@ -284,6 +285,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
+ "toml",
  "tracing",
  "uuid",
 ]
@@ -3084,6 +3086,19 @@ dependencies = [
  "thiserror",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "tasks-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "agent-service",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
