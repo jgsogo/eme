@@ -1,3 +1,5 @@
+//! Agent identity, system instructions, tool grants, and iteration limit.
+
 /// Configuration for an agent.
 #[derive(Debug, Clone)]
 pub struct Agent {

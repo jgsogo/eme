@@ -1,3 +1,5 @@
+//! Message variants exchanged in an agent conversation.
+
 use serde::{Deserialize, Serialize};
 
 use super::ToolCall;
