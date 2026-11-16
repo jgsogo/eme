@@ -1,6 +1,6 @@
 //! File-backed conversation persistence and active-conversation index.
 
-use super::{default_conversation_title, Conversation, ConversationId, ConversationStoreError};
+use super::{Conversation, ConversationId, ConversationStoreError, default_conversation_title};
 use crate::FamilyId;
 use agent_runtime::Message;
 use chrono::Utc;

@@ -798,4 +798,3 @@ impl FamilyInvitationStore for SqliteFamilyStore {
         Ok(member)
     }
 }
-
