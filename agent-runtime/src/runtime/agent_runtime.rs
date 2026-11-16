@@ -145,49 +145,8 @@ impl AgentRuntime {
         }
     }
 
-    /// Runs an agent with a runtime-generated identifier.
-    ///
-    /// Callers that manage runs at a higher level should use run_with_id so the
-    /// same identifier is shared across service, runtime, and event records.
+    /// Runs an agent with trusted platform context and optional conversation history.
     pub async fn run(
-        &self,
-        agent: &Agent,
-        input: impl Into<String>,
-        cancellation: CancellationToken,
-    ) -> Result<RunResult, RunFailure> {
-        self.run_with_id(Uuid::new_v4(), agent, input, cancellation)
-            .await
-    }
-
-    /// Runs an agent using an identifier allocated by the calling service.
-    pub async fn run_with_id(
-        &self,
-        run_id: Uuid,
-        agent: &Agent,
-        input: impl Into<String>,
-        cancellation: CancellationToken,
-    ) -> Result<RunResult, RunFailure> {
-        self.run_with_context_and_history(run_id, agent, ToolContext::default(), Vec::new(), input, cancellation)
-            .await
-    }
-
-    /// Runs an agent using an existing conversation history.
-    ///
-    /// The new user input is appended after the supplied history. The returned
-    /// messages contain both the previous history and this run's complete turn.
-    pub async fn run_with_history(
-        &self,
-        run_id: Uuid,
-        agent: &Agent,
-        messages: Vec<Message>,
-        input: impl Into<String>,
-        cancellation: CancellationToken,
-    ) -> Result<RunResult, RunFailure> {
-        self.run_with_context_and_history(run_id, agent, ToolContext::default(), messages, input, cancellation).await
-    }
-
-    /// Runs an agent with trusted platform context propagated to every tool.
-    pub async fn run_with_context_and_history(
         &self,
         run_id: Uuid,
         agent: &Agent,
@@ -549,7 +508,7 @@ mod external_run_id_tests {
         let run_id = Uuid::new_v4();
 
         let result = runtime
-            .run_with_id(run_id, &agent, "hello", CancellationToken::new())
+            .run(run_id, &agent, ToolContext::default(), Vec::new(), "hello", CancellationToken::new())
             .await
             .unwrap();
 
