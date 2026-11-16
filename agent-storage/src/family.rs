@@ -55,6 +55,8 @@ pub struct FamilyMember {
 pub enum FamilyStorageError {
     #[error("family not found: {0}")]
     FamilyNotFound(FamilyId),
+    #[error("family already exists: {0}")]
+    FamilyAlreadyExists(FamilyId),
     #[error("membership not found for user {user_id} in family {family_id}")]
     MembershipNotFound { family_id: FamilyId, user_id: UserId },
     #[error("membership already exists for user {user_id} in family {family_id}")]
