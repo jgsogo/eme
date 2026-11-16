@@ -171,9 +171,7 @@ mod registration_tests {
         }
     }
 
-    struct ContextTool(
-        std::sync::Arc<std::sync::Mutex<Option<(Option<String>, Option<String>)>>>,
-    );
+    struct ContextTool(std::sync::Arc<std::sync::Mutex<Option<(Option<String>, Option<String>)>>>);
 
     #[async_trait]
     impl Tool for ContextTool {
@@ -184,7 +182,10 @@ mod registration_tests {
         ) -> Result<String, ToolError> {
             *self.0.lock().unwrap() = Some((
                 context.user_id.clone(),
-                context.family.as_ref().map(|family| family.family_id.clone()),
+                context
+                    .family
+                    .as_ref()
+                    .map(|family| family.family_id.clone()),
             ));
             Ok("context received".into())
         }
