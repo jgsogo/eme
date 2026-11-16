@@ -72,11 +72,17 @@ impl FamilyService {
         families: Arc<dyn FamilyStore>,
         invitations: Arc<dyn FamilyInvitationStore>,
     ) -> Self {
-        Self { families, invitations }
+        Self {
+            families,
+            invitations,
+        }
     }
 
     async fn members(&self, family_id: FamilyId) -> Result<Vec<FamilyMember>, FamilyServiceError> {
-        self.families.list_members(family_id).await.map_err(Into::into)
+        self.families
+            .list_members(family_id)
+            .await
+            .map_err(Into::into)
     }
 
     async fn actor_member(
@@ -162,7 +168,10 @@ impl FamilyService {
         if name.is_empty() {
             return Err(FamilyServiceError::EmptyName);
         }
-        self.families.rename_family(family_id, name).await.map_err(Into::into)
+        self.families
+            .rename_family(family_id, name)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn delete_family(
@@ -174,7 +183,10 @@ impl FamilyService {
         if member.role != FamilyRole::Owner {
             return Err(FamilyServiceError::Forbidden);
         }
-        self.families.delete_family(family_id).await.map_err(Into::into)
+        self.families
+            .delete_family(family_id)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn list_members(
@@ -206,7 +218,10 @@ impl FamilyService {
         family_id: FamilyId,
     ) -> Result<Vec<FamilyInvitationSummary>, FamilyServiceError> {
         self.require_admin(family_id, actor).await?;
-        self.invitations.list_invitations(family_id).await.map_err(Into::into)
+        self.invitations
+            .list_invitations(family_id)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn revoke_invitation(
@@ -244,19 +259,22 @@ impl FamilyService {
         target: UserId,
     ) -> Result<(), FamilyServiceError> {
         let actor_member = self.require_admin(family_id, actor).await?;
-        let target_member = self
-            .actor_member(family_id, target)
-            .await
-            .map_err(|error| match error {
-                FamilyServiceError::NotMember => FamilyServiceError::TargetNotMember,
-                other => other,
-            })?;
+        let target_member =
+            self.actor_member(family_id, target)
+                .await
+                .map_err(|error| match error {
+                    FamilyServiceError::NotMember => FamilyServiceError::TargetNotMember,
+                    other => other,
+                })?;
         match actor_member.role {
             FamilyRole::Owner if target_member.role != FamilyRole::Owner => {}
             FamilyRole::Admin if target_member.role == FamilyRole::Member => {}
             _ => return Err(FamilyServiceError::Forbidden),
         }
-        self.families.remove_member(family_id, target).await.map_err(Into::into)
+        self.families
+            .remove_member(family_id, target)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn leave_family(
@@ -265,7 +283,10 @@ impl FamilyService {
         family_id: FamilyId,
     ) -> Result<(), FamilyServiceError> {
         self.actor_member(family_id, actor).await?;
-        self.families.leave_family(family_id, actor).await.map_err(Into::into)
+        self.families
+            .leave_family(family_id, actor)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn change_member_role(
@@ -282,13 +303,13 @@ impl FamilyService {
             return Err(FamilyServiceError::OwnerRoleRequiresTransfer);
         }
         let actor_member = self.require_admin(family_id, actor).await?;
-        let target_member = self
-            .actor_member(family_id, target)
-            .await
-            .map_err(|error| match error {
-                FamilyServiceError::NotMember => FamilyServiceError::TargetNotMember,
-                other => other,
-            })?;
+        let target_member =
+            self.actor_member(family_id, target)
+                .await
+                .map_err(|error| match error {
+                    FamilyServiceError::NotMember => FamilyServiceError::TargetNotMember,
+                    other => other,
+                })?;
         match actor_member.role {
             FamilyRole::Owner if target_member.role != FamilyRole::Owner => {}
             // Admins may promote ordinary members, but cannot alter another
@@ -378,7 +399,13 @@ mod tests {
         let (family, members) = service.get_family(owner, family_id).await.unwrap();
         assert_eq!(family.name, "Home");
         assert_eq!(members.len(), 2);
-        assert_eq!(members.iter().filter(|m| m.role == FamilyRole::Owner).count(), 1);
+        assert_eq!(
+            members
+                .iter()
+                .filter(|m| m.role == FamilyRole::Owner)
+                .count(),
+            1
+        );
         assert_eq!(service.list_families(owner).await.unwrap().len(), 1);
     }
 
@@ -386,50 +413,121 @@ mod tests {
     async fn non_members_cannot_view_or_rename_family() {
         let (service, _, _, family_id) = setup().await;
         let outsider = UserId::new();
-        assert!(matches!(service.get_family(outsider, family_id).await, Err(FamilyServiceError::NotMember)));
-        assert!(matches!(service.rename_family(outsider, family_id, "Nope").await, Err(FamilyServiceError::NotMember)));
+        assert!(matches!(
+            service.get_family(outsider, family_id).await,
+            Err(FamilyServiceError::NotMember)
+        ));
+        assert!(matches!(
+            service.rename_family(outsider, family_id, "Nope").await,
+            Err(FamilyServiceError::NotMember)
+        ));
     }
 
     #[tokio::test]
     async fn members_cannot_invite_remove_or_change_roles() {
         let (service, _, member, family_id) = setup().await;
-        assert!(matches!(service.create_invitation(member, family_id, None, Utc::now() + Duration::days(1)).await, Err(FamilyServiceError::Forbidden)));
-        assert!(matches!(service.change_member_role(member, family_id, member, FamilyRole::Admin).await, Err(FamilyServiceError::CannotChangeOwnRole)));
+        assert!(matches!(
+            service
+                .create_invitation(member, family_id, None, Utc::now() + Duration::days(1))
+                .await,
+            Err(FamilyServiceError::Forbidden)
+        ));
+        assert!(matches!(
+            service
+                .change_member_role(member, family_id, member, FamilyRole::Admin)
+                .await,
+            Err(FamilyServiceError::CannotChangeOwnRole)
+        ));
     }
 
     #[tokio::test]
     async fn admins_can_promote_members_but_cannot_change_other_admins() {
         let (service, owner, member, family_id) = setup().await;
-        service.change_member_role(owner, family_id, member, FamilyRole::Admin).await.unwrap();
+        service
+            .change_member_role(owner, family_id, member, FamilyRole::Admin)
+            .await
+            .unwrap();
         let second = UserId::new();
-        let (_, token) = service.create_invitation(owner, family_id, None, Utc::now() + Duration::days(1)).await.unwrap();
-        service.accept_invitation(&token, &InvitationTargetIdentity::new("telegram", "456").unwrap(), second, FamilyRelationship::Other).await.unwrap();
-        assert!(matches!(service.change_member_role(member, family_id, second, FamilyRole::Member).await, Err(FamilyServiceError::Forbidden)));
+        let (_, token) = service
+            .create_invitation(owner, family_id, None, Utc::now() + Duration::days(1))
+            .await
+            .unwrap();
+        service
+            .accept_invitation(
+                &token,
+                &InvitationTargetIdentity::new("telegram", "456").unwrap(),
+                second,
+                FamilyRelationship::Other,
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            service
+                .change_member_role(member, family_id, second, FamilyRole::Member)
+                .await,
+            Err(FamilyServiceError::Forbidden)
+        ));
     }
 
     #[tokio::test]
     async fn admins_cannot_remove_owner_or_other_admins() {
         let (service, owner, member, family_id) = setup().await;
-        service.change_member_role(owner, family_id, member, FamilyRole::Admin).await.unwrap();
-        assert!(matches!(service.remove_member(member, family_id, owner).await, Err(FamilyServiceError::Forbidden)));
-        assert!(matches!(service.remove_member(member, family_id, member).await, Err(FamilyServiceError::Forbidden)));
+        service
+            .change_member_role(owner, family_id, member, FamilyRole::Admin)
+            .await
+            .unwrap();
+        assert!(matches!(
+            service.remove_member(member, family_id, owner).await,
+            Err(FamilyServiceError::Forbidden)
+        ));
+        assert!(matches!(
+            service.remove_member(member, family_id, member).await,
+            Err(FamilyServiceError::Forbidden)
+        ));
     }
 
     #[tokio::test]
     async fn owner_must_transfer_before_leaving_and_transfer_is_owner_only() {
         let (service, owner, member, family_id) = setup().await;
-        assert!(matches!(service.leave_family(owner, family_id).await, Err(FamilyServiceError::OwnerMustTransfer)));
-        assert!(matches!(service.transfer_ownership(member, family_id, owner).await, Err(FamilyServiceError::Forbidden)));
-        service.transfer_ownership(owner, family_id, member).await.unwrap();
+        assert!(matches!(
+            service.leave_family(owner, family_id).await,
+            Err(FamilyServiceError::OwnerMustTransfer)
+        ));
+        assert!(matches!(
+            service.transfer_ownership(member, family_id, owner).await,
+            Err(FamilyServiceError::Forbidden)
+        ));
+        service
+            .transfer_ownership(owner, family_id, member)
+            .await
+            .unwrap();
         service.leave_family(owner, family_id).await.unwrap();
     }
 
     #[tokio::test]
     async fn invitation_creation_and_revocation_require_admin_role() {
         let (service, owner, member, family_id) = setup().await;
-        let (invitation, _) = service.create_invitation(owner, family_id, None, Utc::now() + Duration::days(1)).await.unwrap();
-        assert_eq!(service.list_invitations(owner, family_id).await.unwrap().len(), 2);
-        service.revoke_invitation(owner, family_id, invitation.id).await.unwrap();
-        assert!(matches!(service.revoke_invitation(member, family_id, invitation.id).await, Err(FamilyServiceError::Forbidden)));
+        let (invitation, _) = service
+            .create_invitation(owner, family_id, None, Utc::now() + Duration::days(1))
+            .await
+            .unwrap();
+        assert_eq!(
+            service
+                .list_invitations(owner, family_id)
+                .await
+                .unwrap()
+                .len(),
+            2
+        );
+        service
+            .revoke_invitation(owner, family_id, invitation.id)
+            .await
+            .unwrap();
+        assert!(matches!(
+            service
+                .revoke_invitation(member, family_id, invitation.id)
+                .await,
+            Err(FamilyServiceError::Forbidden)
+        ));
     }
 }
