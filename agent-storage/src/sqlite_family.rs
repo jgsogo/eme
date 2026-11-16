@@ -984,8 +984,9 @@ mod tests {
             let connection = store.connection.lock().await;
             connection
                 .execute(
-                    "UPDATE family_invitations SET expires_at = ?1 WHERE token_hash = ?2",
+                    "UPDATE family_invitations SET created_at = ?1, expires_at = ?2 WHERE token_hash = ?3",
                     params![
+                        (Utc::now() - Duration::seconds(2)).to_rfc3339(),
                         (Utc::now() - Duration::seconds(1)).to_rfc3339(),
                         expired.hash()
                     ],
