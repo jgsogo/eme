@@ -122,9 +122,15 @@ impl TaskRegistry {
         validate(&value)?;
         if !self.inner.agents.read().map_err(lock_error)?.contains(&value.agent) { return Err(TaskError::Invalid(format!("unknown agent '{}'", value.agent))); }
         value.next_run = next_run(&value, Utc::now())?;
+        if value.next_run.is_none() { return Err(TaskError::Invalid("one-time task must be scheduled in the future".into())); }
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
         if tasks.values().any(|t| t.user_id == user && t.name == value.name) { return Err(TaskError::Invalid("task name already exists for this user".into())); }
         self.persist(&value)?; tasks.insert(value.id, value.clone()); self.notify(); Ok(value)
+    }
+    pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) {
+        if let Ok(mut tasks) = self.inner.tasks.write() {
+            if let Some(task) = tasks.get_mut(&id) { task.next_run = Some(next); }
+        }
     }
     pub fn remove(&self, user: &str, id: Uuid) -> Result<(), TaskError> {
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
@@ -157,3 +163,54 @@ fn next_run(t:&Task,now:DateTime<Utc>)->Result<Option<DateTime<Utc>>,TaskError>{
 }
 fn storage_error(e:impl std::fmt::Display)->TaskError{TaskError::Storage(e.to_string())}
 fn lock_error<T>(_:std::sync::PoisonError<T>)->TaskError{TaskError::Storage("task registry lock poisoned".into())}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{fs, path::PathBuf};
+
+    fn temp_dir() -> PathBuf {
+        let path = std::env::temp_dir().join(format!("task-registry-{}", Uuid::new_v4()));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn migrates_legacy_task_to_the_default_owner_and_uuid_filename() {
+        let directory = temp_dir();
+        fs::write(directory.join("daily.toml"), r#"
+name = "daily"
+agent = "assistant"
+prompt = "prepare report"
+schedule = "0 0 8 * * *"
+"#).unwrap();
+
+        let registry = TaskRegistry::load(&directory).unwrap();
+        let tasks = registry.list(LEGACY_TASK_OWNER);
+        assert_eq!(tasks.len(), 1);
+        assert!(directory.join(format!("{}.toml", tasks[0].id)).exists());
+        assert!(!directory.join("daily.toml").exists());
+        let persisted = fs::read_to_string(directory.join(format!("{}.toml", tasks[0].id))).unwrap();
+        assert!(persisted.contains("user_id = \"telegram:118716073\""));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn task_listing_and_removal_are_scoped_to_the_authenticated_user() {
+        let directory = temp_dir();
+        let registry = TaskRegistry::load(&directory).unwrap();
+        registry.validate_agents(["assistant".to_owned()]).unwrap();
+        let task = registry.add("telegram:1", NewTask {
+            name: "daily".into(), description: String::new(), agent: "assistant".into(),
+            prompt: "prepare report".into(), schedule: Some("0 0 8 * * *".into()),
+            at: None, timezone: Some("Europe/Madrid".into()),
+        }).unwrap();
+
+        assert_eq!(registry.list("telegram:1").len(), 1);
+        assert!(registry.list("telegram:2").is_empty());
+        assert!(matches!(registry.remove("telegram:2", task.id), Err(TaskError::NotFound)));
+        assert!(registry.remove("telegram:1", task.id).is_ok());
+        assert!(registry.list("telegram:1").is_empty());
+        fs::remove_dir_all(directory).unwrap();
+    }
+}
