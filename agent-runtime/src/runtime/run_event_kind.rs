@@ -1,3 +1,5 @@
+//! Variants describing model, tool, timeout, and cancellation lifecycle events.
+
 use crate::ErrorCategory;
 
 #[derive(Debug, Clone)]
