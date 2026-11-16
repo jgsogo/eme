@@ -16,7 +16,6 @@ pub struct FamilyContext {
     pub relationship: String,
 }
 
-
 /// Trusted execution metadata supplied by the platform, never by the model.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ToolContext {
