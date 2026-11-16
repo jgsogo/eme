@@ -1,21 +1,16 @@
 name = "alexa_speak"
-description = """Send a text message to an Alexa device, preceded by an optional sound effect.
+description = """Send a text message to an Alexa device, optionally preceded by an Alexa sound effect.
 
-Supported sounds (choose one exact URI):
-- Default short beep: soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06
-- Futuristic effect: soundbank://soundlibrary/aircrafts/futuristic/futuristic_01
-- Steam sound: soundbank://soundlibrary/air/steam/steam_05
-- Water/nature sound: soundbank://soundlibrary/water/nature/nature_08
-- Bird chirp: soundbank://soundlibrary/animals/amzn_sfx_bird_chickadee_chirp_1x_01
-- Forest birds: soundbank://soundlibrary/animals/amzn_sfx_bird_forest_01
-- Robin chirp: soundbank://soundlibrary/animals/amzn_sfx_bird_robin_chirp_1x_01
-- Raven call: soundbank://soundlibrary/animals/amzn_sfx_raven_caw_1x_01
+The optional chime argument accepts any soundbank URI from the Alexa Skills Kit Sound Library; it is not restricted to a predefined list.
 
-Omit chime to use the default short beep. The JSON schema accepts only the URIs listed above.
+- Omit chime to play the default notification beep: soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06
+- Set chime to "none" to send the message without playing a sound.
+- Set chime to any soundbank://soundlibrary/... URI to play that sound before speaking.
 
-To browse, preview, and copy additional sound URIs, use the official Alexa Skills Kit Sound Library:
+Browse, preview, and copy sound URIs from the official Alexa Skills Kit Sound Library:
 https://developer.amazon.com/en-US/docs/alexa/custom-skills/ask-soundlibrary.html
-The complete catalogue is larger than this tool's allowlist. Add a sound to the allowlist and JSON schema enum before using it here."""
+
+The tool validates the soundbank URI format, but Alexa determines whether a particular library sound is available for playback."""
 
 [parameters]
 type = "object"
@@ -28,14 +23,5 @@ description = "The text to send to the Alexa device."
 
 [parameters.properties.chime]
 type = "string"
-description = "Optional Alexa soundbank URI to play before speaking. If omitted, the default notification chime is used. Example: soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01"
-enum = [
-  "soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06",
-  "soundbank://soundlibrary/aircrafts/futuristic/futuristic_01",
-  "soundbank://soundlibrary/air/steam/steam_05",
-  "soundbank://soundlibrary/water/nature/nature_08",
-  "soundbank://soundlibrary/animals/amzn_sfx_bird_chickadee_chirp_1x_01",
-  "soundbank://soundlibrary/animals/amzn_sfx_bird_forest_01",
-  "soundbank://soundlibrary/animals/amzn_sfx_bird_robin_chirp_1x_01",
-  "soundbank://soundlibrary/animals/amzn_sfx_raven_caw_1x_01"
-]
+description = "Optional soundbank URI to play before speaking. Omit to use the default beep; use \"none\" to play no sound; otherwise provide any soundbank://soundlibrary/... URI from the Alexa Sound Library."
+pattern = "^(none|soundbank://soundlibrary/[A-Za-z0-9_/-]+)$"
