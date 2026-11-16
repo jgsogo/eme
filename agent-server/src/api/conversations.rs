@@ -21,7 +21,7 @@ use actix_web::{
 use agent_runtime::ToolContext;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, ConversationStore, ConversationStoreError, FamilyId,
+    Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
     FileUserIdentityStore, UserIdentityStore,
 };
 
