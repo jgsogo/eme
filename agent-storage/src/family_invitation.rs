@@ -6,16 +6,9 @@ mod family_invitation_summary;
 mod invitation_storage_error;
 mod invitation_target_identity;
 mod invitation_token;
-
-pub use family_invitation::FamilyInvitation;
-pub use family_invitation_store::FamilyInvitationStore;
-pub use family_invitation_summary::FamilyInvitationSummary;
-pub use invitation_storage_error::InvitationStorageError;
-pub use invitation_target_identity::InvitationTargetIdentity;
-pub use invitation_token::InvitationToken;
-
 #[cfg(test)]
 mod token_tests {
+
     use super::*;
 
     #[test]
@@ -27,3 +20,11 @@ mod token_tests {
         assert!(InvitationToken::parse(&format!("{}z", &token.expose()[..63])).is_err());
     }
 }
+
+
+pub use family_invitation::FamilyInvitation;
+pub use family_invitation_store::FamilyInvitationStore;
+pub use family_invitation_summary::FamilyInvitationSummary;
+pub use invitation_storage_error::InvitationStorageError;
+pub use invitation_target_identity::InvitationTargetIdentity;
+pub use invitation_token::InvitationToken;

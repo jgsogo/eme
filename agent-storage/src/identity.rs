@@ -8,6 +8,9 @@ mod user;
 mod user_id;
 mod user_identity;
 mod user_identity_store;
+#[cfg(test)]
+mod tests;
+
 
 pub use file_user_identity_store::FileUserIdentityStore;
 pub(super) use identity_state::IdentityState;
@@ -17,6 +20,3 @@ pub use user::User;
 pub use user_id::UserId;
 pub use user_identity::UserIdentity;
 pub use user_identity_store::UserIdentityStore;
-
-#[cfg(test)]
-mod tests;
