@@ -1,5 +1,21 @@
 name = "alexa_speak"
-description = "Send a text message to an Alexa device."
+description = """Send a text message to an Alexa device, preceded by an optional sound effect.
+
+Available chimes (choose exactly one URI):
+- Default notification chime: soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02
+- Short beep: soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06
+- Bell: soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01
+- Sci-fi radar ping: soundbank://soundlibrary/scifi/amzn_sfx_scifi_radar_high_ping_01
+- Bear roar: soundbank://soundlibrary/animals/amzn_sfx_bear_groan_roar_01
+- Cat meow: soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01
+- Dog bark: soundbank://soundlibrary/animals/amzn_sfx_dog_med_bark_2x_02
+
+Omit chime to use the default notification chime. These are the sounds currently supported by this tool; the full Amazon catalogue is much larger and not every sound is guaranteed to work with this Alexa endpoint.
+
+Browse and preview sounds, then copy their soundbank URI:
+https://developer.amazon.com/en-US/docs/alexa/custom-skills/ask-soundlibrary.html
+Community-maintained searchable catalogue:
+https://ask-sound-library-links.firebaseapp.com/"""
 
 [parameters]
 type = "object"
@@ -13,4 +29,12 @@ description = "The text to send to the Alexa device."
 [parameters.properties.chime]
 type = "string"
 description = "Optional Alexa soundbank URI to play before speaking. If omitted, the default notification chime is used. Example: soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01"
-pattern = "^soundbank://soundlibrary/[A-Za-z0-9_/-]+$"
+enum = [
+  "soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02",
+  "soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06",
+  "soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01",
+  "soundbank://soundlibrary/scifi/amzn_sfx_scifi_radar_high_ping_01",
+  "soundbank://soundlibrary/animals/amzn_sfx_bear_groan_roar_01",
+  "soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01",
+  "soundbank://soundlibrary/animals/amzn_sfx_dog_med_bark_2x_02"
+]
