@@ -25,9 +25,9 @@ mod family;
 mod family_invitation;
 mod family_invitation_memory;
 mod family_memory;
-mod sqlite_family;
 mod identity;
 mod memory;
+mod sqlite_family;
 
 pub use contracts::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
@@ -42,12 +42,12 @@ pub use family_invitation::{
 };
 pub use family_invitation_memory::InMemoryFamilyInvitationStore;
 pub use family_memory::InMemoryFamilyStore;
-pub use sqlite_family::SqliteFamilyStore;
 pub use identity::{
     FileUserIdentityStore, IdentityStoreError, InMemoryUserIdentityStore, User, UserId,
     UserIdentity, UserIdentityStore,
 };
 pub use memory::InMemoryStorage;
+pub use sqlite_family::SqliteFamilyStore;
 
 /// Stable identifier assigned to a logical conversation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
