@@ -29,6 +29,7 @@ pub async fn run_bot(
     agents: Vec<String>,
     manager: RunManager,
     store: Arc<ConversationStore>,
+    identities: Arc<FileUserIdentityStore>,
     auth: Arc<TelegramAuth>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
@@ -43,6 +44,7 @@ pub async fn run_bot(
                     &agents,
                     &manager,
                     &store,
+                    &identities,
                     &active_conversations,
                     &auth,
                     message,
