@@ -1,5 +1,6 @@
 mod agents;
 mod conversations;
+mod families;
 mod runs;
 mod types;
 
@@ -7,6 +8,7 @@ mod types;
 mod tests;
 
 pub use agents::agents_api;
+pub use families::{families_api, invitations_api};
 pub use conversations::{
     ContinueConversationRequest, ConversationSummary, CreateConversationRequest,
     UpdateConversationRequest, conversations_api,
