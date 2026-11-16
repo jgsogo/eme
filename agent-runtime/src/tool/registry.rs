@@ -102,11 +102,7 @@ impl ToolDispatcher for ToolRegistry {
         self.definition(name)
     }
 
-    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError> {
-        self.execute_with_context(&ToolContext::default(), name, arguments).await
-    }
-
-    async fn execute_with_context(&self, context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError> {
         let tool = self
             .tools
             .get(name)
@@ -126,7 +122,7 @@ impl ToolDispatcher for ToolRegistry {
             });
         }
 
-        tool.implementation.execute_with_context(context, arguments).await
+        tool.implementation.execute(context, arguments).await
     }
 }
 
@@ -161,7 +157,7 @@ mod registration_tests {
 
     #[async_trait]
     impl Tool for NoopTool {
-        async fn execute(&self, _arguments: Value) -> Result<String, ToolError> {
+        async fn execute(&self, _context: &ToolContext, _arguments: Value) -> Result<String, ToolError> {
             Ok(String::new())
         }
     }
@@ -170,11 +166,7 @@ mod registration_tests {
 
     #[async_trait]
     impl Tool for ContextTool {
-        async fn execute(&self, _arguments: Value) -> Result<String, ToolError> {
-            Ok("no context".into())
-        }
-
-        async fn execute_with_context(
+        async fn execute(
             &self,
             context: &ToolContext,
             _arguments: Value,
@@ -198,7 +190,7 @@ mod registration_tests {
         ).unwrap();
 
         let context = ToolContext::new("telegram:42");
-        let output = registry.execute_with_context(&context, "context", serde_json::json!({})).await.unwrap();
+        let output = registry.execute(&context, "context", serde_json::json!({})).await.unwrap();
 
         assert_eq!(output, "context received");
         assert_eq!(captured_user.lock().unwrap().as_deref(), Some("telegram:42"));
