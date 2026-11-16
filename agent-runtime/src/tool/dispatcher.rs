@@ -9,5 +9,16 @@ pub trait ToolDispatcher: Send + Sync {
         let _ = name;
         None
     }
-    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError>;\n\n    /// Executes a tool with trusted context supplied by the platform.\n    /// Existing dispatchers remain source-compatible and may override this.\n    async fn execute_with_context(\n        &self,\n        _context: &ToolContext,\n        name: &str,\n        arguments: Value,\n    ) -> Result<String, ToolError> {\n        self.execute(name, arguments).await\n    }
+    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError>;
+
+    /// Executes a tool with trusted context supplied by the platform.
+    /// Existing dispatchers remain source-compatible and may override this.
+    async fn execute_with_context(
+        &self,
+        _context: &ToolContext,
+        name: &str,
+        arguments: Value,
+    ) -> Result<String, ToolError> {
+        self.execute(name, arguments).await
+    }
 }
