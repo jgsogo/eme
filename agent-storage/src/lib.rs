@@ -25,6 +25,7 @@ mod family;
 mod family_invitation;
 mod family_invitation_memory;
 mod family_memory;
+mod sqlite_family;
 mod identity;
 mod memory;
 
@@ -41,6 +42,7 @@ pub use family_invitation::{
 };
 pub use family_invitation_memory::InMemoryFamilyInvitationStore;
 pub use family_memory::InMemoryFamilyStore;
+pub use sqlite_family::SqliteFamilyStore;
 pub use identity::{
     FileUserIdentityStore, IdentityStoreError, InMemoryUserIdentityStore, User, UserId,
     UserIdentity, UserIdentityStore,
