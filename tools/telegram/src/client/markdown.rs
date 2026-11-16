@@ -22,29 +22,29 @@ pub(crate) fn markdown_to_telegram_html(markdown: &str) -> String {
         .replace("<del>", "<s>")
         .replace("</del>", "</s>")
         .replace("<h1>", "<b>")
-        .replace("</h1>", "</b>\\n\\n")
+        .replace("</h1>", "</b>\n\n")
         .replace("<h2>", "<b>")
-        .replace("</h2>", "</b>\\n\\n")
+        .replace("</h2>", "</b>\n\n")
         .replace("<h3>", "<b>")
-        .replace("</h3>", "</b>\\n\\n")
+        .replace("</h3>", "</b>\n\n")
         .replace("<h4>", "<b>")
-        .replace("</h4>", "</b>\\n\\n")
+        .replace("</h4>", "</b>\n\n")
         .replace("<h5>", "<b>")
-        .replace("</h5>", "</b>\\n\\n")
+        .replace("</h5>", "</b>\n\n")
         .replace("<h6>", "<b>")
-        .replace("</h6>", "</b>\\n\\n")
+        .replace("</h6>", "</b>\n\n")
         .replace("<p>", "")
-        .replace("</p>", "\\n\\n")
+        .replace("</p>", "\n\n")
         .replace("<ul>", "")
         .replace("</ul>", "")
         .replace("<ol>", "")
         .replace("</ol>", "")
         .replace("<li>", "• ")
-        .replace("</li>", "\\n")
+        .replace("</li>", "\n")
         .replace("<blockquote>", "<blockquote>")
-        .replace("</blockquote>", "</blockquote>\\n")
-        .replace("<hr />", "──────────\\n")
-        .replace("<br />", "\\n");
+        .replace("</blockquote>", "</blockquote>\n")
+        .replace("<hr />", "──────────\n")
+        .replace("<br />", "\n");
 
     // Telegram rejects HTML entities other than the three XML entities and
     // numeric entities. pulldown-cmark emits valid escaped text for these.
@@ -65,15 +65,14 @@ mod tests {
 
     #[test]
     fn renders_links_and_lists() {
-        let rendered =
-            markdown_to_telegram_html("- [Rust](https://www.rust-lang.org)\n- **Safe**");
+        let rendered = markdown_to_telegram_html("- [Rust](https://www.rust-lang.org)\n- **Safe**");
         assert!(rendered.contains("<a href=\"https://www.rust-lang.org\">Rust</a>"));
         assert!(rendered.contains("• <b>Safe</b>"));
     }
 
     #[test]
     fn renders_fenced_code_blocks() {
-        let rendered = markdown_to_telegram_html("```rust\\nfn main() {}\\n```");
+        let rendered = markdown_to_telegram_html("```rust\nfn main() {}\n```");
         assert!(rendered.contains("<pre><code"));
         assert!(rendered.contains("fn main() {}"));
     }
