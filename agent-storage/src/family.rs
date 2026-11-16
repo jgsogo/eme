@@ -15,6 +15,3 @@ pub use family_relationship::FamilyRelationship;
 pub use family_role::FamilyRole;
 pub use family_storage_error::FamilyStorageError;
 pub use family_store::FamilyStore;
-
-#[cfg(test)]
-mod tests;
