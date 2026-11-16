@@ -82,6 +82,7 @@ async fn run_scheduler(
             if let Some(schedule) = &task.schedule {
                 if let Some(next) = next_occurrence(schedule, task.timezone, now) {
                     task.next_run = next;
+                    registry.set_next_run(id, next);
                     tasks.insert(id, task.clone());
                 } else {
                     tracing::warn!(task = %task.name, "recurring task has no further occurrence");
