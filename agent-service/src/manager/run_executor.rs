@@ -43,6 +43,34 @@ pub trait RunExecutor: Send + Sync + 'static {
         if !history.is_empty() {
             return Err("this run executor does not support conversation history".into());
         }
+        self.execute_with_events(run_id, agent, input, cancellation).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        run_id: RunId,
+        agent: String,
+        input: String,
+        history: Vec<Message>,
+        context: ToolContext,
+        cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        let _ = context;
+        self.execute_with_history(run_id, agent, input, history, cancellation).await
+    }
+
+    /* legacy default implementation removed */
+    async fn _legacy_execute_with_history(
+        &self,
+        run_id: RunId,
+        agent: String,
+        input: String,
+        history: Vec<Message>,
+        cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        if !history.is_empty() {
+            return Err("this run executor does not support conversation history".into());
+        }
 
         self.execute_with_events(run_id, agent, input, cancellation)
             .await
