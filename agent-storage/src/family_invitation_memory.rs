@@ -316,7 +316,7 @@ mod tests {
         assert!(matches!(
             store
                 .accept_invitation(
-                    &InvitationToken("invalid".into()),
+                    &InvitationToken::generate(),
                     &identity("1"),
                     UserId::new(),
                     FamilyRelationship::Other
