@@ -130,7 +130,7 @@ mod tests {
             Ok(ConversationResponse {
                 model: "fake-model".into(),
                 content: Some("Done".into()),
-                tool_calls: vec![ToolCall {
+                tool_calls: vec![agent_models::ToolCall {
                     id: "call-1".into(),
                     name: "calculator".into(),
                     arguments: json!({"expression": "1 + 1"}),
