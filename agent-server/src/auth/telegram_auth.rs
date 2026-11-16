@@ -1,6 +1,10 @@
 //! Telegram login challenges, browser sessions, and run ownership.
 
-use std::{collections::HashMap, sync::Mutex, time::{Duration, Instant}};
+use std::{
+    collections::HashMap,
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 
 mod pending_login;
 mod session;
@@ -14,10 +18,6 @@ use uuid::Uuid;
 pub(super) const SESSION_COOKIE: &str = "eme_session";
 pub(super) const LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
 pub(super) const SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
-
-
-
-
 
 /// Coordinates one-time Telegram login challenges and opaque browser sessions.
 ///

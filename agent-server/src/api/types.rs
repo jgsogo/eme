@@ -2,30 +2,21 @@
 
 use agent_service::{RunEvent, RunEventKind};
 
-mod submit_run_request;
-mod submit_run_response;
+mod agent_catalog;
+mod agent_list_item;
+mod cancel_run_response;
 mod get_run_response;
 mod run_event_response;
-mod cancel_run_response;
-mod agent_list_item;
-mod agent_catalog;
+mod submit_run_request;
+mod submit_run_response;
 
-pub use submit_run_request::SubmitRunRequest;
-pub use submit_run_response::SubmitRunResponse;
+pub use agent_catalog::AgentCatalog;
+pub use agent_list_item::AgentListItem;
+pub use cancel_run_response::CancelRunResponse;
 pub use get_run_response::GetRunResponse;
 pub use run_event_response::RunEventResponse;
-pub use cancel_run_response::CancelRunResponse;
-pub use agent_list_item::AgentListItem;
-pub use agent_catalog::AgentCatalog;
-
-
-
-
-
-
-
-
-
+pub use submit_run_request::SubmitRunRequest;
+pub use submit_run_response::SubmitRunResponse;
 
 impl From<RunEvent> for RunEventResponse {
     fn from(event: RunEvent) -> Self {
@@ -64,12 +55,6 @@ fn event_kind_name(kind: RunEventKind) -> &'static str {
         RunEventKind::RuntimeTimedOut => "runtime_timed_out",
     }
 }
-
-
-
-
-
-
 
 impl AgentCatalog {
     pub fn new(agents: impl IntoIterator<Item = AgentListItem>) -> Self {

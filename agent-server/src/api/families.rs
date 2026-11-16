@@ -1,26 +1,26 @@
 //! HTTP endpoints for family membership, roles, and invitations.
 
-mod create_family_request;
-mod rename_family_request;
-mod create_invitation_request;
-mod change_role_request;
-mod change_relationship_request;
-mod transfer_ownership_request;
 mod accept_invitation_request;
+mod change_relationship_request;
+mod change_role_request;
+mod create_family_request;
+mod create_invitation_request;
+mod created_invitation;
 mod family_details;
 mod lan_invitation_config;
-mod created_invitation;
+mod rename_family_request;
+mod transfer_ownership_request;
 
-pub use create_family_request::CreateFamilyRequest;
-pub use rename_family_request::RenameFamilyRequest;
-pub use create_invitation_request::CreateInvitationRequest;
-pub use change_role_request::ChangeRoleRequest;
-pub use change_relationship_request::ChangeRelationshipRequest;
-pub use transfer_ownership_request::TransferOwnershipRequest;
 pub use accept_invitation_request::AcceptInvitationRequest;
+pub use change_relationship_request::ChangeRelationshipRequest;
+pub use change_role_request::ChangeRoleRequest;
+pub use create_family_request::CreateFamilyRequest;
+pub use create_invitation_request::CreateInvitationRequest;
+pub use created_invitation::CreatedInvitation;
 pub use family_details::FamilyDetails;
 pub use lan_invitation_config::LanInvitationConfig;
-pub use created_invitation::CreatedInvitation;
+pub use rename_family_request::RenameFamilyRequest;
+pub use transfer_ownership_request::TransferOwnershipRequest;
 
 use std::{net::IpAddr, str::FromStr, sync::Arc};
 
@@ -30,9 +30,9 @@ use actix_web::{
 };
 use agent_service::{FamilyService, FamilyServiceError};
 use agent_storage::{
-    FamilyId, FamilyRelationship, FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, UserId, UserIdentityStore,
+    FamilyId, FamilyRelationship, FileUserIdentityStore, InvitationTargetIdentity, InvitationToken,
+    UserId, UserIdentityStore,
 };
-
 
 use uuid::Uuid;
 
@@ -87,25 +87,8 @@ fn parse_user_id(value: &str) -> Result<UserId, HttpResponse> {
     UserId::from_str(value).map_err(|_| HttpResponse::BadRequest().body("invalid user identifier"))
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /// Explicit LAN base URL used to build invitation links. Only private, loopback,
 /// or link-local IP addresses are accepted; Host headers are never trusted.
-
 
 impl LanInvitationConfig {
     pub fn parse(value: &str) -> Result<Self, String> {
@@ -176,8 +159,6 @@ impl LanInvitationConfig {
         format!("{}/invite/{}", self.base_url, token)
     }
 }
-
-
 
 #[get("/current-user")]
 async fn current_family_user(

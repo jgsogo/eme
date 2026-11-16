@@ -1,5 +1,5 @@
-use chrono::{DateTime,Utc};
 use agent_storage::InvitationTargetIdentity;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

@@ -7,7 +7,6 @@
 //! executable composition, background workers, and external adapters live in
 //! the `agent-server` binary rather than in this API library.
 
-
 mod api;
 pub mod auth;
 

@@ -1,4 +1,4 @@
-use agent_storage::{Family,FamilyMember};
+use agent_storage::{Family, FamilyMember};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

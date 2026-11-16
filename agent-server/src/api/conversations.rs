@@ -1,16 +1,16 @@
 //! HTTP endpoints and request handling for conversation lifecycle operations.
 
-mod create_conversation_request;
-mod update_conversation_request;
 mod continue_conversation_request;
-mod select_conversation_family_request;
 mod conversation_summary;
+mod create_conversation_request;
+mod select_conversation_family_request;
+mod update_conversation_request;
 
-pub use create_conversation_request::CreateConversationRequest;
-pub use update_conversation_request::UpdateConversationRequest;
 pub use continue_conversation_request::ContinueConversationRequest;
 pub use conversation_summary::ConversationSummary;
+pub use create_conversation_request::CreateConversationRequest;
 use select_conversation_family_request::SelectConversationFamilyRequest;
+pub use update_conversation_request::UpdateConversationRequest;
 
 use std::{str::FromStr, sync::Arc, time::Duration};
 
@@ -36,16 +36,6 @@ fn authenticated_owner(
     auth.owner_for_request(request)
         .ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
 }
-
-
-
-
-
-
-
-
-
-
 
 impl From<Conversation> for ConversationSummary {
     fn from(conversation: Conversation) -> Self {
