@@ -421,7 +421,7 @@ mod tests {
         .expect("run should complete");
 
         let received = received.lock().unwrap().clone().unwrap();
-        assert_eq!(received.user_id.as_deref(), Some("telegram:42"));
+        assert_eq!(received.user_id.as_deref(), Some("user-42"));
         assert_eq!(received.conversation_id.as_deref(), Some("conversation-1"));
         assert_eq!(
             received
