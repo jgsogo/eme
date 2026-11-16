@@ -125,7 +125,7 @@ async function loadFamilies(){const [families,current]=await Promise.all([api("/
 function renderFamilySelector(){const selector=$("family-selector"),selected=state.selectedFamilyId||"";selector.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");selector.value=state.families.some(f=>f.id===selected)?selected:"";selector.disabled=!state.selected||!!state.runId;state.selectedFamilyId=selector.value||null}
 function renderFamilyMembers(){
  const target=$("family-members"),details=state.familyDetails;
- $("rename-family").disabled=!details;
+ $("rename-family").disabled=!details||!["owner","admin"].includes(currentFamilyMember()?.role.toLowerCase());
  if(!details){target.textContent="Select a family in the conversation selector to see its members.";renderFamilyLifecycle();return}
  const members=details.members||[];
  target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+members.length+' members</div>'+ (members.length?members.map(m=>{
@@ -168,7 +168,8 @@ function renderFamilyInvitations(){
  }).join(""):'<div class="hint" style="padding:8px 0">No invitations yet.</div>';
 }
 async function loadFamilyInvitations(familyId){
- if(!familyId){state.familyInvitations=[];renderFamilyInvitations();return}
+ const member=currentFamilyMember();
+ if(!familyId||!member||!["owner","admin"].includes(member.role.toLowerCase())){state.familyInvitations=[];renderFamilyInvitations();return}
  try{state.familyInvitations=await api("/families/"+encodeURIComponent(familyId)+"/invitations");renderFamilyInvitations()}
  catch(e){state.familyInvitations=[];renderFamilyInvitations();setStatus(e.message,"error")}
 }
