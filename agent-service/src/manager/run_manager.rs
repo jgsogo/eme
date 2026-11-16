@@ -532,7 +532,10 @@ mod tests {
         let started = Arc::clone(&executor.started);
         let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
 
-        let run_id = manager.submit("assistant", "hello", Vec::new(), ToolContext::default()).await.unwrap();
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         started.notified().await;
 
         assert_eq!(
