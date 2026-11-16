@@ -967,7 +967,12 @@ mod tests {
             .unwrap();
         assert!(matches!(
             store
-                .accept_invitation(&token, &identity("allowed"), UserId::new(), FamilyRelationship::Other)
+                .accept_invitation(
+                    &token,
+                    &identity("allowed"),
+                    UserId::new(),
+                    FamilyRelationship::Other
+                )
                 .await,
             Err(InvitationStorageError::Revoked)
         ));
@@ -989,7 +994,12 @@ mod tests {
         }
         assert!(matches!(
             store
-                .accept_invitation(&expired, &identity("telegram"), UserId::new(), FamilyRelationship::Other)
+                .accept_invitation(
+                    &expired,
+                    &identity("telegram"),
+                    UserId::new(),
+                    FamilyRelationship::Other
+                )
                 .await,
             Err(InvitationStorageError::Expired)
         ));
