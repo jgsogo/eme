@@ -5,8 +5,8 @@ use std::{
 };
 
 use actix_web::HttpRequest;
-use uuid::Uuid;
 use agent_storage::UserIdentityStore;
+use uuid::Uuid;
 
 pub(super) const SESSION_COOKIE: &str = "eme_session";
 pub(super) const LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
