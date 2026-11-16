@@ -2,6 +2,8 @@
 mod gateway;
 #[path = "client/incoming_message.rs"]
 mod incoming_message;
+#[path = "client/markdown.rs"]
+mod markdown;
 #[path = "client/pending_reply.rs"]
 mod pending_reply;
 use pending_reply::PendingReply;
