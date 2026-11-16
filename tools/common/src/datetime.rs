@@ -1,14 +1,13 @@
+//! Date and time tools, including timezone conversion and calendar calculations.
+
+mod types;
+use types::*;
+
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, SecondsFormat, TimeZone, Utc};
 use chrono_tz::Tz;
 use serde_json::{Value, json};
-pub struct CurrentDateTime;
-pub struct GetTimezone;
-pub struct ConvertTimezone;
-pub struct CalculateDateDifference;
-pub struct GetDateInfo;
-pub struct ParseDateTime;
 fn output(v: Value) -> Result<String, ToolError> {
     serde_json::to_string_pretty(&v).map_err(|e| ToolError::Execution(e.to_string()))
 }

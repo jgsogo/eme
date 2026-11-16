@@ -1,3 +1,5 @@
+//! Response and error types used by the Alexa Remote API integration.
+
 mod alexa_error;
 pub(crate) use alexa_error::AlexaError;
 mod cookie_entry;

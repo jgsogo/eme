@@ -1,3 +1,8 @@
+//! Tool adapters for creating, listing and removing scheduled agent tasks.
+
+mod types;
+pub(super) use types::{TaskAdd, TaskList, TaskRemove};
+
 use agent_runtime::{Tool, ToolContext, ToolError};
 use agent_service::{NewTask, TaskRegistry};
 use async_trait::async_trait;
@@ -15,7 +20,6 @@ fn output(value: Value) -> Result<String, ToolError> {
     serde_json::to_string_pretty(&value).map_err(|e| ToolError::Execution(e.to_string()))
 }
 
-pub struct TaskList(pub TaskRegistry);
 #[async_trait]
 impl Tool for TaskList {
     async fn execute(&self, context: &ToolContext, _arguments: Value) -> Result<String, ToolError> {
@@ -24,7 +28,6 @@ impl Tool for TaskList {
     }
 }
 
-pub struct TaskAdd(pub TaskRegistry);
 #[async_trait]
 impl Tool for TaskAdd {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
@@ -38,7 +41,6 @@ impl Tool for TaskAdd {
     }
 }
 
-pub struct TaskRemove(pub TaskRegistry);
 #[async_trait]
 impl Tool for TaskRemove {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {

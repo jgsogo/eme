@@ -1,3 +1,5 @@
+//! HTTP client for Tavily search requests.
+
 #[path = "types/mod.rs"]
 mod types;
 pub(crate) use types::{SearchRequest, SearchResponse, TavilyClient, TavilyError};

@@ -1,3 +1,5 @@
+//! Runtime adapter for the Alexa text-to-speech operation.
+
 use crate::alexa_speak::alexa_speak;
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;

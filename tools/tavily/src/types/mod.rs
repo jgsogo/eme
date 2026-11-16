@@ -1,3 +1,5 @@
+//! Tavily request/response models, client state and integration errors.
+
 mod tavily_error;
 pub(crate) use tavily_error::TavilyError;
 mod search_request;

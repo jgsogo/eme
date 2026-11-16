@@ -1,3 +1,5 @@
+//! Telegram gateway implementation and its supporting message types.
+
 #[path = "client/gateway.rs"]
 mod gateway;
 #[path = "client/incoming_message.rs"]

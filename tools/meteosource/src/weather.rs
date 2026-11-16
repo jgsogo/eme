@@ -1,3 +1,5 @@
+//! Meteosource place resolution and forecast retrieval.
+
 #[path = "types/mod.rs"]
 mod types;
 pub(crate) use types::MeteosourceClient;

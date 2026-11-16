@@ -1,3 +1,5 @@
+//! Google Calendar API client and event-query implementation.
+
 #[path = "types/mod.rs"]
 mod types;
 pub(super) use types::GoogleCalendarEvents;

@@ -1,3 +1,5 @@
+//! Runtime adapter for Meteosource weather queries.
+
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;

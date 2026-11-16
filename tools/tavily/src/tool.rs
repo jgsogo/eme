@@ -1,3 +1,5 @@
+//! Runtime adapter that validates arguments and executes Tavily searches.
+
 #[path = "options/mod.rs"]
 mod options;
 use options::*;
