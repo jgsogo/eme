@@ -16,7 +16,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use agent_server::auth::TelegramAuth;
 use agent_service::RunManager;
-use agent_storage::ConversationStore;
+use agent_storage::{ConversationStore, FileUserIdentityStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::{Mutex, broadcast};
 
