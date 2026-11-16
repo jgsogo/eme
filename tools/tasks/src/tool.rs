@@ -5,7 +5,10 @@ use serde_json::{Value, json};
 use uuid::Uuid;
 
 fn user(context: &ToolContext) -> Result<&str, ToolError> {
-    context.user_id.as_deref().filter(|id| !id.trim().is_empty())
+    context
+        .user_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
         .ok_or_else(|| ToolError::Execution("this operation requires an authenticated user".into()))
 }
 fn output(value: Value) -> Result<String, ToolError> {
@@ -27,7 +30,9 @@ impl Tool for TaskAdd {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let new_task: NewTask = serde_json::from_value(arguments)
             .map_err(|e| ToolError::Execution(format!("invalid task definition: {e}")))?;
-        let task = self.0.add(user(context)?, new_task)
+        let task = self
+            .0
+            .add(user(context)?, new_task)
             .map_err(|e| ToolError::Execution(e.to_string()))?;
         output(json!({"task": task}))
     }
@@ -37,11 +42,14 @@ pub struct TaskRemove(pub TaskRegistry);
 #[async_trait]
 impl Tool for TaskRemove {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        let id = arguments.get("id").and_then(Value::as_str)
+        let id = arguments
+            .get("id")
+            .and_then(Value::as_str)
             .ok_or_else(|| ToolError::Execution("'id' must be a UUID string".into()))?;
         let id = Uuid::parse_str(id)
             .map_err(|e| ToolError::Execution(format!("invalid task id: {e}")))?;
-        self.0.remove(user(context)?, id)
+        self.0
+            .remove(user(context)?, id)
             .map_err(|e| ToolError::Execution(e.to_string()))?;
         output(json!({"removed": id}))
     }
