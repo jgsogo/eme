@@ -1,0 +1,14 @@
+[package]
+name = "tasks-tool"
+version = "0.1.0"
+edition = "2024"
+description = "User-scoped task management tools for AI agents."
+
+[dependencies]
+agent-config = { path = "../../agent-config" }
+agent-runtime = { path = "../../agent-runtime" }
+agent-service = { path = "../../agent-service" }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
