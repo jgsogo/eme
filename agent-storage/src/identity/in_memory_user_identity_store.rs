@@ -1,0 +1,56 @@
+//! Process-local identity store.
+
+use std::sync::{Arc, Mutex};
+use super::{IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore};
+
+#[derive(Clone, Default)]
+pub struct InMemoryUserIdentityStore {
+    state: Arc<Mutex<IdentityState>>,
+}
+impl UserIdentityStore for InMemoryUserIdentityStore {
+    fn resolve_or_create(
+        &self,
+        provider: &str,
+        subject: &str,
+        display_name: Option<&str>,
+    ) -> Result<(User, UserIdentity), IdentityStoreError> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .resolve_or_create(provider, subject, display_name)?)
+    }
+    fn get_user(&self, user_id: UserId) -> Result<Option<User>, IdentityStoreError> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .users
+            .get(&user_id)
+            .cloned())
+    }
+    fn find_identity(
+        &self,
+        provider: &str,
+        subject: &str,
+    ) -> Result<Option<UserIdentity>, IdentityStoreError> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .identities
+            .get(&identity_key(provider, subject))
+            .cloned())
+    }
+    fn link_identity(
+        &self,
+        user_id: UserId,
+        provider: &str,
+        subject: &str,
+    ) -> Result<UserIdentity, IdentityStoreError> {
+        self.state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .link_identity(user_id, provider, subject)
+    }
+}
