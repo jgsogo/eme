@@ -228,7 +228,11 @@ async fn continue_conversation(
             conversation.agent.clone(),
             input.to_owned(),
             conversation.messages,
-            ToolContext { user_id: Some(owner.clone()), conversation_id: Some(id.to_string()), run_id: None },
+            ToolContext {
+                user_id: Some(owner.clone()),
+                conversation_id: Some(id.to_string()),
+                run_id: None,
+            },
         )
         .await
     {
