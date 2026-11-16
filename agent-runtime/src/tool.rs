@@ -22,6 +22,8 @@ pub struct FamilyContext {
 pub struct ToolContext {
     /// Authenticated platform user identifier (for example `telegram:123`).
     pub user_id: Option<String>,
+    /// Family selected for the conversation and verified for this user.
+    pub family: Option<FamilyContext>,
     /// Conversation whose turn caused this tool invocation.
     pub conversation_id: Option<String>,
     /// Stable identifier of the enclosing agent run.
