@@ -113,6 +113,29 @@ impl FamilyInvitationStore for InMemoryFamilyInvitationStore {
         Ok(FamilyInvitationSummary::from(&*invitation))
     }
 
+    async fn validate_invitation(
+        &self,
+        token: &InvitationToken,
+        accepting_identity: &InvitationTargetIdentity,
+    ) -> Result<(), InvitationStorageError> {
+        let state = self.state.lock().await;
+        let id = *state.token_index.get(&token.hash()).ok_or(InvitationStorageError::NotFound)?;
+        let invitation = state.invitations.get(&id).ok_or(InvitationStorageError::NotFound)?;
+        if invitation.target_identity.as_ref().is_some_and(|target| target != accepting_identity) {
+            return Err(InvitationStorageError::IdentityMismatch);
+        }
+        if invitation.accepted_at.is_some() {
+            return Err(InvitationStorageError::AlreadyAccepted);
+        }
+        if invitation.revoked_at.is_some() {
+            return Err(InvitationStorageError::Revoked);
+        }
+        if invitation.expires_at <= Utc::now() {
+            return Err(InvitationStorageError::Expired);
+        }
+        Ok(())
+    }
+
     async fn accept_invitation(
         &self,
         token: &InvitationToken,
