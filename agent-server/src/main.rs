@@ -15,7 +15,7 @@ mod telegram;
 use std::sync::Arc;
 
 use actix_web::{App, HttpServer, middleware, web};
-use agent_server::auth::TelegramAuth;
+use agent_server::{LanInvitationConfig, auth::TelegramAuth};
 use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager, TaskRegistry, TaskScheduler};
 use agent_storage::{
     ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteFamilyStore,
