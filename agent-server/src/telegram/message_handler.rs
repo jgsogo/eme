@@ -61,7 +61,7 @@ pub(super) async fn handle_message(
     // Invitation payloads are deliberately handled before the configured
     // allow-list: a valid invitation is itself the authorization to join.
     // Require a private chat so bearer tokens are not exposed to a group.
-    if command == "/start" && arguments.starts_with("invite_") {
+    if command == "/start" && arguments.len() == 64 {
         if message.chat_id != telegram_user_id {
             let _ = gateway
                 .send_message(
@@ -71,8 +71,7 @@ pub(super) async fn handle_message(
                 .await;
             return;
         }
-        let token_value = arguments.trim_start_matches("invite_");
-        let token = match InvitationToken::parse(token_value) {
+        let token = match InvitationToken::parse(arguments) {
             Ok(token) => token,
             Err(_) => {
                 let _ = gateway
