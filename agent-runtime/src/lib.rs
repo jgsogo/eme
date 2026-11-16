@@ -21,8 +21,8 @@ mod tool_definitions;
 mod types;
 
 pub use agent::AgentDefinition;
-pub use agent_registry::AgentRegistry;
 pub use agent_models::ModelError;
+pub use agent_registry::AgentRegistry;
 pub use error::{ErrorCategory, RuntimeError};
 pub use model::{AgentModel, ModelAdapter};
 pub use policy::{AllowListPolicy, Authorization, AuthorizationError, PolicyEngine};
@@ -30,8 +30,6 @@ pub use runtime::{
     AgentRuntime, CancellationToken, CollectingEventSink, EventSink, NoopEventSink, RunEvent,
     RunEventKind, RunFailure, RunResult, RunStatus,
 };
-pub use tool::{
-    FamilyContext, Tool, ToolContext, ToolDispatcher, ToolError, ToolRegistry,
-};
+pub use tool::{FamilyContext, Tool, ToolContext, ToolDispatcher, ToolError, ToolRegistry};
 pub use tool_definitions::ToolDefinitionRegistry;
 pub use types::{Agent, Message, ModelRequest, ModelTurn, ToolCall, ToolDefinition};

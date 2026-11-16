@@ -5,8 +5,8 @@ use std::time::Duration;
 use uuid::Uuid;
 
 use super::{
-    CancellationToken, StopReason, EventSink, NoopEventSink, RunEvent, RunEventKind, RunFailure, RunResult,
-    RunStatus,
+    CancellationToken, EventSink, NoopEventSink, RunEvent, RunEventKind, RunFailure, RunResult,
+    RunStatus, StopReason,
 };
 use crate::{
     Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
@@ -35,7 +35,6 @@ fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
     output.push_str(marker);
     output
 }
-
 
 pub struct AgentRuntime {
     model: Arc<dyn AgentModel>,
