@@ -7,8 +7,8 @@ use super::{
     RunStatus,
 };
 use crate::{
-    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine, ToolContext,
-    RuntimeError, ToolDispatcher, ToolError,
+    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
+    RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -509,7 +509,14 @@ mod external_run_id_tests {
         let run_id = Uuid::new_v4();
 
         let result = runtime
-            .run(run_id, &agent, ToolContext::default(), Vec::new(), "hello", CancellationToken::new())
+            .run(
+                run_id,
+                &agent,
+                ToolContext::default(),
+                Vec::new(),
+                "hello",
+                CancellationToken::new(),
+            )
             .await
             .unwrap();
 
