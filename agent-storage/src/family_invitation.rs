@@ -203,7 +203,6 @@ pub trait FamilyInvitationStore: Send + Sync {
     ) -> Result<FamilyMember, InvitationStorageError>;
 }
 
-
 #[cfg(test)]
 mod token_tests {
     use super::*;
