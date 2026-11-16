@@ -1,6 +1,6 @@
 use super::AgentRuntimeResolver;
 use crate::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId};
-use agent_runtime::{CancellationToken, RunStatus as RuntimeRunStatus, ToolContext};
+use agent_runtime::{CancellationToken, Message, RunStatus as RuntimeRunStatus, ToolContext};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -22,104 +22,12 @@ impl RunExecutor for AgentRuntimeExecutor {
         run_id: RunId,
         agent_name: String,
         input: String,
-        cancellation: CancellationToken,
-    ) -> Result<ExecutionOutcome, String> {
-        self.execute_with_events(run_id, agent_name, input, cancellation)
-            .await
-            .map(|report| report.outcome)
-    }
-
-    async fn execute_with_events(
-        &self,
-        run_id: RunId,
-        agent_name: String,
-        input: String,
-        cancellation: CancellationToken,
-    ) -> Result<ExecutionReport, String> {
-        let resolved = self.resolver.resolve(&agent_name)?;
-        let result = resolved
-            .runtime
-            .run_with_id(run_id.as_uuid(), &resolved.agent, input, cancellation)
-            .await;
-
-        let result = match result {
-            Ok(result) => result,
-            Err(failure) => {
-                return Ok(ExecutionReport {
-                    outcome: ExecutionOutcome::Failed(failure.to_string()),
-                    runtime_events: failure.events,
-                    messages: None,
-                });
-            }
-        };
-
-        let outcome = match result.status {
-            RuntimeRunStatus::Completed => ExecutionOutcome::Completed(result.response),
-            RuntimeRunStatus::Cancelled => ExecutionOutcome::Cancelled,
-            RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
-            RuntimeRunStatus::MaxIterationsReached => ExecutionOutcome::MaxIterationsReached,
-        };
-
-        Ok(ExecutionReport {
-            outcome,
-            runtime_events: result.events,
-            messages: None,
-        })
-    }
-    async fn execute_with_history(
-        &self,
-        run_id: RunId,
-        agent_name: String,
-        input: String,
-        history: Vec<agent_runtime::Message>,
-        cancellation: CancellationToken,
-    ) -> Result<ExecutionReport, String> {
-        let resolved = self.resolver.resolve(&agent_name)?;
-        let result = resolved
-            .runtime
-            .run_with_history(
-                run_id.as_uuid(),
-                &resolved.agent,
-                history,
-                input,
-                cancellation,
-            )
-            .await;
-
-        match result {
-            Ok(result) => {
-                let outcome = match result.status {
-                    RuntimeRunStatus::Completed => ExecutionOutcome::Completed(result.response),
-                    RuntimeRunStatus::Cancelled => ExecutionOutcome::Cancelled,
-                    RuntimeRunStatus::TimedOut => ExecutionOutcome::TimedOut,
-                    RuntimeRunStatus::MaxIterationsReached => {
-                        ExecutionOutcome::MaxIterationsReached
-                    }
-                };
-                Ok(ExecutionReport {
-                    outcome,
-                    runtime_events: result.events,
-                    messages: Some(result.messages),
-                })
-            }
-            Err(failure) => Ok(ExecutionReport {
-                outcome: ExecutionOutcome::Failed(failure.to_string()),
-                runtime_events: failure.events,
-                messages: Some(failure.messages),
-            }),
-        }
-    }
-    async fn execute_with_context(
-        &self,
-        run_id: RunId,
-        agent_name: String,
-        input: String,
-        history: Vec<agent_runtime::Message>,
+        history: Vec<Message>,
         context: ToolContext,
         cancellation: CancellationToken,
     ) -> Result<ExecutionReport, String> {
         let resolved = self.resolver.resolve(&agent_name)?;
-        let result = resolved.runtime.run_with_context_and_history(
+        let result = resolved.runtime.run(
             run_id.as_uuid(),
             &resolved.agent,
             context,
@@ -149,7 +57,6 @@ impl RunExecutor for AgentRuntimeExecutor {
             }),
         }
     }
-
 }
 
 #[cfg(test)]
