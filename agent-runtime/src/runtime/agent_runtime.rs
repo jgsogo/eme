@@ -167,7 +167,7 @@ impl AgentRuntime {
         input: impl Into<String>,
         cancellation: CancellationToken,
     ) -> Result<RunResult, RunFailure> {
-        self.run_with_history(run_id, agent, Vec::new(), input, cancellation)
+        self.run_with_context_and_history(run_id, agent, ToolContext::default(), Vec::new(), input, cancellation)
             .await
     }
 
@@ -179,11 +179,25 @@ impl AgentRuntime {
         &self,
         run_id: Uuid,
         agent: &Agent,
+        messages: Vec<Message>,
+        input: impl Into<String>,
+        cancellation: CancellationToken,
+    ) -> Result<RunResult, RunFailure> {
+        self.run_with_context_and_history(run_id, agent, ToolContext::default(), messages, input, cancellation).await
+    }
+
+    /// Runs an agent with trusted platform context propagated to every tool.
+    pub async fn run_with_context_and_history(
+        &self,
+        run_id: Uuid,
+        agent: &Agent,
+        mut context: ToolContext,
         mut messages: Vec<Message>,
         input: impl Into<String>,
         cancellation: CancellationToken,
     ) -> Result<RunResult, RunFailure> {
-        context.run_id = Some(run_id);\n        let deadline = self
+        context.run_id = Some(run_id);
+        let deadline = self
             .timeout
             .map(|timeout| tokio::time::Instant::now() + timeout);
 
@@ -374,7 +388,7 @@ impl AgentRuntime {
                     match self.policy.authorize(agent, &call) {
                         Authorization::Allowed => self
                             .tools
-                            .execute(&tool_name, arguments)
+                            .execute_with_context(&context, &tool_name, arguments)
                             .await
                             .map_err(RuntimeError::Tool),
                         Authorization::Denied(error) => Err(RuntimeError::Authorization(error)),
