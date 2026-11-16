@@ -21,6 +21,7 @@ use agent_storage::{
     ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteFamilyStore,
 };
 use anyhow::{Context, Result};
+use clap::Parser;
 use telegram_tool::TelegramGateway;
 use tracing::{error, info, warn};
 
