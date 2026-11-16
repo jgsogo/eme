@@ -4,6 +4,7 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path},
 };
+use agent_runtime::ToolContext;
 use agent_service::{RunManager, SubmitRunError};
 use agent_storage::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
 use serde::{Deserialize, Serialize};
@@ -223,10 +224,11 @@ async fn continue_conversation(
     };
 
     match manager
-        .submit_with_history(
+        .submit_with_history_and_context(
             conversation.agent.clone(),
             input.to_owned(),
             conversation.messages,
+            ToolContext { user_id: Some(owner.clone()), conversation_id: Some(id.to_string()), run_id: None },
         )
         .await
     {
