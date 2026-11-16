@@ -1,3 +1,5 @@
+//! Stable categories used to classify runtime failures and telemetry.
+
 /// Stable error classes for runtime decisions and observability.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrorCategory {

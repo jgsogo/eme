@@ -1,3 +1,5 @@
+//! JSON Schema-backed metadata exposed to a model for a tool.
+
 use serde::Deserialize;
 use serde_json::Value;
 
