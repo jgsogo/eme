@@ -347,7 +347,7 @@ impl AgentRuntime {
                     match self.policy.authorize(agent, &call) {
                         Authorization::Allowed => self
                             .tools
-                            .execute_with_context(&context, &tool_name, arguments)
+                            .execute(&context, &tool_name, arguments)
                             .await
                             .map_err(RuntimeError::Tool),
                         Authorization::Denied(error) => Err(RuntimeError::Authorization(error)),
