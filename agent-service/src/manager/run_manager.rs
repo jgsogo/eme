@@ -388,7 +388,8 @@ mod tests {
         )
         .unwrap();
         let context = ToolContext {
-            user_id: Some("telegram:42".into()),
+            user_id: Some("user-42".into()),
+            family: None,
             conversation_id: Some("conversation-1".into()),
             run_id: None,
         };
