@@ -4,3 +4,6 @@ mod in_memory_family_store;
 mod state;
 
 pub use in_memory_family_store::InMemoryFamilyStore;
+
+#[cfg(test)]
+mod tests;
