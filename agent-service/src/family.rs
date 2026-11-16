@@ -1,3 +1,4 @@
+use agent_runtime::FamilyContext;
 //! Family workflows and authorization policy.
 //!
 //! HTTP and messaging transports should call this service rather than applying
@@ -196,6 +197,41 @@ impl FamilyService {
     ) -> Result<Vec<FamilyMember>, FamilyServiceError> {
         self.actor_member(family_id, actor).await?;
         self.members(family_id).await
+    }
+
+    /// Resolves a family context only when the actor is an active member.
+    pub async fn context_for_member(
+        &self,
+        actor: UserId,
+        family_id: FamilyId,
+    ) -> Result<FamilyContext, FamilyServiceError> {
+        let member = self.actor_member(family_id, actor).await?;
+        let family = self
+            .families
+            .get_family(family_id)
+            .await?
+            .ok_or(FamilyServiceError::NotFound)?;
+        let family_role = match member.role {
+            FamilyRole::Owner => "owner",
+            FamilyRole::Admin => "admin",
+            FamilyRole::Member => "member",
+        };
+        let relationship = match member.relationship {
+            FamilyRelationship::Father => "father",
+            FamilyRelationship::Mother => "mother",
+            FamilyRelationship::Son => "son",
+            FamilyRelationship::Daughter => "daughter",
+            FamilyRelationship::Grandfather => "grandfather",
+            FamilyRelationship::Grandmother => "grandmother",
+            FamilyRelationship::Partner => "partner",
+            FamilyRelationship::Other => "other",
+        };
+        Ok(FamilyContext {
+            family_id: family.id.to_string(),
+            family_name: family.name,
+            family_role: family_role.to_owned(),
+            relationship: relationship.to_owned(),
+        })
     }
 
     pub async fn create_invitation(
