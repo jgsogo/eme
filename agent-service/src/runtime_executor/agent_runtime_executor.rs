@@ -65,7 +65,7 @@ mod tests {
 
     use agent_runtime::{
         Agent, AgentModel, AgentRuntime, AllowListPolicy, ModelError, ModelRequest, ModelTurn,
-        ToolRegistry,
+        ToolContext, ToolRegistry,
     };
     use async_trait::async_trait;
 
@@ -121,20 +121,19 @@ mod tests {
     async fn executes_resolved_agent_and_returns_runtime_response() {
         let executor = executor();
 
-        let outcome = executor
+        let report = executor
             .execute(
                 RunId::new(),
                 "assistant".into(),
                 "hello".into(),
+                Vec::new(),
+                ToolContext::default(),
                 agent_runtime::CancellationToken::new(),
             )
             .await
             .unwrap();
 
-        assert_eq!(
-            outcome,
-            ExecutionOutcome::Completed(Some("runtime response".into()))
-        );
+        assert_eq!(report.outcome, ExecutionOutcome::Completed(Some("runtime response".into())));
     }
 
     #[tokio::test]
@@ -146,6 +145,8 @@ mod tests {
                 RunId::new(),
                 "missing".into(),
                 "hello".into(),
+                Vec::new(),
+                ToolContext::default(),
                 agent_runtime::CancellationToken::new(),
             )
             .await
