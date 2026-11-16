@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
 use std::{collections::HashMap, time::Duration};
-use tokio::{sync::{watch, watch::error::RecvError}, task::JoinHandle, time};
+use tokio::{sync::watch, task::JoinHandle, time};
 
 pub struct TaskScheduler {
     shutdown: watch::Sender<bool>,
@@ -37,8 +37,7 @@ impl Drop for TaskScheduler {
 fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
     tasks.into_iter().filter_map(|task| {
         let next_run = task.next_run?;
-        let schedule = task.schedule.as_deref()?.parse::<Schedule>().ok();
-        let schedule = if task.schedule.is_some() { schedule } else { None };
+        let schedule = task.schedule.as_deref().map(str::parse::<Schedule>).transpose().ok().flatten();
         let timezone = task.timezone.as_deref().unwrap_or("UTC").parse::<Tz>().ok()?;
         Some((task.id, ScheduledTask {
             id: task.id, user_id: task.user_id, name: task.name, agent: task.agent,
