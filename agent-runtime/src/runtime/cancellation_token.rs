@@ -1,3 +1,5 @@
+//! Shared cancellation signal and its operation-boundary semantics.
+
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
