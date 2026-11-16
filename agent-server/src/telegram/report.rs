@@ -1,3 +1,5 @@
+//! Waits for Telegram-triggered runs and delivers their final results.
+
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use agent_service::{RunId, RunManager, RunStatus};

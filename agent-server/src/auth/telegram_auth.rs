@@ -1,3 +1,10 @@
+//! Telegram login challenges, browser sessions, and run ownership.
+
+#[path = "pending_login.rs"]
+mod pending_login;
+#[path = "session.rs"]
+mod session;
+
 use std::{
     collections::HashMap,
     sync::Mutex,
@@ -6,21 +13,13 @@ use std::{
 
 use actix_web::HttpRequest;
 use agent_storage::UserIdentityStore;
+use pending_login::PendingLogin;
+use session::Session;
 use uuid::Uuid;
 
 pub(super) const SESSION_COOKIE: &str = "eme_session";
 pub(super) const LOGIN_TTL: Duration = Duration::from_secs(5 * 60);
 pub(super) const SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
-
-struct PendingLogin {
-    expires_at: Instant,
-    session: Option<String>,
-}
-
-struct Session {
-    owner: String,
-    expires_at: Instant,
-}
 
 /// Coordinates one-time Telegram login challenges and opaque browser sessions.
 ///

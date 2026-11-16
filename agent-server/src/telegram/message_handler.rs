@@ -1,3 +1,5 @@
+//! Authenticates inbound messages and dispatches prompts to agent runs.
+
 use std::{collections::HashSet, sync::Arc};
 
 use agent_runtime::ToolContext;

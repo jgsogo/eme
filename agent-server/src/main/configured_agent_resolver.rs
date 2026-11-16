@@ -1,3 +1,5 @@
+//! Loads configured providers, tools, and agents into runtime instances.
+
 use std::sync::Arc;
 
 use agent_models::Registry as ModelRegistry;

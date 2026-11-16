@@ -1,3 +1,5 @@
+//! Tests for the Telegram adapter's event-handling behavior.
+
 use super::formatting::truncate;
 
 #[test]

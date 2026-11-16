@@ -1,3 +1,5 @@
+//! HTTP route modules and API types shared with the server binary.
+
 mod agents;
 mod conversations;
 mod families;

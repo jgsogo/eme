@@ -1,3 +1,5 @@
+//! Run submission, inspection, cancellation, and event routes.
+
 use std::str::FromStr;
 
 use super::types::{

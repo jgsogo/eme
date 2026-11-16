@@ -1,3 +1,5 @@
+//! Telegram command parsing and conversation-management commands.
+
 use std::sync::Arc;
 
 use agent_storage::{ConversationId, ConversationStore};

@@ -1,3 +1,5 @@
+//! Command-line configuration for the server process.
+
 use std::{net::IpAddr, path::PathBuf};
 
 use clap::Parser;

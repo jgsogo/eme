@@ -1,3 +1,5 @@
+//! Runtime event logging adapter for the server process.
+
 use agent_runtime::{EventSink, RunEvent, RunEventKind};
 use tracing::{debug, info, warn};
 

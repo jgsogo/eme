@@ -1,3 +1,5 @@
+//! HTTP middleware enforcing browser authentication and run ownership.
+
 use actix_web::{
     Error, HttpResponse,
     body::{EitherBody, MessageBody},

@@ -1,36 +1,22 @@
+//! Shared API response conversion and wire-format types.
+
+mod agent_catalog;
+mod agent_list_item;
+mod cancel_run_response;
+mod get_run_response;
+mod run_event_response;
+mod submit_run_request;
+mod submit_run_response;
+
 use agent_service::{RunEvent, RunEventKind};
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
-pub struct SubmitRunRequest {
-    pub agent: String,
-    pub input: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct SubmitRunResponse {
-    pub run_id: String,
-    pub status: &'static str,
-}
-
-#[derive(Debug, Serialize)]
-pub struct GetRunResponse {
-    pub run_id: String,
-    pub agent: String,
-    pub status: &'static str,
-    pub response: Option<String>,
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RunEventResponse {
-    pub sequence: u64,
-    pub kind: &'static str,
-    pub iteration: Option<usize>,
-    pub tool_name: Option<String>,
-    pub error_category: Option<&'static str>,
-    pub occurred_at_unix_ms: u128,
-}
+pub use agent_catalog::AgentCatalog;
+pub use agent_list_item::AgentListItem;
+pub use cancel_run_response::CancelRunResponse;
+pub use get_run_response::GetRunResponse;
+pub use run_event_response::RunEventResponse;
+pub use submit_run_request::SubmitRunRequest;
+pub use submit_run_response::SubmitRunResponse;
 
 impl From<RunEvent> for RunEventResponse {
     fn from(event: RunEvent) -> Self {
@@ -68,25 +54,6 @@ fn event_kind_name(kind: RunEventKind) -> &'static str {
         RunEventKind::RuntimeCancelled => "runtime_cancelled",
         RunEventKind::RuntimeTimedOut => "runtime_timed_out",
     }
-}
-
-#[derive(Debug, Serialize)]
-pub struct CancelRunResponse {
-    pub run_id: String,
-    pub status: &'static str,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct AgentListItem {
-    pub name: String,
-    pub description: String,
-    pub model: String,
-    pub tools: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct AgentCatalog {
-    agents: std::sync::Arc<[AgentListItem]>,
 }
 
 impl AgentCatalog {

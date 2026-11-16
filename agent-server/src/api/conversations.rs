@@ -1,3 +1,17 @@
+//! HTTP endpoints and request handling for conversation lifecycle operations.
+
+mod continue_conversation_request;
+mod conversation_summary;
+mod create_conversation_request;
+mod select_conversation_family_request;
+mod update_conversation_request;
+
+pub use continue_conversation_request::ContinueConversationRequest;
+pub use conversation_summary::ConversationSummary;
+pub use create_conversation_request::CreateConversationRequest;
+use select_conversation_family_request::SelectConversationFamilyRequest;
+pub use update_conversation_request::UpdateConversationRequest;
+
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use actix_web::{
@@ -10,7 +24,7 @@ use agent_storage::{
     Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
     FileUserIdentityStore, UserIdentityStore,
 };
-use serde::{Deserialize, Serialize};
+
 use tokio::time::sleep;
 
 use super::types::{AgentCatalog, SubmitRunResponse};
@@ -21,37 +35,6 @@ fn authenticated_owner(
 ) -> Result<String, HttpResponse> {
     auth.owner_for_request(request)
         .ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateConversationRequest {
-    pub agent: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateConversationRequest {
-    pub title: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ContinueConversationRequest {
-    pub input: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SelectConversationFamilyRequest {
-    pub family_id: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ConversationSummary {
-    pub id: String,
-    pub agent: String,
-    pub title: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub message_count: usize,
-    pub selected_family_id: Option<String>,
 }
 
 impl From<Conversation> for ConversationSummary {

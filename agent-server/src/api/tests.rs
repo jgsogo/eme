@@ -1,3 +1,5 @@
+//! Integration tests for the HTTP API route scopes.
+
 use std::{sync::Arc, time::Duration};
 
 use actix_web::{App, http::StatusCode, test, web};
