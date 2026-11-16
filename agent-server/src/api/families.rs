@@ -724,6 +724,18 @@ mod tests {
         let listed: Value = test::read_body_json(response).await;
         assert_eq!(listed.as_array().unwrap().len(), 1);
 
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/families/current-user")
+                .insert_header((header::COOKIE, cookie.clone()))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let current_user: Value = test::read_body_json(response).await;
+        assert_eq!(current_user["user_id"], identity.user_id.to_string());
+
         let family_id = family["id"].as_str().unwrap();
         let expires_at = (chrono::Utc::now() + chrono::Duration::days(1)).to_rfc3339();
         let response = test::call_service(
