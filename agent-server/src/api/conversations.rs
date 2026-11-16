@@ -241,7 +241,10 @@ async fn select_conversation_family(
                 Ok(None) => return HttpResponse::Unauthorized().finish(),
                 Err(_) => return HttpResponse::InternalServerError().finish(),
             };
-            match families.context_for_member(identity.user_id, family_id).await {
+            match families
+                .context_for_member(identity.user_id, family_id)
+                .await
+            {
                 Ok(_) => Some(family_id),
                 Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
                     return HttpResponse::NotFound().finish();
@@ -301,7 +304,10 @@ async fn continue_conversation(
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
     let family = match conversation.selected_family_id {
-        Some(family_id) => match families.context_for_member(identity.user_id, family_id).await {
+        Some(family_id) => match families
+            .context_for_member(identity.user_id, family_id)
+            .await
+        {
             Ok(context) => Some(context),
             Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
                 return HttpResponse::Conflict().body("selected family is no longer available");
@@ -371,7 +377,11 @@ pub fn conversations_api() -> Scope {
 mod tests {
     use std::{env, sync::Arc};
 
-    use actix_web::{App, http::{header, StatusCode}, test, web};
+    use actix_web::{
+        App,
+        http::{StatusCode, header},
+        test, web,
+    };
     use agent_service::FamilyService;
     use agent_storage::{
         ConversationStore, FamilyRelationship, FileUserIdentityStore,
@@ -386,8 +396,11 @@ mod tests {
     async fn conversation_family_selection_requires_membership_and_can_be_cleared() {
         let directory = env::temp_dir().join(format!("eme-conversation-family-{}", Uuid::new_v4()));
         let store = Arc::new(ConversationStore::open(directory.join("conversations")).unwrap());
-        let identities = Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
-        let (user, _) = identities.resolve_or_create("telegram", "42", None).unwrap();
+        let identities =
+            Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
+        let (user, _) = identities
+            .resolve_or_create("telegram", "42", None)
+            .unwrap();
         let conversation = store.create("telegram:42", "assistant").unwrap();
 
         let families = Arc::new(InMemoryFamilyStore::default());
@@ -397,7 +410,10 @@ mod tests {
             .create_family(user.id, "Home", FamilyRelationship::Father)
             .await
             .unwrap();
-        let outsider = identities.resolve_or_create("telegram", "84", None).unwrap().0;
+        let outsider = identities
+            .resolve_or_create("telegram", "84", None)
+            .unwrap()
+            .0;
         let outsider_family = service
             .create_family(outsider.id, "Other home", FamilyRelationship::Other)
             .await
@@ -417,7 +433,9 @@ mod tests {
 
         let response = test::call_service(
             &app,
-            test::TestRequest::post().uri("/auth/telegram/start").to_request(),
+            test::TestRequest::post()
+                .uri("/auth/telegram/start")
+                .to_request(),
         )
         .await;
         let login: Value = test::read_body_json(response).await;
