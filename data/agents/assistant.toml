@@ -20,4 +20,7 @@ tools = [
     "web_search",
     "google_calendar_events",
     "get_current_datetime",
+    "task_list",
+    "task_add",
+    "task_remove",
 ]
