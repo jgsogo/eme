@@ -16,7 +16,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use agent_server::auth::TelegramAuth;
 use agent_service::RunManager;
-use agent_storage::{ConversationStore, FileUserIdentityStore};
+use agent_storage::{ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::{Mutex, broadcast};
 
@@ -30,6 +30,8 @@ pub async fn run_bot(
     manager: RunManager,
     store: Arc<ConversationStore>,
     identities: Arc<FileUserIdentityStore>,
+    families: Arc<dyn FamilyStore>,
+    invitations: Arc<dyn FamilyInvitationStore>,
     auth: Arc<TelegramAuth>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
@@ -45,6 +47,8 @@ pub async fn run_bot(
                     &manager,
                     &store,
                     &identities,
+                    &families,
+                    &invitations,
                     &active_conversations,
                     &auth,
                     message,
