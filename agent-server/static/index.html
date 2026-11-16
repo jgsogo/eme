@@ -202,7 +202,7 @@ async function revokeInvitation(invitationId){
 }
 async function changeMemberRole(userId,roleOverride=null){
  const family=state.familyDetails?.family;if(!family)return;
- const select=document.querySelector('[data-member-role="'+CSS.escape(userId)+'"]');if(!select)return;
+ const select=document.querySelector('[data-member-role="'+CSS.escape(userId)+'"]');if(!select&&!roleOverride)return;
  try{await api("/families/"+encodeURIComponent(family.id)+"/members/"+encodeURIComponent(userId)+"/role",{method:"PUT",body:JSON.stringify({role:roleOverride||select.value})});await loadFamilyDetails(family.id);setStatus("Member role updated","ok")}
  catch(e){setStatus(e.message,"error")}
 }
