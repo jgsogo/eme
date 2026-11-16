@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn renders_links_and_lists() {
         let rendered = markdown_to_telegram_html("- [Rust](https://www.rust-lang.org)\\n- **Safe**");
-        assert!(rendered.contains("<a href=\\"https://www.rust-lang.org\\">Rust</a>"));
+        assert!(rendered.contains("<a href=\"https://www.rust-lang.org\">Rust</a>"));
         assert!(rendered.contains("• <b>Safe</b>"));
     }
 
