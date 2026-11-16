@@ -1,3 +1,5 @@
+//! State retained while a Telegram login challenge is awaiting approval.
+
 use std::time::Instant;
 
 pub(super) struct PendingLogin {

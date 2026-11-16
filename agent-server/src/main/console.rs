@@ -1,3 +1,5 @@
+//! Serves the web console and family invitation page.
+
 use actix_web::{HttpResponse, Responder, get};
 
 #[get("/")]

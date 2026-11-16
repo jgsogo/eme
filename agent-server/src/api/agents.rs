@@ -1,3 +1,5 @@
+//! Agent discovery route and response handling.
+
 use actix_web::{
     HttpResponse, Responder, Scope, get,
     web::{self, Data},

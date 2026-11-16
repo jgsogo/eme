@@ -1,3 +1,5 @@
+//! HTTP endpoints for starting, polling, inspecting, and ending sessions.
+
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, get, post,
     web::{self, Data},

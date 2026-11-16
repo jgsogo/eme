@@ -1,3 +1,5 @@
+//! Parsed command-line options controlling the server process.
+
 use std::{net::IpAddr,path::PathBuf};
 use clap::Parser;
 

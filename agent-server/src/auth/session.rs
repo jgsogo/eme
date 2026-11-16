@@ -1,3 +1,5 @@
+//! Authenticated browser session state and its expiry.
+
 use std::time::Instant;
 
 pub(super) struct Session {
