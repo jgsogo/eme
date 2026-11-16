@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr}, str::FromStr, sync::Arc};
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
@@ -109,11 +109,58 @@ pub struct FamilyDetails {
     pub members: Vec<FamilyMember>,
 }
 
+/// Explicit LAN base URL used to build invitation links. Only private, loopback,
+/// or link-local IP addresses are accepted; Host headers are never trusted.
+#[derive(Debug, Clone)]
+pub struct LanInvitationConfig {
+    base_url: String,
+}
+
+impl LanInvitationConfig {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        let value = value.trim().trim_end_matches('/');
+        let authority = value
+            .strip_prefix("http://")
+            .ok_or_else(|| "LAN_BASE_URL must use plain http:// on a private network".to_owned())?;
+        if authority.is_empty() || authority.contains('/') || authority.contains('?') || authority.contains('#') || authority.contains('@') {
+            return Err("LAN_BASE_URL must contain only an IP address and optional port".into());
+        }
+        let host = if authority.starts_with('[') {
+            authority.split(']').next().unwrap_or_default().trim_start_matches('[')
+        } else {
+            authority.rsplit_once(':').filter(|(host, port)| !host.contains(':') && port.parse::<u16>().is_ok()).map_or(authority, |(host, _)| host)
+        };
+        let ip: IpAddr = host.parse().map_err(|_| "LAN_BASE_URL host must be a private or link-local IP address".to_owned())?;
+        let allowed = match ip {
+            IpAddr::V4(ip) => ip.is_private() || ip.is_loopback() || ip.is_link_local(),
+            IpAddr::V6(ip) => ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local(),
+        };
+        if !allowed || ip.is_unspecified() {
+            return Err("LAN_BASE_URL must use a private, loopback, or link-local IP address".into());
+        }
+        Ok(Self { base_url: value.to_owned() })
+    }
+
+    pub fn from_env() -> Result<Option<Self>, String> {
+        match std::env::var("LAN_BASE_URL") {
+            Ok(value) => Self::parse(&value).map(Some),
+            Err(std::env::VarError::NotPresent) => Ok(None),
+            Err(error) => Err(format!("reading LAN_BASE_URL: {error}")),
+        }
+    }
+
+    fn invitation_url(&self, token: &str) -> String {
+        format!("{}/invite/{}", self.base_url, token)
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct CreatedInvitation {
     pub invitation: FamilyInvitationSummary,
     /// Returned only by the creation operation; never included in list responses.
     pub token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lan_url: Option<String>,
 }
 
 #[get("")]
@@ -390,6 +437,7 @@ async fn create_invitation(
     auth: Data<crate::auth::TelegramAuth>,
     identities: Data<Arc<FileUserIdentityStore>>,
     service: Data<Arc<FamilyService>>,
+    lan: Option<Data<LanInvitationConfig>>,
     family_id: Path<String>,
     body: Json<CreateInvitationRequest>,
 ) -> impl Responder {
@@ -413,6 +461,7 @@ async fn create_invitation(
         Ok((invitation, token)) => HttpResponse::Created().json(CreatedInvitation {
             invitation,
             token: token.expose().to_owned(),
+            lan_url: lan.map(|config| config.invitation_url(token.expose())),
         }),
         Err(error) => service_error(error),
     }
