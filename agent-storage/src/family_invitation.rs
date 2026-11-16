@@ -21,7 +21,6 @@ mod token_tests {
     }
 }
 
-
 pub use family_invitation::FamilyInvitation;
 pub use family_invitation_store::FamilyInvitationStore;
 pub use family_invitation_summary::FamilyInvitationSummary;

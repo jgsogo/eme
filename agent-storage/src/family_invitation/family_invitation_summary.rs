@@ -1,9 +1,9 @@
 //! Public invitation metadata without bearer-token material.
 
+use super::{FamilyInvitation, InvitationTargetIdentity};
+use crate::{FamilyId, UserId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::{FamilyId, UserId};
-use super::{FamilyInvitation, InvitationTargetIdentity};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FamilyInvitationSummary {

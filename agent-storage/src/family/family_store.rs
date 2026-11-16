@@ -1,7 +1,9 @@
 //! Family identifier typeFamily persistence operations
 
+use crate::{
+    Family, FamilyId, FamilyMember, FamilyRelationship, FamilyRole, FamilyStorageError, UserId,
+};
 use async_trait::async_trait;
-use crate::{Family, FamilyId, FamilyMember, FamilyRelationship, FamilyRole, FamilyStorageError, UserId};
 
 /// Family persistence operations. Methods that affect ownership or family
 /// lifecycle are atomic; implementations must preserve exactly one owner.

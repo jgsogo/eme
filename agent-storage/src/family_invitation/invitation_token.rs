@@ -1,7 +1,7 @@
 //! Invitation typeRaw bearer token
 
-use sha2::{Digest, Sha256};
 use super::InvitationStorageError;
+use sha2::{Digest, Sha256};
 
 /// Raw bearer token. Its Debug implementation deliberately never reveals it.
 #[derive(Clone, PartialEq, Eq)]

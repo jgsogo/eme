@@ -1,12 +1,16 @@
 //! Process-local invitation store with serialized acceptance.
 
-use std::sync::Arc;
+use super::State;
+use crate::{
+    FamilyId, FamilyInvitation, FamilyInvitationStore, FamilyInvitationSummary, FamilyMember,
+    FamilyRelationship, FamilyRole, FamilyStore, InvitationStorageError, InvitationTargetIdentity,
+    InvitationToken, UserId,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-use crate::{FamilyId, FamilyInvitation, FamilyInvitationStore, FamilyInvitationSummary, FamilyMember, FamilyRelationship, FamilyRole, FamilyStore, InvitationStorageError, InvitationTargetIdentity, InvitationToken, UserId};
-use super::State;
 
 pub struct InMemoryFamilyInvitationStore {
     families: Arc<dyn FamilyStore>,

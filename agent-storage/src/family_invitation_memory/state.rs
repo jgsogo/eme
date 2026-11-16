@@ -1,8 +1,8 @@
 //! Private invitation and token-index maps.
 
+use crate::FamilyInvitation;
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::FamilyInvitation;
 
 #[derive(Default)]
 pub(super) struct State {

@@ -1,7 +1,7 @@
 //! #[derive(Debug, Error, Clone, PartialEq, Eq)]
 
-use thiserror::Error;
 use crate::{FamilyId, UserId};
+use thiserror::Error;
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum FamilyStorageError {

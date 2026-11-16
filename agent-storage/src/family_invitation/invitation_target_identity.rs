@@ -1,7 +1,7 @@
 //! Invitation typeExternal identity
 
-use serde::{Deserialize, Serialize};
 use super::InvitationStorageError;
+use serde::{Deserialize, Serialize};
 
 /// External identity an invitation is optionally restricted to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,9 +1,9 @@
 //! Invitation typePersisted invitation.
 
+use super::InvitationTargetIdentity;
+use crate::{FamilyId, UserId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::{FamilyId, UserId};
-use super::InvitationTargetIdentity;
 
 /// Persisted invitation. The token hash is intentionally private and is never
 /// included in list responses or serialized API-facing summaries.
