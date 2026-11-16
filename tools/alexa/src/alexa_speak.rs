@@ -27,12 +27,27 @@ const AMAZON: &str = "amazon.es";
 const ALEXA: &str = "alexa.amazon.es";
 const TTS_LOCALE: &str = "es-ES";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:1.0) bash-script/1.0";
+const NOTIFICATION_BEEP_SSML: &str =
+    r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06"/>"#;
+
+fn notification_speech(text: &str, chime: Option<&str>) -> String {
+    let audio = match chime {
+        None => NOTIFICATION_BEEP_SSML,
+        Some("none") => "",
+        Some(uri) => return format!(r#"<audio src="{uri}"/>{text}"#),
+    };
+    format!("{audio}{text}")
+}
 
 /// Envía un TTS (Alexa.Speak) a un dispositivo Echo.
 ///
 /// - `device_name`: nombre exacto del Echo (el que sale en la app / `-a` del script)
 /// - `text`: texto plano o SSML (sin envolver en <speak> a menos que quieras SSML completo)
-pub async fn alexa_speak(device_name: &str, text: &str) -> Result<(), AlexaError> {
+pub async fn alexa_speak(
+    device_name: &str,
+    text: &str,
+    chime: Option<&str>,
+) -> Result<(), AlexaError> {
     let refresh_token =
         std::env::var("AMAZON_ALEXA_REFRESH_TOKEN").map_err(|_| AlexaError::MissingToken)?;
 
@@ -63,6 +78,7 @@ pub async fn alexa_speak(device_name: &str, text: &str) -> Result<(), AlexaError
         &serial,
         &customer_id,
         text,
+        chime,
     )
     .await
 }
@@ -215,6 +231,7 @@ async fn send_speak(
     serial: &str,
     customer_id: &str,
     text: &str,
+    chime: Option<&str>,
 ) -> Result<(), AlexaError> {
     // Payload equivalente al SEQUENCECMD=Alexa.Speak del script
     let sequence = json!({
@@ -230,7 +247,7 @@ async fn send_speak(
                         "deviceSerialNumber": serial,
                         "customerId": customer_id,
                         "locale": TTS_LOCALE,
-                        "textToSpeak": text
+                        "textToSpeak": notification_speech(text, chime)
                     }
                 }
             ]
@@ -277,4 +294,36 @@ fn common_headers(cookie_header: &str, csrf: &str) -> HeaderMap {
     h.insert(ORIGIN, HeaderValue::from_static("https://alexa.amazon.es"));
     h.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     h
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notification_speech_uses_default_chime() {
+        assert_eq!(
+            notification_speech("The washing machine has finished.", None),
+            r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06"/>The washing machine has finished."#
+        );
+    }
+
+    #[test]
+    fn notification_speech_uses_requested_chime() {
+        assert_eq!(
+            notification_speech(
+                "The washing machine has finished.",
+                Some("soundbank://soundlibrary/water/nature/nature_08")
+            ),
+            r#"<audio src="soundbank://soundlibrary/water/nature/nature_08"/>The washing machine has finished."#
+        );
+    }
+
+    #[test]
+    fn notification_speech_can_disable_sound() {
+        assert_eq!(
+            notification_speech("The washing machine has finished.", Some("none")),
+            "The washing machine has finished."
+        );
+    }
 }

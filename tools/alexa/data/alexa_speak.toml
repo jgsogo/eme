@@ -1,5 +1,16 @@
 name = "alexa_speak"
-description = "Send a text message to an Alexa device."
+description = """Send a text message to an Alexa device, optionally preceded by an Alexa sound effect.
+
+The optional chime argument accepts any soundbank URI from the Alexa Skills Kit Sound Library; it is not restricted to a predefined list.
+
+- Omit chime to play the default notification beep: soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06
+- Set chime to "none" to send the message without playing a sound.
+- Set chime to any soundbank://soundlibrary/... URI to play that sound before speaking.
+
+Browse, preview, and copy sound URIs from the official Alexa Skills Kit Sound Library:
+https://developer.amazon.com/en-US/docs/alexa/custom-skills/ask-soundlibrary.html
+
+The tool validates the soundbank URI format, but Alexa determines whether a particular library sound is available for playback."""
 
 [parameters]
 type = "object"
@@ -9,3 +20,8 @@ additionalProperties = false
 [parameters.properties.text]
 type = "string"
 description = "The text to send to the Alexa device."
+
+[parameters.properties.chime]
+type = "string"
+description = "Optional soundbank URI to play before speaking. Omit to use the default beep; use \"none\" to play no sound; otherwise provide any soundbank://soundlibrary/... URI from the Alexa Sound Library."
+pattern = "^(none|soundbank://soundlibrary/[A-Za-z0-9_/-]+)$"
