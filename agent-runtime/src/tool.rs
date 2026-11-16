@@ -7,6 +7,8 @@ mod tool;
 use registered_tool::RegisteredTool;
 use uuid::Uuid;
 
+/// Trusted family membership information resolved by the platform before a run.\n#[derive(Debug, Clone, PartialEq, Eq)]\npub struct FamilyContext {\n    pub family_id: String,\n    pub family_name: String,\n    pub family_role: String,\n    pub relationship: String,\n}\n
+
 /// Trusted execution metadata supplied by the platform, never by the model.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ToolContext {
