@@ -594,7 +594,10 @@ mod tests {
     #[tokio::test]
     async fn runtime_events_are_inserted_between_lifecycle_events() {
         let manager = RunManager::new(Arc::new(RuntimeEventExecutor), 1, 2).unwrap();
-        let run_id = manager.submit("assistant", "hello", Vec::new(), ToolContext::default()).await.unwrap();
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
