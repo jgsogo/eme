@@ -80,7 +80,7 @@ async fn submit_run(
         .map(ToolContext::new).unwrap_or_default();
 
     match manager
-        .submit_with_history_and_context(request.agent.clone(), request.input.clone(), Vec::new(), context)
+        .submit(request.agent.clone(), request.input.clone(), Vec::new(), context)
         .await
     {
         Ok(run_id) => {
