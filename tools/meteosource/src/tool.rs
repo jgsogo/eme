@@ -1,4 +1,4 @@
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -9,7 +9,7 @@ pub struct MeteosourceWeather;
 
 #[async_trait]
 impl Tool for MeteosourceWeather {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let location = arguments
             .get("location")
             .and_then(Value::as_str)
