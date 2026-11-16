@@ -83,7 +83,7 @@ pub(super) async fn handle_message(
         return;
     }
 
-    let (user, _) = match identities.resolve_or_create("telegram", &user_id.to_string(), None) {\n        Ok(identity) => identity,\n        Err(error) => {\n            send_error(gateway, message.chat_id, "resolve your EME identity", error).await;\n            return;\n        }\n    };\n    let (user, _) = match identities.resolve_or_create("telegram", &user_id.to_string(), None) {
+    let (user, _) = match identities.resolve_or_create("telegram", &user_id.to_string(), None) {
         Ok(identity) => identity,
         Err(error) => {
             send_error(gateway, message.chat_id, "resolve your EME identity", error).await;
