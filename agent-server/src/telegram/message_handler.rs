@@ -113,13 +113,12 @@ pub(super) async fn handle_message(
         // Telegram identity binding have been checked.
         let (user, _) =
             match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
-            Ok(identity) => identity,
-            Err(error) => {
-                send_error(gateway, message.chat_id, "create your EME identity", error)
-                        .await;
-                return;
-            }
-        };
+                Ok(identity) => identity,
+                Err(error) => {
+                    send_error(gateway, message.chat_id, "create your EME identity", error).await;
+                    return;
+                }
+            };
 
         match families
             .accept_invitation(&token, &identity, user.id, FamilyRelationship::Other)
@@ -165,13 +164,13 @@ pub(super) async fn handle_message(
     // Existing configured users remain supported. Other users may use the bot
     // only after their Telegram identity has an active family membership.
     let existing_identity =
-        match identities.find_identity("telegram", &telegram_user_id.to_string()) {
-        Ok(identity) => identity,
-        Err(error) => {
-            send_error(gateway, message.chat_id, "look up your EME identity", error).await;
-            return;
-        }
-    };
+            match identities.find_identity("telegram", &telegram_user_id.to_string()) {
+                Ok(identity) => identity,
+                Err(error) => {
+                    send_error(gateway, message.chat_id, "look up your EME identity", error).await;
+                    return;
+                }
+            };
     let user = if allowed.contains(&telegram_user_id) {
         match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
             Ok((user, _)) => Some(user),
