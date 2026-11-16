@@ -1,5 +1,6 @@
 use std::{collections::HashSet, sync::Arc};
 
+use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{RunManager, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
@@ -139,10 +140,15 @@ pub(super) async fn handle_message(
     }
 
     match manager
-        .submit_with_history(
+        .submit(
             conversation.agent.clone(),
             prompt,
             conversation.messages.clone(),
+            ToolContext {
+                user_id: Some(owner.clone()),
+                conversation_id: Some(conversation.id.to_string()),
+                run_id: None,
+            },
         )
         .await
     {

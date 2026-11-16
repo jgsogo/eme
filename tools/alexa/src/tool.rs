@@ -1,5 +1,5 @@
 use crate::alexa_speak::alexa_speak;
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -7,7 +7,7 @@ pub struct AlexaSpeak;
 
 #[async_trait]
 impl Tool for AlexaSpeak {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let text = arguments
             .get("text")
             .and_then(Value::as_str)

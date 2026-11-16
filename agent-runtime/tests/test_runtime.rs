@@ -12,10 +12,12 @@ use tokio::sync::Notify;
 use agent_models::error::ModelError;
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
-    ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolDefinition, ToolDispatcher, ToolError,
+    ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolContext, ToolDefinition, ToolDispatcher,
+    ToolError,
 };
 use async_trait::async_trait;
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 struct MockModel {
     responses: Mutex<VecDeque<ModelTurn>>,
@@ -71,7 +73,12 @@ impl ToolDispatcher for MockTools {
         }
     }
 
-    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        _context: &ToolContext,
+        name: &str,
+        arguments: Value,
+    ) -> Result<String, ToolError> {
         self.calls
             .lock()
             .unwrap()
@@ -127,7 +134,10 @@ async fn executes_tool_and_returns_final_response() {
 
     let result = runtime
         .run(
+            Uuid::new_v4(),
             &agent,
+            ToolContext::default(),
+            Vec::new(),
             "What is 123 multiplied by 456?",
             CancellationToken::new(),
         )
@@ -198,7 +208,10 @@ async fn denies_unauthorized_tool_execution() {
 
     let result = runtime
         .run(
+            Uuid::new_v4(),
             &agent,
+            ToolContext::default(),
+            Vec::new(),
             "Calculate 123 multiplied by 456.",
             CancellationToken::new(),
         )
@@ -276,7 +289,14 @@ async fn stops_after_max_iterations() {
     };
 
     let result = runtime
-        .run(&agent, "Keep calculating.", CancellationToken::new())
+        .run(
+            Uuid::new_v4(),
+            &agent,
+            ToolContext::default(),
+            Vec::new(),
+            "Keep calculating.",
+            CancellationToken::new(),
+        )
         .await;
 
     let result = result.unwrap();
@@ -335,7 +355,14 @@ async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
 
     let run = tokio::spawn(async move {
         runtime
-            .run(&agent, "Hello", run_cancellation)
+            .run(
+                Uuid::new_v4(),
+                &agent,
+                ToolContext::default(),
+                Vec::new(),
+                "Hello",
+                run_cancellation,
+            )
             .await
             .unwrap()
     });
@@ -376,7 +403,12 @@ impl ToolDispatcher for BlockingTools {
         })
     }
 
-    async fn execute(&self, _name: &str, _arguments: Value) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        _context: &ToolContext,
+        _name: &str,
+        _arguments: Value,
+    ) -> Result<String, ToolError> {
         self.started.notify_one();
         self.release.notified().await;
         Ok("tool result".into())
@@ -416,7 +448,14 @@ async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
 
     let run = tokio::spawn(async move {
         runtime
-            .run(&agent, "Use the tool", run_cancellation)
+            .run(
+                Uuid::new_v4(),
+                &agent,
+                ToolContext::default(),
+                Vec::new(),
+                "Use the tool",
+                run_cancellation,
+            )
             .await
             .unwrap()
     });
@@ -452,7 +491,12 @@ impl ToolDispatcher for LimitedTools {
         })
     }
 
-    async fn execute(&self, _name: &str, _arguments: Value) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        _context: &ToolContext,
+        _name: &str,
+        _arguments: Value,
+    ) -> Result<String, ToolError> {
         tokio::time::sleep(self.delay).await;
         self.completed.store(true, Ordering::SeqCst);
         Ok(self.output.clone())
@@ -503,7 +547,14 @@ async fn times_out_individual_tool_calls_without_timing_out_the_run() {
     .with_tool_timeout(Duration::from_millis(10));
 
     let result = runtime
-        .run(&test_agent(), "Run the tool", CancellationToken::new())
+        .run(
+            Uuid::new_v4(),
+            &test_agent(),
+            ToolContext::default(),
+            Vec::new(),
+            "Run the tool",
+            CancellationToken::new(),
+        )
         .await
         .unwrap();
 
@@ -549,7 +600,14 @@ async fn truncates_tool_output_to_the_configured_utf8_byte_limit() {
     .with_max_tool_output_bytes(32);
 
     let result = runtime
-        .run(&test_agent(), "Run the tool", CancellationToken::new())
+        .run(
+            Uuid::new_v4(),
+            &test_agent(),
+            ToolContext::default(),
+            Vec::new(),
+            "Run the tool",
+            CancellationToken::new(),
+        )
         .await
         .unwrap();
 
@@ -580,7 +638,17 @@ async fn model_failures_keep_their_category() {
     let mut agent = test_agent();
     agent.tool_names.clear();
 
-    let failure = match runtime.run(&agent, "Fail", CancellationToken::new()).await {
+    let failure = match runtime
+        .run(
+            Uuid::new_v4(),
+            &agent,
+            ToolContext::default(),
+            Vec::new(),
+            "Fail",
+            CancellationToken::new(),
+        )
+        .await
+    {
         Err(failure) => failure,
         Ok(_) => panic!("Expected a model failure"),
     };

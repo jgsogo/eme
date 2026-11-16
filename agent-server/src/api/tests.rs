@@ -1,8 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
 use actix_web::{App, http::StatusCode, test, web};
-use agent_runtime::CancellationToken;
-use agent_service::{ExecutionOutcome, RunExecutor, RunId, RunManager};
+use agent_runtime::{CancellationToken, Message, ToolContext};
+use agent_service::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId, RunManager};
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use tokio::sync::Notify;
@@ -18,9 +18,15 @@ impl RunExecutor for ImmediateExecutor {
         _run_id: RunId,
         _agent: String,
         input: String,
+        _history: Vec<Message>,
+        _context: ToolContext,
         _cancellation: CancellationToken,
-    ) -> Result<ExecutionOutcome, String> {
-        Ok(ExecutionOutcome::Completed(Some(format!("echo: {input}"))))
+    ) -> Result<ExecutionReport, String> {
+        Ok(ExecutionReport {
+            outcome: ExecutionOutcome::Completed(Some(format!("echo: {input}"))),
+            runtime_events: Vec::new(),
+            messages: None,
+        })
     }
 }
 
@@ -36,16 +42,26 @@ impl RunExecutor for WaitingExecutor {
         _run_id: RunId,
         _agent: String,
         _input: String,
+        _history: Vec<Message>,
+        _context: ToolContext,
         cancellation: CancellationToken,
-    ) -> Result<ExecutionOutcome, String> {
+    ) -> Result<ExecutionReport, String> {
         self.started.notify_one();
         loop {
             if cancellation.is_cancelled() {
-                return Ok(ExecutionOutcome::Cancelled);
+                return Ok(ExecutionReport {
+                    outcome: ExecutionOutcome::Cancelled,
+                    runtime_events: Vec::new(),
+                    messages: None,
+                });
             }
             tokio::select! {
                 _ = self.release.notified() => {
-                    return Ok(ExecutionOutcome::Completed(None));
+                    return Ok(ExecutionReport {
+                        outcome: ExecutionOutcome::Completed(None),
+                        runtime_events: Vec::new(),
+                        messages: None,
+                    });
                 }
                 _ = tokio::time::sleep(Duration::from_millis(1)) => {}
             }

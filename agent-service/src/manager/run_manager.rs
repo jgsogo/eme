@@ -3,7 +3,7 @@ use super::{
     RunManagerConfigError, SubmitRunError,
 };
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
-use agent_runtime::{CancellationToken, Message};
+use agent_runtime::{CancellationToken, Message, ToolContext};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, mpsc};
 use tracing::info;
@@ -51,7 +51,7 @@ impl RunManager {
                         break;
                     };
 
-                    let (run, cancellation, history) = {
+                    let (run, cancellation, history, context) = {
                         let mut runs = runs.lock().await;
                         let Some(entry) = runs.get_mut(&run_id) else {
                             continue;
@@ -67,17 +67,19 @@ impl RunManager {
                             entry.run.clone(),
                             entry.cancellation.clone(),
                             entry.history.clone(),
+                            entry.context.clone(),
                         )
                     };
 
                     info!(run_id = %run.id, agent = %run.agent, "agent run started");
 
                     let result = executor
-                        .execute_with_history(
+                        .execute(
                             run.id,
                             run.agent.clone(),
                             run.input.clone(),
                             history,
+                            context,
                             cancellation,
                         )
                         .await;
@@ -149,55 +151,17 @@ impl RunManager {
         Ok(Self { runs, sender })
     }
 
-    /// Accepts a run and returns its stable identifier once it is queued.
-    ///
-    /// If the bounded queue is full, the run is not retained by the manager.
+    /// Queues an agent run with its conversation history and trusted execution context.
     pub async fn submit(
         &self,
         agent: impl Into<String>,
         input: impl Into<String>,
-    ) -> Result<RunId, SubmitRunError> {
-        let run = Run::new(agent, input);
-        let run_id = run.id;
-
-        {
-            let mut runs = self.runs.lock().await;
-            runs.insert(
-                run_id,
-                ManagedRun {
-                    run,
-                    cancellation: CancellationToken::new(),
-                    events: vec![RunEvent {
-                        sequence: 0,
-                        kind: RunEventKind::Queued,
-                        iteration: None,
-                        tool_name: None,
-                        error_category: None,
-                        occurred_at: std::time::SystemTime::now(),
-                    }],
-                    history: Vec::new(),
-                },
-            );
-        }
-
-        if self.sender.try_send(run_id).is_err() {
-            self.runs.lock().await.remove(&run_id);
-            return Err(SubmitRunError::QueueFull);
-        }
-
-        info!(run_id = %run_id, "agent run queued");
-        Ok(run_id)
-    }
-
-    /// Accepts a run that continues an existing conversation history.
-    pub async fn submit_with_history(
-        &self,
-        agent: impl Into<String>,
-        input: impl Into<String>,
         history: Vec<Message>,
+        mut context: ToolContext,
     ) -> Result<RunId, SubmitRunError> {
         let run = Run::new(agent, input);
         let run_id = run.id;
+        context.run_id = Some(run_id.as_uuid());
 
         {
             let mut runs = self.runs.lock().await;
@@ -215,6 +179,7 @@ impl RunManager {
                         occurred_at: std::time::SystemTime::now(),
                     }],
                     history,
+                    context: context.clone(),
                 },
             );
         }
@@ -302,14 +267,14 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use agent_runtime::{
-        CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
+        CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind, ToolContext,
     };
     use async_trait::async_trait;
     use tokio::sync::Notify;
 
     use super::{
-        CancelRunError, CancelRunOutcome, ExecutionOutcome, RunExecutor, RunManager,
-        RunManagerConfigError, SubmitRunError,
+        CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor,
+        RunManager, RunManagerConfigError, SubmitRunError,
     };
     use crate::{RunEventKind, RunId, RunStatus};
 
@@ -322,11 +287,15 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             _cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
-            Ok(ExecutionOutcome::Completed(Some(format!(
-                "processed: {input}"
-            ))))
+        ) -> Result<ExecutionReport, String> {
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(Some(format!("processed: {input}"))),
+                runtime_events: Vec::new(),
+                messages: None,
+            })
         }
     }
 
@@ -342,11 +311,17 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             _input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             _cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
+        ) -> Result<ExecutionReport, String> {
             self.started.notify_one();
             self.release.notified().await;
-            Ok(ExecutionOutcome::Completed(None))
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(None),
+                runtime_events: Vec::new(),
+                messages: None,
+            })
         }
     }
 
@@ -361,21 +336,97 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             _input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
+        ) -> Result<ExecutionReport, String> {
             self.started.notify_one();
             while !cancellation.is_cancelled() {
                 tokio::task::yield_now().await;
             }
-            Ok(ExecutionOutcome::Cancelled)
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Cancelled,
+                runtime_events: Vec::new(),
+                messages: None,
+            })
         }
+    }
+
+    struct ContextCaptureExecutor {
+        received: Arc<std::sync::Mutex<Option<ToolContext>>>,
+    }
+
+    #[async_trait]
+    impl RunExecutor for ContextCaptureExecutor {
+        async fn execute(
+            &self,
+            _run_id: RunId,
+            _agent: String,
+            _input: String,
+            _history: Vec<agent_runtime::Message>,
+            context: ToolContext,
+            _cancellation: CancellationToken,
+        ) -> Result<ExecutionReport, String> {
+            *self.received.lock().unwrap() = Some(context);
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(None),
+                runtime_events: Vec::new(),
+                messages: None,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn trusted_context_survives_queue_and_reaches_executor() {
+        let received = Arc::new(std::sync::Mutex::new(None));
+        let manager = RunManager::new(
+            Arc::new(ContextCaptureExecutor {
+                received: received.clone(),
+            }),
+            1,
+            2,
+        )
+        .unwrap();
+        let context = ToolContext {
+            user_id: Some("telegram:42".into()),
+            conversation_id: Some("conversation-1".into()),
+            run_id: None,
+        };
+
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), context)
+            .await
+            .unwrap();
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                if manager
+                    .get(run_id)
+                    .await
+                    .is_some_and(|run| run.status == RunStatus::Completed)
+                {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("run should complete");
+
+        let received = received.lock().unwrap().clone().unwrap();
+        assert_eq!(received.user_id.as_deref(), Some("telegram:42"));
+        assert_eq!(received.conversation_id.as_deref(), Some("conversation-1"));
+        assert_eq!(received.run_id, Some(run_id.as_uuid()));
     }
 
     #[tokio::test]
     async fn submitted_run_is_executed_and_reaches_completed_state() {
         let manager = RunManager::new(Arc::new(ImmediateExecutor), 1, 4).unwrap();
 
-        let run_id = manager.submit("assistant", "hello").await.unwrap();
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
@@ -402,12 +453,20 @@ mod tests {
         let release = Arc::clone(&executor.release);
         let manager = RunManager::new(Arc::new(executor), 1, 1).unwrap();
 
-        let first = manager.submit("assistant", "first").await.unwrap();
+        let first = manager
+            .submit("assistant", "first", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         started.notified().await;
 
-        let _queued = manager.submit("assistant", "queued").await.unwrap();
+        let _queued = manager
+            .submit("assistant", "queued", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         assert_eq!(
-            manager.submit("assistant", "rejected").await,
+            manager
+                .submit("assistant", "rejected", Vec::new(), ToolContext::default())
+                .await,
             Err(SubmitRunError::QueueFull)
         );
 
@@ -439,9 +498,15 @@ mod tests {
         let release = Arc::clone(&executor.release);
         let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
 
-        let _running = manager.submit("assistant", "running").await.unwrap();
+        let _running = manager
+            .submit("assistant", "running", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         started.notified().await;
-        let queued = manager.submit("assistant", "queued").await.unwrap();
+        let queued = manager
+            .submit("assistant", "queued", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
 
         assert_eq!(
             manager.cancel(queued).await,
@@ -467,7 +532,10 @@ mod tests {
         let started = Arc::clone(&executor.started);
         let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
 
-        let run_id = manager.submit("assistant", "hello").await.unwrap();
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         started.notified().await;
 
         assert_eq!(
@@ -501,24 +569,15 @@ mod tests {
     impl RunExecutor for RuntimeEventExecutor {
         async fn execute(
             &self,
-            _run_id: RunId,
+            run_id: RunId,
             _agent: String,
             _input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             _cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
-            Ok(ExecutionOutcome::Completed(None))
-        }
-
-        async fn execute_with_events(
-            &self,
-            run_id: RunId,
-            agent: String,
-            input: String,
-            cancellation: CancellationToken,
-        ) -> Result<super::ExecutionReport, String> {
-            let outcome = self.execute(run_id, agent, input, cancellation).await?;
-            Ok(super::ExecutionReport {
-                outcome,
+        ) -> Result<ExecutionReport, String> {
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(None),
                 runtime_events: vec![RuntimeEvent {
                     run_id: run_id.as_uuid(),
                     iteration: 2,
@@ -535,7 +594,10 @@ mod tests {
     #[tokio::test]
     async fn runtime_events_are_inserted_between_lifecycle_events() {
         let manager = RunManager::new(Arc::new(RuntimeEventExecutor), 1, 2).unwrap();
-        let run_id = manager.submit("assistant", "hello").await.unwrap();
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {

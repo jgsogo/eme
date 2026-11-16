@@ -1,6 +1,6 @@
 use super::super::{is_calendar_allowed, required_env};
 use super::GoogleCalendarClient;
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -9,7 +9,7 @@ pub(crate) struct GoogleCalendarEvents;
 
 #[async_trait]
 impl Tool for GoogleCalendarEvents {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         // An explicit tool argument takes precedence over the configured default.
         // There is deliberately no implicit fallback to Google's "primary" calendar.
         let configured_calendar_id = std::env::var("GOOGLE_CALENDAR_ID").ok();

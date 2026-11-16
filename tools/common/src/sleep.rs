@@ -1,4 +1,4 @@
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::{Value, json};
 use std::time::Duration;
@@ -9,7 +9,7 @@ pub struct Sleep;
 
 #[async_trait]
 impl Tool for Sleep {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let seconds = arguments
             .get("seconds")
             .and_then(Value::as_u64)
@@ -38,13 +38,23 @@ mod tests {
 
     #[tokio::test]
     async fn zero_sleep() {
-        let value: Value =
-            serde_json::from_str(&Sleep.execute(json!({"seconds": 0})).await.unwrap()).unwrap();
+        let value: Value = serde_json::from_str(
+            &Sleep
+                .execute(&ToolContext::default(), json!({"seconds": 0}))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(value["slept"], true);
     }
 
     #[tokio::test]
     async fn max_is_enforced() {
-        assert!(Sleep.execute(json!({"seconds": 31})).await.is_err());
+        assert!(
+            Sleep
+                .execute(&ToolContext::default(), json!({"seconds": 31}))
+                .await
+                .is_err()
+        );
     }
 }

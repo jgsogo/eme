@@ -1,6 +1,7 @@
 use crate::{Run, RunEvent, RunEventKind};
 use agent_runtime::{
     CancellationToken, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
+    ToolContext,
 };
 
 pub(super) struct ManagedRun {
@@ -8,6 +9,7 @@ pub(super) struct ManagedRun {
     pub(super) cancellation: CancellationToken,
     pub(super) events: Vec<RunEvent>,
     pub(super) history: Vec<Message>,
+    pub(super) context: ToolContext,
 }
 
 impl ManagedRun {
