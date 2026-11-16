@@ -1,5 +1,5 @@
 use super::{RegisteredTool, Tool, ToolDispatcher, ToolError};
-use crate::ToolDefinition;
+use crate::{ToolContext, ToolDefinition};
 use agent_config::{ConfigError, read_toml};
 use async_trait::async_trait;
 use serde_json::Value;
@@ -102,7 +102,7 @@ impl ToolDispatcher for ToolRegistry {
         self.definition(name)
     }
 
-    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, name: &str, arguments: Value) -> Result<String, ToolError> {\n        self.execute_with_context(&ToolContext::default(), name, arguments).await\n    }\n\n    async fn execute_with_context(&self, context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError> {
         let tool = self
             .tools
             .get(name)
@@ -122,7 +122,7 @@ impl ToolDispatcher for ToolRegistry {
             });
         }
 
-        tool.implementation.execute(arguments).await
+        tool.implementation.execute_with_context(context, arguments).await
     }
 }
 
