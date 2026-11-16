@@ -28,4 +28,3 @@ pub use dispatcher::ToolDispatcher;
 pub use error::ToolError;
 pub use registry::ToolRegistry;
 pub use tool::Tool;
-pub use ToolContext as Context;
