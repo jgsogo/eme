@@ -267,7 +267,8 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use agent_runtime::{
-        CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind, ToolContext,
+        CancellationToken, FamilyContext, RunEvent as RuntimeEvent,
+        RunEventKind as RuntimeEventKind, ToolContext,
     };
     use async_trait::async_trait;
     use tokio::sync::Notify;
@@ -388,7 +389,13 @@ mod tests {
         )
         .unwrap();
         let context = ToolContext {
-            user_id: Some("telegram:42".into()),
+            user_id: Some("user-42".into()),
+            family: Some(FamilyContext {
+                family_id: "family-1".into(),
+                family_name: "Home".into(),
+                family_role: "owner".into(),
+                relationship: "father".into(),
+            }),
             conversation_id: Some("conversation-1".into()),
             run_id: None,
         };
@@ -414,8 +421,22 @@ mod tests {
         .expect("run should complete");
 
         let received = received.lock().unwrap().clone().unwrap();
-        assert_eq!(received.user_id.as_deref(), Some("telegram:42"));
+        assert_eq!(received.user_id.as_deref(), Some("user-42"));
         assert_eq!(received.conversation_id.as_deref(), Some("conversation-1"));
+        assert_eq!(
+            received
+                .family
+                .as_ref()
+                .map(|family| family.family_id.as_str()),
+            Some("family-1")
+        );
+        assert_eq!(
+            received
+                .family
+                .as_ref()
+                .map(|family| family.family_role.as_str()),
+            Some("owner")
+        );
         assert_eq!(received.run_id, Some(run_id.as_uuid()));
     }
 

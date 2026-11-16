@@ -89,6 +89,9 @@ pub struct Conversation {
     /// User-editable display name. Defaults when reading older conversation files.
     #[serde(default = "default_conversation_title")]
     pub title: String,
+    /// Family explicitly selected for this conversation; absent in legacy records.
+    #[serde(default)]
+    pub selected_family_id: Option<FamilyId>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub messages: Vec<Message>,
@@ -164,6 +167,7 @@ impl ConversationStore {
             owner: owner.clone(),
             agent,
             title: default_conversation_title(),
+            selected_family_id: None,
             created_at: now,
             updated_at: now,
             messages: Vec::new(),
@@ -286,6 +290,30 @@ impl ConversationStore {
         }
 
         conversation.title = title.to_owned();
+        conversation.updated_at = Utc::now();
+        self.write_conversation(&conversation)?;
+        Ok(conversation)
+    }
+
+    /// Persists the family selected for a conversation owned by the caller.
+    pub fn set_selected_family(
+        &self,
+        owner: &str,
+        id: ConversationId,
+        family_id: Option<FamilyId>,
+    ) -> Result<Conversation, ConversationStoreError> {
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut conversation = self.read_conversation(id)?;
+        if conversation.owner != owner {
+            return Err(ConversationStoreError::OwnerMismatch {
+                conversation_id: id,
+                owner: owner.to_owned(),
+            });
+        }
+        conversation.selected_family_id = family_id;
         conversation.updated_at = Utc::now();
         self.write_conversation(&conversation)?;
         Ok(conversation)
@@ -414,7 +442,7 @@ mod tests {
     use agent_runtime::{Message, ToolCall};
     use serde_json::json;
 
-    use super::{ConversationStore, ConversationStoreError};
+    use super::{ConversationStore, ConversationStoreError, FamilyId};
 
     fn temporary_directory() -> std::path::PathBuf {
         let unique = SystemTime::now()
@@ -443,6 +471,50 @@ mod tests {
         assert_eq!(loaded.agent, "assistant");
         assert_eq!(loaded.title, "New conversation");
         assert!(loaded.messages.is_empty());
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn selected_family_is_persisted_and_can_be_cleared() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+        let family_id = FamilyId::new();
+
+        let selected = store
+            .set_selected_family("owner-a", conversation.id, Some(family_id))
+            .unwrap();
+        assert_eq!(selected.selected_family_id, Some(family_id));
+
+        drop(store);
+        let reopened = ConversationStore::open(&directory).unwrap();
+        assert_eq!(
+            reopened.get(conversation.id).unwrap().selected_family_id,
+            Some(family_id)
+        );
+        reopened
+            .set_selected_family("owner-a", conversation.id, None)
+            .unwrap();
+        assert_eq!(
+            reopened.get(conversation.id).unwrap().selected_family_id,
+            None
+        );
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn cannot_change_selected_family_of_another_owners_conversation() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+
+        assert!(matches!(
+            store.set_selected_family("owner-b", conversation.id, Some(FamilyId::new())),
+            Err(ConversationStoreError::OwnerMismatch { .. })
+        ));
+        assert_eq!(store.get(conversation.id).unwrap().selected_family_id, None);
 
         fs::remove_dir_all(directory).unwrap();
     }

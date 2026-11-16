@@ -127,6 +127,7 @@ async fn main() -> Result<()> {
             Arc::clone(&conversation_store),
             Arc::clone(&identity_store),
             Arc::clone(&family_store),
+            Arc::clone(&family_service),
             Arc::clone(&telegram_auth),
             updates,
         ));

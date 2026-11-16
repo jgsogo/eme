@@ -5,6 +5,8 @@
 //! authentication layer, never by a request body or an agent.
 use std::sync::Arc;
 
+use agent_runtime::FamilyContext;
+
 use agent_storage::{
     Family, FamilyId, FamilyInvitationStore, FamilyInvitationSummary, FamilyMember,
     FamilyRelationship, FamilyRole, FamilyStorageError, FamilyStore, InvitationStorageError,
@@ -196,6 +198,41 @@ impl FamilyService {
     ) -> Result<Vec<FamilyMember>, FamilyServiceError> {
         self.actor_member(family_id, actor).await?;
         self.members(family_id).await
+    }
+
+    /// Resolves a family context only when the actor is an active member.
+    pub async fn context_for_member(
+        &self,
+        actor: UserId,
+        family_id: FamilyId,
+    ) -> Result<FamilyContext, FamilyServiceError> {
+        let member = self.actor_member(family_id, actor).await?;
+        let family = self
+            .families
+            .get_family(family_id)
+            .await?
+            .ok_or(FamilyServiceError::NotFound)?;
+        let family_role = match member.role {
+            FamilyRole::Owner => "owner",
+            FamilyRole::Admin => "admin",
+            FamilyRole::Member => "member",
+        };
+        let relationship = match member.relationship {
+            FamilyRelationship::Father => "father",
+            FamilyRelationship::Mother => "mother",
+            FamilyRelationship::Son => "son",
+            FamilyRelationship::Daughter => "daughter",
+            FamilyRelationship::Grandfather => "grandfather",
+            FamilyRelationship::Grandmother => "grandmother",
+            FamilyRelationship::Partner => "partner",
+            FamilyRelationship::Other => "other",
+        };
+        Ok(FamilyContext {
+            family_id: family.id.to_string(),
+            family_name: family.name,
+            family_role: family_role.to_owned(),
+            relationship: relationship.to_owned(),
+        })
     }
 
     pub async fn create_invitation(
@@ -391,6 +428,21 @@ mod tests {
             .await
             .unwrap();
         (service, owner, member, family.id)
+    }
+
+    #[tokio::test]
+    async fn trusted_context_contains_membership_details_and_rejects_non_members() {
+        let (service, owner, _, family_id) = setup().await;
+        let context = service.context_for_member(owner, family_id).await.unwrap();
+        assert_eq!(context.family_id, family_id.to_string());
+        assert_eq!(context.family_name, "Home");
+        assert_eq!(context.family_role, "owner");
+        assert_eq!(context.relationship, "other");
+
+        assert!(matches!(
+            service.context_for_member(UserId::new(), family_id).await,
+            Err(FamilyServiceError::NotMember)
+        ));
     }
 
     #[tokio::test]
