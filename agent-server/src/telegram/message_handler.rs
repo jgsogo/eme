@@ -149,7 +149,8 @@ pub(super) async fn handle_message(
                 conversation_id: Some(conversation.id.to_string()),
                 run_id: None,
             },
-        )        .await
+        )
+        .await
     {
         Ok(id) => {
             let _ = gateway
