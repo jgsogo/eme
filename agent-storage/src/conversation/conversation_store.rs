@@ -295,10 +295,6 @@ impl ConversationStore {
     }
 }
 
-fn default_conversation_title() -> String {
-    "New conversation".to_owned()
-}
-
 #[derive(Debug, Error)]
 pub enum ConversationStoreError {
     #[error("conversation storage I/O failed: {0}")]

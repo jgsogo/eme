@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests {
     use std::{env, fs, time::SystemTime};
 
     use agent_runtime::{Message, ToolCall};
@@ -258,4 +256,3 @@ mod tests {
 
         fs::remove_dir_all(directory).unwrap();
     }
-}

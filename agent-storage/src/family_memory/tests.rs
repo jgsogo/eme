@@ -1,6 +1,4 @@
-#[cfg(test)]
-mod tests {
-    use super::*;
+    use crate::*;
     use crate::FamilyStore;
     use chrono::Utc;
 
@@ -140,4 +138,3 @@ mod tests {
             FamilyRole::Owner
         );
     }
-}

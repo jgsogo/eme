@@ -23,3 +23,7 @@ pub struct Conversation {
     pub updated_at: DateTime<Utc>,
     pub messages: Vec<Message>,
 }
+
+fn default_conversation_title() -> String {
+    "New conversation".to_owned()
+}

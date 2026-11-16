@@ -1,5 +1,3 @@
-#[cfg(test)]
-mod tests {
     use chrono::Utc;
     use serde_json::json;
     use uuid::Uuid;
@@ -148,4 +146,3 @@ mod tests {
             Err(StorageError::InvalidAssociation(_))
         ));
     }
-}

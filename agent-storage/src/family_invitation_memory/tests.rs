@@ -1,6 +1,4 @@
-#[cfg(test)]
-mod tests {
-    use super::*;
+    use crate::*;
     use crate::{Family, InMemoryFamilyStore};
     use chrono::Duration;
 
@@ -212,4 +210,3 @@ mod tests {
             1
         );
     }
-}

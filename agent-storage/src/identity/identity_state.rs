@@ -6,17 +6,17 @@ use serde::{Deserialize, Serialize};
 use super::{IdentityStoreError, User, UserId, UserIdentity};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct IdentityState {
-    users: HashMap<UserId, User>,
-    identities: HashMap<String, UserIdentity>,
+pub(super) struct IdentityState {
+    pub(super) users: HashMap<UserId, User>,
+    pub(super) identities: HashMap<String, UserIdentity>,
 }
 
-fn identity_key(provider: &str, subject: &str) -> String {
+pub(super) fn identity_key(provider: &str, subject: &str) -> String {
     format!("{provider}\\0{subject}")
 }
 
 impl IdentityState {
-    fn resolve_or_create(
+    pub(super) fn resolve_or_create(
         &mut self,
         provider: &str,
         subject: &str,
@@ -50,7 +50,7 @@ impl IdentityState {
         Ok((user, identity))
     }
 
-    fn link_identity(
+    pub(super) fn link_identity(
         &mut self,
         user_id: UserId,
         provider: &str,
