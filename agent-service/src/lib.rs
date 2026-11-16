@@ -4,12 +4,14 @@
 //! coordination, cancellation, supervision, and run-event routing. It remains
 //! independent of HTTP transport and concrete storage backends.
 
+mod family;
 mod manager;
 mod run;
 mod runtime_executor;
 mod scheduler;
 mod task;
 
+pub use family::{FamilyService, FamilyServiceError};
 pub use manager::{
     CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor, RunManager,
     RunManagerConfigError, SubmitRunError,
