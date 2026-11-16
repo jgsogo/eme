@@ -599,7 +599,7 @@ mod tests {
     };
     use serde_json::{Value, json};
 
-    use super::{families_api, invitations_api};
+    use super::{LanInvitationConfig, families_api, invitations_api};
 
     #[actix_web::test]
     async fn family_api_requires_authentication_and_uses_session_identity_as_actor() {
@@ -618,6 +618,7 @@ mod tests {
                 .app_data(web::Data::from(Arc::clone(&auth)))
                 .app_data(web::Data::new(Arc::clone(&identities)))
                 .app_data(web::Data::new(Arc::clone(&service)))
+                .app_data(web::Data::new(LanInvitationConfig::parse("http://192.168.1.20:8080").unwrap()))
                 .service(crate::auth::auth_api())
                 .service(families_api())
                 .service(invitations_api()),
@@ -707,6 +708,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::CREATED);
         let created_invitation: Value = test::read_body_json(response).await;
         let invitation_token = created_invitation["token"].as_str().unwrap().to_owned();
+        assert_eq!(created_invitation["lan_url"], format!("http://192.168.1.20:8080/invite/{invitation_token}"));
 
         let response = test::call_service(
             &app,
