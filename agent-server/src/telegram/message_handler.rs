@@ -1,7 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
-use agent_server::auth::TelegramAuth;
 use agent_runtime::ToolContext;
+use agent_server::auth::TelegramAuth;
 use agent_service::{RunManager, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
