@@ -274,7 +274,13 @@ pub(super) async fn handle_message(
             }
             Err(error) => {
                 active_conversations.lock().await.remove(&conversation.id);
-                send_error(gateway, message.chat_id, "resolve the selected family", error).await;
+                send_error(
+                    gateway,
+                    message.chat_id,
+                    "resolve the selected family",
+                    error,
+                )
+                .await;
                 return;
             }
         },
