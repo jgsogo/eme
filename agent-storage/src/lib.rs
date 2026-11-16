@@ -291,7 +291,31 @@ impl ConversationStore {
         Ok(conversation)
     }
 
-    /// Persists the family selected for a conversation owned by the caller.\n    pub fn set_selected_family(\n        &self,\n        owner: &str,\n        id: ConversationId,\n        family_id: Option<FamilyId>,\n    ) -> Result<Conversation, ConversationStoreError> {\n        let _guard = self\n            .lock\n            .lock()\n            .unwrap_or_else(|poisoned| poisoned.into_inner());\n        let mut conversation = self.read_conversation(id)?;\n        if conversation.owner != owner {\n            return Err(ConversationStoreError::OwnerMismatch {\n                conversation_id: id,\n                owner: owner.to_owned(),\n            });\n        }\n        conversation.selected_family_id = family_id;\n        conversation.updated_at = Utc::now();\n        self.write_conversation(&conversation)?;\n        Ok(conversation)\n    }\n\n    /// Permanently deletes a conversation belonging to owner.
+    /// Persists the family selected for a conversation owned by the caller.
+    pub fn set_selected_family(
+        &self,
+        owner: &str,
+        id: ConversationId,
+        family_id: Option<FamilyId>,
+    ) -> Result<Conversation, ConversationStoreError> {
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut conversation = self.read_conversation(id)?;
+        if conversation.owner != owner {
+            return Err(ConversationStoreError::OwnerMismatch {
+                conversation_id: id,
+                owner: owner.to_owned(),
+            });
+        }
+        conversation.selected_family_id = family_id;
+        conversation.updated_at = Utc::now();
+        self.write_conversation(&conversation)?;
+        Ok(conversation)
+    }
+
+    /// Permanently deletes a conversation belonging to owner.
     ///
     /// If the conversation is currently active for that owner, its active
     /// pointer is removed as part of the same process-local critical section.
