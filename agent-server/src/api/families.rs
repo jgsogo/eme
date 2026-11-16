@@ -195,6 +195,18 @@ pub struct CreatedInvitation {
     pub lan_url: Option<String>,
 }
 
+#[get("/current-user")]
+async fn current_family_user(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+) -> impl Responder {
+    match authenticated_actor(&request, &auth, &identities) {
+        Ok((user_id, _)) => HttpResponse::Ok().json(serde_json::json!({ "user_id": user_id })),
+        Err(response) => response,
+    }
+}
+
 #[get("")]
 async fn list_families(
     request: HttpRequest,
@@ -578,6 +590,7 @@ async fn accept_invitation(
 
 pub fn families_api() -> Scope {
     web::scope("/families")
+        .service(current_family_user)
         .service(list_families)
         .service(create_family)
         .service(get_family)
