@@ -20,6 +20,7 @@ tasks-tool = { path = "../tools/tasks" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
+chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
