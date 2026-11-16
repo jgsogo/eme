@@ -38,8 +38,13 @@ mod tests {
 
     #[tokio::test]
     async fn zero_sleep() {
-        let value: Value =
-            serde_json::from_str(&Sleep.execute(&ToolContext::default(), json!({"seconds": 0})).await.unwrap()).unwrap();
+        let value: Value = serde_json::from_str(
+            &Sleep
+                .execute(&ToolContext::default(), json!({"seconds": 0}))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(value["slept"], true);
     }
 
