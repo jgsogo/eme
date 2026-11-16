@@ -472,6 +472,47 @@ mod tests {
     }
 
     #[test]
+    fn selected_family_is_persisted_and_can_be_cleared() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+        let family_id = FamilyId::new();
+
+        let selected = store
+            .set_selected_family("owner-a", conversation.id, Some(family_id))
+            .unwrap();
+        assert_eq!(selected.selected_family_id, Some(family_id));
+
+        drop(store);
+        let reopened = ConversationStore::open(&directory).unwrap();
+        assert_eq!(
+            reopened.get(conversation.id).unwrap().selected_family_id,
+            Some(family_id)
+        );
+        reopened
+            .set_selected_family("owner-a", conversation.id, None)
+            .unwrap();
+        assert_eq!(reopened.get(conversation.id).unwrap().selected_family_id, None);
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn cannot_change_selected_family_of_another_owners_conversation() {
+        let directory = temporary_directory();
+        let store = ConversationStore::open(&directory).unwrap();
+        let conversation = store.create("owner-a", "assistant").unwrap();
+
+        assert!(matches!(
+            store.set_selected_family("owner-b", conversation.id, Some(FamilyId::new())),
+            Err(ConversationStoreError::OwnerMismatch { .. })
+        ));
+        assert_eq!(store.get(conversation.id).unwrap().selected_family_id, None);
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
     fn renames_conversation_and_persists_the_title() {
         let directory = temporary_directory();
         let store = ConversationStore::open(&directory).unwrap();
