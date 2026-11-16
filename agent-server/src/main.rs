@@ -27,7 +27,6 @@ use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::console_ui;
-use console_event_sink::ConsoleEventSink;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
