@@ -1,3 +1,5 @@
+//! Payload for changing a family member's role.
+
 use agent_storage::FamilyRole;
 use serde::Deserialize;
 

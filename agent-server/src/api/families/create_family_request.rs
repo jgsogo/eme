@@ -1,3 +1,5 @@
+//! Payload for creating a family and assigning the creator's relationship.
+
 use agent_storage::FamilyRelationship;
 use serde::Deserialize;
 

@@ -1,3 +1,5 @@
+//! Payload for creating a family invitation.
+
 use agent_storage::InvitationTargetIdentity;
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
