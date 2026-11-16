@@ -38,7 +38,7 @@ Telegram and web conversations use the same owner key, `telegram:<user_id>`. The
 
 ## LAN family invitations
 
-Set `LAN_BASE_URL` to the HTTP address that family members can reach on your home network, including the port when needed. The server accepts only private, loopback, or link-local IP addresses; hostnames and public addresses are rejected. Examples:
+Set `LAN_BASE_URL` to the HTTP address that family members can reach on your home network, including the port when needed. The server must also listen on a LAN-reachable interface (for example, start it with `--host 0.0.0.0` rather than the default `127.0.0.1`), and the host firewall must allow the configured port. The server accepts only private, loopback, or link-local IP addresses; hostnames and public addresses are rejected. Examples:
 
 ```sh
 LAN_BASE_URL=http://192.168.1.20:8080
