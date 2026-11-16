@@ -20,7 +20,7 @@ pub struct FamilyContext {
 /// Trusted execution metadata supplied by the platform, never by the model.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ToolContext {
-    /// Authenticated platform user identifier (for example `telegram:123`).
+    /// Persistent EME user identifier resolved from the authenticated platform identity.
     pub user_id: Option<String>,
     /// Family selected for the conversation and verified for this user.
     pub family: Option<FamilyContext>,
