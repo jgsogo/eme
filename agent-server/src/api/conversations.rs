@@ -202,12 +202,70 @@ async fn delete_conversation(
     }
 }
 
-#[put("/{conversation_id}/family")]\nasync fn select_conversation_family(\n    request: HttpRequest,\n    auth: Data<crate::auth::TelegramAuth>,\n    store: Data<Arc<ConversationStore>>,\n    identities: Data<Arc<FileUserIdentityStore>>,\n    families: Data<Arc<FamilyService>>,\n    conversation_id: Path<String>,\n    body: Json<SelectConversationFamilyRequest>,\n) -> impl Responder {\n    let owner = match authenticated_owner(&request, &auth) {\n        Ok(owner) => owner,\n        Err(response) => return response,\n    };\n    let id = match ConversationId::from_str(conversation_id.as_str()) {\n        Ok(id) => id,\n        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),\n    };\n    match store.get(id) {\n        Ok(conversation) if conversation.owner == owner => {}\n        Ok(_) => return HttpResponse::NotFound().finish(),\n        Err(error) => return conversation_error(error),\n    }\n\n    let family_id = match body.family_id.as_deref() {\n        Some(value) => {\n            let family_id = match FamilyId::from_str(value) {\n                Ok(id) => id,\n                Err(_) => return HttpResponse::BadRequest().body("invalid family identifier"),\n            };\n            let subject = match owner.strip_prefix("telegram:") {\n                Some(subject) if !subject.is_empty() => subject,\n                _ => return HttpResponse::Unauthorized().finish(),\n            };\n            let identity = match identities.find_identity("telegram", subject) {\n                Ok(Some(identity)) => identity,\n                Ok(None) => return HttpResponse::Unauthorized().finish(),\n                Err(_) => return HttpResponse::InternalServerError().finish(),\n            };\n            match families.context_for_member(identity.user_id, family_id).await {\n                Ok(_) => Some(family_id),\n                Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {\n                    return HttpResponse::NotFound().finish();\n                }\n                Err(_) => return HttpResponse::InternalServerError().finish(),\n            }\n        }\n        None => None,\n    };\n\n    match store.set_selected_family(&owner, id, family_id) {\n        Ok(conversation) => HttpResponse::Ok().json(ConversationSummary::from(conversation)),\n        Err(error) => conversation_error(error),\n    }\n}\n\n#[post("/{conversation_id}/runs")]
+#[put("/{conversation_id}/family")]
+async fn select_conversation_family(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    conversation_id: Path<String>,
+    body: Json<SelectConversationFamilyRequest>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+    match store.get(id) {
+        Ok(conversation) if conversation.owner == owner => {}
+        Ok(_) => return HttpResponse::NotFound().finish(),
+        Err(error) => return conversation_error(error),
+    }
+
+    let family_id = match body.family_id.as_deref() {
+        Some(value) => {
+            let family_id = match FamilyId::from_str(value) {
+                Ok(id) => id,
+                Err(_) => return HttpResponse::BadRequest().body("invalid family identifier"),
+            };
+            let subject = match owner.strip_prefix("telegram:") {
+                Some(subject) if !subject.is_empty() => subject,
+                _ => return HttpResponse::Unauthorized().finish(),
+            };
+            let identity = match identities.find_identity("telegram", subject) {
+                Ok(Some(identity)) => identity,
+                Ok(None) => return HttpResponse::Unauthorized().finish(),
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            };
+            match families.context_for_member(identity.user_id, family_id).await {
+                Ok(_) => Some(family_id),
+                Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
+                    return HttpResponse::NotFound().finish();
+                }
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            }
+        }
+        None => None,
+    };
+
+    match store.set_selected_family(&owner, id, family_id) {
+        Ok(conversation) => HttpResponse::Ok().json(ConversationSummary::from(conversation)),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[post("/{conversation_id}/runs")]
 async fn continue_conversation(
     request_http: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     manager: Data<RunManager>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
     conversation_id: Path<String>,
     request: Json<ContinueConversationRequest>,
 ) -> impl Responder {
