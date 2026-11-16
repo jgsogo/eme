@@ -6,5 +6,10 @@ use serde_json::Value;
 #[async_trait]
 pub trait ToolDispatcher: Send + Sync {
     fn definition(&self, name: &str) -> Option<ToolDefinition>;
-    async fn execute(&self, context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError>;
+    async fn execute(
+        &self,
+        context: &ToolContext,
+        name: &str,
+        arguments: Value,
+    ) -> Result<String, ToolError>;
 }
