@@ -72,8 +72,7 @@ function updateAgentDescription(){const a=state.agents.find(x=>x.name===$("agent
 function renderConversations(){$("conversations").innerHTML=state.conversations.length?state.conversations.map(c=>'<li data-id="'+escapeHtml(c.id)+'" class="'+(c.id===state.selected?"active":"")+'"><div class="conversation-row"><div class="conversation-main"><div class="conv-title">'+escapeHtml(c.title||"New conversation")+'</div><div class="conv-agent">'+escapeHtml(c.agent)+'</div><div class="conv-meta">'+new Date(c.updated_at).toLocaleString()+' · '+c.message_count+' messages</div></div><button type="button" class="danger conversation-delete" data-delete-id="'+escapeHtml(c.id)+'" aria-label="Delete '+escapeHtml(c.title||"conversation")+'" title="Delete conversation">Delete</button></div></li>').join():'<li style="cursor:default;color:var(--muted)">No conversations yet.</li>'}
 function messageParts(message){if(!message||typeof message!=="object")return null;const [kind,value]=Object.entries(message)[0]||[];if(!kind)return null;return {kind:kind.toLowerCase(),value:value||{}}}
 function renderMarkdown(source){
- if(typeof marked==="undefined"||typeof DOMPurify==="undefined")return escapeHtml(source).replace(/\
-/g,"<br>");
+ if(typeof marked==="undefined"||typeof DOMPurify==="undefined")return escapeHtml(source).replace(/\\n/g,"<br>");
  const html=marked.parse(String(source??""),{gfm:true,breaks:false});
  return DOMPurify.sanitize(html,{USE_PROFILES:{html:true},FORBID_TAGS:["img","style","iframe","svg","math"]});
 }
