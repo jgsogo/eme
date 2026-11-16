@@ -4,7 +4,7 @@ use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, ConversationStore, FamilyInvitationStore, FamilyRelationship,
+    ConversationId, ConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
     FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore,
     UserIdentityStore,
 };
