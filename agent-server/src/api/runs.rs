@@ -76,11 +76,19 @@ async fn submit_run(
         return HttpResponse::BadRequest().body("input must not be empty");
     }
 
-    let context = auth.as_ref().and_then(|auth| auth.owner_for_request(&http_request))
-        .map(ToolContext::new).unwrap_or_default();
+    let context = auth
+        .as_ref()
+        .and_then(|auth| auth.owner_for_request(&http_request))
+        .map(ToolContext::new)
+        .unwrap_or_default();
 
     match manager
-        .submit(request.agent.clone(), request.input.clone(), Vec::new(), context)
+        .submit(
+            request.agent.clone(),
+            request.input.clone(),
+            Vec::new(),
+            context,
+        )
         .await
     {
         Ok(run_id) => {
