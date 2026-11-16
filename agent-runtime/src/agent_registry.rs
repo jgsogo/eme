@@ -118,7 +118,7 @@ mod tests {
     use async_trait::async_trait;
     use serde_json::{Value, json};
 
-    use crate::{Tool, ToolDefinition, ToolRegistry};
+    use crate::{Tool, ToolContext, ToolDefinition, ToolRegistry};
 
     use super::AgentRegistry;
 
@@ -148,7 +148,7 @@ mod tests {
 
     #[async_trait]
     impl Tool for NoopTool {
-        async fn execute(&self, _arguments: Value) -> Result<String, crate::ToolError> {
+        async fn execute(&self, _context: &ToolContext, _arguments: Value) -> Result<String, crate::ToolError> {
             Ok(String::new())
         }
     }
