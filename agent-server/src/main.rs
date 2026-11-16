@@ -17,7 +17,10 @@ use std::sync::Arc;
 use actix_web::{App, HttpServer, middleware, web};
 use agent_server::auth::TelegramAuth;
 use agent_service::{AgentRuntimeExecutor, RunManager, TaskRegistry, TaskScheduler};
-use agent_storage::{ConversationStore, FileUserIdentityStore};
+use agent_storage::{
+    ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore,
+    InMemoryFamilyInvitationStore, InMemoryFamilyStore,
+};
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
@@ -103,6 +106,10 @@ async fn main() -> Result<()> {
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
     );
+    let family_store: Arc<dyn FamilyStore> = Arc::new(InMemoryFamilyStore::default());
+    let invitation_store: Arc<dyn FamilyInvitationStore> = Arc::new(
+        InMemoryFamilyInvitationStore::new(Arc::clone(&family_store)),
+    );
 
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
@@ -116,6 +123,8 @@ async fn main() -> Result<()> {
             manager.clone(),
             Arc::clone(&conversation_store),
             Arc::clone(&identity_store),
+            Arc::clone(&family_store),
+            Arc::clone(&invitation_store),
             Arc::clone(&telegram_auth),
             updates,
         ));
