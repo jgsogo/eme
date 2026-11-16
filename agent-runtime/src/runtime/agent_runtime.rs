@@ -1,9 +1,11 @@
+//! Coordinates model turns, tool calls, authorization, cancellation, and run results.
+
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;
 
 use super::{
-    CancellationToken, EventSink, NoopEventSink, RunEvent, RunEventKind, RunFailure, RunResult,
+    CancellationToken, StopReason, EventSink, NoopEventSink, RunEvent, RunEventKind, RunFailure, RunResult,
     RunStatus,
 };
 use crate::{
@@ -34,11 +36,6 @@ fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
     output
 }
 
-#[derive(Debug, Clone, Copy)]
-enum StopReason {
-    Cancelled,
-    TimedOut,
-}
 
 pub struct AgentRuntime {
     model: Arc<dyn AgentModel>,
