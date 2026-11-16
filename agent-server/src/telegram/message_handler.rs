@@ -3,7 +3,11 @@ use std::{collections::HashSet, sync::Arc};
 use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{RunManager, SubmitRunError};
-use agent_storage::{ConversationId, ConversationStore, FileUserIdentityStore, UserIdentityStore};
+use agent_storage::{
+    ConversationId, ConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
+    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore,
+    UserIdentityStore,
+};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::Mutex;
 use tracing::warn;
@@ -18,6 +22,7 @@ pub(super) async fn handle_message(
     manager: &RunManager,
     store: &Arc<ConversationStore>,
     identities: &Arc<FileUserIdentityStore>,
+    families: &Arc<SqliteFamilyStore>,
     active_conversations: &Arc<Mutex<HashSet<ConversationId>>>,
     auth: &Arc<TelegramAuth>,
     message: IncomingMessage,
@@ -38,7 +43,7 @@ pub(super) async fn handle_message(
     if message.is_bot {
         return;
     }
-    let Some(user_id) = message.user_id else {
+    let Some(telegram_user_id) = message.user_id else {
         return;
     };
     let Some(prompt) = message
@@ -48,23 +53,96 @@ pub(super) async fn handle_message(
     else {
         return;
     };
-    if !allowed.contains(&user_id) {
-        warn!(
-            telegram_user_id = user_id,
-            "Rejected unauthorized Telegram user"
-        );
-        let _ = gateway
-            .send_message(message.chat_id, "You are not authorized to use EME.")
-            .await;
-        return;
-    }
 
     let mut parts = prompt.splitn(2, char::is_whitespace);
     let command = parts.next().unwrap_or_default();
     let arguments = parts.next().unwrap_or_default().trim();
 
+    // Invitation payloads are deliberately handled before the configured
+    // allow-list: a valid invitation is itself the authorization to join.
+    // Require a private chat so bearer tokens are not exposed to a group.
+    if command == "/start" && arguments.len() == 64 {
+        if message.chat_id != telegram_user_id {
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "Please open the invitation in a private chat with this bot.",
+                )
+                .await;
+            return;
+        }
+        let token = match InvitationToken::parse(arguments) {
+            Ok(token) => token,
+            Err(_) => {
+                let _ = gateway
+                    .send_message(
+                        message.chat_id,
+                        "This family invitation is invalid or has expired.",
+                    )
+                    .await;
+                return;
+            }
+        };
+        let identity = match InvitationTargetIdentity::new("telegram", telegram_user_id.to_string())
+        {
+            Ok(identity) => identity,
+            Err(error) => {
+                send_error(
+                    gateway,
+                    message.chat_id,
+                    "prepare your Telegram identity",
+                    error,
+                )
+                .await;
+                return;
+            }
+        };
+
+        if families
+            .validate_invitation(&token, &identity)
+            .await
+            .is_err()
+        {
+            let _ = gateway
+                .send_message(message.chat_id, "This family invitation is invalid, expired, revoked, or belongs to another Telegram account.")
+                .await;
+            return;
+        }
+
+        // Only provision an EME account after the bearer token and optional
+        // Telegram identity binding have been checked.
+        let (user, _) =
+            match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
+                Ok(identity) => identity,
+                Err(error) => {
+                    send_error(gateway, message.chat_id, "create your EME identity", error).await;
+                    return;
+                }
+            };
+
+        match families
+            .accept_invitation(&token, &identity, user.id, FamilyRelationship::Other)
+            .await
+        {
+            Ok(member) => {
+                let _ = gateway
+                    .send_message(
+                        message.chat_id,
+                        &format!("You have joined family {} successfully. Send a message to start using EME.", member.family_id),
+                    )
+                    .await;
+            }
+            Err(_) => {
+                let _ = gateway
+                    .send_message(message.chat_id, "The invitation could not be accepted. It may have already been used, revoked, or expired.")
+                    .await;
+            }
+        }
+        return;
+    }
+
     if command == "/start" && arguments.starts_with("auth_") {
-        if message.chat_id != user_id {
+        if message.chat_id != telegram_user_id {
             let _ = gateway
                 .send_message(
                     message.chat_id,
@@ -74,7 +152,7 @@ pub(super) async fn handle_message(
             return;
         }
         let token = arguments.trim_start_matches("auth_");
-        let response = if auth.complete_login(token, user_id, identities.as_ref()) {
+        let response = if auth.complete_login(token, telegram_user_id, identities.as_ref()) {
             "Web login approved. You can return to the EME console."
         } else {
             "This login link is invalid or has expired. Please start again from the EME console."
@@ -83,14 +161,49 @@ pub(super) async fn handle_message(
         return;
     }
 
-    let (user, _) = match identities.resolve_or_create("telegram", &user_id.to_string(), None) {
-        Ok(identity) => identity,
-        Err(error) => {
-            send_error(gateway, message.chat_id, "resolve your EME identity", error).await;
-            return;
+    // Existing configured users remain supported. Other users may use the bot
+    // only after their Telegram identity has an active family membership.
+    let existing_identity =
+        match identities.find_identity("telegram", &telegram_user_id.to_string()) {
+            Ok(identity) => identity,
+            Err(error) => {
+                send_error(gateway, message.chat_id, "look up your EME identity", error).await;
+                return;
+            }
+        };
+    let user = if allowed.contains(&telegram_user_id) {
+        match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
+            Ok((user, _)) => Some(user),
+            Err(error) => {
+                send_error(gateway, message.chat_id, "resolve your EME identity", error).await;
+                return;
+            }
         }
+    } else if let Some(identity) = existing_identity {
+        match families.list_families(identity.user_id).await {
+            Ok(family_list) if !family_list.is_empty() => {
+                match identities.get_user(identity.user_id) {
+                    Ok(user) => user,
+                    Err(error) => {
+                        send_error(gateway, message.chat_id, "load your EME identity", error).await;
+                        return;
+                    }
+                }
+            }
+            _ => None,
+        }
+    } else {
+        None
     };
-    let owner = format!("telegram:{user_id}");
+    let Some(user) = user else {
+        warn!(telegram_user_id, "Rejected unauthorized Telegram user");
+        let _ = gateway
+            .send_message(message.chat_id, "You are not authorized to use EME.")
+            .await;
+        return;
+    };
+
+    let owner = format!("telegram:{telegram_user_id}");
     if handle_command(
         gateway,
         &owner,
