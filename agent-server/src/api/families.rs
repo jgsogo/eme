@@ -40,11 +40,15 @@ fn service_error(error: FamilyServiceError) -> HttpResponse {
             HttpResponse::NotFound().finish()
         }
         FamilyServiceError::Forbidden => HttpResponse::Forbidden().finish(),
-        FamilyServiceError::EmptyName => HttpResponse::BadRequest().body("family name must not be empty"),
+        FamilyServiceError::EmptyName => {
+            HttpResponse::BadRequest().body("family name must not be empty")
+        },
         FamilyServiceError::OwnerMustTransfer
         | FamilyServiceError::TargetNotMember
         | FamilyServiceError::OwnerRoleRequiresTransfer
-        | FamilyServiceError::CannotChangeOwnRole => HttpResponse::Conflict().body(error.to_string()),
+        | FamilyServiceError::CannotChangeOwnRole => {
+            HttpResponse::Conflict().body("family membership conflict")
+        },
         FamilyServiceError::FamilyStorage(_) | FamilyServiceError::InvitationStorage(_) => {
             HttpResponse::InternalServerError().finish()
         }
@@ -57,8 +61,7 @@ fn parse_family_id(value: &str) -> Result<FamilyId, HttpResponse> {
 }
 
 fn parse_user_id(value: &str) -> Result<UserId, HttpResponse> {
-    UserId::from_str(value)
-        .map_err(|_| HttpResponse::BadRequest().body("invalid user identifier"))
+    UserId::from_str(value).map_err(|_| HttpResponse::BadRequest().body("invalid user identifier"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -142,7 +145,10 @@ async fn create_family(
         Ok(actor) => actor,
         Err(response) => return response,
     };
-    match service.create_family(actor, &body.name, body.relationship).await {
+    match service
+        .create_family(actor, &body.name, body.relationship)
+        .await
+    {
         Ok(family) => HttpResponse::Created().json(family),
         Err(error) => service_error(error),
     }
@@ -286,7 +292,10 @@ async fn change_member_role(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match service.change_member_role(actor, family_id, user_id, body.role).await {
+    match service
+        .change_member_role(actor, family_id, user_id, body.role)
+        .await
+    {
         Ok(member) => HttpResponse::Ok().json(member),
         Err(error) => service_error(error),
     }
@@ -314,7 +323,10 @@ async fn change_member_relationship(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match service.change_member_relationship(actor, family_id, user_id, body.relationship).await {
+    match service
+        .change_member_relationship(actor, family_id, user_id, body.relationship)
+        .await
+    {
         Ok(member) => HttpResponse::Ok().json(member),
         Err(error) => service_error(error),
     }
@@ -341,7 +353,10 @@ async fn transfer_ownership(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match service.transfer_ownership(actor, family_id, new_owner).await {
+    match service
+        .transfer_ownership(actor, family_id, new_owner)
+        .await
+    {
         Ok(()) => HttpResponse::NoContent().finish(),
         Err(error) => service_error(error),
     }
@@ -386,7 +401,15 @@ async fn create_invitation(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match service.create_invitation(actor, family_id, body.target_identity.clone(), body.expires_at).await {
+    match service
+        .create_invitation(
+            actor,
+            family_id,
+            body.target_identity.clone(),
+            body.expires_at,
+        )
+        .await
+    {
         Ok((invitation, token)) => HttpResponse::Created().json(CreatedInvitation {
             invitation,
             token: token.expose().to_owned(),
@@ -438,7 +461,10 @@ async fn revoke_invitation(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("invalid invitation identifier"),
     };
-    match service.revoke_invitation(actor, family_id, invitation_id).await {
+    match service
+        .revoke_invitation(actor, family_id, invitation_id)
+        .await
+    {
         Ok(invitation) => HttpResponse::Ok().json(invitation),
         Err(error) => service_error(error),
     }
@@ -460,7 +486,10 @@ async fn accept_invitation(
         Ok(token) => token,
         Err(_) => return HttpResponse::NotFound().finish(),
     };
-    match service.accept_invitation(&token, &external_identity, actor, body.relationship).await {
+    match service
+        .accept_invitation(&token, &external_identity, actor, body.relationship)
+        .await
+    {
         Ok(member) => HttpResponse::Ok().json(member),
         Err(error) => service_error(error),
     }
