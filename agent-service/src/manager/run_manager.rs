@@ -469,7 +469,7 @@ mod tests {
     impl RunExecutor for RuntimeEventExecutor {
         async fn execute(
             &self,
-            _run_id: RunId,
+            run_id: RunId,
             _agent: String,
             _input: String,
             _history: Vec<agent_runtime::Message>,
