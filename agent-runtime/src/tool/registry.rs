@@ -102,7 +102,12 @@ impl ToolDispatcher for ToolRegistry {
         self.definition(name)
     }
 
-    async fn execute(&self, context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        context: &ToolContext,
+        name: &str,
+        arguments: Value,
+    ) -> Result<String, ToolError> {
         let tool = self
             .tools
             .get(name)
@@ -157,7 +162,11 @@ mod registration_tests {
 
     #[async_trait]
     impl Tool for NoopTool {
-        async fn execute(&self, _context: &ToolContext, _arguments: Value) -> Result<String, ToolError> {
+        async fn execute(
+            &self,
+            _context: &ToolContext,
+            _arguments: Value,
+        ) -> Result<String, ToolError> {
             Ok(String::new())
         }
     }
@@ -180,20 +189,28 @@ mod registration_tests {
     async fn dispatches_authenticated_context_to_tool_implementation() {
         let captured_user = std::sync::Arc::new(std::sync::Mutex::new(None));
         let mut registry = ToolRegistry::new();
-        registry.register(
-            ToolDefinition {
-                name: "context".into(),
-                description: "Reads trusted context".into(),
-                parameters: serde_json::json!({"type": "object"}),
-            },
-            ContextTool(captured_user.clone()),
-        ).unwrap();
+        registry
+            .register(
+                ToolDefinition {
+                    name: "context".into(),
+                    description: "Reads trusted context".into(),
+                    parameters: serde_json::json!({"type": "object"}),
+                },
+                ContextTool(captured_user.clone()),
+            )
+            .unwrap();
 
         let context = ToolContext::new("telegram:42");
-        let output = registry.execute(&context, "context", serde_json::json!({})).await.unwrap();
+        let output = registry
+            .execute(&context, "context", serde_json::json!({}))
+            .await
+            .unwrap();
 
         assert_eq!(output, "context received");
-        assert_eq!(captured_user.lock().unwrap().as_deref(), Some("telegram:42"));
+        assert_eq!(
+            captured_user.lock().unwrap().as_deref(),
+            Some("telegram:42")
+        );
     }
 
     #[test]
