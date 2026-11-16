@@ -16,6 +16,7 @@ meteosource-tool = { path = "../tools/meteosource" }
 google-tool = { path = "../tools/google" }
 tavily-tool = { path = "../tools/tavily" }
 common-tools = { path = "../tools/common" }
+tasks-tool = { path = "../tools/tasks" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
