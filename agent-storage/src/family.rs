@@ -1,4 +1,6 @@
 //! Family and membership domain types and storage contract.
+use std::str::FromStr;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
