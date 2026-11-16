@@ -15,7 +15,7 @@ pub use config::allowed_users_from_env;
 use std::{collections::HashSet, sync::Arc};
 
 use agent_server::auth::TelegramAuth;
-use agent_service::RunManager;
+use agent_service::{FamilyService, RunManager};
 use agent_storage::{ConversationStore, FileUserIdentityStore, SqliteFamilyStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::{Mutex, broadcast};
