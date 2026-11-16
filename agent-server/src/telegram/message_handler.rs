@@ -286,9 +286,9 @@ mod tests {
 
     #[test]
     fn parses_only_valid_invitation_start_payloads() {
-        assert!(invitation_token_from_start(&format!("invite_{}", "a".repeat(64))).is_some());
+        assert!(invitation_token_from_start(&format!("invite_{}", "a".repeat(57))).is_some());
         assert!(invitation_token_from_start("invite_short").is_none());
-        assert!(invitation_token_from_start(&format!("invite_{}", "g".repeat(64))).is_none());
+        assert!(invitation_token_from_start(&format!("invite_{}", "g".repeat(57))).is_none());
         assert!(invitation_token_from_start("auth_123").is_none());
     }
 
