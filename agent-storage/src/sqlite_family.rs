@@ -689,37 +689,6 @@ impl FamilyInvitationStore for SqliteFamilyStore {
             .ok_or(InvitationStorageError::NotFound)
     }
 
-    async fn validate_invitation(
-        &self,
-        token: &InvitationToken,
-        accepting_identity: &InvitationTargetIdentity,
-    ) -> Result<(), InvitationStorageError> {
-        let connection = self.connection.lock().await;
-        let row = connection.query_row(
-            "SELECT target_provider, target_subject, expires_at, accepted_at, revoked_at FROM family_invitations WHERE token_hash = ?1",
-            [token.hash()],
-            |row| Ok((
-                row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?,
-                row.get::<_, String>(2)?, row.get::<_, Option<String>>(3)?, row.get::<_, Option<String>>(4)?,
-            )),
-        ).optional().map_err(invitation_backend)?.ok_or(InvitationStorageError::NotFound)?;
-        if let (Some(provider), Some(subject)) = (&row.0, &row.1) {
-            if provider != &accepting_identity.provider || subject != &accepting_identity.subject {
-                return Err(InvitationStorageError::IdentityMismatch);
-            }
-        }
-        if row.3.is_some() {
-            return Err(InvitationStorageError::AlreadyAccepted);
-        }
-        if row.4.is_some() {
-            return Err(InvitationStorageError::Revoked);
-        }
-        if parse_time(&row.2).map_err(InvitationStorageError::Backend)? <= Utc::now() {
-            return Err(InvitationStorageError::Expired);
-        }
-        Ok(())
-    }
-
     async fn accept_invitation(
         &self,
         token: &InvitationToken,
@@ -991,7 +960,7 @@ mod tests {
             .unwrap();
         assert!(matches!(
             store
-                .validate_invitation(&token, &identity("allowed"))
+                .accept_invitation(&token, &identity("allowed"), UserId::new(), FamilyRelationship::Other)
                 .await,
             Err(InvitationStorageError::Revoked)
         ));
@@ -1013,7 +982,7 @@ mod tests {
         }
         assert!(matches!(
             store
-                .validate_invitation(&expired, &identity("telegram"))
+                .accept_invitation(&expired, &identity("telegram"), UserId::new(), FamilyRelationship::Other)
                 .await,
             Err(InvitationStorageError::Expired)
         ));
