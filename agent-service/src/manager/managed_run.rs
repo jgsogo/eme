@@ -7,7 +7,8 @@ pub(super) struct ManagedRun {
     pub(super) run: Run,
     pub(super) cancellation: CancellationToken,
     pub(super) events: Vec<RunEvent>,
-    pub(super) history: Vec<Message>,\n    pub(super) context: ToolContext,
+    pub(super) history: Vec<Message>,
+    pub(super) context: ToolContext,\n    pub(super) context: ToolContext,
 }
 
 impl ManagedRun {
