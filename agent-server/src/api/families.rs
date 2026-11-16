@@ -618,7 +618,7 @@ mod tests {
             &app,
             test::TestRequest::get()
                 .uri("/families")
-                .insert_header((header::COOKIE, cookie))
+                .insert_header((header::COOKIE, cookie.clone()))
                 .to_request(),
         )
         .await;
