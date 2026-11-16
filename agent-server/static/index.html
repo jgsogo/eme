@@ -121,7 +121,7 @@ function renderMessages(messages=[]){
 function renderRunEvents(events=[]){$("run-events").innerHTML=events.length?events.map(event=>"<li>"+escapeHtml(event.kind)+(event.tool_name?" · "+escapeHtml(event.tool_name):"")+"</li>").join(""):"<li>No events yet.</li>"}
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId}
 async function loadConversations(){state.conversations=await api("/conversations");renderConversations()}
-async function loadFamilies(){state.families=await api("/families");renderFamilySelector()}
+async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector()}
 function renderFamilySelector(){const selector=$("family-selector"),selected=state.selectedFamilyId||"";selector.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");selector.value=state.families.some(f=>f.id===selected)?selected:"";selector.disabled=!state.selected||!!state.runId;state.selectedFamilyId=selector.value||null}
 function renderFamilyMembers(){
  const target=$("family-members"),details=state.familyDetails;
@@ -129,19 +129,26 @@ function renderFamilyMembers(){
  if(!details){target.textContent="Select a family in the conversation selector to see its members.";renderFamilyLifecycle();return}
  const members=details.members||[];
  target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+members.length+' members</div>'+ (members.length?members.map(m=>{
-  const role=String(m.role).toLowerCase();
-  const actions=role==="owner"?'':'<div class="member-actions"><label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button><button type="button" class="secondary" data-transfer-owner="'+escapeHtml(m.user_id)+'">Make owner</button><button type="button" class="danger" data-remove-member="'+escapeHtml(m.user_id)+'">Remove</button></div>';
+  const role=String(m.role).toLowerCase(),actor=currentFamilyMember(),actorRole=actor?.role.toLowerCase();
+  const isSelf=m.user_id===state.currentUserId,isOwner=actorRole==="owner",isAdmin=actorRole==="admin";
+  const canChangeRole=!isSelf&&!isOwner&&false;
+  const canEditRole=!isSelf&&!isOwner&&false;
+  const roleControl=!isSelf&&(isOwner||(isAdmin&&role==="member"))?'<label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button>':'';
+  const transfer=isOwner&&!isSelf?'<button type="button" class="secondary" data-transfer-owner="'+escapeHtml(m.user_id)+'">Make owner</button>':'';
+  const remove=!isSelf&&(isOwner||(isAdmin&&role==="member"))?'<button type="button" class="danger" data-remove-member="'+escapeHtml(m.user_id)+'">Remove</button>':'';
+  const actions=roleControl||transfer||remove?'<div class="member-actions">'+roleControl+transfer+remove+'</div>':'';
   return '<div class="family-member"><strong>'+escapeHtml(m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span>'+actions+'</div>';
  }).join(""):'<div class="hint">No members.</div>');
 }
+function currentFamilyMember(){
+ return (state.familyDetails?.members||[]).find(member=>member.user_id===state.currentUserId)||null;
+}
 function renderFamilyLifecycle(){
- const family=state.familyDetails?.family;
- const members=state.familyDetails?.members||[];
- const me=members.find(member=>member.role.toLowerCase()==="owner");
- const isOwner=!!me;
- $("leave-family").disabled=!family||isOwner;
+ const family=state.familyDetails?.family,me=currentFamilyMember();
+ const isOwner=me?.role.toLowerCase()==="owner";
+ $("leave-family").disabled=!family||!me||isOwner;
  $("delete-family").disabled=!family||!isOwner;
- $("family-lifecycle-hint").textContent=!family?"Select a family to manage its membership.":isOwner?"Transfer ownership to another member before leaving. Only the owner can delete this family.":"You can leave this family. This removes only your membership.";
+ $("family-lifecycle-hint").textContent=!family?"Select a family to manage its membership.":!me?"Your account is not an active member of this family.":isOwner?"Transfer ownership to another member before leaving. Only the owner can delete this family.":"You can leave this family. This removes only your membership.";
 }
 
 function invitationState(invitation){
@@ -151,9 +158,11 @@ function invitationState(invitation){
  return "Pending";
 }
 function renderFamilyInvitations(){
- const target=$("family-invitations"),family=state.familyDetails?.family;
- $("create-invitation").disabled=!family;
+ const target=$("family-invitations"),family=state.familyDetails?.family,me=currentFamilyMember();
+ const canManage=me&&["owner","admin"].includes(me.role.toLowerCase());
+ $("create-invitation").disabled=!family||!canManage;
  if(!family){target.textContent="Select a family to manage invitations.";return}
+ if(!canManage){target.textContent="Only family owners and admins can manage invitations.";return}
  const items=state.familyInvitations;
  target.innerHTML=items.length?items.map(inv=>{
   const status=invitationState(inv);
