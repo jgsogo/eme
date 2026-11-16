@@ -1,13 +1,12 @@
 //! Telegram login challenges, browser sessions, and run ownership.
 
+#[path = "pending_login.rs"]
+mod pending_login;
 use std::{
     collections::HashMap,
     sync::Mutex,
     time::{Duration, Instant},
 };
-
-#[path = "pending_login.rs"]
-mod pending_login;
 #[path = "session.rs"]
 mod session;
 use pending_login::PendingLogin;
