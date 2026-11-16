@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
 <title>EME Agent Console</title>
 <style>
 :root{color-scheme:dark;--bg:#0f1419;--panel:#1a2332;--panel2:#243044;--border:#2d3a4f;--text:#e7ecf3;--muted:#8b9bb4;--accent:#68a9dc;--ok:#55b889;--err:#d47777;--radius:12px;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -28,12 +28,13 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 .markdown-content input[type=checkbox]{margin-right:.45em;accent-color:var(--accent)}
 .message .role{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:5px}.composer{border-top:1px solid var(--border);padding:13px 16px}.composer textarea{resize:vertical;min-height:65px;max-height:180px;margin:0 0 8px}.composer-row{display:flex;justify-content:space-between;align-items:center;gap:10px}.hint{font-size:11px;color:var(--muted)}.run-status{font-size:12px;color:var(--muted)}.run-status.error{color:var(--err)}.run-status.ok{color:var(--ok)}
 @media(max-width:760px){header{padding:10px 14px}#close-conversations{display:inline-flex}.drawer-backdrop{display:block}.menu-toggle{display:inline-flex;align-items:center;justify-content:center}main{display:block;padding:8px;min-height:0}.sidebar{position:fixed;z-index:30;inset:0 auto 0 0;width:min(86vw,340px);max-height:none;height:100dvh;border-radius:0 12px 12px 0;box-shadow:12px 0 32px rgba(0,0,0,.35);transform:translateX(-105%);transition:transform .22s ease;will-change:transform}.sidebar.open{transform:translateX(0)}.drawer-backdrop{position:fixed;inset:0;z-index:29;background:rgba(0,0,0,.58);opacity:0;visibility:hidden;transition:opacity .22s ease,visibility .22s ease}.drawer-backdrop.open{opacity:1;visibility:visible}.conversations{display:block}.conversations li{min-width:0}.chat{height:100%;min-height:0}.chat-head{padding:11px 12px}.chat-head>div:first-child{min-width:0}.chat-head h2{overflow-wrap:anywhere}.chat-head>div:last-child{flex-wrap:wrap;justify-content:flex-end}.messages{padding:14px}.message{max-width:96%}.composer{padding:10px}.hint{max-width:60%}}
-#login-screen{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}#login-screen[hidden]{display:none}.login-card{width:min(440px,100%);background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:28px}.login-card h2{font-size:18px;color:var(--text);letter-spacing:0;text-transform:none;margin-bottom:10px}.login-card p{color:var(--muted)}.login-card a{display:block;margin-top:16px;color:var(--accent);overflow-wrap:anywhere}#login-status{font-size:13px}
+#login-screen{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}#login-screen[hidden]{display:none}.login-card{width:min(440px,100%);background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:28px}.login-card h2{font-size:18px;color:var(--text);letter-spacing:0;text-transform:none;margin-bottom:10px}.login-card p{color:var(--muted)}.login-card a{display:block;margin-top:16px;color:var(--accent);overflow-wrap:anywhere}#login-status{font-size:13px}#invite-screen{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}#invite-screen[hidden]{display:none}#invite-status{font-size:13px;color:var(--muted)}
 </style>
 </head>
 <body>
 <header><div class="header-title"><button type="button" class="secondary menu-toggle" id="open-conversations" aria-label="Open conversations" aria-controls="conversation-sidebar" aria-expanded="false">☰</button><h1>EME Agent Console</h1></div><div style="display:flex;align-items:center;gap:14px"><button class="secondary" id="logout" hidden>Sign out</button><span id="connection" class="hint">Connecting…</span></div></header>
 <section id="login-screen" hidden><div class="login-card"><h2>Sign in with Telegram</h2><p>Use your Telegram account to sign in to the EME web console.</p><button id="login-start">Continue with Telegram</button><a id="login-link" hidden target="_blank" rel="noopener noreferrer">Open EME bot in Telegram</a><p id="login-status">Your login link will expire after five minutes.</p></div></section>
+<section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship" style="display:block;width:100%;margin:8px 0 16px;padding:10px;background:var(--panel2);border:1px solid var(--border);border-radius:8px"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
 <main hidden>
 <div class="drawer-backdrop" id="drawer-backdrop" aria-hidden="true"></div>
 <aside class="panel sidebar" id="conversation-sidebar" aria-label="Conversations">
@@ -56,6 +57,8 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <script>
 const TERMINAL=new Set(["completed","failed","cancelled","timed_out","max_iterations_reached"]);
+const pendingInviteMatch=window.location.pathname.match(/^\\/invite\\/([a-fA-F0-9]{64})$/);
+let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
 const state={agents:[],conversations:[],selected:null,messageCount:0,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const mobileDrawer=()=>window.matchMedia("(max-width:760px)").matches;
@@ -122,13 +125,18 @@ async function pollRun(conversationId,runId,previousMessageCount){clearInterval(
 $("open-conversations").addEventListener("click",()=>setDrawerOpen(true));$("close-conversations").addEventListener("click",closeDrawer);$("drawer-backdrop").addEventListener("click",closeDrawer);document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});window.addEventListener("resize",()=>{if(!mobileDrawer())closeDrawer()});
 $("rename-conversation").addEventListener("click",renameConversation);$("cancel-run").addEventListener("click",async()=>{if(!state.runId)return;try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(e){setStatus(e.message,"error")}});$("agent").addEventListener("change",updateAgentDescription);$("new-conversation").addEventListener("click",createConversation);$("refresh").addEventListener("click",()=>loadConversations().catch(e=>setStatus(e.message,"error")));$("conversations").addEventListener("click",e=>{const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&!state.runId)selectConversation(item.dataset.id)});$("composer").addEventListener("submit",e=>{e.preventDefault();sendMessage()});$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function showConsole(){
- $("login-screen").hidden=true;document.querySelector("main").hidden=false;$("logout").hidden=false;
+ $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
+ if(pendingInviteToken){document.querySelector("main").hidden=true;$("invite-screen").hidden=false;$("connection").textContent="Accept invitation";return}
+ document.querySelector("main").hidden=false;
  state.agents=await api("/agents");renderAgents();await loadConversations();$("connection").textContent="Connected";
  if(state.conversations.length)await selectConversation(state.conversations[0].id)
 }
 async function showLogin(){
- $("rename-conversation").disabled=true;
- document.querySelector("main").hidden=true;$("login-screen").hidden=false;$("logout").hidden=true;$("connection").textContent="Sign in"
+ $("rename-conversation").disabled=true;$("invite-screen").hidden=true;
+ document.querySelector("main").hidden=true;$("login-screen").hidden=false;$("logout").hidden=true;$("connection").textContent="Sign in";
+ const title=$("login-screen").querySelector("h2"),description=$("login-screen").querySelector("p");
+ title.textContent=pendingInviteToken?"Sign in to accept invitation":"Sign in with Telegram";
+ description.textContent=pendingInviteToken?"Sign in with Telegram to accept your family invitation.":"Use your Telegram account to sign in to the EME web console."
 }
 $("login-start").addEventListener("click",async()=>{
  const popup=window.open("about:blank","_blank");
@@ -147,6 +155,10 @@ $("login-start").addEventListener("click",async()=>{
   }
   status.textContent="This login link expired. Please try again."
  }catch(e){if(popup&&!popup.closed)popup.close();status.textContent=e.message}finally{$("login-start").disabled=false}
+});
+$("invite-accept").addEventListener("click",async()=>{
+ if(!pendingInviteToken)return;const button=$("invite-accept"),status=$("invite-status");button.disabled=true;status.textContent="Validating and accepting invitation…";
+ try{await api("/invitations/accept",{method:"POST",body:JSON.stringify({token:pendingInviteToken,relationship:$("invite-relationship").value})});pendingInviteToken=null;window.history.replaceState({},"", "/");$("invite-screen").hidden=true;await showConsole();setStatus("Family invitation accepted","ok")}catch(e){status.textContent=e.message;button.disabled=false}
 });
 $("logout").addEventListener("click",async()=>{
  try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];renderConversations();await showLogin()}

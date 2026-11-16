@@ -15,7 +15,7 @@ mod telegram;
 use std::sync::Arc;
 
 use actix_web::{App, HttpServer, middleware, web};
-use agent_server::auth::TelegramAuth;
+use agent_server::{LanInvitationConfig, auth::TelegramAuth};
 use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager, TaskRegistry, TaskScheduler};
 use agent_storage::{
     ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteFamilyStore,
@@ -23,12 +23,12 @@ use agent_storage::{
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
-use console::console_ui;
+use console::{console_ui, invitation_page};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -127,6 +127,7 @@ async fn main() -> Result<()> {
             Arc::clone(&conversation_store),
             Arc::clone(&identity_store),
             Arc::clone(&family_store),
+            Arc::clone(&family_service),
             Arc::clone(&telegram_auth),
             updates,
         ));
@@ -135,11 +136,24 @@ async fn main() -> Result<()> {
         info!("Telegram gateway disabled (TELEGRAM_BOT_TOKEN is not set)");
     }
 
+    let lan_invitation_config = LanInvitationConfig::from_env()
+        .map_err(anyhow::Error::msg)
+        .context("validating LAN_BASE_URL")?;
+    if lan_invitation_config.is_some() {
+        info!("LAN invitation links enabled");
+    } else {
+        error!(
+            "LAN_BASE_URL is not set; LAN family invitation links are disabled. \
+             Set LAN_BASE_URL to the server's private-network URL (for example \
+             http://192.168.1.20:8080) and restart agent-server."
+        );
+    }
+
     let bind_address = (args.host, args.port);
     info!(address = %format!("http://{}:{}", bind_address.0, bind_address.1), "HTTP server listening");
 
     let server_result = HttpServer::new(move || {
-        App::new()
+        let mut app = App::new()
             .wrap(middleware::Logger::default())
             .wrap(middleware::from_fn(require_telegram_session))
             .app_data(web::Data::new(manager.clone()))
@@ -147,8 +161,12 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
-            .app_data(web::Data::from(Arc::clone(&telegram_auth)))
-            .service(console_ui)
+            .app_data(web::Data::from(Arc::clone(&telegram_auth)));
+        if let Some(config) = lan_invitation_config.clone() {
+            app = app.app_data(web::Data::new(config));
+        }
+        app.service(console_ui)
+            .service(invitation_page)
             .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())

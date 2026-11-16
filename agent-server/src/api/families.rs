@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
@@ -109,11 +109,90 @@ pub struct FamilyDetails {
     pub members: Vec<FamilyMember>,
 }
 
+/// Explicit LAN base URL used to build invitation links. Only private, loopback,
+/// or link-local IP addresses are accepted; Host headers are never trusted.
+#[derive(Debug, Clone)]
+pub struct LanInvitationConfig {
+    base_url: String,
+}
+
+impl LanInvitationConfig {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        let value = value.trim().trim_end_matches('/');
+        let authority = value
+            .strip_prefix("http://")
+            .ok_or_else(|| "LAN_BASE_URL must use plain http:// on a private network".to_owned())?;
+        if authority.is_empty()
+            || authority.contains('/')
+            || authority.contains('?')
+            || authority.contains('#')
+            || authority.contains('@')
+        {
+            return Err("LAN_BASE_URL must contain only an IP address and optional port".into());
+        }
+        let host = if authority.starts_with('[') {
+            let (host, suffix) = authority
+                .split_once(']')
+                .ok_or_else(|| "LAN_BASE_URL has an invalid IPv6 address".to_owned())?;
+            if !suffix.is_empty()
+                && (!suffix.starts_with(':') || suffix[1..].parse::<u16>().is_err())
+            {
+                return Err("LAN_BASE_URL has an invalid port".into());
+            }
+            &host[1..]
+        } else if let Ok(ip) = authority.parse::<IpAddr>() {
+            if ip.is_ipv6() {
+                return Err("IPv6 LAN_BASE_URL addresses must be enclosed in brackets".into());
+            }
+            authority
+        } else {
+            let (host, port) = authority
+                .split_once(':')
+                .ok_or_else(|| "LAN_BASE_URL must include an IP address".to_owned())?;
+            if host.contains(':') || port.parse::<u16>().is_err() {
+                return Err("LAN_BASE_URL has an invalid address or port".into());
+            }
+            host
+        };
+        let ip: IpAddr = host.parse().map_err(|_| {
+            "LAN_BASE_URL host must be a private or link-local IP address".to_owned()
+        })?;
+        let allowed = match ip {
+            IpAddr::V4(ip) => ip.is_private() || ip.is_loopback() || ip.is_link_local(),
+            IpAddr::V6(ip) => {
+                ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local()
+            }
+        };
+        if !allowed || ip.is_unspecified() {
+            return Err(
+                "LAN_BASE_URL must use a private, loopback, or link-local IP address".into(),
+            );
+        }
+        Ok(Self {
+            base_url: value.to_owned(),
+        })
+    }
+
+    pub fn from_env() -> Result<Option<Self>, String> {
+        match std::env::var("LAN_BASE_URL") {
+            Ok(value) => Self::parse(&value).map(Some),
+            Err(std::env::VarError::NotPresent) => Ok(None),
+            Err(error) => Err(format!("reading LAN_BASE_URL: {error}")),
+        }
+    }
+
+    fn invitation_url(&self, token: &str) -> String {
+        format!("{}/invite/{}", self.base_url, token)
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct CreatedInvitation {
     pub invitation: FamilyInvitationSummary,
     /// Returned only by the creation operation; never included in list responses.
     pub token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lan_url: Option<String>,
 }
 
 #[get("")]
@@ -390,6 +469,7 @@ async fn create_invitation(
     auth: Data<crate::auth::TelegramAuth>,
     identities: Data<Arc<FileUserIdentityStore>>,
     service: Data<Arc<FamilyService>>,
+    lan: Option<Data<LanInvitationConfig>>,
     family_id: Path<String>,
     body: Json<CreateInvitationRequest>,
 ) -> impl Responder {
@@ -413,6 +493,7 @@ async fn create_invitation(
         Ok((invitation, token)) => HttpResponse::Created().json(CreatedInvitation {
             invitation,
             token: token.expose().to_owned(),
+            lan_url: lan.map(|config| config.invitation_url(token.expose())),
         }),
         Err(error) => service_error(error),
     }
@@ -533,7 +614,7 @@ mod tests {
     };
     use serde_json::{Value, json};
 
-    use super::{families_api, invitations_api};
+    use super::{LanInvitationConfig, families_api, invitations_api};
 
     #[actix_web::test]
     async fn family_api_requires_authentication_and_uses_session_identity_as_actor() {
@@ -552,6 +633,9 @@ mod tests {
                 .app_data(web::Data::from(Arc::clone(&auth)))
                 .app_data(web::Data::new(Arc::clone(&identities)))
                 .app_data(web::Data::new(Arc::clone(&service)))
+                .app_data(web::Data::new(
+                    LanInvitationConfig::parse("http://192.168.1.20:8080").unwrap(),
+                ))
                 .service(crate::auth::auth_api())
                 .service(families_api())
                 .service(invitations_api()),
@@ -641,6 +725,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::CREATED);
         let created_invitation: Value = test::read_body_json(response).await;
         let invitation_token = created_invitation["token"].as_str().unwrap().to_owned();
+        assert_eq!(
+            created_invitation["lan_url"],
+            format!("http://192.168.1.20:8080/invite/{invitation_token}")
+        );
 
         let response = test::call_service(
             &app,
@@ -716,5 +804,26 @@ mod tests {
         drop(service);
         drop(identities);
         let _ = std::fs::remove_file(identity_path);
+    }
+}
+
+#[cfg(test)]
+mod lan_url_tests {
+    use super::LanInvitationConfig;
+
+    #[test]
+    fn accepts_only_private_network_addresses_and_builds_invitation_urls() {
+        let config = LanInvitationConfig::parse("http://192.168.1.20:8080/").unwrap();
+        assert_eq!(
+            config.invitation_url("secret"),
+            "http://192.168.1.20:8080/invite/secret"
+        );
+        assert!(LanInvitationConfig::parse("https://192.168.1.20").is_err());
+        assert!(LanInvitationConfig::parse("http://example.com:8080").is_err());
+        assert!(LanInvitationConfig::parse("http://8.8.8.8:8080").is_err());
+        assert!(LanInvitationConfig::parse("http://192.168.1.20:bad").is_err());
+        assert!(LanInvitationConfig::parse("http://192.168.1.20/path").is_err());
+        assert!(LanInvitationConfig::parse("http://::1").is_err());
+        assert!(LanInvitationConfig::parse("http://[fd00::20]:8080").is_ok());
     }
 }

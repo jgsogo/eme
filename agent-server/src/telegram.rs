@@ -15,7 +15,7 @@ pub use config::allowed_users_from_env;
 use std::{collections::HashSet, sync::Arc};
 
 use agent_server::auth::TelegramAuth;
-use agent_service::RunManager;
+use agent_service::{FamilyService, RunManager};
 use agent_storage::{ConversationStore, FileUserIdentityStore, SqliteFamilyStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::{Mutex, broadcast};
@@ -31,6 +31,7 @@ pub async fn run_bot(
     store: Arc<ConversationStore>,
     identities: Arc<FileUserIdentityStore>,
     families: Arc<SqliteFamilyStore>,
+    family_service: Arc<FamilyService>,
     auth: Arc<TelegramAuth>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
@@ -47,6 +48,7 @@ pub async fn run_bot(
                     &store,
                     &identities,
                     &families,
+                    &family_service,
                     &active_conversations,
                     &auth,
                     message,
