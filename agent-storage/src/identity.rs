@@ -4,13 +4,12 @@ mod file_user_identity_store;
 mod identity_state;
 mod identity_store_error;
 mod in_memory_user_identity_store;
+#[cfg(test)]
+mod tests;
 mod user;
 mod user_id;
 mod user_identity;
 mod user_identity_store;
-#[cfg(test)]
-mod tests;
-
 
 pub use file_user_identity_store::FileUserIdentityStore;
 pub(super) use identity_state::IdentityState;

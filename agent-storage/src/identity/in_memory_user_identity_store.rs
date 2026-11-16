@@ -1,7 +1,7 @@
 //! Process-local identity store.
 
-use std::sync::{Arc, Mutex};
 use super::{IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
 pub struct InMemoryUserIdentityStore {

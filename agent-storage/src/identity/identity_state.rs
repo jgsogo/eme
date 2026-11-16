@@ -1,9 +1,9 @@
 //! Shared identity state and invariant-preserving operations.
 
-use std::collections::HashMap;
+use super::{IdentityStoreError, User, UserId, UserIdentity};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use super::{IdentityStoreError, User, UserId, UserIdentity};
+use std::collections::HashMap;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub(super) struct IdentityState {

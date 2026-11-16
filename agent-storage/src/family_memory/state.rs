@@ -1,7 +1,7 @@
 //! Private family and membership maps.
 
-use std::collections::HashMap;
 use crate::{Family, FamilyId, FamilyMember, UserId};
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub(super) struct State {

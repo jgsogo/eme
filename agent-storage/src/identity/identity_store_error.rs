@@ -1,8 +1,8 @@
 //! Failures returned by identity persistence.
 
+use super::UserId;
 use std::io;
 use thiserror::Error;
-use super::UserId;
 
 #[derive(Debug, Error)]
 pub enum IdentityStoreError {

@@ -1,8 +1,8 @@
 //! External identity linked to an internal user.
 
+use super::UserId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use super::UserId;
 
 /// An external identity linked to an EME user.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

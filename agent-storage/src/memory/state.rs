@@ -1,8 +1,8 @@
 //! Internal maps backing the in-memory storage implementation.
 
+use crate::{StoredMessage, StoredRun, StoredRunEvent};
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::{StoredMessage, StoredRun, StoredRunEvent};
 
 #[derive(Default)]
 pub(super) struct State {

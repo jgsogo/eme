@@ -1,9 +1,14 @@
 //! Atomic JSON-file-backed identity store.
 
-use std::{fs::{self, OpenOptions}, io::{self, Write}, path::{Path, PathBuf}, sync::Mutex};
-use serde_json;
-use uuid::Uuid;
 use super::{IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore};
+use serde_json;
+use std::{
+    fs::{self, OpenOptions},
+    io::{self, Write},
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
+use uuid::Uuid;
 
 /// JSON-file-backed identity store. Writes are atomic and survive process restarts.
 /// Like ConversationStore, concurrent writers in multiple processes are not supported.
