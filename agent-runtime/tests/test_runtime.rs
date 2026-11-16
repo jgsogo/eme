@@ -284,7 +284,14 @@ async fn stops_after_max_iterations() {
     };
 
     let result = runtime
-        .run(Uuid::new_v4(), &agent, ToolContext::default(), Vec::new(), "Keep calculating.", CancellationToken::new())
+        .run(
+            Uuid::new_v4(),
+            &agent,
+            ToolContext::default(),
+            Vec::new(),
+            "Keep calculating.",
+            CancellationToken::new(),
+        )
         .await;
 
     let result = result.unwrap();
@@ -384,7 +391,12 @@ impl ToolDispatcher for BlockingTools {
         })
     }
 
-    async fn execute(&self, _context: &ToolContext, _name: &str, _arguments: Value) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        _context: &ToolContext,
+        _name: &str,
+        _arguments: Value,
+    ) -> Result<String, ToolError> {
         self.started.notify_one();
         self.release.notified().await;
         Ok("tool result".into())
@@ -460,7 +472,12 @@ impl ToolDispatcher for LimitedTools {
         })
     }
 
-    async fn execute(&self, _name: &str, _arguments: Value) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        _context: &ToolContext,
+        _name: &str,
+        _arguments: Value,
+    ) -> Result<String, ToolError> {
         tokio::time::sleep(self.delay).await;
         self.completed.store(true, Ordering::SeqCst);
         Ok(self.output.clone())
@@ -511,7 +528,14 @@ async fn times_out_individual_tool_calls_without_timing_out_the_run() {
     .with_tool_timeout(Duration::from_millis(10));
 
     let result = runtime
-        .run(Uuid::new_v4(), &test_agent(), ToolContext::default(), Vec::new(), "Run the tool", CancellationToken::new())
+        .run(
+            Uuid::new_v4(),
+            &test_agent(),
+            ToolContext::default(),
+            Vec::new(),
+            "Run the tool",
+            CancellationToken::new(),
+        )
         .await
         .unwrap();
 
@@ -588,7 +612,17 @@ async fn model_failures_keep_their_category() {
     let mut agent = test_agent();
     agent.tool_names.clear();
 
-    let failure = match runtime.run(Uuid::new_v4(), &agent, ToolContext::default(), Vec::new(), "Fail", CancellationToken::new()).await {
+    let failure = match runtime
+        .run(
+            Uuid::new_v4(),
+            &agent,
+            ToolContext::default(),
+            Vec::new(),
+            "Fail",
+            CancellationToken::new(),
+        )
+        .await
+    {
         Err(failure) => failure,
         Ok(_) => panic!("Expected a model failure"),
     };
