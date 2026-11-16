@@ -492,7 +492,10 @@ mod tests {
         reopened
             .set_selected_family("owner-a", conversation.id, None)
             .unwrap();
-        assert_eq!(reopened.get(conversation.id).unwrap().selected_family_id, None);
+        assert_eq!(
+            reopened.get(conversation.id).unwrap().selected_family_id,
+            None
+        );
 
         fs::remove_dir_all(directory).unwrap();
     }
