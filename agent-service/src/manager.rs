@@ -1,3 +1,5 @@
+//! Run admission, execution coordination, and lifecycle supervision.
+
 mod cancel_run_error;
 mod cancel_run_outcome;
 mod execution_outcome;
@@ -7,6 +9,8 @@ mod run_executor;
 mod run_manager;
 mod run_manager_config_error;
 mod submit_run_error;
+#[cfg(test)]
+mod tests;
 
 pub use cancel_run_error::CancelRunError;
 pub use cancel_run_outcome::CancelRunOutcome;
