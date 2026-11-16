@@ -1,4 +1,4 @@
-//! Family identifier typeDescribes a member's relationship
+//! Describes a member's relationship within a family, independently of permissions.
 
 use serde::{Deserialize, Serialize};
 

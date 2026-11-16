@@ -1,5 +1,4 @@
-//! #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Family
+//! Family record and its ownership and lifecycle metadata.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

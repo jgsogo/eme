@@ -1,5 +1,4 @@
-//! #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FamilyMember
+//! Membership record connecting a user to a family.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

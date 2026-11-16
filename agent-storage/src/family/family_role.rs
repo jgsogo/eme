@@ -1,4 +1,4 @@
-//! Family identifier typePermission granted
+//! Permission granted to a member within a family.
 
 use serde::{Deserialize, Serialize};
 

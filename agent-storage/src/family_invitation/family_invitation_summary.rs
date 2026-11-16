@@ -1,4 +1,4 @@
-//! #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+//! Public invitation metadata without bearer-token material.
 pub struct FamilyInvitationSummary
 
 use chrono::{DateTime, Utc};
