@@ -16,8 +16,10 @@ use std::sync::Arc;
 
 use actix_web::{App, HttpServer, middleware, web};
 use agent_server::auth::TelegramAuth;
-use agent_service::{AgentRuntimeExecutor, RunManager, TaskRegistry, TaskScheduler};
-use agent_storage::{ConversationStore, FileUserIdentityStore, SqliteFamilyStore};
+use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager, TaskRegistry, TaskScheduler};
+use agent_storage::{
+    ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteFamilyStore,
+};
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
@@ -107,6 +109,10 @@ async fn main() -> Result<()> {
         SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
             .context("opening family and invitation storage")?,
     );
+    let family_service = Arc::new(FamilyService::new(
+        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+        Arc::clone(&family_store) as Arc<dyn FamilyInvitationStore>,
+    ));
 
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
@@ -139,10 +145,14 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
+            .app_data(web::Data::new(Arc::clone(&identity_store)))
+            .app_data(web::Data::new(Arc::clone(&family_service)))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)))
             .service(console_ui)
             .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
+            .service(agent_server::families_api())
+            .service(agent_server::invitations_api())
             .service(agent_server::agents_api())
             .service(agent_server::runs_api())
     })
