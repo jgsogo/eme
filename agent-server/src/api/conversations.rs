@@ -370,6 +370,7 @@ pub fn conversations_api() -> Scope {
         .service(get_conversation)
         .service(rename_conversation)
         .service(delete_conversation)
+        .service(select_conversation_family)
         .service(continue_conversation)
 }
 
