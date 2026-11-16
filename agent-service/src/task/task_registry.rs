@@ -24,6 +24,7 @@ pub struct Task {
     #[serde(skip)] pub next_run: Option<DateTime<Utc>>,
 }
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NewTask {
     pub name: String,
     #[serde(default)] pub description: String,
