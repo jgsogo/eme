@@ -1,3 +1,5 @@
+//! Concrete runtime event sink that writes lifecycle events to tracing.
+
 use agent_runtime::{EventSink, RunEvent, RunEventKind};
 use tracing::{debug, info, warn};
 

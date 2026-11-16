@@ -6,7 +6,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "pending_login.rs"]
 mod pending_login;
+#[path = "session.rs"]
 mod session;
 use pending_login::PendingLogin;
 use session::Session;

@@ -30,7 +30,7 @@ use actix_web::{
 };
 use agent_service::{FamilyService, FamilyServiceError};
 use agent_storage::{
-    FamilyId, FamilyRelationship, FileUserIdentityStore, InvitationTargetIdentity, InvitationToken,
+    FamilyId, FileUserIdentityStore, InvitationTargetIdentity, InvitationToken,
     UserId, UserIdentityStore,
 };
 

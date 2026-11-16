@@ -1,6 +1,5 @@
 //! Compact conversation metadata returned by listing and update routes.
 
-use agent_storage::Conversation;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
