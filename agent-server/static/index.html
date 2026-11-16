@@ -130,7 +130,8 @@ function renderFamilyMembers(){
  const members=details.members||[];
  target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+members.length+' members</div>'+ (members.length?members.map(m=>{
   const role=String(m.role).toLowerCase();
-  return '<div class="family-member"><strong>'+escapeHtml(m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span><div class="member-actions"><label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button><button type="button" class="secondary" data-transfer-owner="'+escapeHtml(m.user_id)+'">Make owner</button><button type="button" class="danger" data-remove-member="'+escapeHtml(m.user_id)+'">Remove</button></div></div>';
+  const actions=role==="owner"?'':'<div class="member-actions"><label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button><button type="button" class="secondary" data-transfer-owner="'+escapeHtml(m.user_id)+'">Make owner</button><button type="button" class="danger" data-remove-member="'+escapeHtml(m.user_id)+'">Remove</button></div>';
+  return '<div class="family-member"><strong>'+escapeHtml(m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span>'+actions+'</div>';
  }).join(""):'<div class="hint">No members.</div>');
 }
 
