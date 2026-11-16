@@ -1,3 +1,5 @@
+//! Interface for resolving tool metadata and dispatching executions.
+
 use crate::{ToolContext, ToolDefinition, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;

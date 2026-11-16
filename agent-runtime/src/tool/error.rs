@@ -1,3 +1,5 @@
+//! Typed errors returned by tool lookup, validation, and execution.
+
 use crate::ErrorCategory;
 
 #[derive(Debug, thiserror::Error)]
