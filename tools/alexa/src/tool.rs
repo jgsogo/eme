@@ -3,6 +3,16 @@ use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
+const SUPPORTED_CHIMES: &[&str] = &[
+    "soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02",
+    "soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06",
+    "soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01",
+    "soundbank://soundlibrary/scifi/amzn_sfx_scifi_radar_high_ping_01",
+    "soundbank://soundlibrary/animals/amzn_sfx_bear_groan_roar_01",
+    "soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01",
+    "soundbank://soundlibrary/animals/amzn_sfx_dog_med_bark_2x_02",
+];
+
 pub struct AlexaSpeak;
 
 #[async_trait]
@@ -19,20 +29,13 @@ impl Tool for AlexaSpeak {
 
         let chime = arguments.get("chime").and_then(Value::as_str);
         if let Some(uri) = chime {
-            let valid = uri
-                .strip_prefix("soundbank://soundlibrary/")
-                .is_some_and(|path| {
-                    !path.is_empty()
-                        && path
-                            .bytes()
-                            .all(|byte| byte.is_ascii_alphanumeric() || b"/_-".contains(&byte))
-                });
-            if !valid {
+            if !SUPPORTED_CHIMES.contains(&uri) {
                 return Err(ToolError::InvalidArguments {
                     tool_name: "alexa_speak".into(),
-                    errors: vec![
-                        "'chime' must be a soundbank://soundlibrary/ URI containing only letters, numbers, '/', '_' or '-'".into(),
-                    ],
+                    errors: vec![format!(
+                        "Unsupported 'chime'. Choose one of: {}",
+                        SUPPORTED_CHIMES.join(", ")
+                    )],
                 });
             }
         }
