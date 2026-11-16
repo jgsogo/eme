@@ -267,7 +267,8 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use agent_runtime::{
-        CancellationToken, FamilyContext, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind, ToolContext,
+        CancellationToken, FamilyContext, RunEvent as RuntimeEvent,
+        RunEventKind as RuntimeEventKind, ToolContext,
     };
     use async_trait::async_trait;
     use tokio::sync::Notify;
@@ -422,8 +423,20 @@ mod tests {
         let received = received.lock().unwrap().clone().unwrap();
         assert_eq!(received.user_id.as_deref(), Some("telegram:42"));
         assert_eq!(received.conversation_id.as_deref(), Some("conversation-1"));
-        assert_eq!(received.family.as_ref().map(|family| family.family_id.as_str()), Some("family-1"));
-        assert_eq!(received.family.as_ref().map(|family| family.family_role.as_str()), Some("owner"));
+        assert_eq!(
+            received
+                .family
+                .as_ref()
+                .map(|family| family.family_id.as_str()),
+            Some("family-1")
+        );
+        assert_eq!(
+            received
+                .family
+                .as_ref()
+                .map(|family| family.family_role.as_str()),
+            Some("owner")
+        );
         assert_eq!(received.run_id, Some(run_id.as_uuid()));
     }
 
