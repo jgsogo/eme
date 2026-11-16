@@ -140,7 +140,7 @@ pub(super) async fn handle_message(
     }
 
     match manager
-        .submit_with_history_and_context(
+        .submit(
             conversation.agent.clone(),
             prompt,
             conversation.messages.clone(),
