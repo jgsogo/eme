@@ -4,13 +4,14 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 const SUPPORTED_CHIMES: &[&str] = &[
-    "soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02",
     "soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06",
-    "soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01",
-    "soundbank://soundlibrary/scifi/amzn_sfx_scifi_radar_high_ping_01",
-    "soundbank://soundlibrary/animals/amzn_sfx_bear_groan_roar_01",
-    "soundbank://soundlibrary/animals/amzn_sfx_cat_angry_meow_1x_01",
-    "soundbank://soundlibrary/animals/amzn_sfx_dog_med_bark_2x_02",
+    "soundbank://soundlibrary/aircrafts/futuristic/futuristic_01",
+    "soundbank://soundlibrary/air/steam/steam_05",
+    "soundbank://soundlibrary/water/nature/nature_08",
+    "soundbank://soundlibrary/animals/amzn_sfx_bird_chickadee_chirp_1x_01",
+    "soundbank://soundlibrary/animals/amzn_sfx_bird_forest_01",
+    "soundbank://soundlibrary/animals/amzn_sfx_bird_robin_chirp_1x_01",
+    "soundbank://soundlibrary/animals/amzn_sfx_raven_caw_1x_01",
 ];
 
 pub struct AlexaSpeak;
