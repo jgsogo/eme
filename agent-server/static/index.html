@@ -123,13 +123,18 @@ async function pollRun(conversationId,runId,previousMessageCount){clearInterval(
 $("open-conversations").addEventListener("click",()=>setDrawerOpen(true));$("close-conversations").addEventListener("click",closeDrawer);$("drawer-backdrop").addEventListener("click",closeDrawer);document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});window.addEventListener("resize",()=>{if(!mobileDrawer())closeDrawer()});
 $("rename-conversation").addEventListener("click",renameConversation);$("cancel-run").addEventListener("click",async()=>{if(!state.runId)return;try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(e){setStatus(e.message,"error")}});$("agent").addEventListener("change",updateAgentDescription);$("new-conversation").addEventListener("click",createConversation);$("refresh").addEventListener("click",()=>loadConversations().catch(e=>setStatus(e.message,"error")));$("conversations").addEventListener("click",e=>{const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&!state.runId)selectConversation(item.dataset.id)});$("composer").addEventListener("submit",e=>{e.preventDefault();sendMessage()});$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function showConsole(){
- $("login-screen").hidden=true;document.querySelector("main").hidden=false;$("logout").hidden=false;
+ $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
+ if(pendingInviteToken){document.querySelector("main").hidden=true;$("invite-screen").hidden=false;$("connection").textContent="Accept invitation";return}
+ document.querySelector("main").hidden=false;
  state.agents=await api("/agents");renderAgents();await loadConversations();$("connection").textContent="Connected";
  if(state.conversations.length)await selectConversation(state.conversations[0].id)
 }
 async function showLogin(){
- $("rename-conversation").disabled=true;
- document.querySelector("main").hidden=true;$("login-screen").hidden=false;$("logout").hidden=true;$("connection").textContent="Sign in"
+ $("rename-conversation").disabled=true;$("invite-screen").hidden=true;
+ document.querySelector("main").hidden=true;$("login-screen").hidden=false;$("logout").hidden=true;$("connection").textContent="Sign in";
+ const title=$("login-screen").querySelector("h2"),description=$("login-screen").querySelector("p");
+ title.textContent=pendingInviteToken?"Sign in to accept invitation":"Sign in with Telegram";
+ description.textContent=pendingInviteToken?"Sign in with Telegram to accept your family invitation.":"Use your Telegram account to sign in to the EME web console."
 }
 $("login-start").addEventListener("click",async()=>{
  const popup=window.open("about:blank","_blank");
