@@ -1,10 +1,12 @@
+//! A task prepared for execution by the scheduler.
+
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
 use uuid::Uuid;
 
 #[derive(Clone)]
-pub(crate) struct ScheduledTask {
+pub struct ScheduledTask {
     pub id: Uuid,
     pub user_id: String,
     pub name: String,

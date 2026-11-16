@@ -1,3 +1,5 @@
+//! Stable identifiers for service-level runs.
+
 use std::{fmt, str::FromStr};
 use uuid::Uuid;
 

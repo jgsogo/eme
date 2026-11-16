@@ -1,3 +1,5 @@
+//! Errors returned when submitting a run.
+
 use thiserror::Error;
 
 /// Errors returned when a run cannot be accepted.

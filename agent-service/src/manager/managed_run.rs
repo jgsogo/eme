@@ -1,3 +1,5 @@
+//! Internal state used to supervise an active or queued run.
+
 use crate::{Run, RunEvent, RunEventKind};
 use agent_runtime::{
     CancellationToken, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,

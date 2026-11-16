@@ -1,9 +1,13 @@
+//! Service-level run state and event types.
+
 mod invalid_run_transition;
 mod run;
 mod run_event;
 mod run_event_kind;
 mod run_id;
 mod run_status;
+#[cfg(test)]
+mod tests;
 
 pub use invalid_run_transition::InvalidRunTransition;
 pub use run::Run;

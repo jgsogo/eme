@@ -1,3 +1,5 @@
+//! The asynchronous contract implemented by run executors.
+
 use super::ExecutionReport;
 use crate::RunId;
 use agent_runtime::{CancellationToken, Message, ToolContext};

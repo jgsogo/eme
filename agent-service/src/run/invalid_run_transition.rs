@@ -1,3 +1,5 @@
+//! Errors caused by invalid run lifecycle transitions.
+
 use super::RunStatus;
 use thiserror::Error;
 
