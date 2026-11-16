@@ -23,6 +23,8 @@ use uuid::Uuid;
 mod contracts;
 mod family;
 mod family_memory;
+mod family_invitation;
+mod family_invitation_memory;
 mod identity;
 mod memory;
 
@@ -34,6 +36,11 @@ pub use family::{
     Family, FamilyId, FamilyMember, FamilyRelationship, FamilyRole, FamilyStorageError, FamilyStore,
 };
 pub use family_memory::InMemoryFamilyStore;
+pub use family_invitation::{
+    FamilyInvitation, FamilyInvitationStore, FamilyInvitationSummary, InvitationStorageError,
+    InvitationTargetIdentity, InvitationToken,
+};
+pub use family_invitation_memory::InMemoryFamilyInvitationStore;
 pub use identity::{
     FileUserIdentityStore, IdentityStoreError, InMemoryUserIdentityStore, User, UserId,
     UserIdentity, UserIdentityStore,
