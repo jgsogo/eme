@@ -5,10 +5,10 @@ mod agent_list_item;
 mod cancel_run_response;
 mod get_run_response;
 mod run_event_response;
-use agent_service::{RunEvent, RunEventKind};
-
 mod submit_run_request;
 mod submit_run_response;
+
+use agent_service::{RunEvent, RunEventKind};
 
 pub use agent_catalog::AgentCatalog;
 pub use agent_list_item::AgentListItem;

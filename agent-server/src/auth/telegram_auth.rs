@@ -2,18 +2,19 @@
 
 #[path = "pending_login.rs"]
 mod pending_login;
+#[path = "session.rs"]
+mod session;
+
 use std::{
     collections::HashMap,
     sync::Mutex,
     time::{Duration, Instant},
 };
-#[path = "session.rs"]
-mod session;
-use pending_login::PendingLogin;
-use session::Session;
 
 use actix_web::HttpRequest;
 use agent_storage::UserIdentityStore;
+use pending_login::PendingLogin;
+use session::Session;
 use uuid::Uuid;
 
 pub(super) const SESSION_COOKIE: &str = "eme_session";
