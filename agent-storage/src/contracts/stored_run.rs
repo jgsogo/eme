@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use super::StoredRunStatus;
 use uuid::Uuid;
 
 /// A run snapshot suitable for durable storage.

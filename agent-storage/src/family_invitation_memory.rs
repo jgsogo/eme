@@ -3,7 +3,7 @@
 mod in_memory_family_invitation_store;
 mod state;
 
-pub(super) use state::State;
+use state::State;
 #[cfg(test)]
 mod tests;
 

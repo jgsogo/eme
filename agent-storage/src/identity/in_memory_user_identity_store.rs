@@ -1,6 +1,6 @@
 //! Process-local identity store.
 
-use super::{IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore};
+use super::{identity_key, IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore};
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]

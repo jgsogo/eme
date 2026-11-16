@@ -4,6 +4,10 @@ mod conversation;
 mod conversation_id;
 mod conversation_store;
 mod conversation_store_error;
+
+fn default_conversation_title() -> String {
+    "New conversation".to_owned()
+}
 #[cfg(test)]
 mod tests;
 

@@ -1,6 +1,7 @@
 //! Family record and its ownership and lifecycle metadata.
 
 use crate::UserId;
+use super::FamilyId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

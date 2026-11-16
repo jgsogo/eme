@@ -28,7 +28,7 @@ pub struct SqliteFamilyStore {
 impl SqliteFamilyStore {
     /// Open (or create) a database and apply all family/identity migrations.
     pub fn open(path: impl AsRef<Path>) -> Result<Self, rusqlite::Error> {
-        let mut connection = Connection::open(path)?;
+        let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         connection.execute_batch("PRAGMA foreign_keys = ON;")?;
         connection.execute_batch(include_str!("../migrations/0001_identity_and_families.sql"))?;
