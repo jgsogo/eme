@@ -1,6 +1,6 @@
 use std::time::Instant;
 
 pub(super) struct PendingLogin {
-    expires_at: Instant,
-    session: Option<String>,
+    pub(super) expires_at: Instant,
+    pub(super) session: Option<String>,
 }

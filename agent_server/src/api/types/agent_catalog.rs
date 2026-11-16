@@ -1,7 +1,5 @@
 use super::AgentListItem;
-use std::sync::Arc;
-
 #[derive(Debug, Clone)]
 pub struct AgentCatalog {
-    agents: std::sync::Arc<[AgentListItem]>,
+    pub(super) agents: std::sync::Arc<[AgentListItem]>,
 }

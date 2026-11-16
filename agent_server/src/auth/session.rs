@@ -1,6 +1,6 @@
 use std::time::Instant;
 
 pub(super) struct Session {
-    owner: String,
-    expires_at: Instant,
+    pub(super) owner: String,
+    pub(super) expires_at: Instant,
 }
