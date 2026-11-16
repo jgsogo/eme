@@ -144,6 +144,8 @@ pub enum InvitationStorageError {
     MembershipAlreadyExists,
     #[error("membership creation failed")]
     MembershipCreationFailed,
+    #[error("invitation storage backend failed: {0}")]
+    Backend(String),
 }
 
 /// Invitation operations. Acceptance and membership creation must be one

@@ -1,4 +1,6 @@
 //! Family and membership domain types and storage contract.
+use std::str::FromStr;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -24,6 +26,13 @@ impl Default for FamilyId {
 impl std::fmt::Display for FamilyId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
+    }
+}
+impl FromStr for FamilyId {
+    type Err = uuid::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Uuid::parse_str(value).map(Self)
     }
 }
 
@@ -98,6 +107,8 @@ pub enum FamilyStorageError {
     NotCurrentOwner,
     #[error("owner role can only be changed by transferring ownership")]
     OwnerRoleRequiresTransfer,
+    #[error("family storage backend failed: {0}")]
+    Backend(String),
 }
 
 /// Family persistence operations. Methods that affect ownership or family
