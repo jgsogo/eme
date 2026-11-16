@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use agent_runtime::{Tool, ToolError, ToolRegistry};
+use agent_runtime::{Tool, ToolContext, ToolError, ToolRegistry};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -8,7 +8,7 @@ struct Calculator;
 
 #[async_trait]
 impl Tool for Calculator {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let a = arguments["a"]
             .as_i64()
             .ok_or_else(|| ToolError::InvalidArguments {
