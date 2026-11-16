@@ -31,9 +31,11 @@ const NOTIFICATION_BEEP_SSML: &str =
     r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06"/>"#;
 
 fn notification_speech(text: &str, chime: Option<&str>) -> String {
-    let audio = chime
-        .map(|uri| format!(r#"<audio src="{uri}"/>"#))
-        .unwrap_or_else(|| NOTIFICATION_BEEP_SSML.to_string());
+    let audio = match chime {
+        None => NOTIFICATION_BEEP_SSML,
+        Some("none") => "",
+        Some(uri) => return format!(r#"<audio src="{uri}"/>{text}"#),
+    };
     format!("{audio}{text}")
 }
 
@@ -314,6 +316,14 @@ mod tests {
                 Some("soundbank://soundlibrary/water/nature/nature_08")
             ),
             r#"<audio src="soundbank://soundlibrary/water/nature/nature_08"/>The washing machine has finished."#
+        );
+    }
+
+    #[test]
+    fn notification_speech_can_disable_sound() {
+        assert_eq!(
+            notification_speech("The washing machine has finished.", Some("none")),
+            "The washing machine has finished."
         );
     }
 }
