@@ -291,7 +291,7 @@ impl ConversationStore {
         Ok(conversation)
     }
 
-    /// Permanently deletes a conversation belonging to owner.
+    /// Persists the family selected for a conversation owned by the caller.\n    pub fn set_selected_family(\n        &self,\n        owner: &str,\n        id: ConversationId,\n        family_id: Option<FamilyId>,\n    ) -> Result<Conversation, ConversationStoreError> {\n        let _guard = self\n            .lock\n            .lock()\n            .unwrap_or_else(|poisoned| poisoned.into_inner());\n        let mut conversation = self.read_conversation(id)?;\n        if conversation.owner != owner {\n            return Err(ConversationStoreError::OwnerMismatch {\n                conversation_id: id,\n                owner: owner.to_owned(),\n            });\n        }\n        conversation.selected_family_id = family_id;\n        conversation.updated_at = Utc::now();\n        self.write_conversation(&conversation)?;\n        Ok(conversation)\n    }\n\n    /// Permanently deletes a conversation belonging to owner.
     ///
     /// If the conversation is currently active for that owner, its active
     /// pointer is removed as part of the same process-local critical section.
