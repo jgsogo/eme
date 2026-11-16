@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
     google_tool::register_tools(&mut tools).context("registering Google tools")?;
 
-    let model_registry = agent_models::registry::Registry::load(&data_dir)?;
+    let model_registry = agent_models::Registry::load(&data_dir)?;
     let agents = AgentRegistry::load_validated(data_dir.join("agents"), &model_registry, &tools)?;
     let agent_definition = agents
         .get("assistant")
