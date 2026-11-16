@@ -3,9 +3,8 @@ use std::sync::Arc;
 use super::AgentModel;
 use crate::{ModelRequest, ModelTurn};
 use agent_models::{
-    client::ConversationClient,
-    error::ModelError,
-    types::{ConversationMessage, ConversationRequest, ConversationResponse},
+    ConversationClient, ConversationMessage, ConversationRequest, ConversationResponse, ModelError,
+    ToolCall, ToolDefinition,
 };
 use async_trait::async_trait;
 
@@ -53,7 +52,7 @@ impl AgentModel for ModelAdapter {
                         content,
                         tool_calls: tool_calls
                             .into_iter()
-                            .map(|call| agent_models::types::ToolCall {
+                            .map(|call| ToolCall {
                                 id: call.id,
                                 name: call.name,
                                 arguments: call.arguments,
@@ -79,7 +78,7 @@ impl AgentModel for ModelAdapter {
             tools: request
                 .tools
                 .into_iter()
-                .map(|tool| agent_models::types::ToolDefinition {
+                .map(|tool| ToolDefinition {
                     name: tool.name,
                     description: tool.description,
                     parameters: tool.parameters,
@@ -131,7 +130,7 @@ mod tests {
             Ok(ConversationResponse {
                 model: "fake-model".into(),
                 content: Some("Done".into()),
-                tool_calls: vec![agent_models::types::ToolCall {
+                tool_calls: vec![ToolCall {
                     id: "call-1".into(),
                     name: "calculator".into(),
                     arguments: json!({"expression": "1 + 1"}),

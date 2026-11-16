@@ -1,7 +1,6 @@
 use crate::{
     client::ConversationClient,
     error::ModelError,
-    models::{ModelCapability, ModelConfig},
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use agent_config::{ConfigError, read_toml_dir};
