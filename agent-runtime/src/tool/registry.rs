@@ -166,6 +166,44 @@ mod registration_tests {
         }
     }
 
+    struct ContextTool(std::sync::Arc<std::sync::Mutex<Option<String>>>);
+
+    #[async_trait]
+    impl Tool for ContextTool {
+        async fn execute(&self, _arguments: Value) -> Result<String, ToolError> {
+            Ok("no context".into())
+        }
+
+        async fn execute_with_context(
+            &self,
+            context: &ToolContext,
+            _arguments: Value,
+        ) -> Result<String, ToolError> {
+            *self.0.lock().unwrap() = context.user_id.clone();
+            Ok("context received".into())
+        }
+    }
+
+    #[tokio::test]
+    async fn dispatches_authenticated_context_to_tool_implementation() {
+        let captured_user = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let mut registry = ToolRegistry::new();
+        registry.register(
+            ToolDefinition {
+                name: "context".into(),
+                description: "Reads trusted context".into(),
+                parameters: serde_json::json!({"type": "object"}),
+            },
+            ContextTool(captured_user.clone()),
+        ).unwrap();
+
+        let context = ToolContext::new("telegram:42");
+        let output = registry.execute_with_context(&context, "context", serde_json::json!({})).await.unwrap();
+
+        assert_eq!(output, "context received");
+        assert_eq!(captured_user.lock().unwrap().as_deref(), Some("telegram:42"));
+    }
+
     #[test]
     fn loads_definition_and_registers_implementation_from_file() {
         let directory = TestDirectory::new();
