@@ -5,8 +5,11 @@ use actix_web::{
     web::{self, Data, Json, Path},
 };
 use agent_runtime::ToolContext;
-use agent_service::{RunManager, SubmitRunError};
-use agent_storage::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
+use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
+use agent_storage::{
+    Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
+    FileUserIdentityStore, UserIdentityStore,
+};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
@@ -35,6 +38,11 @@ pub struct ContinueConversationRequest {
     pub input: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SelectConversationFamilyRequest {
+    pub family_id: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ConversationSummary {
     pub id: String,
@@ -43,6 +51,7 @@ pub struct ConversationSummary {
     pub created_at: String,
     pub updated_at: String,
     pub message_count: usize,
+    pub selected_family_id: Option<String>,
 }
 
 impl From<Conversation> for ConversationSummary {
@@ -54,6 +63,7 @@ impl From<Conversation> for ConversationSummary {
             created_at: conversation.created_at.to_rfc3339(),
             updated_at: conversation.updated_at.to_rfc3339(),
             message_count: conversation.messages.len(),
+            selected_family_id: conversation.selected_family_id.map(|id| id.to_string()),
         }
     }
 }
@@ -192,7 +202,7 @@ async fn delete_conversation(
     }
 }
 
-#[post("/{conversation_id}/runs")]
+#[put("/{conversation_id}/family")]\nasync fn select_conversation_family(\n    request: HttpRequest,\n    auth: Data<crate::auth::TelegramAuth>,\n    store: Data<Arc<ConversationStore>>,\n    identities: Data<Arc<FileUserIdentityStore>>,\n    families: Data<Arc<FamilyService>>,\n    conversation_id: Path<String>,\n    body: Json<SelectConversationFamilyRequest>,\n) -> impl Responder {\n    let owner = match authenticated_owner(&request, &auth) {\n        Ok(owner) => owner,\n        Err(response) => return response,\n    };\n    let id = match ConversationId::from_str(conversation_id.as_str()) {\n        Ok(id) => id,\n        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),\n    };\n    match store.get(id) {\n        Ok(conversation) if conversation.owner == owner => {}\n        Ok(_) => return HttpResponse::NotFound().finish(),\n        Err(error) => return conversation_error(error),\n    }\n\n    let family_id = match body.family_id.as_deref() {\n        Some(value) => {\n            let family_id = match FamilyId::from_str(value) {\n                Ok(id) => id,\n                Err(_) => return HttpResponse::BadRequest().body("invalid family identifier"),\n            };\n            let subject = match owner.strip_prefix("telegram:") {\n                Some(subject) if !subject.is_empty() => subject,\n                _ => return HttpResponse::Unauthorized().finish(),\n            };\n            let identity = match identities.find_identity("telegram", subject) {\n                Ok(Some(identity)) => identity,\n                Ok(None) => return HttpResponse::Unauthorized().finish(),\n                Err(_) => return HttpResponse::InternalServerError().finish(),\n            };\n            match families.context_for_member(identity.user_id, family_id).await {\n                Ok(_) => Some(family_id),\n                Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {\n                    return HttpResponse::NotFound().finish();\n                }\n                Err(_) => return HttpResponse::InternalServerError().finish(),\n            }\n        }\n        None => None,\n    };\n\n    match store.set_selected_family(&owner, id, family_id) {\n        Ok(conversation) => HttpResponse::Ok().json(ConversationSummary::from(conversation)),\n        Err(error) => conversation_error(error),\n    }\n}\n\n#[post("/{conversation_id}/runs")]
 async fn continue_conversation(
     request_http: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
@@ -223,13 +233,34 @@ async fn continue_conversation(
         Err(error) => return conversation_error(error),
     };
 
+    let subject = match owner.strip_prefix("telegram:") {
+        Some(subject) if !subject.is_empty() => subject,
+        _ => return HttpResponse::Unauthorized().finish(),
+    };
+    let identity = match identities.find_identity("telegram", subject) {
+        Ok(Some(identity)) => identity,
+        Ok(None) => return HttpResponse::Unauthorized().finish(),
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    let family = match conversation.selected_family_id {
+        Some(family_id) => match families.context_for_member(identity.user_id, family_id).await {
+            Ok(context) => Some(context),
+            Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
+                return HttpResponse::Conflict().body("selected family is no longer available");
+            }
+            Err(_) => return HttpResponse::InternalServerError().finish(),
+        },
+        None => None,
+    };
+
     match manager
         .submit(
             conversation.agent.clone(),
             input.to_owned(),
             conversation.messages,
             ToolContext {
-                user_id: Some(owner.clone()),
+                user_id: Some(identity.user_id.to_string()),
+                family,
                 conversation_id: Some(id.to_string()),
                 run_id: None,
             },
