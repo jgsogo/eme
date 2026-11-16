@@ -237,7 +237,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tavily-tool",
- "tasks-tool",
  "telegram-tool",
  "thiserror",
  "tokio",
