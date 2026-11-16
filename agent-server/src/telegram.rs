@@ -31,6 +31,7 @@ pub async fn run_bot(
     store: Arc<ConversationStore>,
     identities: Arc<FileUserIdentityStore>,
     families: Arc<SqliteFamilyStore>,
+    family_service: Arc<FamilyService>,
     auth: Arc<TelegramAuth>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
@@ -47,6 +48,7 @@ pub async fn run_bot(
                     &store,
                     &identities,
                     &families,
+                    &family_service,
                     &active_conversations,
                     &auth,
                     message,
