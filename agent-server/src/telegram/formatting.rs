@@ -1,3 +1,5 @@
+//! Shared formatting and error-delivery helpers for Telegram messages.
+
 use telegram_tool::TelegramGateway;
 
 pub(super) async fn send_error(

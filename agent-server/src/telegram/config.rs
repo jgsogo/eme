@@ -1,3 +1,5 @@
+//! Telegram adapter configuration loaded from environment variables.
+
 use std::collections::HashSet;
 
 use anyhow::{Context, Result};

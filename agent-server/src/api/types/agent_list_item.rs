@@ -1,3 +1,5 @@
+//! Public summary of one configured agent.
+
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
