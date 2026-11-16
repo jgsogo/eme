@@ -213,10 +213,11 @@ async fn accept_telegram_invitation(
         }
     }
 
-    let (user, _) = match (existing_user, existing_identity) {
+    let resolved = match (existing_user, existing_identity) {
         (Some(user), Some(identity)) => Ok((user, identity)),
         _ => identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None),
-    } {
+    };
+    let (user, _) = match resolved {
         Ok(identity) => identity,
         Err(error) => {
             send_error(gateway, chat_id, "create your EME identity", error).await;
