@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use actix_web::{App, http::StatusCode, test, web};
-use agent_runtime::CancellationToken;
+use agent_runtime::{CancellationToken, Message, ToolContext};
 use agent_service::{ExecutionOutcome, RunExecutor, RunId, RunManager};
 use async_trait::async_trait;
 use serde_json::{Value, json};
@@ -18,6 +18,8 @@ impl RunExecutor for ImmediateExecutor {
         _run_id: RunId,
         _agent: String,
         input: String,
+        _history: Vec<Message>,
+        _context: ToolContext,
         _cancellation: CancellationToken,
     ) -> Result<ExecutionOutcome, String> {
         Ok(ExecutionOutcome::Completed(Some(format!("echo: {input}"))))
@@ -36,6 +38,8 @@ impl RunExecutor for WaitingExecutor {
         _run_id: RunId,
         _agent: String,
         _input: String,
+        _history: Vec<Message>,
+        _context: ToolContext,
         cancellation: CancellationToken,
     ) -> Result<ExecutionOutcome, String> {
         self.started.notify_one();
