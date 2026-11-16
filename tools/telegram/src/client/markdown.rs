@@ -7,10 +7,7 @@ pub(crate) fn markdown_to_telegram_html(markdown: &str) -> String {
     // and passing model-provided tags through could make the whole message fail.
     let safe_markdown = markdown.replace('<', "&lt;").replace('>', "&gt;");
     let mut rendered = String::new();
-    html::push_html(
-        &mut rendered,
-        Parser::new_ext(&safe_markdown, Options::all()),
-    );
+    html::push_html(&mut rendered, Parser::new_ext(&safe_markdown, Options::all()));
 
     // Telegram supports a small HTML subset. Map CommonMark's equivalent
     // elements to those tags and remove structural HTML elements.
@@ -21,12 +18,18 @@ pub(crate) fn markdown_to_telegram_html(markdown: &str) -> String {
         .replace("</em>", "</i>")
         .replace("<del>", "<s>")
         .replace("</del>", "</s>")
-        .replace("<h1>", "<b>").replace("</h1>", "</b>\\n\\n")
-        .replace("<h2>", "<b>").replace("</h2>", "</b>\\n\\n")
-        .replace("<h3>", "<b>").replace("</h3>", "</b>\\n\\n")
-        .replace("<h4>", "<b>").replace("</h4>", "</b>\\n\\n")
-        .replace("<h5>", "<b>").replace("</h5>", "</b>\\n\\n")
-        .replace("<h6>", "<b>").replace("</h6>", "</b>\\n\\n")
+        .replace("<h1>", "<b>")
+        .replace("</h1>", "</b>\n\n")
+        .replace("<h2>", "<b>")
+        .replace("</h2>", "</b>\n\n")
+        .replace("<h3>", "<b>")
+        .replace("</h3>", "</b>\n\n")
+        .replace("<h4>", "<b>")
+        .replace("</h4>", "</b>\n\n")
+        .replace("<h5>", "<b>")
+        .replace("</h5>", "</b>\n\n")
+        .replace("<h6>", "<b>")
+        .replace("</h6>", "</b>\n\n")
         .replace("<p>", "")
         .replace("</p>", "\n\n")
         .replace("<ul>", "")
@@ -59,7 +62,8 @@ mod tests {
 
     #[test]
     fn renders_links_and_lists() {
-        let rendered = markdown_to_telegram_html("- [Rust](https://www.rust-lang.org)\n- **Safe**");
+        let rendered =
+            markdown_to_telegram_html("- [Rust](https://www.rust-lang.org)\n- **Safe**");
         assert!(rendered.contains("<a href=\"https://www.rust-lang.org\">Rust</a>"));
         assert!(rendered.contains("• <b>Safe</b>"));
     }
