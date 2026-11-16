@@ -202,3 +202,18 @@ pub trait FamilyInvitationStore: Send + Sync {
         relationship: FamilyRelationship,
     ) -> Result<FamilyMember, InvitationStorageError>;
 }
+
+
+#[cfg(test)]
+mod token_tests {
+    use super::*;
+
+    #[test]
+    fn parses_only_fixed_length_hexadecimal_tokens() {
+        let token = InvitationToken::generate();
+        assert_eq!(InvitationToken::parse(token.expose()).unwrap(), token);
+        assert!(InvitationToken::parse("not-a-token").is_err());
+        assert!(InvitationToken::parse(&token.expose()[..63]).is_err());
+        assert!(InvitationToken::parse(&format!("{}z", &token.expose()[..63])).is_err());
+    }
+}
