@@ -266,13 +266,13 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use agent_runtime::{
-        CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
+        CancellationToken, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind, ToolContext,
     };
     use async_trait::async_trait;
     use tokio::sync::Notify;
 
     use super::{
-        CancelRunError, CancelRunOutcome, ExecutionOutcome, RunExecutor, RunManager,
+        CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor, RunManager,
         RunManagerConfigError, SubmitRunError,
     };
     use crate::{RunEventKind, RunId, RunStatus};
@@ -286,11 +286,11 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             _cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
-            Ok(ExecutionOutcome::Completed(Some(format!(
-                "processed: {input}"
-            ))))
+        ) -> Result<ExecutionReport, String> {
+            Ok(ExecutionReport { outcome: ExecutionOutcome::Completed(Some(format!("processed: {input}"))), runtime_events: Vec::new(), messages: None })
         }
     }
 
@@ -306,11 +306,13 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             _input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             _cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
+        ) -> Result<ExecutionReport, String> {
             self.started.notify_one();
             self.release.notified().await;
-            Ok(ExecutionOutcome::Completed(None))
+            Ok(ExecutionReport { outcome: ExecutionOutcome::Completed(None), runtime_events: Vec::new(), messages: None })
         }
     }
 
@@ -325,13 +327,15 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             _input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
+        ) -> Result<ExecutionReport, String> {
             self.started.notify_one();
             while !cancellation.is_cancelled() {
                 tokio::task::yield_now().await;
             }
-            Ok(ExecutionOutcome::Cancelled)
+            Ok(ExecutionReport { outcome: ExecutionOutcome::Cancelled, runtime_events: Vec::new(), messages: None })
         }
     }
 
@@ -405,7 +409,7 @@ mod tests {
 
         let _running = manager.submit("assistant", "running", Vec::new(), ToolContext::default()).await.unwrap();
         started.notified().await;
-        let queued = manager.submit("assistant", "queued").await.unwrap();
+        let queued = manager.submit("assistant", "queued", Vec::new(), ToolContext::default()).await.unwrap();
 
         assert_eq!(
             manager.cancel(queued).await,
@@ -431,7 +435,7 @@ mod tests {
         let started = Arc::clone(&executor.started);
         let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
 
-        let run_id = manager.submit("assistant", "hello").await.unwrap();
+        let run_id = manager.submit("assistant", "hello", Vec::new(), ToolContext::default()).await.unwrap();
         started.notified().await;
 
         assert_eq!(
@@ -468,21 +472,12 @@ mod tests {
             _run_id: RunId,
             _agent: String,
             _input: String,
+            _history: Vec<agent_runtime::Message>,
+            _context: ToolContext,
             _cancellation: CancellationToken,
-        ) -> Result<ExecutionOutcome, String> {
-            Ok(ExecutionOutcome::Completed(None))
-        }
-
-        async fn execute_with_events(
-            &self,
-            run_id: RunId,
-            agent: String,
-            input: String,
-            cancellation: CancellationToken,
-        ) -> Result<super::ExecutionReport, String> {
-            let outcome = self.execute(run_id, agent, input, cancellation).await?;
-            Ok(super::ExecutionReport {
-                outcome,
+        ) -> Result<ExecutionReport, String> {
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(None),
                 runtime_events: vec![RuntimeEvent {
                     run_id: run_id.as_uuid(),
                     iteration: 2,
