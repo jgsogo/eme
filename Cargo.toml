@@ -30,6 +30,7 @@ serde_json = "1"
 toml = "1.2"
 jsonschema = "0.61"
 uuid = { version = "1", features = ["v4", "serde"] }
+sha2 = "0.10"
 url = "2"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
