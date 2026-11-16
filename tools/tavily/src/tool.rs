@@ -2,7 +2,7 @@
 mod options;
 use options::*;
 
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -53,7 +53,7 @@ impl TimeRange {
 
 #[async_trait]
 impl Tool for WebSearch {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let arguments: Arguments =
             serde_json::from_value(arguments).map_err(|error| ToolError::InvalidArguments {
                 tool_name: "web_search".into(),
