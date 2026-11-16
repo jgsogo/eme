@@ -5,6 +5,7 @@ use std::{
 };
 
 use actix_web::HttpRequest;
+use agent_storage::UserIdentityStore;
 use uuid::Uuid;
 
 pub(super) const SESSION_COOKIE: &str = "eme_session";
@@ -73,7 +74,18 @@ impl TelegramAuth {
 
     /// Completes a pending login using the Telegram numeric user ID received
     /// from the Bot API update, never a value supplied by the browser.
-    pub fn complete_login(&self, token: &str, telegram_user_id: i64) -> bool {
+    pub fn complete_login(
+        &self,
+        token: &str,
+        telegram_user_id: i64,
+        identities: &dyn UserIdentityStore,
+    ) -> bool {
+        if identities
+            .resolve_or_create("telegram", &telegram_user_id.to_string(), None)
+            .is_err()
+        {
+            return false;
+        }
         let mut pending = Self::lock(&self.pending);
         let Some(login) = pending.get_mut(token) else {
             return false;

@@ -16,7 +16,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use agent_server::auth::TelegramAuth;
 use agent_service::RunManager;
-use agent_storage::ConversationStore;
+use agent_storage::{ConversationStore, FileUserIdentityStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::{Mutex, broadcast};
 
@@ -29,6 +29,7 @@ pub async fn run_bot(
     agents: Vec<String>,
     manager: RunManager,
     store: Arc<ConversationStore>,
+    identities: Arc<FileUserIdentityStore>,
     auth: Arc<TelegramAuth>,
     mut updates: broadcast::Receiver<IncomingMessage>,
 ) {
@@ -43,6 +44,7 @@ pub async fn run_bot(
                     &agents,
                     &manager,
                     &store,
+                    &identities,
                     &active_conversations,
                     &auth,
                     message,

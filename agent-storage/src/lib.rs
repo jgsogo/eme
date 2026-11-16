@@ -21,11 +21,16 @@ use thiserror::Error;
 use uuid::Uuid;
 
 mod contracts;
+mod identity;
 mod memory;
 
 pub use contracts::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
     StoredRunEvent, StoredRunStatus,
+};
+pub use identity::{
+    FileUserIdentityStore, IdentityStoreError, InMemoryUserIdentityStore, User, UserId,
+    UserIdentity, UserIdentityStore,
 };
 pub use memory::InMemoryStorage;
 

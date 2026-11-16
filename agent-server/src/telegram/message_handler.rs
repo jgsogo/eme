@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::Arc};
 use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{RunManager, SubmitRunError};
-use agent_storage::{ConversationId, ConversationStore};
+use agent_storage::{ConversationId, ConversationStore, FileUserIdentityStore, UserIdentityStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::Mutex;
 use tracing::warn;
@@ -17,6 +17,7 @@ pub(super) async fn handle_message(
     agents: &[String],
     manager: &RunManager,
     store: &Arc<ConversationStore>,
+    identities: &Arc<FileUserIdentityStore>,
     active_conversations: &Arc<Mutex<HashSet<ConversationId>>>,
     auth: &Arc<TelegramAuth>,
     message: IncomingMessage,
@@ -73,7 +74,7 @@ pub(super) async fn handle_message(
             return;
         }
         let token = arguments.trim_start_matches("auth_");
-        let response = if auth.complete_login(token, user_id) {
+        let response = if auth.complete_login(token, user_id, identities.as_ref()) {
             "Web login approved. You can return to the EME console."
         } else {
             "This login link is invalid or has expired. Please start again from the EME console."
@@ -82,6 +83,13 @@ pub(super) async fn handle_message(
         return;
     }
 
+    let (user, _) = match identities.resolve_or_create("telegram", &user_id.to_string(), None) {
+        Ok(identity) => identity,
+        Err(error) => {
+            send_error(gateway, message.chat_id, "resolve your EME identity", error).await;
+            return;
+        }
+    };
     let owner = format!("telegram:{user_id}");
     if handle_command(
         gateway,
@@ -145,7 +153,7 @@ pub(super) async fn handle_message(
             prompt,
             conversation.messages.clone(),
             ToolContext {
-                user_id: Some(owner.clone()),
+                user_id: Some(user.id.to_string()),
                 conversation_id: Some(conversation.id.to_string()),
                 run_id: None,
             },

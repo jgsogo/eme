@@ -17,7 +17,7 @@ use std::sync::Arc;
 use actix_web::{App, HttpServer, middleware, web};
 use agent_server::auth::TelegramAuth;
 use agent_service::{AgentRuntimeExecutor, RunManager, TaskRegistry, TaskScheduler};
-use agent_storage::ConversationStore;
+use agent_storage::{ConversationStore, FileUserIdentityStore};
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
@@ -95,6 +95,10 @@ async fn main() -> Result<()> {
         .context("configuring run manager")?;
     let task_scheduler = TaskScheduler::start(task_registry, manager.clone());
     info!("task scheduler started");
+    let identity_store = Arc::new(
+        FileUserIdentityStore::open(args.data_dir.join("users.json"))
+            .context("opening persistent user identity storage")?,
+    );
     let conversation_store = Arc::new(
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
@@ -111,6 +115,7 @@ async fn main() -> Result<()> {
             telegram_agents,
             manager.clone(),
             Arc::clone(&conversation_store),
+            Arc::clone(&identity_store),
             Arc::clone(&telegram_auth),
             updates,
         ));
