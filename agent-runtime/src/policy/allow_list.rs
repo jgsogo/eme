@@ -1,3 +1,5 @@
+//! Allow-list policy that intersects agent tool grants with platform policy.
+
 use std::collections::HashSet;
 
 use super::{Authorization, AuthorizationError, PolicyEngine};
