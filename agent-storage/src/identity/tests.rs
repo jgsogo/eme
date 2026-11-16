@@ -1,5 +1,8 @@
 //! Tests for external user identity resolution and linking.
 
+use std::{fs, path::PathBuf};
+use uuid::Uuid;
+
 use super::*;
 
 fn temporary_file() -> PathBuf {
