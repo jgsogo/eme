@@ -74,7 +74,7 @@ impl RunManager {
                     info!(run_id = %run.id, agent = %run.agent, "agent run started");
 
                     let result = executor
-                        .execute_with_context(
+                        .execute(
                             run.id,
                             run.agent.clone(),
                             run.input.clone(),
@@ -151,59 +151,8 @@ impl RunManager {
         Ok(Self { runs, sender })
     }
 
-    /// Accepts a run and returns its stable identifier once it is queued.
-    ///
-    /// If the bounded queue is full, the run is not retained by the manager.
+    /// Queues an agent run with its conversation history and trusted execution context.
     pub async fn submit(
-        &self,
-        agent: impl Into<String>,
-        input: impl Into<String>,
-    ) -> Result<RunId, SubmitRunError> {
-        let run = Run::new(agent, input);
-        let run_id = run.id;
-
-        {
-            let mut runs = self.runs.lock().await;
-            runs.insert(
-                run_id,
-                ManagedRun {
-                    run,
-                    cancellation: CancellationToken::new(),
-                    events: vec![RunEvent {
-                        sequence: 0,
-                        kind: RunEventKind::Queued,
-                        iteration: None,
-                        tool_name: None,
-                        error_category: None,
-                        occurred_at: std::time::SystemTime::now(),
-                    }],
-                    history: Vec::new(),
-                    context: ToolContext::default(),
-                },
-            );
-        }
-
-        if self.sender.try_send(run_id).is_err() {
-            self.runs.lock().await.remove(&run_id);
-            return Err(SubmitRunError::QueueFull);
-        }
-
-        info!(run_id = %run_id, "agent run queued");
-        Ok(run_id)
-    }
-
-    /// Accepts a run that continues an existing conversation history.
-    pub async fn submit_with_history(
-        &self,
-        agent: impl Into<String>,
-        input: impl Into<String>,
-        history: Vec<Message>,
-    ) -> Result<RunId, SubmitRunError> {
-        self.submit_with_history_and_context(agent, input, history, ToolContext::default()).await
-    }
-
-    /// Accepts a run that continues an existing conversation history.
-    pub async fn submit_with_history_and_context(
         &self,
         agent: impl Into<String>,
         input: impl Into<String>,
@@ -390,7 +339,7 @@ mod tests {
     async fn submitted_run_is_executed_and_reaches_completed_state() {
         let manager = RunManager::new(Arc::new(ImmediateExecutor), 1, 4).unwrap();
 
-        let run_id = manager.submit("assistant", "hello").await.unwrap();
+        let run_id = manager.submit("assistant", "hello", Vec::new(), ToolContext::default()).await.unwrap();
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
@@ -417,12 +366,12 @@ mod tests {
         let release = Arc::clone(&executor.release);
         let manager = RunManager::new(Arc::new(executor), 1, 1).unwrap();
 
-        let first = manager.submit("assistant", "first").await.unwrap();
+        let first = manager.submit("assistant", "first", Vec::new(), ToolContext::default()).await.unwrap();
         started.notified().await;
 
-        let _queued = manager.submit("assistant", "queued").await.unwrap();
+        let _queued = manager.submit("assistant", "queued", Vec::new(), ToolContext::default()).await.unwrap();
         assert_eq!(
-            manager.submit("assistant", "rejected").await,
+            manager.submit("assistant", "rejected", Vec::new(), ToolContext::default()).await,
             Err(SubmitRunError::QueueFull)
         );
 
@@ -454,7 +403,7 @@ mod tests {
         let release = Arc::clone(&executor.release);
         let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
 
-        let _running = manager.submit("assistant", "running").await.unwrap();
+        let _running = manager.submit("assistant", "running", Vec::new(), ToolContext::default()).await.unwrap();
         started.notified().await;
         let queued = manager.submit("assistant", "queued").await.unwrap();
 
