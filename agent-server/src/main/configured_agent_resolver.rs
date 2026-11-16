@@ -4,7 +4,7 @@ use agent_models::registry::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
-use agent_service::{AgentRuntimeResolver, ResolvedAgent};
+use agent_service::{AgentRuntimeResolver, ResolvedAgent, TaskRegistry};
 use anyhow::{Context, Result};
 use telegram_tool::TelegramGateway;
 
@@ -32,6 +32,7 @@ impl ConfiguredAgentResolver {
     pub(super) fn load(
         data_dir: &std::path::Path,
         telegram_gateway: Option<Arc<TelegramGateway>>,
+        task_registry: TaskRegistry,
     ) -> Result<Self> {
         let models = ModelRegistry::load(data_dir).context("loading model providers")?;
 
@@ -43,11 +44,14 @@ impl ConfiguredAgentResolver {
         google_tool::register_tools(&mut tools).context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         common_tools::register_tools(&mut tools).context("registering common tools")?;
+        tasks_tool::register_tools(&mut tools, task_registry.clone()).context("registering task tools")?;
         let tools = Arc::new(tools);
 
         let agents =
             AgentRegistry::load_validated(data_dir.join("agents"), &models, tools.as_ref())
                 .context("loading and validating agent definitions")?;
+        task_registry.validate_agents(agents.definitions().map(|agent| agent.name.clone()))
+            .context("validating task agent references")?;
 
         Ok(Self {
             agents,
