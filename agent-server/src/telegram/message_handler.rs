@@ -82,18 +82,18 @@ pub(super) async fn handle_message(
     if !allowed.contains(&telegram_user_id) {
         // An accepted family member is also allowed to use the bot. This is
         // checked against server-side membership, never request/model input.
-        let Ok((user, _)) = identities.resolve_or_create(
-            "telegram",
-            &telegram_user_id.to_string(),
-            None,
-        ) else {
-            let _ = gateway.send_message(message.chat_id, "You are not authorized to use EME.").await;
-            return;
+        let existing_user = identities
+            .find_identity("telegram", &telegram_user_id.to_string())
+            .ok()
+            .flatten()
+            .and_then(|identity| identities.get_user(identity.user_id).ok().flatten());
+        let has_family_membership = match existing_user {
+            Some(user) => families
+                .list_families(user.id)
+                .await
+                .is_ok_and(|memberships| !memberships.is_empty()),
+            None => false,
         };
-        let has_family_membership = families
-            .list_families(user.id)
-            .await
-            .is_ok_and(|memberships| !memberships.is_empty());
         if !has_family_membership {
             warn!(telegram_user_id, "Rejected unauthorized Telegram user");
             let _ = gateway.send_message(message.chat_id, "You are not authorized to use EME.").await;
@@ -195,17 +195,28 @@ async fn accept_telegram_invitation(
         }
     };
 
+    // Reuse an existing identity for an idempotent retry after acceptance.
+    let existing_identity = identities
+        .find_identity("telegram", &telegram_user_id.to_string())
+        .ok()
+        .flatten();
+    let existing_user = existing_identity
+        .as_ref()
+        .and_then(|identity| identities.get_user(identity.user_id).ok().flatten());
+
     // Validate first: invalid/expired/revoked links must not provision accounts.
-    if let Err(error) = invitations.validate_invitation(token, &external_identity).await {
-        let _ = gateway.send_message(chat_id, invitation_error_message(&error)).await;
-        return;
+    let validation = invitations.validate_invitation(token, &external_identity).await;
+    if let Err(error) = validation {
+        if !matches!(error, InvitationStorageError::AlreadyAccepted) || existing_user.is_none() {
+            let _ = gateway.send_message(chat_id, invitation_error_message(&error)).await;
+            return;
+        }
     }
 
-    let (user, _) = match identities.resolve_or_create(
-        "telegram",
-        &telegram_user_id.to_string(),
-        None,
-    ) {
+    let (user, _) = match (existing_user, existing_identity) {
+        (Some(user), Some(identity)) => Ok((user, identity)),
+        _ => identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None),
+    } {
         Ok(identity) => identity,
         Err(error) => {
             send_error(gateway, chat_id, "create your EME identity", error).await;
