@@ -148,7 +148,7 @@ mod tests {
     async fn leap_day_difference() {
         let v: Value = serde_json::from_str(
             &CalculateDateDifference
-                .execute(json!({"start":"2024-02-28","end":"2024-03-01"}))
+                .execute(&ToolContext::default(), json!({"start":"2024-02-28","end":"2024-03-01"}))
                 .await
                 .unwrap(),
         )
