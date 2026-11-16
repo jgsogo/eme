@@ -311,9 +311,9 @@ mod tests {
         assert_eq!(
             notification_speech(
                 "The washing machine has finished.",
-                Some("soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01")
+                Some("soundbank://soundlibrary/water/nature/nature_08")
             ),
-            r#"<audio src="soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01"/>The washing machine has finished."#
+            r#"<audio src="soundbank://soundlibrary/water/nature/nature_08"/>The washing machine has finished."#
         );
     }
 }
