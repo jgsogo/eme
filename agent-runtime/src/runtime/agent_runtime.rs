@@ -468,9 +468,10 @@ mod external_run_id_tests {
         }];
 
         let result = runtime
-            .run_with_history(
+            .run(
                 Uuid::new_v4(),
                 &agent,
+                ToolContext::default(),
                 history,
                 "current turn",
                 CancellationToken::new(),
