@@ -30,15 +30,22 @@ const USER_AGENT_STR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:1.0) 
 const NOTIFICATION_BEEP_SSML: &str =
     r#"<audio src="soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02"/>"#;
 
-fn notification_speech(text: &str) -> String {
-    format!("{NOTIFICATION_BEEP_SSML}{text}")
+fn notification_speech(text: &str, chime: Option<&str>) -> String {
+    let audio = chime
+        .map(|uri| format!(r#"<audio src="{uri}"/>"#))
+        .unwrap_or_else(|| NOTIFICATION_BEEP_SSML.to_string());
+    format!("{audio}{text}")
 }
 
 /// Envía un TTS (Alexa.Speak) a un dispositivo Echo.
 ///
 /// - `device_name`: nombre exacto del Echo (el que sale en la app / `-a` del script)
 /// - `text`: texto plano o SSML (sin envolver en <speak> a menos que quieras SSML completo)
-pub async fn alexa_speak(device_name: &str, text: &str) -> Result<(), AlexaError> {
+pub async fn alexa_speak(
+    device_name: &str,
+    text: &str,
+    chime: Option<&str>,
+) -> Result<(), AlexaError> {
     let refresh_token =
         std::env::var("AMAZON_ALEXA_REFRESH_TOKEN").map_err(|_| AlexaError::MissingToken)?;
 
@@ -69,6 +76,7 @@ pub async fn alexa_speak(device_name: &str, text: &str) -> Result<(), AlexaError
         &serial,
         &customer_id,
         text,
+        chime,
     )
     .await
 }
@@ -221,6 +229,7 @@ async fn send_speak(
     serial: &str,
     customer_id: &str,
     text: &str,
+    chime: Option<&str>,
 ) -> Result<(), AlexaError> {
     // Payload equivalente al SEQUENCECMD=Alexa.Speak del script
     let sequence = json!({
@@ -236,7 +245,7 @@ async fn send_speak(
                         "deviceSerialNumber": serial,
                         "customerId": customer_id,
                         "locale": TTS_LOCALE,
-                        "textToSpeak": notification_speech(text)
+                        "textToSpeak": notification_speech(text, chime)
                     }
                 }
             ]
@@ -290,10 +299,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn notification_speech_starts_with_beep() {
+    fn notification_speech_uses_default_chime() {
         assert_eq!(
-            notification_speech("The washing machine has finished."),
+            notification_speech("The washing machine has finished.", None),
             r#"<audio src="soundbank://soundlibrary/alarms/beeps_and_bloops/intro_02"/>The washing machine has finished."#
+        );
+    }
+
+    #[test]
+    fn notification_speech_uses_requested_chime() {
+        assert_eq!(
+            notification_speech(
+                "The washing machine has finished.",
+                Some("soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01")
+            ),
+            r#"<audio src="soundbank://soundlibrary/alarms/beeps_and_bloops/bell_01"/>The washing machine has finished."#
         );
     }
 }
