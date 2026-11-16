@@ -516,3 +516,119 @@ pub fn families_api() -> Scope {
 pub fn invitations_api() -> Scope {
     web::scope("/invitations").service(accept_invitation)
 }
+
+
+#[cfg(test)]
+mod tests {
+    use std::{env, sync::Arc};
+
+    use actix_web::{App, http::{header, StatusCode}, test, web};
+    use agent_service::FamilyService;
+    use agent_storage::{
+        FileUserIdentityStore, InMemoryFamilyInvitationStore, InMemoryFamilyStore,
+        UserIdentityStore,
+    };
+    use serde_json::{Value, json};
+
+    use super::families_api;
+
+    #[actix_web::test]
+    async fn family_api_requires_authentication_and_uses_session_identity_as_actor() {
+        let identity_path = env::temp_dir().join(format!(
+            "eme-family-api-identities-{}.json",
+            uuid::Uuid::new_v4()
+        ));
+        let identities = Arc::new(FileUserIdentityStore::open(&identity_path).unwrap());
+        let auth = Arc::new(crate::auth::TelegramAuth::new(None, false));
+        let families = Arc::new(InMemoryFamilyStore::default());
+        let invitations = Arc::new(InMemoryFamilyInvitationStore::new(families.clone()));
+        let service = Arc::new(FamilyService::new(families, invitations));
+
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::from(Arc::clone(&auth)))
+                .app_data(web::Data::new(Arc::clone(&identities)))
+                .app_data(web::Data::new(Arc::clone(&service)))
+                .service(crate::auth::auth_api())
+                .service(families_api()),
+        )
+        .await;
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get().uri("/families").to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/auth/telegram/start")
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let login: Value = test::read_body_json(response).await;
+        let login_token = login["token"].as_str().unwrap();
+        assert!(auth.complete_login(login_token, 42, identities.as_ref()));
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/auth/telegram/status")
+                .set_json(json!({"token": login_token}))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let cookie = response
+            .headers()
+            .get(header::SET_COOKIE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_owned();
+
+        // A caller cannot choose the actor or creator in the request body.
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/families")
+                .insert_header((header::COOKIE, cookie.clone()))
+                .set_json(json!({
+                    "name": "Home",
+                    "relationship": "other",
+                    "creator_id": "00000000-0000-0000-0000-000000000000",
+                    "user_id": "00000000-0000-0000-0000-000000000000"
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let family: Value = test::read_body_json(response).await;
+
+        let identity = identities.find_identity("telegram", "42").unwrap().unwrap();
+        assert_eq!(family["creator_id"], identity.user_id.to_string());
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri("/families")
+                .insert_header((header::COOKIE, cookie))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let listed: Value = test::read_body_json(response).await;
+        assert_eq!(listed.as_array().unwrap().len(), 1);
+
+        drop(app);
+        drop(service);
+        drop(identities);
+        let _ = std::fs::remove_file(identity_path);
+    }
+}
