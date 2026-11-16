@@ -304,7 +304,7 @@ mod tests {
     fn notification_speech_uses_default_chime() {
         assert_eq!(
             notification_speech("The washing machine has finished.", None),
-            r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06"/>The washing machine has finished."#
+            r#"<audio src="soundbank://soundlibrary/alarms/beeps_and_bloops/boing_01"/>The washing machine has finished."#
         );
     }
 
