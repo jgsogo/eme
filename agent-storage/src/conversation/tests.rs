@@ -1,3 +1,5 @@
+//! Tests for file-backed conversation persistence.
+
 use std::{env, fs, time::SystemTime};
 
 use agent_runtime::{Message, ToolCall};

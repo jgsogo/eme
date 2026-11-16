@@ -6,6 +6,7 @@ mod family_invitation_summary;
 mod invitation_storage_error;
 mod invitation_target_identity;
 mod invitation_token;
+/// Tests invitation token parsing and validation.
 #[cfg(test)]
 mod token_tests {
 

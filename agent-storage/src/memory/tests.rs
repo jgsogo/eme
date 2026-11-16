@@ -1,3 +1,5 @@
+//! Tests for in-memory execution persistence.
+
 use chrono::Utc;
 use serde_json::json;
 use uuid::Uuid;

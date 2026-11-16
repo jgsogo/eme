@@ -1,3 +1,5 @@
+//! Tests for external user identity resolution and linking.
+
 use super::*;
 
 fn temporary_file() -> PathBuf {

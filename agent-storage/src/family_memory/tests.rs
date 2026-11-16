@@ -1,3 +1,5 @@
+//! Tests for in-memory family and membership persistence.
+
 use crate::FamilyStore;
 use crate::*;
 use chrono::Utc;

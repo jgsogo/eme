@@ -1,3 +1,5 @@
+//! Tests for in-memory family invitation persistence.
+
 use crate::*;
 use crate::{Family, InMemoryFamilyStore};
 use chrono::Duration;

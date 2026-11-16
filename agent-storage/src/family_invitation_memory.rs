@@ -2,9 +2,9 @@
 
 mod in_memory_family_invitation_store;
 mod state;
-
-use state::State;
 #[cfg(test)]
 mod tests;
+
+use state::State;
 
 pub use in_memory_family_invitation_store::InMemoryFamilyInvitationStore;

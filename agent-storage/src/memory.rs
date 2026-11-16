@@ -2,9 +2,9 @@
 
 mod in_memory_storage;
 mod state;
-
-use state::State;
 #[cfg(test)]
 mod tests;
+
+use state::State;
 
 pub use in_memory_storage::InMemoryStorage;
