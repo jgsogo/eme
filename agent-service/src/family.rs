@@ -505,6 +505,90 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn cross_family_access_and_membership_mutations_are_rejected() {
+        let (service, owner, _, family_id) = setup().await;
+
+        let outsider = UserId::new();
+        let other_family = service
+            .create_family(outsider, "Other home", FamilyRelationship::Other)
+            .await
+            .unwrap();
+
+        let other_member = UserId::new();
+        let (_, token) = service
+            .create_invitation(
+                outsider,
+                other_family.id,
+                None,
+                Utc::now() + Duration::days(1),
+            )
+            .await
+            .unwrap();
+        service
+            .accept_invitation(
+                &token,
+                &InvitationTargetIdentity::new("telegram", "789").unwrap(),
+                other_member,
+                FamilyRelationship::Daughter,
+            )
+            .await
+            .unwrap();
+
+        // Family listing is scoped to the authenticated user.
+        let owner_families = service.list_families(owner).await.unwrap();
+        assert_eq!(owner_families.len(), 1);
+        assert_eq!(owner_families[0].id, family_id);
+        let outsider_families = service.list_families(outsider).await.unwrap();
+        assert_eq!(outsider_families.len(), 1);
+        assert_eq!(outsider_families[0].id, other_family.id);
+
+        // A user from another family cannot inspect this family or its members.
+        assert!(matches!(
+            service.get_family(outsider, family_id).await,
+            Err(FamilyServiceError::NotMember)
+        ));
+        assert!(matches!(
+            service.list_members(outsider, family_id).await,
+            Err(FamilyServiceError::NotMember)
+        ));
+        assert!(matches!(
+            service.list_invitations(outsider, family_id).await,
+            Err(FamilyServiceError::NotMember)
+        ));
+
+        // Even an owner cannot mutate a target through a different family id.
+        assert!(matches!(
+            service.remove_member(owner, family_id, other_member).await,
+            Err(FamilyServiceError::TargetNotMember)
+        ));
+        assert!(matches!(
+            service
+                .change_member_role(owner, family_id, other_member, FamilyRole::Admin)
+                .await,
+            Err(FamilyServiceError::TargetNotMember)
+        ));
+        assert!(matches!(
+            service
+                .change_member_relationship(
+                    owner,
+                    family_id,
+                    other_member,
+                    FamilyRelationship::Son,
+                )
+                .await,
+            Err(FamilyServiceError::TargetNotMember)
+        ));
+
+        // Rejected cross-family operations leave the original membership intact.
+        let (_, members) = service.get_family(outsider, other_family.id).await.unwrap();
+        assert!(members.iter().any(|member| {
+            member.user_id == other_member
+                && member.role == FamilyRole::Member
+                && member.relationship == FamilyRelationship::Daughter
+        }));
+    }
+
+    #[tokio::test]
     async fn invitation_creation_and_revocation_require_admin_role() {
         let (service, owner, member, family_id) = setup().await;
         let (invitation, _) = service
