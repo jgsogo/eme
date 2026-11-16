@@ -12,7 +12,7 @@ use std::{
 use tokio::sync::watch;
 use uuid::Uuid;
 
-use super::{Inner, NewTask, StoredTask, Task, TaskError, LEGACY_TASK_OWNER};
+use super::{Inner, LEGACY_TASK_OWNER, NewTask, StoredTask, Task, TaskError};
 
 #[derive(Clone)]
 pub struct TaskRegistry {

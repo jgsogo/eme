@@ -2,8 +2,8 @@
 
 use super::{FamilyService, FamilyServiceError};
 use agent_storage::{
-    FamilyId, FamilyRelationship, FamilyRole, InMemoryFamilyInvitationStore,
-    InMemoryFamilyStore, InvitationTargetIdentity, UserId,
+    FamilyId, FamilyRelationship, FamilyRole, InMemoryFamilyInvitationStore, InMemoryFamilyStore,
+    InvitationTargetIdentity, UserId,
 };
 use chrono::{Duration, Utc};
 use std::sync::Arc;
@@ -225,12 +225,7 @@ async fn cross_family_access_and_membership_mutations_are_rejected() {
     ));
     assert!(matches!(
         service
-            .change_member_relationship(
-                owner,
-                family_id,
-                other_member,
-                FamilyRelationship::Son,
-            )
+            .change_member_relationship(owner, family_id, other_member, FamilyRelationship::Son,)
             .await,
         Err(FamilyServiceError::TargetNotMember)
     ));

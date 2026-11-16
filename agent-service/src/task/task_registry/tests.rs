@@ -30,8 +30,7 @@ schedule = "0 0 8 * * *"
     assert_eq!(tasks.len(), 1);
     assert!(directory.join(format!("{}.toml", tasks[0].id)).exists());
     assert!(!directory.join("daily.toml").exists());
-    let persisted =
-        fs::read_to_string(directory.join(format!("{}.toml", tasks[0].id))).unwrap();
+    let persisted = fs::read_to_string(directory.join(format!("{}.toml", tasks[0].id))).unwrap();
     assert!(persisted.contains("user_id = \"telegram:118716073\""));
     fs::remove_dir_all(directory).unwrap();
 }
