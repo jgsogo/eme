@@ -15,7 +15,10 @@ pub struct InvitationTargetIdentity {
 }
 
 impl InvitationTargetIdentity {
-    pub fn new(provider: impl Into<String>, subject: impl Into<String>) -> Result<Self, InvitationStorageError> {
+    pub fn new(
+        provider: impl Into<String>,
+        subject: impl Into<String>,
+    ) -> Result<Self, InvitationStorageError> {
         let provider = provider.into();
         let subject = subject.into();
         if provider.trim().is_empty() || subject.trim().is_empty() {
@@ -32,7 +35,11 @@ pub struct InvitationToken(String);
 impl InvitationToken {
     pub(crate) fn generate() -> Self {
         // Two independent UUIDv4 values provide 244 bits of CSPRNG-backed entropy.
-        Self(format!("{}{}", uuid::Uuid::new_v4().simple(), uuid::Uuid::new_v4().simple()))
+        Self(format!(
+            "{}{}",
+            uuid::Uuid::new_v4().simple(),
+            uuid::Uuid::new_v4().simple()
+        ))
     }
 
     pub(crate) fn hash(&self) -> String {
