@@ -1,3 +1,5 @@
+//! Executable tool contract implemented by integration crates.
+
 use super::ToolError;
 use crate::ToolContext;
 use async_trait::async_trait;

@@ -1,3 +1,5 @@
+//! Successful or stopped run outcome and its accumulated conversation trace.
+
 use super::{RunEvent, RunStatus};
 use crate::Message;
 use uuid::Uuid;

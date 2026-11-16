@@ -1,3 +1,5 @@
+//! Failed run outcome, including its error, partial conversation, and emitted events.
+
 use super::RunEvent;
 use crate::{ErrorCategory, Message, RuntimeError};
 use uuid::Uuid;

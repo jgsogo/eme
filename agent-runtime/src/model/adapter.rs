@@ -1,3 +1,5 @@
+//! Converts runtime conversation data to and from provider-neutral model requests.
+
 use std::sync::Arc;
 
 use super::AgentModel;

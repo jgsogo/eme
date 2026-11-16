@@ -1,3 +1,5 @@
+//! In-memory registration, schema validation, and execution of tool implementations.
+
 use super::{RegisteredTool, Tool, ToolDispatcher, ToolError};
 use crate::{ToolContext, ToolDefinition};
 use agent_config::{ConfigError, read_toml};

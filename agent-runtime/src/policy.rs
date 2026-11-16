@@ -1,3 +1,5 @@
+//! Deterministic authorization policies for model-requested tool execution.
+
 mod allow_list;
 mod authorization;
 mod authorization_error;

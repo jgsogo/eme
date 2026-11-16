@@ -1,3 +1,5 @@
+//! Adapter boundary between provider-independent model clients and agent execution.
+
 mod adapter;
 mod agent_model;
 

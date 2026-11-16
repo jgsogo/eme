@@ -1,3 +1,5 @@
+//! Provider-neutral data structures exchanged by the agent runtime.
+
 mod agent;
 mod message;
 mod model_request;

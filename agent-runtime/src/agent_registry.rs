@@ -1,3 +1,5 @@
+//! Loads agent definitions and validates their model and executable-tool references.
+
 use std::{collections::BTreeMap, path::Path};
 
 use agent_config::{ConfigError, read_toml_dir};

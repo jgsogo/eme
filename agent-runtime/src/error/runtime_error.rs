@@ -1,3 +1,5 @@
+//! Runtime-level error type combining configuration, authorization, model, and tool failures.
+
 use std::time::Duration;
 
 use agent_config::ConfigError;

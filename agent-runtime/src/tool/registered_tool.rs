@@ -1,3 +1,5 @@
+//! Internal registered tool binding with its compiled argument schema validator.
+
 use std::sync::Arc;
 
 use super::Tool;

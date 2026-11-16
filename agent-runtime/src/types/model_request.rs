@@ -1,3 +1,5 @@
+//! Input payload assembled by the runtime for one model completion.
+
 use super::{Message, ToolDefinition};
 
 /// Input sent to the model.

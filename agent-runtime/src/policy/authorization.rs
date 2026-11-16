@@ -1,3 +1,5 @@
+//! Authorization decision returned by a policy engine.
+
 use super::AuthorizationError;
 
 /// Result of an authorization decision.

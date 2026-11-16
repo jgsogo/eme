@@ -1,3 +1,5 @@
+//! Policy-engine contract for deciding whether a model-requested tool may run.
+
 use super::Authorization;
 use crate::{Agent, ToolCall};
 
