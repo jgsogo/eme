@@ -26,7 +26,7 @@ impl FamilyStore for InMemoryFamilyStore {
         }
         let mut state = self.state.write().await;
         if state.families.contains_key(&family.id) {
-            return Err(FamilyStorageError::OwnerInvariant);
+            return Err(FamilyStorageError::FamilyAlreadyExists(family.id));
         }
         state.families.insert(family.id, family);
         state.members.insert((owner.family_id, owner.user_id), owner);
@@ -111,13 +111,13 @@ impl FamilyStore for InMemoryFamilyStore {
     }
 
     async fn transfer_ownership(&self, family_id: FamilyId, current_owner: UserId, new_owner: UserId) -> Result<(), FamilyStorageError> {
-        if current_owner == new_owner { return Ok(()); }
         let mut state = self.state.write().await;
         if !state.families.contains_key(&family_id) { return Err(FamilyStorageError::FamilyNotFound(family_id)); }
         let current_key = (family_id, current_owner);
         let new_key = (family_id, new_owner);
         let current = state.members.get(&current_key).ok_or(FamilyStorageError::MembershipNotFound { family_id, user_id: current_owner })?;
         if current.role != FamilyRole::Owner { return Err(FamilyStorageError::NotCurrentOwner); }
+        if current_owner == new_owner { return Ok(()); }
         if !state.members.contains_key(&new_key) { return Err(FamilyStorageError::TransferTargetNotMember); }
         state.members.get_mut(&current_key).unwrap().role = FamilyRole::Admin;
         state.members.get_mut(&new_key).unwrap().role = FamilyRole::Owner;
