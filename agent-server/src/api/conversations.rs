@@ -1,3 +1,17 @@
+//! HTTP endpoints and request handling for conversation lifecycle operations.
+
+mod create_conversation_request;
+mod update_conversation_request;
+mod continue_conversation_request;
+mod select_conversation_family_request;
+mod conversation_summary;
+
+pub use create_conversation_request::CreateConversationRequest;
+pub use update_conversation_request::UpdateConversationRequest;
+pub use continue_conversation_request::ContinueConversationRequest;
+pub use conversation_summary::ConversationSummary;
+use select_conversation_family_request::SelectConversationFamilyRequest;
+
 use std::{str::FromStr, sync::Arc, time::Duration};
 
 use actix_web::{
@@ -7,10 +21,10 @@ use actix_web::{
 use agent_runtime::ToolContext;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
+    ConversationId, ConversationStore, ConversationStoreError, FamilyId,
     FileUserIdentityStore, UserIdentityStore,
 };
-use serde::{Deserialize, Serialize};
+
 use tokio::time::sleep;
 
 use super::types::{AgentCatalog, SubmitRunResponse};
@@ -23,36 +37,15 @@ fn authenticated_owner(
         .ok_or_else(|| HttpResponse::Unauthorized().body("authentication required"))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CreateConversationRequest {
-    pub agent: String,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct UpdateConversationRequest {
-    pub title: String,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct ContinueConversationRequest {
-    pub input: String,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct SelectConversationFamilyRequest {
-    pub family_id: Option<String>,
-}
 
-#[derive(Debug, Serialize)]
-pub struct ConversationSummary {
-    pub id: String,
-    pub agent: String,
-    pub title: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub message_count: usize,
-    pub selected_family_id: Option<String>,
-}
+
+
+
+
+
 
 impl From<Conversation> for ConversationSummary {
     fn from(conversation: Conversation) -> Self {

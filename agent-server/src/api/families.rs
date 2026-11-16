@@ -1,3 +1,27 @@
+//! HTTP endpoints for family membership, roles, and invitations.
+
+mod create_family_request;
+mod rename_family_request;
+mod create_invitation_request;
+mod change_role_request;
+mod change_relationship_request;
+mod transfer_ownership_request;
+mod accept_invitation_request;
+mod family_details;
+mod lan_invitation_config;
+mod created_invitation;
+
+pub use create_family_request::CreateFamilyRequest;
+pub use rename_family_request::RenameFamilyRequest;
+pub use create_invitation_request::CreateInvitationRequest;
+pub use change_role_request::ChangeRoleRequest;
+pub use change_relationship_request::ChangeRelationshipRequest;
+pub use transfer_ownership_request::TransferOwnershipRequest;
+pub use accept_invitation_request::AcceptInvitationRequest;
+pub use family_details::FamilyDetails;
+pub use lan_invitation_config::LanInvitationConfig;
+pub use created_invitation::CreatedInvitation;
+
 use std::{net::IpAddr, str::FromStr, sync::Arc};
 
 use actix_web::{
@@ -6,11 +30,10 @@ use actix_web::{
 };
 use agent_service::{FamilyService, FamilyServiceError};
 use agent_storage::{
-    Family, FamilyId, FamilyInvitationSummary, FamilyMember, FamilyRelationship, FamilyRole,
-    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, UserId, UserIdentityStore,
+    FamilyId, FamilyRelationship, FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, UserId, UserIdentityStore,
 };
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+
+
 use uuid::Uuid;
 
 fn authenticated_actor(
@@ -64,57 +87,25 @@ fn parse_user_id(value: &str) -> Result<UserId, HttpResponse> {
     UserId::from_str(value).map_err(|_| HttpResponse::BadRequest().body("invalid user identifier"))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct CreateFamilyRequest {
-    pub name: String,
-    pub relationship: FamilyRelationship,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct RenameFamilyRequest {
-    pub name: String,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct CreateInvitationRequest {
-    pub expires_at: DateTime<Utc>,
-    #[serde(default)]
-    pub target_identity: Option<InvitationTargetIdentity>,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct ChangeRoleRequest {
-    pub role: FamilyRole,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct ChangeRelationshipRequest {
-    pub relationship: FamilyRelationship,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct TransferOwnershipRequest {
-    pub new_owner_user_id: String,
-}
 
-#[derive(Debug, Deserialize)]
-pub struct AcceptInvitationRequest {
-    pub token: String,
-    pub relationship: FamilyRelationship,
-}
 
-#[derive(Debug, Serialize)]
-pub struct FamilyDetails {
-    pub family: Family,
-    pub members: Vec<FamilyMember>,
-}
+
+
+
+
+
+
+
+
 
 /// Explicit LAN base URL used to build invitation links. Only private, loopback,
 /// or link-local IP addresses are accepted; Host headers are never trusted.
-#[derive(Debug, Clone)]
-pub struct LanInvitationConfig {
-    base_url: String,
-}
+
 
 impl LanInvitationConfig {
     pub fn parse(value: &str) -> Result<Self, String> {
@@ -186,14 +177,7 @@ impl LanInvitationConfig {
     }
 }
 
-#[derive(Debug, Serialize)]
-pub struct CreatedInvitation {
-    pub invitation: FamilyInvitationSummary,
-    /// Returned only by the creation operation; never included in list responses.
-    pub token: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub lan_url: Option<String>,
-}
+
 
 #[get("/current-user")]
 async fn current_family_user(
