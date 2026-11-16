@@ -1,0 +1,29 @@
+name: Format agent-server refactor
+
+on:
+  push:
+    branches:
+      - refactor/agent-server-module-structure
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/agent-server-module-structure
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Format Rust sources
+        run: |
+          cargo fmt --all
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add agent-server/src
+            git commit -m "style(agent-server): apply rustfmt"
+            git push
+          fi
