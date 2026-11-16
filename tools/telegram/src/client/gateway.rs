@@ -6,10 +6,10 @@
 
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use super::{IncomingMessage, PendingReply, TelegramError};
+use super::{IncomingMessage, PendingReply, TelegramError, markdown::markdown_to_telegram_html};
 
 use frankenstein::{
-    AsyncTelegramApi,
+    AsyncTelegramApi, ParseMode,
     client_reqwest::Bot,
     methods::{AnswerCallbackQueryParams, GetUpdatesParams, SendMessageParams},
     types::{
@@ -67,9 +67,11 @@ impl TelegramGateway {
     }
 
     pub async fn send_message(&self, chat_id: i64, text: &str) -> Result<(), TelegramError> {
+        let rendered = markdown_to_telegram_html(text);
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
-            .text(text)
+            .text(rendered)
+            .parse_mode(ParseMode::Html)
             .build();
         self.bot
             .send_message(&params)
@@ -94,9 +96,11 @@ impl TelegramGateway {
         // Serialize registration with update dispatch. This prevents an
         // already-fetched update from being mistaken for the answer.
         let dispatch = self.dispatch_lock.lock().await;
+        let rendered = markdown_to_telegram_html(&format_question(question));
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
-            .text(&format_question(question))
+            .text(rendered)
+            .parse_mode(ParseMode::Html)
             .build();
         let sent = self
             .bot
@@ -143,9 +147,11 @@ impl TelegramGateway {
             ]],
             force_reply: None,
         };
+        let rendered = markdown_to_telegram_html(&format_question(question));
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
-            .text(&format_question(question))
+            .text(rendered)
+            .parse_mode(ParseMode::Html)
             .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
             .build();
 
