@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use agent_runtime::{
-    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, CancellationToken, ModelAdapter,
+    Agent, AgentRegistry, AgentRuntime, AllowListPolicy, CancellationToken, ModelAdapter, ToolContext,
     ToolRegistry,
 };
 use anyhow::{Context, Result};
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
 
-    let result = runtime.run(&agent, input, CancellationToken::new()).await?;
+    let result = runtime.run(uuid::Uuid::new_v4(), &agent, ToolContext::default(), Vec::new(), input, CancellationToken::new()).await?;
 
     println!("Status: {:?}", result.status);
     println!("Iterations: {}", result.iterations);
