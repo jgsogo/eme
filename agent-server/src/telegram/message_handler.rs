@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
-use agent_service::{RunManager, SubmitRunError};
+use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
     ConversationId, ConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
     FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore,
@@ -260,6 +260,26 @@ pub(super) async fn handle_message(
         active.insert(conversation.id);
     }
 
+    let family = match conversation.selected_family_id {
+        Some(family_id) => match family_service.context_for_member(user.id, family_id).await {
+            Ok(context) => Some(context),
+            Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
+                active_conversations.lock().await.remove(&conversation.id);
+                let _ = gateway.send_message(
+                    message.chat_id,
+                    "The family selected for this conversation is no longer available. Select another family in the web console.",
+                ).await;
+                return;
+            }
+            Err(error) => {
+                active_conversations.lock().await.remove(&conversation.id);
+                send_error(gateway, message.chat_id, "resolve the selected family", error).await;
+                return;
+            }
+        },
+        None => None,
+    };
+
     match manager
         .submit(
             conversation.agent.clone(),
@@ -267,6 +287,7 @@ pub(super) async fn handle_message(
             conversation.messages.clone(),
             ToolContext {
                 user_id: Some(user.id.to_string()),
+                family,
                 conversation_id: Some(conversation.id.to_string()),
                 run_id: None,
             },
