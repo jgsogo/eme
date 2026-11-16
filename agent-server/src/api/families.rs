@@ -517,12 +517,15 @@ pub fn invitations_api() -> Scope {
     web::scope("/invitations").service(accept_invitation)
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::{env, sync::Arc};
 
-    use actix_web::{App, http::{header, StatusCode}, test, web};
+    use actix_web::{
+        App,
+        http::{StatusCode, header},
+        test, web,
+    };
     use agent_service::FamilyService;
     use agent_storage::{
         FileUserIdentityStore, InMemoryFamilyInvitationStore, InMemoryFamilyStore,
@@ -554,11 +557,8 @@ mod tests {
         )
         .await;
 
-        let response = test::call_service(
-            &app,
-            test::TestRequest::get().uri("/families").to_request(),
-        )
-        .await;
+        let response =
+            test::call_service(&app, test::TestRequest::get().uri("/families").to_request()).await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
         let response = test::call_service(
