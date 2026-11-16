@@ -431,6 +431,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn trusted_context_contains_membership_details_and_rejects_non_members() {
+        let (service, owner, _, family_id) = setup().await;
+        let context = service.context_for_member(owner, family_id).await.unwrap();
+        assert_eq!(context.family_id, family_id.to_string());
+        assert_eq!(context.family_name, "Home");
+        assert_eq!(context.family_role, "owner");
+        assert_eq!(context.relationship, "other");
+
+        assert!(matches!(
+            service.context_for_member(UserId::new(), family_id).await,
+            Err(FamilyServiceError::NotMember)
+        ));
+    }
+
+    #[tokio::test]
     async fn creates_family_with_owner_and_lists_it() {
         let (service, owner, _, family_id) = setup().await;
         let (family, members) = service.get_family(owner, family_id).await.unwrap();
