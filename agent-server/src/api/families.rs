@@ -533,7 +533,7 @@ mod tests {
     };
     use serde_json::{Value, json};
 
-    use super::families_api;
+    use super::{families_api, invitations_api};
 
     #[actix_web::test]
     async fn family_api_requires_authentication_and_uses_session_identity_as_actor() {
@@ -553,7 +553,8 @@ mod tests {
                 .app_data(web::Data::new(Arc::clone(&identities)))
                 .app_data(web::Data::new(Arc::clone(&service)))
                 .service(crate::auth::auth_api())
-                .service(families_api()),
+                .service(families_api())
+                .service(invitations_api()),
         )
         .await;
 
