@@ -62,7 +62,7 @@ impl Tool for CurrentDateTime {
 }
 #[async_trait]
 impl Tool for GetTimezone {
-    async fn execute(&self, a: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, a: Value) -> Result<String, ToolError> {
         let z = tz(a.get("timezone").and_then(Value::as_str).unwrap_or("UTC"))?;
         let n = Utc::now().with_timezone(&z);
         output(
@@ -162,7 +162,7 @@ mod tests {
     async fn calendar_metadata() {
         let v: Value = serde_json::from_str(
             &GetDateInfo
-                .execute(json!({"date":"2024-02-29"}))
+                .execute(&ToolContext::default(), json!({"date":"2024-02-29"}))
                 .await
                 .unwrap(),
         )
