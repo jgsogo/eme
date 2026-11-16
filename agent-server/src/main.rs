@@ -23,7 +23,7 @@ use agent_storage::{
 use anyhow::{Context, Result};
 use clap::Parser;
 use telegram_tool::TelegramGateway;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 use args::Args;
 use auth_middleware::require_telegram_session;
@@ -141,6 +141,10 @@ async fn main() -> Result<()> {
         .context("validating LAN_BASE_URL")?;
     if lan_invitation_config.is_some() {
         info!("LAN invitation links enabled");
+    } else {
+        error!(
+            "LAN_BASE_URL is not set; LAN family invitation links are disabled.              Set LAN_BASE_URL to the server's private-network URL (for example              http://192.168.1.20:8080) and restart agent-server."
+        );
     }
 
     let bind_address = (args.host, args.port);
