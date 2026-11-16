@@ -1,3 +1,5 @@
+//! Terminal and intermediate states of an agent run.
+
 use crate::ErrorCategory;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
