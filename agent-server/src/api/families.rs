@@ -626,6 +626,91 @@ mod tests {
         let listed: Value = test::read_body_json(response).await;
         assert_eq!(listed.as_array().unwrap().len(), 1);
 
+        let family_id = family["id"].as_str().unwrap();
+        let expires_at = (chrono::Utc::now() + chrono::Duration::days(1)).to_rfc3339();
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri(&format!("/families/{family_id}/invitations"))
+                .insert_header((header::COOKIE, cookie.clone()))
+                .set_json(json!({"expires_at": expires_at}))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let created_invitation: Value = test::read_body_json(response).await;
+        let invitation_token = created_invitation["token"].as_str().unwrap().to_owned();
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/families/{family_id}/invitations"))
+                .insert_header((header::COOKIE, cookie.clone()))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let invitation_list: Value = test::read_body_json(response).await;
+        assert_eq!(invitation_list.as_array().unwrap().len(), 1);
+        assert!(!invitation_list.to_string().contains(&invitation_token));
+
+        // A second authenticated Telegram identity can accept the bearer token.
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/auth/telegram/start")
+                .to_request(),
+        )
+        .await;
+        let second_login: Value = test::read_body_json(response).await;
+        let second_login_token = second_login["token"].as_str().unwrap();
+        assert!(auth.complete_login(second_login_token, 84, identities.as_ref()));
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/auth/telegram/status")
+                .set_json(json!({"token": second_login_token}))
+                .to_request(),
+        )
+        .await;
+        let second_cookie = response
+            .headers()
+            .get(header::SET_COOKIE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_owned();
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::post()
+                .uri("/invitations/accept")
+                .insert_header((header::COOKIE, second_cookie.clone()))
+                .set_json(json!({
+                    "token": invitation_token,
+                    "relationship": "son"
+                }))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = test::call_service(
+            &app,
+            test::TestRequest::get()
+                .uri(&format!("/families/{family_id}"))
+                .insert_header((header::COOKIE, second_cookie))
+                .to_request(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let details: Value = test::read_body_json(response).await;
+        assert_eq!(details["members"].as_array().unwrap().len(), 2);
+
         drop(app);
         drop(service);
         drop(identities);
