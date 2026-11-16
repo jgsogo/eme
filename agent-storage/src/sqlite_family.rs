@@ -711,8 +711,12 @@ impl FamilyInvitationStore for SqliteFamilyStore {
                 return Err(InvitationStorageError::IdentityMismatch);
             }
         }
-        if row.3.is_some() { return Err(InvitationStorageError::AlreadyAccepted); }
-        if row.4.is_some() { return Err(InvitationStorageError::Revoked); }
+        if row.3.is_some() {
+            return Err(InvitationStorageError::AlreadyAccepted);
+        }
+        if row.4.is_some() {
+            return Err(InvitationStorageError::Revoked);
+        }
         if parse_time(&row.2).map_err(InvitationStorageError::Backend)? <= Utc::now() {
             return Err(InvitationStorageError::Expired);
         }
