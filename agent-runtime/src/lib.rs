@@ -24,7 +24,7 @@ pub use runtime::{
     AgentRuntime, CancellationToken, CollectingEventSink, EventSink, NoopEventSink, RunEvent,
     RunEventKind, RunFailure, RunResult, RunStatus,
 };
-pub use tool::{Tool, ToolDispatcher, ToolError, ToolRegistry};
+pub use tool::{Tool, ToolContext, ToolDispatcher, ToolError, ToolRegistry};
 pub use types::{Agent, Message, ModelRequest, ModelTurn, ToolCall, ToolDefinition};
 
 mod agent;
