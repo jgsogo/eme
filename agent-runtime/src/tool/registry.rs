@@ -171,7 +171,9 @@ mod registration_tests {
         }
     }
 
-    struct ContextTool(std::sync::Arc<std::sync::Mutex<Option<String>>>);
+    struct ContextTool(
+        std::sync::Arc<std::sync::Mutex<Option<(Option<String>, Option<String>)>>>,
+    );
 
     #[async_trait]
     impl Tool for ContextTool {
@@ -180,14 +182,17 @@ mod registration_tests {
             context: &ToolContext,
             _arguments: Value,
         ) -> Result<String, ToolError> {
-            *self.0.lock().unwrap() = context.user_id.clone();
+            *self.0.lock().unwrap() = Some((
+                context.user_id.clone(),
+                context.family.as_ref().map(|family| family.family_id.clone()),
+            ));
             Ok("context received".into())
         }
     }
 
     #[tokio::test]
     async fn dispatches_authenticated_context_to_tool_implementation() {
-        let captured_user = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let captured_context = std::sync::Arc::new(std::sync::Mutex::new(None));
         let mut registry = ToolRegistry::new();
         registry
             .register(
@@ -196,20 +201,33 @@ mod registration_tests {
                     description: "Reads trusted context".into(),
                     parameters: serde_json::json!({"type": "object"}),
                 },
-                ContextTool(captured_user.clone()),
+                ContextTool(captured_context.clone()),
             )
             .unwrap();
 
-        let context = ToolContext::new("telegram:42");
+        let context = ToolContext {
+            user_id: Some("user-42".into()),
+            family: Some(crate::FamilyContext {
+                family_id: "trusted-family".into(),
+                family_name: "Home".into(),
+                family_role: "owner".into(),
+                relationship: "father".into(),
+            }),
+            ..ToolContext::default()
+        };
         let output = registry
-            .execute(&context, "context", serde_json::json!({}))
+            .execute(
+                &context,
+                "context",
+                serde_json::json!({"family_id": "model-forged-family"}),
+            )
             .await
             .unwrap();
 
         assert_eq!(output, "context received");
         assert_eq!(
-            captured_user.lock().unwrap().as_deref(),
-            Some("telegram:42")
+            captured_context.lock().unwrap().as_ref(),
+            Some(&(Some("user-42".into()), Some("trusted-family".into())))
         );
     }
 
