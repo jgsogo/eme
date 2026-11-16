@@ -116,6 +116,10 @@ pub enum InvitationStorageError {
     EmptyTargetIdentity,
     #[error("inviter is not a member of the family")]
     InviterNotMember,
+    #[error("membership already exists; invitation cannot create a duplicate membership")]
+    MembershipAlreadyExists,
+    #[error("membership creation failed")]
+    MembershipCreationFailed,
 }
 
 /// Invitation operations. Acceptance and membership creation must be one
