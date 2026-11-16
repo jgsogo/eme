@@ -21,7 +21,7 @@ impl RunExecutor for ImmediateExecutor {
         _history: Vec<Message>,
         _context: ToolContext,
         _cancellation: CancellationToken,
-    ) -> Result<ExecutionOutcome, String> {
+    ) -> Result<ExecutionReport, String> {
         Ok(ExecutionReport {
             outcome: ExecutionOutcome::Completed(Some(format!("echo: {input}"))),
             runtime_events: Vec::new(),
@@ -45,7 +45,7 @@ impl RunExecutor for WaitingExecutor {
         _history: Vec<Message>,
         _context: ToolContext,
         cancellation: CancellationToken,
-    ) -> Result<ExecutionOutcome, String> {
+    ) -> Result<ExecutionReport, String> {
         self.started.notify_one();
         loop {
             if cancellation.is_cancelled() {
