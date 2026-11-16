@@ -8,11 +8,11 @@ mod types;
 mod tests;
 
 pub use agents::agents_api;
-pub use families::{families_api, invitations_api};
 pub use conversations::{
     ContinueConversationRequest, ConversationSummary, CreateConversationRequest,
     UpdateConversationRequest, conversations_api,
 };
+pub use families::{families_api, invitations_api};
 pub use runs::runs_api;
 pub use types::{
     AgentCatalog, AgentListItem, CancelRunResponse, GetRunResponse, RunEventResponse,
