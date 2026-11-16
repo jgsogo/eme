@@ -17,7 +17,7 @@ pub use task_registry::TaskRegistry;
 use inner::Inner;
 use stored_task::StoredTask;
 
-pub const LEGACY_TASK_OWNER: &str = "telegram:118716073";
+const LEGACY_TASK_OWNER: &str = "telegram:118716073";
 
 fn default_enabled() -> bool {
     true

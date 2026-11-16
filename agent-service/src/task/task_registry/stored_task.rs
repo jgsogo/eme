@@ -8,20 +8,20 @@ use uuid::Uuid;
 #[serde(deny_unknown_fields)]
 pub(super) struct StoredTask {
     #[serde(default)]
-    id: Option<Uuid>,
+    pub(super) id: Option<Uuid>,
     #[serde(default)]
-    user_id: Option<String>,
-    name: String,
+    pub(super) user_id: Option<String>,
+    pub(super) name: String,
     #[serde(default)]
-    description: String,
-    agent: String,
-    prompt: String,
+    pub(super) description: String,
+    pub(super) agent: String,
+    pub(super) prompt: String,
     #[serde(default)]
-    schedule: Option<String>,
+    pub(super) schedule: Option<String>,
     #[serde(default)]
-    at: Option<DateTime<FixedOffset>>,
+    pub(super) at: Option<DateTime<FixedOffset>>,
     #[serde(default)]
-    timezone: Option<String>,
+    pub(super) timezone: Option<String>,
     #[serde(default = "super::default_enabled")]
-    enabled: bool,
+    pub(super) enabled: bool,
 }

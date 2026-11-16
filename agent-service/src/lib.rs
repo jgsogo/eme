@@ -24,4 +24,4 @@ pub use manager::{
 pub use run::{InvalidRunTransition, Run, RunEvent, RunEventKind, RunId, RunStatus};
 pub use runtime_executor::{AgentRuntimeExecutor, AgentRuntimeResolver, ResolvedAgent};
 pub use scheduler::TaskScheduler;
-pub use task::{LEGACY_TASK_OWNER, NewTask, Task, TaskError, TaskRegistry};
+pub use task::{NewTask, Task, TaskError, TaskRegistry};
