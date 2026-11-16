@@ -7,4 +7,5 @@ mod tests;
 
 pub use scheduled_task::ScheduledTask;
 pub use task_scheduler::TaskScheduler;
+#[cfg(test)]
 use task_scheduler::next_occurrence;
