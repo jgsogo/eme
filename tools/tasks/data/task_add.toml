@@ -1,0 +1,35 @@
+name = "task_add"
+description = "Create a scheduled or one-time task for the authenticated user. Use either schedule (cron) or at (RFC3339 timestamp), never both. Recurring schedules may specify an IANA timezone."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["name", "agent", "prompt"]
+
+[parameters.properties.name]
+type = "string"
+description = "A short name unique among this user's tasks."
+
+[parameters.properties.description]
+type = "string"
+
+[parameters.properties.agent]
+type = "string"
+description = "Configured agent that will execute this task."
+
+[parameters.properties.prompt]
+type = "string"
+description = "Prompt to send to the selected agent."
+
+[parameters.properties.schedule]
+type = "string"
+description = "Cron expression with seconds field, e.g. 0 0 8 * * *."
+
+[parameters.properties.at]
+type = "string"
+format = "date-time"
+description = "One-time execution timestamp in RFC3339 format."
+
+[parameters.properties.timezone]
+type = "string"
+description = "IANA timezone for recurring schedules, e.g. Europe/Madrid."
