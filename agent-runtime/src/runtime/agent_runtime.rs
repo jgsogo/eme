@@ -436,7 +436,9 @@ mod external_run_id_tests {
     use uuid::Uuid;
 
     use super::{AgentRuntime, CancellationToken, RunStatus};
-    use crate::{Agent, AgentModel, AllowListPolicy, ModelRequest, ModelTurn, ToolContext, ToolRegistry};
+    use crate::{
+        Agent, AgentModel, AllowListPolicy, ModelRequest, ModelTurn, ToolContext, ToolRegistry,
+    };
 
     struct FixedModel;
 
