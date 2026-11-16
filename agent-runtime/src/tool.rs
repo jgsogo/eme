@@ -8,6 +8,8 @@ mod registry;
 mod tool;
 mod tool_context;
 
+pub(super) use registered_tool::RegisteredTool;
+
 pub use dispatcher::ToolDispatcher;
 pub use error::ToolError;
 pub use family_context::FamilyContext;
