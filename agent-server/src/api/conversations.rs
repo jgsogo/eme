@@ -224,7 +224,7 @@ async fn continue_conversation(
     };
 
     match manager
-        .submit_with_history_and_context(
+        .submit(
             conversation.agent.clone(),
             input.to_owned(),
             conversation.messages,
