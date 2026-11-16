@@ -147,7 +147,7 @@ async fn main() -> Result<()> {
     info!(address = %format!("http://{}:{}", bind_address.0, bind_address.1), "HTTP server listening");
 
     let server_result = HttpServer::new(move || {
-        App::new()
+        let mut app = App::new()
             .wrap(middleware::Logger::default())
             .wrap(middleware::from_fn(require_telegram_session))
             .app_data(web::Data::new(manager.clone()))
@@ -155,9 +155,11 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
-            .app_data(lan_invitation_config.clone().map(web::Data::new))
-            .app_data(web::Data::from(Arc::clone(&telegram_auth)))
-            .service(console_ui)
+            .app_data(web::Data::from(Arc::clone(&telegram_auth)));
+        if let Some(config) = lan_invitation_config.clone() {
+            app = app.app_data(web::Data::new(config));
+        }
+        app.service(console_ui)
             .service(invitation_page)
             .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
