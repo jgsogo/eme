@@ -1,4 +1,4 @@
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, SecondsFormat, TimeZone, Utc};
 use chrono_tz::Tz;
@@ -53,7 +53,7 @@ fn instant(s: &str, z: Tz) -> Result<DateTime<Utc>, ToolError> {
 }
 #[async_trait]
 impl Tool for CurrentDateTime {
-    async fn execute(&self, _: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, _: Value) -> Result<String, ToolError> {
         let n = Utc::now();
         output(
             json!({"datetime":n.to_rfc3339_opts(SecondsFormat::Millis,true),"timezone":"UTC","unix_timestamp":n.timestamp(),"unix_timestamp_millis":n.timestamp_millis()}),
@@ -141,7 +141,7 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn timezone_conversion() {
-        let v:Value=serde_json::from_str(&ConvertTimezone.execute(json!({"datetime":"2026-01-15T12:00:00","from_timezone":"Europe/Madrid","to_timezone":"America/New_York"})).await.unwrap()).unwrap();
+        let v:Value=serde_json::from_str(&ConvertTimezone.execute(&ToolContext::default(), json!({"datetime":"2026-01-15T12:00:00","from_timezone":"Europe/Madrid","to_timezone":"America/New_York"})).await.unwrap()).unwrap();
         assert_eq!(v["datetime"], "2026-01-15T06:00:00.000-05:00");
     }
     #[tokio::test]
