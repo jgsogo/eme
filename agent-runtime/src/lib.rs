@@ -16,7 +16,7 @@ pub mod runtime;
 pub mod tool;
 mod types;
 
-pub use agent_models::error::ModelError;
+pub use agent_models::ModelError;
 pub use error::{ErrorCategory, RuntimeError};
 pub use model::{AgentModel, ModelAdapter};
 pub use policy::{AllowListPolicy, Authorization, AuthorizationError, PolicyEngine};

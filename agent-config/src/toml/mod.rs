@@ -1,3 +1,5 @@
+//! TOML deserialization from individual files and deterministic directory scans.
+
 mod directory;
 mod file;
 

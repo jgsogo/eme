@@ -1,3 +1,5 @@
+//! Gemini wire-format data structures used only by the provider adapter.
+
 mod generate_content_request;
 pub(super) use generate_content_request::GenerateContentRequest;
 mod gemini_tool;

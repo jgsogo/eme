@@ -1,7 +1,6 @@
 use crate::{
     client::ConversationClient,
     error::ModelError,
-    models::{ModelCapability, ModelConfig},
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use agent_config::{ConfigError, read_toml_dir};
@@ -51,22 +50,6 @@ impl Registry {
         self.providers
             .get(provider_name)
             .is_some_and(|provider| provider.models.iter().any(|model| model.name == model_name))
-    }
-
-    pub fn models_with_capability(
-        &self,
-        capability: ModelCapability,
-    ) -> Vec<(String, ModelConfig)> {
-        let mut result = Vec::<(String, ModelConfig)>::new();
-        for (provider_name, provider_cfg) in self.providers.iter() {
-            for model in provider_cfg.models.iter() {
-                if model.capabilities.iter().any(|cap| cap == &capability) {
-                    result.push((provider_name.clone(), model.clone()));
-                }
-            }
-        }
-
-        result
     }
 
     pub fn resolve_model(

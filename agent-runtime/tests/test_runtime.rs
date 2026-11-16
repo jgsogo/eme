@@ -9,7 +9,7 @@ use std::{
 
 use tokio::sync::Notify;
 
-use agent_models::error::ModelError;
+use agent_models::ModelError;
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
     ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolContext, ToolDefinition, ToolDispatcher,

@@ -1,3 +1,5 @@
+//! OpenAI-compatible wire-format data structures used only by the provider adapter.
+
 mod api_response;
 pub(super) use api_response::ApiResponse;
 mod choice;

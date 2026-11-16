@@ -1,3 +1,5 @@
+//! Errors returned by provider clients and model resolution.
+
 #[derive(Debug, thiserror::Error)]
 pub enum ModelError {
     #[error("Model name is invalid: {0}")]
