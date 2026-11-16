@@ -57,7 +57,8 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <script>
 const TERMINAL=new Set(["completed","failed","cancelled","timed_out","max_iterations_reached"]);
-const pendingInviteMatch=window.location.pathname.match(/^\\/invite\\/([a-fA-F0-9]{64})$/);\nlet pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;\nconst state={agents:[],conversations:[],selected:null,messageCount:0,runId:null,pollTimer:null};
+const pendingInviteMatch=window.location.pathname.match(/^\\/invite\\/([a-fA-F0-9]{64})$/);
+let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;\nconst state={agents:[],conversations:[],selected:null,messageCount:0,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const mobileDrawer=()=>window.matchMedia("(max-width:760px)").matches;
 function setDrawerOpen(open){const sidebar=$("conversation-sidebar"),backdrop=$("drawer-backdrop"),toggle=$("open-conversations");sidebar.classList.toggle("open",open);backdrop.classList.toggle("open",open);toggle.setAttribute("aria-expanded",String(open));backdrop.setAttribute("aria-hidden",String(!open));document.body.style.overflow=open?"hidden":"";}
