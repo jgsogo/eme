@@ -157,10 +157,11 @@ impl RunManager {
         agent: impl Into<String>,
         input: impl Into<String>,
         history: Vec<Message>,
-        context: ToolContext,
+        mut context: ToolContext,
     ) -> Result<RunId, SubmitRunError> {
         let run = Run::new(agent, input);
         let run_id = run.id;
+        context.run_id = Some(run_id.as_uuid());
 
         {
             let mut runs = self.runs.lock().await;
