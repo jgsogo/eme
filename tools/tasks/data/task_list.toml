@@ -1,0 +1,6 @@
+name = "task_list"
+description = "List the scheduled and one-time tasks belonging to the authenticated user."
+
+[parameters]
+type = "object"
+additionalProperties = false
