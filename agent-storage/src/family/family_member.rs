@@ -1,8 +1,8 @@
 //! Membership record connecting a user to a family.
 
+use crate::{FamilyId, FamilyRelationship, FamilyRole, UserId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::{FamilyId, FamilyRelationship, FamilyRole, UserId};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FamilyMember {

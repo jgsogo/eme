@@ -1,7 +1,7 @@
 //! Stable identifier assigned to a logical conversation.
 
-use std::str::FromStr;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use uuid::Uuid;
 
 /// Stable identifier assigned to a logical conversation.

@@ -1,8 +1,8 @@
 //! Stores mutable
 
+use super::{StorageError, StoredRun};
 use async_trait::async_trait;
 use uuid::Uuid;
-use super::{StorageError, StoredRun};
 
 /// Stores mutable run snapshots.
 ///

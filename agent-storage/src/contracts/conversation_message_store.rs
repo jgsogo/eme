@@ -1,8 +1,8 @@
 //! Appends and reads ordered
 
+use super::{StorageError, StoredMessage};
 use async_trait::async_trait;
 use uuid::Uuid;
-use super::{StorageError, StoredMessage};
 
 /// Appends and reads ordered conversation messages.
 ///

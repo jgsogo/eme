@@ -1,10 +1,10 @@
 //! Conversation metadata and model-visible message history.
 
+use super::ConversationId;
+use crate::FamilyId;
+use agent_runtime::Message;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use agent_runtime::Message;
-use crate::FamilyId;
-use super::ConversationId;
 
 /// A conversation and its complete model-visible message history.
 #[derive(Debug, Clone, Serialize, Deserialize)]

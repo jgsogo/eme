@@ -1,8 +1,8 @@
 //! Family record and its ownership and lifecycle metadata.
 
+use crate::UserId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::UserId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Family {

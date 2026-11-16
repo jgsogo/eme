@@ -7,7 +7,6 @@ mod conversation_store_error;
 #[cfg(test)]
 mod tests;
 
-
 pub use conversation::Conversation;
 pub use conversation_id::ConversationId;
 pub use conversation_store::ConversationStore;

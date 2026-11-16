@@ -1,12 +1,18 @@
 //! File-backed conversation persistence and active-conversation index.
 
-use std::{collections::HashMap, fs::{self, OpenOptions}, io::{self, Write}, path::{Path, PathBuf}, sync::Mutex};
+use super::{Conversation, ConversationId, ConversationStoreError};
+use crate::FamilyId;
+use agent_runtime::Message;
 use chrono::Utc;
 use serde_json;
+use std::{
+    collections::HashMap,
+    fs::{self, OpenOptions},
+    io::{self, Write},
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 use uuid::Uuid;
-use agent_runtime::Message;
-use crate::FamilyId;
-use super::{Conversation, ConversationId, ConversationStoreError};
 
 /// File-backed conversation store.
 ///
@@ -320,4 +326,3 @@ fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), io::Error> {
     }
     result
 }
-

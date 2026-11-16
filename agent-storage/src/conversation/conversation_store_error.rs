@@ -1,8 +1,8 @@
 //! Failures returned by conversation persistence.
 
+use super::ConversationId;
 use std::io;
 use thiserror::Error;
-use super::ConversationId;
 
 #[derive(Debug, Error)]
 pub enum ConversationStoreError {

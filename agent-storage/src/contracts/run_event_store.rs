@@ -1,8 +1,8 @@
 //! Appends and reads immutable
 
+use super::{StorageError, StoredRunEvent};
 use async_trait::async_trait;
 use uuid::Uuid;
-use super::{StorageError, StoredRunEvent};
 
 /// Appends and reads immutable run events.
 ///
