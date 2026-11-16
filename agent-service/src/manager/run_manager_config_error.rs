@@ -1,3 +1,5 @@
+//! Configuration errors returned when creating a run manager.
+
 use thiserror::Error;
 
 /// Configuration errors for a run manager.

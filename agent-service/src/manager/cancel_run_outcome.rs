@@ -1,3 +1,5 @@
+//! Results describing a run cancellation request.
+
 /// Result of requesting cancellation for a run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CancelRunOutcome {

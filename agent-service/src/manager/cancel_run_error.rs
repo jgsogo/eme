@@ -1,3 +1,5 @@
+//! Errors returned when cancelling a run.
+
 use thiserror::Error;
 
 /// Errors returned when cancellation targets an unknown run.

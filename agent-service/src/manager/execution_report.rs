@@ -1,3 +1,5 @@
+//! Execution results and runtime events returned by a run executor.
+
 use super::ExecutionOutcome;
 use agent_runtime::{Message, RunEvent as RuntimeEvent};
 

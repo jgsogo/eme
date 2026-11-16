@@ -1,3 +1,5 @@
+//! Possible outcomes of an agent execution.
+
 /// Outcome reported by a run executor.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExecutionOutcome {
