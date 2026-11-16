@@ -273,8 +273,8 @@ mod tests {
     use tokio::sync::Notify;
 
     use super::{
-        CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor, RunManager,
-        RunManagerConfigError, SubmitRunError,
+        CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor,
+        RunManager, RunManagerConfigError, SubmitRunError,
     };
     use crate::{RunEventKind, RunId, RunStatus};
 
@@ -291,7 +291,11 @@ mod tests {
             _context: ToolContext,
             _cancellation: CancellationToken,
         ) -> Result<ExecutionReport, String> {
-            Ok(ExecutionReport { outcome: ExecutionOutcome::Completed(Some(format!("processed: {input}"))), runtime_events: Vec::new(), messages: None })
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(Some(format!("processed: {input}"))),
+                runtime_events: Vec::new(),
+                messages: None,
+            })
         }
     }
 
@@ -313,7 +317,11 @@ mod tests {
         ) -> Result<ExecutionReport, String> {
             self.started.notify_one();
             self.release.notified().await;
-            Ok(ExecutionReport { outcome: ExecutionOutcome::Completed(None), runtime_events: Vec::new(), messages: None })
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Completed(None),
+                runtime_events: Vec::new(),
+                messages: None,
+            })
         }
     }
 
@@ -336,7 +344,11 @@ mod tests {
             while !cancellation.is_cancelled() {
                 tokio::task::yield_now().await;
             }
-            Ok(ExecutionReport { outcome: ExecutionOutcome::Cancelled, runtime_events: Vec::new(), messages: None })
+            Ok(ExecutionReport {
+                outcome: ExecutionOutcome::Cancelled,
+                runtime_events: Vec::new(),
+                messages: None,
+            })
         }
     }
 
@@ -368,26 +380,38 @@ mod tests {
     async fn trusted_context_survives_queue_and_reaches_executor() {
         let received = Arc::new(std::sync::Mutex::new(None));
         let manager = RunManager::new(
-            Arc::new(ContextCaptureExecutor { received: received.clone() }),
+            Arc::new(ContextCaptureExecutor {
+                received: received.clone(),
+            }),
             1,
             2,
-        ).unwrap();
+        )
+        .unwrap();
         let context = ToolContext {
             user_id: Some("telegram:42".into()),
             conversation_id: Some("conversation-1".into()),
             run_id: None,
         };
 
-        let run_id = manager.submit("assistant", "hello", Vec::new(), context).await.unwrap();
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), context)
+            .await
+            .unwrap();
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
-                if manager.get(run_id).await.is_some_and(|run| run.status == RunStatus::Completed) {
+                if manager
+                    .get(run_id)
+                    .await
+                    .is_some_and(|run| run.status == RunStatus::Completed)
+                {
                     break;
                 }
                 tokio::task::yield_now().await;
             }
-        }).await.expect("run should complete");
+        })
+        .await
+        .expect("run should complete");
 
         let received = received.lock().unwrap().clone().unwrap();
         assert_eq!(received.user_id.as_deref(), Some("telegram:42"));
@@ -399,7 +423,10 @@ mod tests {
     async fn submitted_run_is_executed_and_reaches_completed_state() {
         let manager = RunManager::new(Arc::new(ImmediateExecutor), 1, 4).unwrap();
 
-        let run_id = manager.submit("assistant", "hello", Vec::new(), ToolContext::default()).await.unwrap();
+        let run_id = manager
+            .submit("assistant", "hello", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
 
         tokio::time::timeout(Duration::from_secs(1), async {
             loop {
@@ -426,12 +453,20 @@ mod tests {
         let release = Arc::clone(&executor.release);
         let manager = RunManager::new(Arc::new(executor), 1, 1).unwrap();
 
-        let first = manager.submit("assistant", "first", Vec::new(), ToolContext::default()).await.unwrap();
+        let first = manager
+            .submit("assistant", "first", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         started.notified().await;
 
-        let _queued = manager.submit("assistant", "queued", Vec::new(), ToolContext::default()).await.unwrap();
+        let _queued = manager
+            .submit("assistant", "queued", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         assert_eq!(
-            manager.submit("assistant", "rejected", Vec::new(), ToolContext::default()).await,
+            manager
+                .submit("assistant", "rejected", Vec::new(), ToolContext::default())
+                .await,
             Err(SubmitRunError::QueueFull)
         );
 
@@ -463,9 +498,15 @@ mod tests {
         let release = Arc::clone(&executor.release);
         let manager = RunManager::new(Arc::new(executor), 1, 2).unwrap();
 
-        let _running = manager.submit("assistant", "running", Vec::new(), ToolContext::default()).await.unwrap();
+        let _running = manager
+            .submit("assistant", "running", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
         started.notified().await;
-        let queued = manager.submit("assistant", "queued", Vec::new(), ToolContext::default()).await.unwrap();
+        let queued = manager
+            .submit("assistant", "queued", Vec::new(), ToolContext::default())
+            .await
+            .unwrap();
 
         assert_eq!(
             manager.cancel(queued).await,
