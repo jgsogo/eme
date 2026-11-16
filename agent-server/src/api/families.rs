@@ -122,14 +122,21 @@ impl LanInvitationConfig {
         let authority = value
             .strip_prefix("http://")
             .ok_or_else(|| "LAN_BASE_URL must use plain http:// on a private network".to_owned())?;
-        if authority.is_empty() || authority.contains('/') || authority.contains('?') || authority.contains('#') || authority.contains('@') {
+        if authority.is_empty()
+            || authority.contains('/')
+            || authority.contains('?')
+            || authority.contains('#')
+            || authority.contains('@')
+        {
             return Err("LAN_BASE_URL must contain only an IP address and optional port".into());
         }
         let host = if authority.starts_with('[') {
             let (host, suffix) = authority
                 .split_once(']')
                 .ok_or_else(|| "LAN_BASE_URL has an invalid IPv6 address".to_owned())?;
-            if !suffix.is_empty() && (!suffix.starts_with(':') || suffix[1..].parse::<u16>().is_err()) {
+            if !suffix.is_empty()
+                && (!suffix.starts_with(':') || suffix[1..].parse::<u16>().is_err())
+            {
                 return Err("LAN_BASE_URL has an invalid port".into());
             }
             &host[1..]
@@ -147,15 +154,23 @@ impl LanInvitationConfig {
             }
             host
         };
-        let ip: IpAddr = host.parse().map_err(|_| "LAN_BASE_URL host must be a private or link-local IP address".to_owned())?;
+        let ip: IpAddr = host.parse().map_err(|_| {
+            "LAN_BASE_URL host must be a private or link-local IP address".to_owned()
+        })?;
         let allowed = match ip {
             IpAddr::V4(ip) => ip.is_private() || ip.is_loopback() || ip.is_link_local(),
-            IpAddr::V6(ip) => ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local(),
+            IpAddr::V6(ip) => {
+                ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local()
+            }
         };
         if !allowed || ip.is_unspecified() {
-            return Err("LAN_BASE_URL must use a private, loopback, or link-local IP address".into());
+            return Err(
+                "LAN_BASE_URL must use a private, loopback, or link-local IP address".into(),
+            );
         }
-        Ok(Self { base_url: value.to_owned() })
+        Ok(Self {
+            base_url: value.to_owned(),
+        })
     }
 
     pub fn from_env() -> Result<Option<Self>, String> {
@@ -618,7 +633,9 @@ mod tests {
                 .app_data(web::Data::from(Arc::clone(&auth)))
                 .app_data(web::Data::new(Arc::clone(&identities)))
                 .app_data(web::Data::new(Arc::clone(&service)))
-                .app_data(web::Data::new(LanInvitationConfig::parse("http://192.168.1.20:8080").unwrap()))
+                .app_data(web::Data::new(
+                    LanInvitationConfig::parse("http://192.168.1.20:8080").unwrap(),
+                ))
                 .service(crate::auth::auth_api())
                 .service(families_api())
                 .service(invitations_api()),
@@ -708,7 +725,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::CREATED);
         let created_invitation: Value = test::read_body_json(response).await;
         let invitation_token = created_invitation["token"].as_str().unwrap().to_owned();
-        assert_eq!(created_invitation["lan_url"], format!("http://192.168.1.20:8080/invite/{invitation_token}"));
+        assert_eq!(
+            created_invitation["lan_url"],
+            format!("http://192.168.1.20:8080/invite/{invitation_token}")
+        );
 
         let response = test::call_service(
             &app,
@@ -794,7 +814,10 @@ mod lan_url_tests {
     #[test]
     fn accepts_only_private_network_addresses_and_builds_invitation_urls() {
         let config = LanInvitationConfig::parse("http://192.168.1.20:8080/").unwrap();
-        assert_eq!(config.invitation_url("secret"), "http://192.168.1.20:8080/invite/secret");
+        assert_eq!(
+            config.invitation_url("secret"),
+            "http://192.168.1.20:8080/invite/secret"
+        );
         assert!(LanInvitationConfig::parse("https://192.168.1.20").is_err());
         assert!(LanInvitationConfig::parse("http://example.com:8080").is_err());
         assert!(LanInvitationConfig::parse("http://8.8.8.8:8080").is_err());
