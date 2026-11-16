@@ -35,3 +35,21 @@ For now, browser sessions are held in memory. Restarting `agent-server` invalida
 ## Conversation identity
 
 Telegram and web conversations use the same owner key, `telegram:<user_id>`. The Telegram user ID is stable; usernames and display names are not used as identity keys.
+
+## LAN family invitations
+
+LAN invitation links are optional. To enable them, set `LAN_BASE_URL` to the HTTP base URL that family members can reach on your private network, including the port when needed:
+
+```sh
+LAN_BASE_URL=http://192.168.1.20:8080
+# IPv6 ULA addresses must be enclosed in brackets:
+LAN_BASE_URL=http://[fd00::20]:8080
+```
+
+The value must use plain `http://` and a private, loopback, or link-local IP address. Hostnames, public IP addresses, HTTPS URLs, and paths are rejected. The server must also listen on a LAN-reachable interface (for example, `--host 0.0.0.0`, rather than the default `127.0.0.1`), and the host firewall must allow the configured port.
+
+When `LAN_BASE_URL` is configured, family-invitation creation responses include a `lan_url` that recipients can open in a browser. The recipient must sign in with their Telegram account and choose their family relationship before accepting. The invitation remains subject to the existing expiry, revocation, single-use, and membership checks.
+
+**Missing configuration:** if `LAN_BASE_URL` is not set, `agent-server` logs an `ERROR` message at startup explaining that LAN family invitation links are disabled and showing an example value to configure. The server continues starting normally; invitation creation remains available, but responses do not include a `lan_url`. Set the variable and restart the server to enable LAN links.
+
+Treat invitation URLs as bearer credentials: share them only with the intended recipient and use a trusted Wi-Fi network. The LAN URL uses HTTP and is not encrypted in transit, so do not use it across untrusted networks. This IP-only setting is not intended for public HTTPS deployments behind a reverse proxy.
