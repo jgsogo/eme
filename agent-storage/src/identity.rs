@@ -12,7 +12,7 @@ mod user_identity;
 mod user_identity_store;
 
 pub use file_user_identity_store::FileUserIdentityStore;
-pub(super) use identity_state::{identity_key, IdentityState};
+pub(super) use identity_state::{IdentityState, identity_key};
 pub use identity_store_error::IdentityStoreError;
 pub use in_memory_user_identity_store::InMemoryUserIdentityStore;
 pub use user::User;

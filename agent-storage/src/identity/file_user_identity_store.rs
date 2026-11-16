@@ -1,6 +1,8 @@
 //! Atomic JSON-file-backed identity store.
 
-use super::{identity_key, IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore};
+use super::{
+    IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore, identity_key,
+};
 use serde_json;
 use std::{
     fs::{self, OpenOptions},
