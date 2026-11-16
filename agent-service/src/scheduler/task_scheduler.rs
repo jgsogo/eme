@@ -1,3 +1,5 @@
+//! Runs due persisted tasks and submits them to the run manager.
+
 use super::ScheduledTask;
 use crate::{RunManager, Task, TaskRegistry};
 use agent_runtime::ToolContext;

@@ -20,5 +20,4 @@ pub use run_executor::RunExecutor;
 pub use run_manager::RunManager;
 pub use run_manager_config_error::RunManagerConfigError;
 pub use submit_run_error::SubmitRunError;
-
 use managed_run::ManagedRun;

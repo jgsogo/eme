@@ -1,3 +1,5 @@
+//! A task prepared for execution by the scheduler.
+
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;

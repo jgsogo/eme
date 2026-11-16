@@ -1,3 +1,5 @@
+//! Adapts agent runtime execution to the service run executor contract.
+
 use super::AgentRuntimeResolver;
 use crate::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId};
 use agent_runtime::{CancellationToken, Message, RunStatus as RuntimeRunStatus, ToolContext};
