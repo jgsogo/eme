@@ -442,7 +442,7 @@ mod tests {
     use agent_runtime::{Message, ToolCall};
     use serde_json::json;
 
-    use super::{ConversationStore, ConversationStoreError};
+    use super::{ConversationStore, ConversationStoreError, FamilyId};
 
     fn temporary_directory() -> std::path::PathBuf {
         let unique = SystemTime::now()
