@@ -46,6 +46,16 @@ impl InvitationToken {
         format!("{:x}", Sha256::digest(self.0.as_bytes()))
     }
 
+    /// Parse a token received from an untrusted transport. Tokens are fixed-length
+    /// lowercase/uppercase hexadecimal strings; malformed values are rejected
+    /// before any identity provisioning takes place.
+    pub fn parse(value: &str) -> Result<Self, InvitationStorageError> {
+        if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(InvitationStorageError::NotFound);
+        }
+        Ok(Self(value.to_ascii_lowercase()))
+    }
+
     pub fn expose(&self) -> &str {
         &self.0
     }
@@ -172,6 +182,14 @@ pub trait FamilyInvitationStore: Send + Sync {
         family_id: FamilyId,
         invitation_id: uuid::Uuid,
     ) -> Result<FamilyInvitationSummary, InvitationStorageError>;
+
+    /// Checks token validity and identity binding without consuming the invitation.
+    /// Acceptance repeats all checks atomically to protect against races.
+    async fn validate_invitation(
+        &self,
+        token: &InvitationToken,
+        accepting_identity: &InvitationTargetIdentity,
+    ) -> Result<(), InvitationStorageError>;
 
     /// Validates the token and optional identity binding, then creates the
     /// membership and marks the invitation accepted under one transaction.
