@@ -42,13 +42,13 @@ fn service_error(error: FamilyServiceError) -> HttpResponse {
         FamilyServiceError::Forbidden => HttpResponse::Forbidden().finish(),
         FamilyServiceError::EmptyName => {
             HttpResponse::BadRequest().body("family name must not be empty")
-        },
+        }
         FamilyServiceError::OwnerMustTransfer
         | FamilyServiceError::TargetNotMember
         | FamilyServiceError::OwnerRoleRequiresTransfer
         | FamilyServiceError::CannotChangeOwnRole => {
             HttpResponse::Conflict().body("family membership conflict")
-        },
+        }
         FamilyServiceError::FamilyStorage(_) | FamilyServiceError::InvitationStorage(_) => {
             HttpResponse::InternalServerError().finish()
         }
