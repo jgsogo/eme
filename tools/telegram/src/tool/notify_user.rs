@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::client::TelegramGateway;
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -20,7 +20,7 @@ impl TgNotifyUser {
 
 #[async_trait]
 impl Tool for TgNotifyUser {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let message = arguments
             .get("message")
             .and_then(Value::as_str)
