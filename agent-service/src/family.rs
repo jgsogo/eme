@@ -1,10 +1,11 @@
-use agent_runtime::FamilyContext;
 //! Family workflows and authorization policy.
 //!
 //! HTTP and messaging transports should call this service rather than applying
 //! family permissions themselves. The actor is always supplied by the trusted
 //! authentication layer, never by a request body or an agent.
 use std::sync::Arc;
+
+use agent_runtime::FamilyContext;
 
 use agent_storage::{
     Family, FamilyId, FamilyInvitationStore, FamilyInvitationSummary, FamilyMember,
