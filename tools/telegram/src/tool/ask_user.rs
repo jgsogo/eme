@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::client::{TelegramGateway, configured_chat_id, default_timeout};
-use agent_runtime::{Tool, ToolError};
+use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
@@ -20,7 +20,7 @@ impl TgAskUser {
 
 #[async_trait]
 impl Tool for TgAskUser {
-    async fn execute(&self, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let question = arguments
             .get("question")
             .and_then(Value::as_str)
