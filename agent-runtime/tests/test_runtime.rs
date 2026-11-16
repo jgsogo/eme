@@ -12,12 +12,12 @@ use tokio::sync::Notify;
 use agent_models::error::ModelError;
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
-    ToolContext,
-    ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolDefinition, ToolDispatcher, ToolError,
+    ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolContext, ToolDefinition, ToolDispatcher,
+    ToolError,
 };
 use async_trait::async_trait;
-use uuid::Uuid;
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 struct MockModel {
     responses: Mutex<VecDeque<ModelTurn>>,
@@ -73,7 +73,12 @@ impl ToolDispatcher for MockTools {
         }
     }
 
-    async fn execute(&self, _context: &ToolContext, name: &str, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(
+        &self,
+        _context: &ToolContext,
+        name: &str,
+        arguments: Value,
+    ) -> Result<String, ToolError> {
         self.calls
             .lock()
             .unwrap()
@@ -350,7 +355,14 @@ async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
 
     let run = tokio::spawn(async move {
         runtime
-            .run(Uuid::new_v4(), &agent, ToolContext::default(), Vec::new(), "Hello", run_cancellation)
+            .run(
+                Uuid::new_v4(),
+                &agent,
+                ToolContext::default(),
+                Vec::new(),
+                "Hello",
+                run_cancellation,
+            )
             .await
             .unwrap()
     });
@@ -436,7 +448,14 @@ async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
 
     let run = tokio::spawn(async move {
         runtime
-            .run(Uuid::new_v4(), &agent, ToolContext::default(), Vec::new(), "Use the tool", run_cancellation)
+            .run(
+                Uuid::new_v4(),
+                &agent,
+                ToolContext::default(),
+                Vec::new(),
+                "Use the tool",
+                run_cancellation,
+            )
             .await
             .unwrap()
     });
@@ -581,7 +600,14 @@ async fn truncates_tool_output_to_the_configured_utf8_byte_limit() {
     .with_max_tool_output_bytes(32);
 
     let result = runtime
-        .run(Uuid::new_v4(), &test_agent(), ToolContext::default(), Vec::new(), "Run the tool", CancellationToken::new())
+        .run(
+            Uuid::new_v4(),
+            &test_agent(),
+            ToolContext::default(),
+            Vec::new(),
+            "Run the tool",
+            CancellationToken::new(),
+        )
         .await
         .unwrap();
 
