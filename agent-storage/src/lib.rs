@@ -21,6 +21,8 @@ use thiserror::Error;
 use uuid::Uuid;
 
 mod contracts;
+mod family;
+mod family_memory;
 mod identity;
 mod memory;
 
@@ -28,6 +30,8 @@ pub use contracts::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
     StoredRunEvent, StoredRunStatus,
 };
+pub use family::{Family, FamilyId, FamilyMember, FamilyRelationship, FamilyRole, FamilyStorageError, FamilyStore};
+pub use family_memory::InMemoryFamilyStore;
 pub use identity::{
     FileUserIdentityStore, IdentityStoreError, InMemoryUserIdentityStore, User, UserId,
     UserIdentity, UserIdentityStore,
