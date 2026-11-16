@@ -28,7 +28,7 @@ const ALEXA: &str = "alexa.amazon.es";
 const TTS_LOCALE: &str = "es-ES";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:1.0) bash-script/1.0";
 const NOTIFICATION_BEEP_SSML: &str =
-    r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06"/>"#;
+    r#"<audio src="soundbank://soundlibrary/alarms/beeps_and_bloops/boing_01"/>"#;
 
 fn notification_speech(text: &str, chime: Option<&str>) -> String {
     let audio = match chime {
@@ -304,7 +304,7 @@ mod tests {
     fn notification_speech_uses_default_chime() {
         assert_eq!(
             notification_speech("The washing machine has finished.", None),
-            r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06"/>The washing machine has finished."#
+            r#"<audio src="soundbank://soundlibrary/alarms/beeps_and_bloops/boing_01"/>The washing machine has finished."#
         );
     }
 
