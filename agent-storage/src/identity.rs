@@ -18,15 +18,25 @@ use uuid::Uuid;
 pub struct UserId(Uuid);
 
 impl UserId {
-    pub fn new() -> Self { Self(Uuid::new_v4()) }
+    pub fn new() -> Self {
+        Self(Uuid::new_v4())
+    }
 }
-impl Default for UserId { fn default() -> Self { Self::new() } }
+impl Default for UserId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 impl std::fmt::Display for UserId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { self.0.fmt(f) }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
 }
 impl FromStr for UserId {
     type Err = uuid::Error;
-    fn from_str(value: &str) -> Result<Self, Self::Err> { Uuid::parse_str(value).map(Self) }
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Uuid::parse_str(value).map(Self)
+    }
 }
 
 /// Stable internal EME identity. Provider-specific identifiers belong in UserIdentity.
@@ -104,8 +114,11 @@ impl IdentityState {
         validate_identity(provider, subject)?;
         let key = identity_key(provider, subject);
         if let Some(identity) = self.identities.get(&key) {
-            let user = self.users.get(&identity.user_id)
-                .expect("identity state must not contain orphaned identities").clone();
+            let user = self
+                .users
+                .get(&identity.user_id)
+                .expect("identity state must not contain orphaned identities")
+                .clone();
             return Ok((user, identity.clone()));
         }
         let now = Utc::now();
@@ -138,9 +151,12 @@ impl IdentityState {
         }
         let key = identity_key(provider, subject);
         if let Some(existing) = self.identities.get(&key) {
-            if existing.user_id == user_id { return Ok(existing.clone()); }
+            if existing.user_id == user_id {
+                return Ok(existing.clone());
+            }
             return Err(IdentityStoreError::IdentityAlreadyLinked {
-                provider: provider.to_owned(), subject: subject.to_owned(),
+                provider: provider.to_owned(),
+                subject: subject.to_owned(),
             });
         }
         let identity = UserIdentity {
@@ -161,7 +177,10 @@ fn validate_identity(provider: &str, subject: &str) -> Result<(), IdentityStoreE
     Ok(())
 }
 fn normalize_display_name(value: Option<&str>) -> Option<String> {
-    value.map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned)
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
 }
 
 #[derive(Clone, Default)]
@@ -169,22 +188,50 @@ pub struct InMemoryUserIdentityStore {
     state: Arc<Mutex<IdentityState>>,
 }
 impl UserIdentityStore for InMemoryUserIdentityStore {
-    fn resolve_or_create(&self, provider: &str, subject: &str, display_name: Option<&str>)
-        -> Result<(User, UserIdentity), IdentityStoreError> {
-        Ok(self.state.lock().unwrap_or_else(|p| p.into_inner())
+    fn resolve_or_create(
+        &self,
+        provider: &str,
+        subject: &str,
+        display_name: Option<&str>,
+    ) -> Result<(User, UserIdentity), IdentityStoreError> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
             .resolve_or_create(provider, subject, display_name)?)
     }
     fn get_user(&self, user_id: UserId) -> Result<Option<User>, IdentityStoreError> {
-        Ok(self.state.lock().unwrap_or_else(|p| p.into_inner()).users.get(&user_id).cloned())
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .users
+            .get(&user_id)
+            .cloned())
     }
-    fn find_identity(&self, provider: &str, subject: &str)
-        -> Result<Option<UserIdentity>, IdentityStoreError> {
-        Ok(self.state.lock().unwrap_or_else(|p| p.into_inner())
-            .identities.get(&identity_key(provider, subject)).cloned())
+    fn find_identity(
+        &self,
+        provider: &str,
+        subject: &str,
+    ) -> Result<Option<UserIdentity>, IdentityStoreError> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .identities
+            .get(&identity_key(provider, subject))
+            .cloned())
     }
-    fn link_identity(&self, user_id: UserId, provider: &str, subject: &str)
-        -> Result<UserIdentity, IdentityStoreError> {
-        self.state.lock().unwrap_or_else(|p| p.into_inner()).link_identity(user_id, provider, subject)
+    fn link_identity(
+        &self,
+        user_id: UserId,
+        provider: &str,
+        subject: &str,
+    ) -> Result<UserIdentity, IdentityStoreError> {
+        self.state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .link_identity(user_id, provider, subject)
     }
 }
 
@@ -202,11 +249,16 @@ impl FileUserIdentityStore {
             Err(error) if error.kind() == io::ErrorKind::NotFound => IdentityState::default(),
             Err(error) => return Err(error.into()),
         };
-        Ok(Self { path, state: Mutex::new(state) })
+        Ok(Self {
+            path,
+            state: Mutex::new(state),
+        })
     }
 
-    fn update<T>(&self, operation: impl FnOnce(&mut IdentityState) -> Result<T, IdentityStoreError>)
-        -> Result<T, IdentityStoreError> {
+    fn update<T>(
+        &self,
+        operation: impl FnOnce(&mut IdentityState) -> Result<T, IdentityStoreError>,
+    ) -> Result<T, IdentityStoreError> {
         let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
         let mut updated = serde_json::from_slice::<IdentityState>(&serde_json::to_vec(&*state)?)?;
         let result = operation(&mut updated)?;
@@ -217,20 +269,42 @@ impl FileUserIdentityStore {
     }
 }
 impl UserIdentityStore for FileUserIdentityStore {
-    fn resolve_or_create(&self, provider: &str, subject: &str, display_name: Option<&str>)
-        -> Result<(User, UserIdentity), IdentityStoreError> {
+    fn resolve_or_create(
+        &self,
+        provider: &str,
+        subject: &str,
+        display_name: Option<&str>,
+    ) -> Result<(User, UserIdentity), IdentityStoreError> {
         self.update(|state| state.resolve_or_create(provider, subject, display_name))
     }
     fn get_user(&self, user_id: UserId) -> Result<Option<User>, IdentityStoreError> {
-        Ok(self.state.lock().unwrap_or_else(|p| p.into_inner()).users.get(&user_id).cloned())
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .users
+            .get(&user_id)
+            .cloned())
     }
-    fn find_identity(&self, provider: &str, subject: &str)
-        -> Result<Option<UserIdentity>, IdentityStoreError> {
-        Ok(self.state.lock().unwrap_or_else(|p| p.into_inner())
-            .identities.get(&identity_key(provider, subject)).cloned())
+    fn find_identity(
+        &self,
+        provider: &str,
+        subject: &str,
+    ) -> Result<Option<UserIdentity>, IdentityStoreError> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .identities
+            .get(&identity_key(provider, subject))
+            .cloned())
     }
-    fn link_identity(&self, user_id: UserId, provider: &str, subject: &str)
-        -> Result<UserIdentity, IdentityStoreError> {
+    fn link_identity(
+        &self,
+        user_id: UserId,
+        provider: &str,
+        subject: &str,
+    ) -> Result<UserIdentity, IdentityStoreError> {
         self.update(|state| state.link_identity(user_id, provider, subject))
     }
 }
@@ -238,16 +312,24 @@ impl UserIdentityStore for FileUserIdentityStore {
 fn atomic_write(path: &Path, contents: &[u8]) -> Result<(), io::Error> {
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     fs::create_dir_all(parent)?;
-    let temporary = parent.join(format!(".{}.{}.tmp",
-        path.file_name().unwrap_or_default().to_string_lossy(), Uuid::new_v4()));
-    let mut file = OpenOptions::new().write(true).create_new(true).open(&temporary)?;
+    let temporary = parent.join(format!(
+        ".{}.{}.tmp",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+        Uuid::new_v4()
+    ));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)?;
     let result = (|| {
         file.write_all(contents)?;
         file.sync_all()?;
         fs::rename(&temporary, path)?;
         Ok(())
     })();
-    if result.is_err() { let _ = fs::remove_file(&temporary); }
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
     result
 }
 
@@ -264,11 +346,14 @@ mod tests {
         let path = temporary_file();
         let (first_user, first_identity) = {
             let store = FileUserIdentityStore::open(&path).unwrap();
-            store.resolve_or_create("telegram", "123456", Some("Javier")).unwrap()
+            store
+                .resolve_or_create("telegram", "123456", Some("Javier"))
+                .unwrap()
         };
         let reopened = FileUserIdentityStore::open(&path).unwrap();
-        let (second_user, second_identity) =
-            reopened.resolve_or_create("telegram", "123456", Some("Changed name")).unwrap();
+        let (second_user, second_identity) = reopened
+            .resolve_or_create("telegram", "123456", Some("Changed name"))
+            .unwrap();
         assert_eq!(first_user.id, second_user.id);
         assert_eq!(first_identity, second_identity);
         assert_eq!(second_user.display_name.as_deref(), Some("Javier"));
@@ -279,19 +364,37 @@ mod tests {
     fn one_external_identity_cannot_be_linked_to_two_users() {
         let store = InMemoryUserIdentityStore::default();
         let (first, _) = store.resolve_or_create("telegram", "42", None).unwrap();
-        let (second, _) = store.resolve_or_create("google", "person@example.com", None).unwrap();
+        let (second, _) = store
+            .resolve_or_create("google", "person@example.com", None)
+            .unwrap();
         assert!(matches!(
             store.link_identity(second.id, "telegram", "42"),
             Err(IdentityStoreError::IdentityAlreadyLinked { .. })
         ));
-        assert_eq!(store.find_identity("telegram", "42").unwrap().unwrap().user_id, first.id);
+        assert_eq!(
+            store
+                .find_identity("telegram", "42")
+                .unwrap()
+                .unwrap()
+                .user_id,
+            first.id
+        );
     }
 
     #[test]
     fn a_user_can_have_multiple_external_identities() {
         let store = InMemoryUserIdentityStore::default();
         let (user, _) = store.resolve_or_create("telegram", "42", None).unwrap();
-        store.link_identity(user.id, "google", "person@example.com").unwrap();
-        assert_eq!(store.find_identity("google", "person@example.com").unwrap().unwrap().user_id, user.id);
+        store
+            .link_identity(user.id, "google", "person@example.com")
+            .unwrap();
+        assert_eq!(
+            store
+                .find_identity("google", "person@example.com")
+                .unwrap()
+                .unwrap()
+                .user_id,
+            user.id
+        );
     }
 }
