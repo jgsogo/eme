@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use agent_server::auth::TelegramAuth;
+use agent_runtime::ToolContext;
 use agent_service::{RunManager, SubmitRunError};
 use agent_storage::{ConversationId, ConversationStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
@@ -142,7 +143,11 @@ pub(super) async fn handle_message(
         .submit_with_history(
             conversation.agent.clone(),
             prompt,
+.submit_with_history_and_context(
+            conversation.agent.clone(),
+            prompt,
             conversation.messages.clone(),
+            ToolContext { user_id: Some(owner.clone()), conversation_id: Some(conversation.id.to_string()), run_id: None },
         )
         .await
     {
