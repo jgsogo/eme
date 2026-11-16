@@ -140,16 +140,16 @@ pub(super) async fn handle_message(
     }
 
     match manager
-        .submit_with_history(
-            conversation.agent.clone(),
-            prompt,
-.submit_with_history_and_context(
+        .submit_with_history_and_context(
             conversation.agent.clone(),
             prompt,
             conversation.messages.clone(),
-            ToolContext { user_id: Some(owner.clone()), conversation_id: Some(conversation.id.to_string()), run_id: None },
-        )
-        .await
+            ToolContext {
+                user_id: Some(owner.clone()),
+                conversation_id: Some(conversation.id.to_string()),
+                run_id: None,
+            },
+        )        .await
     {
         Ok(id) => {
             let _ = gateway
