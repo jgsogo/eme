@@ -64,14 +64,22 @@ async fn main() -> Result<()> {
         cookie_secure,
     ));
 
-    let task_registry = TaskRegistry::load(args.data_dir.join("tasks"))
-        .context("loading scheduled tasks")?;
+    let task_registry =
+        TaskRegistry::load(args.data_dir.join("tasks")).context("loading scheduled tasks")?;
 
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools, task_registry.clone())
-            .with_context(|| format!("loading platform configuration from {}", args.data_dir.display()))?,
+            .with_context(|| {
+                format!(
+                    "loading platform configuration from {}",
+                    args.data_dir.display()
+                )
+            })?,
     );
-    info!(agents = resolver.agents.definitions().count(), "agent definitions loaded");
+    info!(
+        agents = resolver.agents.definitions().count(),
+        "agent definitions loaded"
+    );
 
     if telegram_gateway.is_some() && resolver.agents.get(&args.telegram_agent).is_none() {
         anyhow::bail!("Telegram agent '{}' is not configured", args.telegram_agent);
