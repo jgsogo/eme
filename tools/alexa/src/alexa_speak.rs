@@ -27,6 +27,12 @@ const AMAZON: &str = "amazon.es";
 const ALEXA: &str = "alexa.amazon.es";
 const TTS_LOCALE: &str = "es-ES";
 const USER_AGENT_STR: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:1.0) bash-script/1.0";
+const NOTIFICATION_BEEP_SSML: &str =
+    r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06.mp3"/>"#;
+
+fn notification_speech(text: &str) -> String {
+    format!("{NOTIFICATION_BEEP_SSML}{text}")
+}
 
 /// Envía un TTS (Alexa.Speak) a un dispositivo Echo.
 ///
@@ -230,7 +236,7 @@ async fn send_speak(
                         "deviceSerialNumber": serial,
                         "customerId": customer_id,
                         "locale": TTS_LOCALE,
-                        "textToSpeak": text
+                        "textToSpeak": notification_speech(text)
                     }
                 }
             ]
@@ -277,4 +283,17 @@ fn common_headers(cookie_header: &str, csrf: &str) -> HeaderMap {
     h.insert(ORIGIN, HeaderValue::from_static("https://alexa.amazon.es"));
     h.insert(USER_AGENT, HeaderValue::from_static(USER_AGENT_STR));
     h
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notification_speech_starts_with_beep() {
+        assert_eq!(
+            notification_speech("The washing machine has finished."),
+            r#"<audio src="soundbank://soundlibrary/computers/beeps_tones/beeps_tones_06.mp3"/>The washing machine has finished."#
+        );
+    }
 }
