@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     telegram_tool::register_tools(&mut tools, None).context("registering Telegram tools")?;
     meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
     tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
-    google_tool::register_tools(&mut tools).context("registering Google tools")?;
+    google_tool::register_tools(&mut tools, None).context("registering Google tools")?;
 
     let model_registry = agent_models::Registry::load(&data_dir)?;
     let agents = AgentRegistry::load_validated(data_dir.join("agents"), &model_registry, &tools)?;
