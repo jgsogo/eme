@@ -1,0 +1,15 @@
+name = "mercadona_get_product"
+description = "Retrieve detailed information about a Mercadona product, including its packaging, price, reference price, product information and nutritional information when available."
+[parameters]
+type = "object"
+required = ["product_id"]
+additionalProperties = false
+
+[parameters.properties.product_id]
+type = "string"
+minLength = 1
+description = "Product identifier returned by mercadona_search_products or a category result."
+
+[parameters.properties.warehouse]
+type = "string"
+description = "Optional Mercadona warehouse code. Defaults to MERCADONA_WAREHOUSE or mad1."
