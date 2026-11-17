@@ -760,7 +760,7 @@ mod tests {
         .await;
         let second_login: Value = test::read_body_json(response).await;
         let second_login_token = second_login["token"].as_str().unwrap();
-        assert!(auth.complete_login(second_login_token, 84, identities.as_ref()));
+        assert!(auth.complete_login(second_login_token, 84, None, identities.as_ref()));
 
         let response = test::call_service(
             &app,
