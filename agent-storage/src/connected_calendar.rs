@@ -358,7 +358,7 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
         let selected_value = selected.map(|value| if value { 1_i64 } else { 0_i64 });
         let access_value = access_mode.map(CalendarAccessMode::as_str);
         let sql = format!(
-            "UPDATE connected_calendars SET selected=COALESCE(?1,selected),access_mode=COALESCE(?2,access_mode),updated_at=?3
+            "UPDATE connected_calendars SET selected=COALESCE(?1,selected),access_mode=COALESCE(?2,access_mode),family_id=CASE WHEN ?1=0 THEN NULL ELSE family_id END,family_access=CASE WHEN ?1=0 THEN NULL WHEN ?2='read_only' AND family_access='contributor' THEN 'viewer' ELSE family_access END,updated_at=?3
              WHERE id=?4 AND owner_id=?5 AND EXISTS(
                 SELECT 1 FROM external_connections c WHERE c.id=connected_calendars.connection_id
                 AND c.owner_id=connected_calendars.owner_id AND c.status='active')
@@ -484,6 +484,15 @@ mod tests {
             .unwrap();
         assert!(refreshed[0].selected);
         assert_eq!(refreshed[0].access_mode, CalendarAccessMode::ReadWrite);
+        let family_id = FamilyId::new();
+        let shared = calendars.share_with_family(owner, first[0].id, family_id, CalendarFamilyAccess::Contributor).await.unwrap();
+        assert_eq!(shared.family_id, Some(family_id));
+        assert_eq!(shared.family_access, Some(CalendarFamilyAccess::Contributor));
+        let downgraded = calendars.update(owner, first[0].id, None, Some(CalendarAccessMode::ReadOnly)).await.unwrap();
+        assert_eq!(downgraded.family_access, Some(CalendarFamilyAccess::Viewer));
+        let unshared = calendars.unshare_from_family(owner, first[0].id).await.unwrap();
+        assert_eq!(unshared.family_id, None);
+        assert_eq!(unshared.family_access, None);
         assert!(matches!(
             calendars.list_for_connection(other, connection.id).await,
             Err(ConnectedCalendarStorageError::ConnectionNotFound)
