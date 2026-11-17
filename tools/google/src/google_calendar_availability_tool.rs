@@ -21,22 +21,30 @@ impl Tool for GoogleCalendarCheckAvailability {
         let calendar_id = required_string(&arguments, "calendar_id")?;
         let time_min = required_string(&arguments, "time_min")?;
         let time_max = required_string(&arguments, "time_max")?;
-        let start = DateTime::parse_from_rfc3339(time_min).map_err(|error| invalid(error.to_string()))?;
-        let end = DateTime::parse_from_rfc3339(time_max).map_err(|error| invalid(error.to_string()))?;
+        let start =
+            DateTime::parse_from_rfc3339(time_min).map_err(|error| invalid(error.to_string()))?;
+        let end =
+            DateTime::parse_from_rfc3339(time_max).map_err(|error| invalid(error.to_string()))?;
         if start >= end {
             return Err(invalid("'time_min' must be earlier than 'time_max'".into()));
         }
 
         let runtime = self.runtime.as_ref().ok_or_else(|| {
-            ToolError::Configuration("Google Calendar OAuth is not configured on this server.".into())
+            ToolError::Configuration(
+                "Google Calendar OAuth is not configured on this server.".into(),
+            )
         })?;
         let user_id = context.user_id.as_deref().ok_or_else(|| {
             ToolError::Configuration("Google Calendar requires an authenticated EME user.".into())
         })?;
-        let family_id = context.family.as_ref().map(|family| family.family_id.as_str());
+        let family_id = context
+            .family
+            .as_ref()
+            .map(|family| family.family_id.as_str());
 
         // Authorize every invocation before refreshing credentials.
-        let authorized = runtime.access
+        let authorized = runtime
+            .access
             .authorize_read(user_id, calendar_id, family_id)
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
@@ -45,12 +53,15 @@ impl Tool for GoogleCalendarCheckAvailability {
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         let client = GoogleCalendarClient::from_access_token(token.access_token);
         let calendar = authorized.calendar.id.to_string();
-        let events = client.events_for_period(
-            &authorized.calendar.provider_calendar_id,
-            time_min,
-            time_max,
-            &calendar,
-        ).await.map_err(|error| ToolError::Execution(error.to_string()))?;
+        let events = client
+            .events_for_period(
+                &authorized.calendar.provider_calendar_id,
+                time_min,
+                time_max,
+                &calendar,
+            )
+            .await
+            .map_err(|error| ToolError::Execution(error.to_string()))?;
 
         let busy = busy_intervals(&events);
         serde_json::to_string_pretty(&json!({
@@ -59,14 +70,22 @@ impl Tool for GoogleCalendarCheckAvailability {
             "time_max": time_max,
             "available": busy.is_empty(),
             "busy": busy
-        })).map_err(|error| ToolError::Execution(error.to_string()))
+        }))
+        .map_err(|error| ToolError::Execution(error.to_string()))
     }
 }
 
 fn required_string<'a>(arguments: &'a Value, name: &str) -> Result<&'a str, ToolError> {
-    arguments.get(name).and_then(Value::as_str).map(str::trim)
+    arguments
+        .get(name)
+        .and_then(Value::as_str)
+        .map(str::trim)
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| invalid(format!("'{name}' is required and must be a non-empty string")))
+        .ok_or_else(|| {
+            invalid(format!(
+                "'{name}' is required and must be a non-empty string"
+            ))
+        })
 }
 
 fn invalid(message: String) -> ToolError {
@@ -78,14 +97,20 @@ fn invalid(message: String) -> ToolError {
 
 /// Return only busy intervals; never expose event titles, descriptions, attendees or IDs.
 fn busy_intervals(events: &Value) -> Vec<Value> {
-    events.get("events").and_then(Value::as_array)
-        .into_iter().flatten()
+    events
+        .get("events")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
         .filter(|event| event.get("status").and_then(Value::as_str) != Some("cancelled"))
         .filter(|event| event.get("transparency").and_then(Value::as_str) != Some("transparent"))
         .filter_map(|event| {
             let start = event.get("start")?;
             let end = event.get("end")?;
-            let start_value = start.get("dateTime").or_else(|| start.get("date"))?.as_str()?;
+            let start_value = start
+                .get("dateTime")
+                .or_else(|| start.get("date"))?
+                .as_str()?;
             let end_value = end.get("dateTime").or_else(|| end.get("date"))?.as_str()?;
             Some(json!({"start": start_value, "end": end_value}))
         })
