@@ -136,3 +136,30 @@ fn task_definitions_can_be_updated_and_enabled_without_cross_user_access() {
 
     fs::remove_dir_all(directory).unwrap();
 }
+
+
+#[test]
+fn migrates_transport_owner_to_stable_identity() {
+    let directory = temp_dir();
+    let registry = TaskRegistry::load(&directory).unwrap();
+    registry.validate_agents(["assistant".to_owned()]).unwrap();
+    let task = registry.add("telegram:42", NewTask {
+        name: "daily".into(),
+        description: String::new(),
+        agent: "assistant".into(),
+        prompt: "prepare report".into(),
+        schedule: Some("0 0 8 * * *".into()),
+        at: None,
+        timezone: Some("Europe/Madrid".into()),
+    }).unwrap();
+
+    registry.migrate_owner("telegram:42", "user-uuid").unwrap();
+    assert!(registry.list("telegram:42").is_empty());
+    let migrated = registry.list("user-uuid");
+    assert_eq!(migrated.len(), 1);
+    assert_eq!(migrated[0].id, task.id);
+    assert!(fs::read_to_string(directory.join(format!("{}.toml", task.id)))
+        .unwrap().contains("user_id = \"user-uuid\""));
+
+    fs::remove_dir_all(directory).unwrap();
+}
