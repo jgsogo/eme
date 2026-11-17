@@ -6,13 +6,14 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post,
     web::{self, Data, Json, Path as PathParam, Query},
 };
-use agent_storage::{
-    CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendarId, ConnectedCalendarStorageError, ConnectedCalendarStore, FamilyId,
-    DiscoveredCalendar, ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore,
-    FileUserIdentityStore, NewExternalAuthorization, NewExternalConnection,
-    SqliteConnectedCalendarStore, SqliteExternalConnectionStore, UserId, UserIdentityStore,
-};
 use agent_service::{FamilyService, FamilyServiceError};
+use agent_storage::{
+    CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendarId, ConnectedCalendarStorageError,
+    ConnectedCalendarStore, DiscoveredCalendar, ExternalConnectionId, ExternalConnectionStatus,
+    ExternalConnectionStore, FamilyId, FileUserIdentityStore, NewExternalAuthorization,
+    NewExternalConnection, SqliteConnectedCalendarStore, SqliteExternalConnectionStore, UserId,
+    UserIdentityStore,
+};
 use chrono::{Duration, Utc};
 use google_tool::{
     CalendarScope, GoogleOAuthConfig, authorization_request, exchange_code, fetch_user_info,
@@ -617,7 +618,6 @@ async fn update_connected_calendar(
     }
 }
 
-
 #[derive(Deserialize)]
 struct ShareCalendarWithFamilyRequest {
     family_id: String,
@@ -626,7 +626,9 @@ struct ShareCalendarWithFamilyRequest {
 
 fn family_sharing_error(error: FamilyServiceError) -> HttpResponse {
     match error {
-        FamilyServiceError::NotFound | FamilyServiceError::NotMember => HttpResponse::NotFound().finish(),
+        FamilyServiceError::NotFound | FamilyServiceError::NotMember => {
+            HttpResponse::NotFound().finish()
+        }
         FamilyServiceError::Forbidden => HttpResponse::Forbidden().finish(),
         other => {
             tracing::error!(%other, "could not validate family membership for calendar sharing");
@@ -664,8 +666,12 @@ async fn share_calendar_with_family(
     if let Err(error) = families.context_for_member(owner, family_id).await {
         return family_sharing_error(error);
     }
-    let calendar = state.calendar_store.as_ref().expect("enabled state has calendar storage")
-        .share_with_family(owner, calendar_id, family_id, body.access).await;
+    let calendar = state
+        .calendar_store
+        .as_ref()
+        .expect("enabled state has calendar storage")
+        .share_with_family(owner, calendar_id, family_id, body.access)
+        .await;
     match calendar {
         Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
         Err(error) => calendar_storage_error(error),
@@ -691,8 +697,12 @@ async fn unshare_calendar_from_family(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("Invalid calendar ID"),
     };
-    let calendar = state.calendar_store.as_ref().expect("enabled state has calendar storage")
-        .unshare_from_family(owner, calendar_id).await;
+    let calendar = state
+        .calendar_store
+        .as_ref()
+        .expect("enabled state has calendar storage")
+        .unshare_from_family(owner, calendar_id)
+        .await;
     match calendar {
         Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
         Err(error) => calendar_storage_error(error),
