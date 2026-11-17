@@ -7,6 +7,8 @@
 mod authorized_google_calendar;
 mod family;
 mod google_calendar_access;
+#[cfg(test)]
+mod google_calendar_access_regressions;
 mod google_calendar_access_error;
 mod manager;
 mod run;
