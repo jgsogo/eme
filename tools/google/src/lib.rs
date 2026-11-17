@@ -4,6 +4,12 @@
 //! today; Gmail tools can be added here without introducing another crate.
 
 mod calendar;
+pub mod oauth;
+
+pub use oauth::{
+    CalendarScope, GoogleOAuthConfig, GoogleOAuthError, GoogleTokenSet, PendingAuthorization,
+    authorization_request, exchange_code, refresh_access_token,
+};
 
 use std::path::PathBuf;
 
