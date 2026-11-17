@@ -229,6 +229,7 @@ struct ConnectedGoogleAccount {
     email: Option<String>,
     scopes: Vec<String>,
     status: ExternalConnectionStatus,
+    updated_at: chrono::DateTime<Utc>,
 }
 
 #[get("/oauth/callback")]
@@ -349,6 +350,7 @@ async fn oauth_callback(
         email: connection.display_email,
         scopes: connection.granted_scopes,
         status: connection.status,
+        updated_at: connection.updated_at,
     })
 }
 
@@ -381,6 +383,7 @@ async fn list_connections(
                     email: connection.display_email,
                     scopes: connection.granted_scopes,
                     status: connection.status,
+                    updated_at: connection.updated_at,
                 })
                 .collect::<Vec<_>>(),
         ),
