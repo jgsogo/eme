@@ -358,7 +358,7 @@ mod tests {
                 provider_subject: "subject".into(),
                 display_email: None,
                 refresh_token: "secret".into(),
-                granted_scopes: vec![],
+                granted_scopes: vec!["https://www.googleapis.com/auth/calendar.events".into()],
             })
             .await
             .unwrap();
