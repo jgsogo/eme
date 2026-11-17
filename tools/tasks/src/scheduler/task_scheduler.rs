@@ -1,9 +1,9 @@
 //! Runs due persisted tasks and submits them to the run manager.
 
 use super::ScheduledTask;
-use agent_service::RunManager;
 use crate::{Task, TaskRegistry};
 use agent_runtime::ToolContext;
+use agent_service::RunManager;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
