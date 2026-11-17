@@ -18,6 +18,9 @@ where
 {
     let path = request.path();
     if path == "/"
+        || path == "/conversations"
+        || path == "/families"
+        || path.starts_with("/assets/")
         || path == "/favicon.ico"
         || path.starts_with("/auth/")
         || path.starts_with("/invite/")
