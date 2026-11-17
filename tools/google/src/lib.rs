@@ -6,16 +6,16 @@
 mod calendar;
 mod calendar_list;
 mod google_calendar_list_tool;
-mod runtime;
 pub mod oauth;
+mod runtime;
 
 pub use calendar_list::{GoogleCalendarSummary, list_calendars};
-pub use runtime::GoogleCalendarRuntimeConfig;
 pub use oauth::{
     CalendarScope, GoogleOAuthConfig, GoogleOAuthError, GoogleTokenSet, GoogleUserInfo,
     PendingAuthorization, authorization_request, exchange_code, fetch_user_info,
     refresh_access_token, revoke_token,
 };
+pub use runtime::GoogleCalendarRuntimeConfig;
 
 use std::path::PathBuf;
 
