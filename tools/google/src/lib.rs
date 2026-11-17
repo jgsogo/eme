@@ -7,8 +7,9 @@ mod calendar;
 pub mod oauth;
 
 pub use oauth::{
-    CalendarScope, GoogleOAuthConfig, GoogleOAuthError, GoogleTokenSet, PendingAuthorization,
-    authorization_request, exchange_code, refresh_access_token,
+    CalendarScope, GoogleOAuthConfig, GoogleOAuthError, GoogleTokenSet, GoogleUserInfo,
+    PendingAuthorization, authorization_request, exchange_code, fetch_user_info,
+    refresh_access_token, revoke_token,
 };
 
 use std::path::PathBuf;
