@@ -92,7 +92,8 @@ pub trait ConnectedCalendarStore: Send + Sync {
     ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError>;
 }
 
-pub struct SqliteConnectedCalendarStore { db: std::sync::Mutex<Connection> }
+#[derive(Clone)]
+pub struct SqliteConnectedCalendarStore { db: std::sync::Arc<std::sync::Mutex<Connection>> }
 
 impl SqliteConnectedCalendarStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, rusqlite::Error> {
@@ -103,7 +104,7 @@ impl SqliteConnectedCalendarStore {
         db.execute_batch(include_str!("../migrations/0002_family_invitations.sql"))?;
         db.execute_batch(include_str!("../migrations/0003_external_connections.sql"))?;
         db.execute_batch(include_str!("../migrations/0004_connected_calendars.sql"))?;
-        Ok(Self { db: std::sync::Mutex::new(db) })
+        Ok(Self { db: std::sync::Arc::new(std::sync::Mutex::new(db)) })
     }
 }
 
