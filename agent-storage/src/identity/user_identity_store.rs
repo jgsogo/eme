@@ -12,8 +12,17 @@ pub trait UserIdentityStore: Send + Sync {
         subject: &str,
         display_name: Option<&str>,
     ) -> Result<(User, UserIdentity), IdentityStoreError>;
-    fn create_user(&self, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError>;
-    fn update_profile(&self, user_id: UserId, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError>;
+    fn create_user(
+        &self,
+        display_name: &str,
+        birthday: Option<NaiveDate>,
+    ) -> Result<User, IdentityStoreError>;
+    fn update_profile(
+        &self,
+        user_id: UserId,
+        display_name: &str,
+        birthday: Option<NaiveDate>,
+    ) -> Result<User, IdentityStoreError>;
     fn get_user(&self, user_id: UserId) -> Result<Option<User>, IdentityStoreError>;
     fn update_display_name(
         &self,
