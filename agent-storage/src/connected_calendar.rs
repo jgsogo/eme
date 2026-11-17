@@ -72,6 +72,8 @@ pub enum ConnectedCalendarStorageError {
     CalendarNotFound,
     #[error("provider calendar ID must not be empty")]
     EmptyProviderCalendarId,
+    #[error("Google account has not granted calendar write scope")]
+    InsufficientScopes,
     #[error("connected calendar storage backend failed: {0}")]
     Backend(String),
 }
@@ -170,6 +172,7 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
             ).map_err(backend)?;
         }
         tx.commit().map_err(backend)?;
+        drop(db);
         self.list_for_connection(owner, connection).await
     }
 
@@ -193,7 +196,22 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
         access_mode: Option<CalendarAccessMode>,
     ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError> {
         let db = self.db.lock().map_err(|_| ConnectedCalendarStorageError::Backend("calendar database lock poisoned".into()))?;
-        let selected_value = selected.map(i64::from);
+        if access_mode == Some(CalendarAccessMode::ReadWrite) {
+            let scopes: Option<String> = db.query_row(
+                "SELECT c.granted_scopes FROM connected_calendars cal
+                 JOIN external_connections c ON c.id=cal.connection_id
+                 WHERE cal.id=?1 AND cal.owner_id=?2 AND c.status='active'",
+                params![id.to_string(), owner.to_string()], |row| row.get(0),
+            ).optional().map_err(backend)?;
+            let scopes = scopes.ok_or(ConnectedCalendarStorageError::CalendarNotFound)?;
+            let scopes: Vec<String> = serde_json::from_str(&scopes)
+                .map_err(|error| ConnectedCalendarStorageError::Backend(error.to_string()))?;
+            if !scopes.iter().any(|scope| scope == "https://www.googleapis.com/auth/calendar.events"
+                || scope == "https://www.googleapis.com/auth/calendar") {
+                return Err(ConnectedCalendarStorageError::InsufficientScopes);
+            }
+        }
+        let selected_value = selected.map(|value| if value { 1_i64 } else { 0_i64 });
         let access_value = access_mode.map(CalendarAccessMode::as_str);
         let sql = format!(
             "UPDATE connected_calendars SET selected=COALESCE(?1,selected),access_mode=COALESCE(?2,access_mode),updated_at=?3
