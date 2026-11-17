@@ -1,0 +1,27 @@
+name: Format reconnect storage change
+on:
+  push:
+    branches:
+      - feat/122-google-oauth-server-endpoints
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all
+      - name: Commit formatting
+        run: |
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add agent-storage/src/external_connection.rs
+            git commit -m "style: format reconnect storage changes"
+            git push
+          fi
