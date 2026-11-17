@@ -10,6 +10,8 @@ use actix_web::{
     web::{self, Data, Json, Path},
 };
 use agent_runtime::ToolContext;
+use agent_storage::{FileUserIdentityStore, UserIdentityStore};
+use std::sync::Arc;
 use agent_service::{
     CancelRunError, CancelRunOutcome, RunId, RunManager, RunStatus, SubmitRunError,
 };
@@ -69,6 +71,7 @@ async fn submit_run(
     http_request: HttpRequest,
     auth: Option<Data<crate::auth::TelegramAuth>>,
     manager: Data<RunManager>,
+    identities: Data<Arc<FileUserIdentityStore>>,
     request: Json<SubmitRunRequest>,
 ) -> impl Responder {
     if request.agent.trim().is_empty() {
@@ -81,7 +84,9 @@ async fn submit_run(
     let context = auth
         .as_ref()
         .and_then(|auth| auth.owner_for_request(&http_request))
-        .map(ToolContext::new)
+        .and_then(|owner| owner.strip_prefix("telegram:").map(str::to_owned))
+        .and_then(|subject| identities.find_identity("telegram", &subject).ok().flatten())
+        .map(|identity| ToolContext::new(identity.user_id.to_string()))
         .unwrap_or_default();
 
     match manager
