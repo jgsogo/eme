@@ -2,7 +2,6 @@
 
 #[path = "types/mod.rs"]
 mod types;
-use super::oauth::{GoogleOAuthConfig, refresh_access_token};
 pub(super) use types::GoogleCalendarEvents;
 use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError};
 
@@ -17,29 +16,6 @@ const API_BASE_URL: &str = "https://www.googleapis.com/calendar/v3";
 impl GoogleCalendarClient {
     pub(crate) fn from_access_token(access_token: String) -> Self {
         Self { client: Client::new(), access_token, base_url: API_BASE_URL.to_owned() }
-    }
-
-    #[allow(dead_code)]
-    async fn from_environment() -> Result<Self, GoogleCalendarError> {
-        // Legacy single-account mode remains supported while the server-side
-        // connection store is introduced. OAuth token exchange itself is
-        // delegated to the oauth2 crate.
-        let config = GoogleOAuthConfig {
-            client_id: required_env("GOOGLE_OAUTH_CLIENT_ID")?,
-            client_secret: required_env("GOOGLE_OAUTH_CLIENT_SECRET")?,
-            // Refresh grants do not use a redirect URI. This syntactically
-            // valid placeholder is never sent in a refresh-token request.
-            redirect_uri: "http://localhost/oauth2/callback".to_owned(),
-        };
-        let refresh_token = required_env("GOOGLE_OAUTH_REFRESH_TOKEN")?;
-        let token = refresh_access_token(&config, &refresh_token)
-            .await
-            .map_err(|error| GoogleCalendarError::OAuth(error.to_string()))?;
-        Ok(Self {
-            client: Client::new(),
-            access_token: token.access_token,
-            base_url: API_BASE_URL.to_owned(),
-        })
     }
 
     #[cfg(test)]
@@ -189,18 +165,6 @@ impl GoogleCalendarClient {
     }
 }
 
-fn is_calendar_allowed(calendar_id: &str, allowed_ids: &str) -> bool {
-    !calendar_id.eq_ignore_ascii_case("primary")
-        && allowed_ids
-            .split(',')
-            .map(str::trim)
-            .any(|allowed_id| !allowed_id.is_empty() && allowed_id == calendar_id)
-}
-
-fn required_env(name: &str) -> Result<String, GoogleCalendarError> {
-    std::env::var(name).map_err(|_| GoogleCalendarError::OAuth(format!("{name} env var not set")))
-}
-
 fn local_midnight(zone: Tz, date: NaiveDate) -> Result<String, GoogleCalendarError> {
     let midnight = date
         .and_hms_opt(0, 0, 0)
@@ -224,17 +188,6 @@ mod tests {
         Mock, MockServer, ResponseTemplate,
         matchers::{bearer_token, method, path, query_param},
     };
-
-    #[test]
-    fn calendar_allowlist_requires_an_exact_match_and_rejects_primary() {
-        let allowed = "family@example.com, shared@example.com";
-        assert!(is_calendar_allowed("family@example.com", allowed));
-        assert!(is_calendar_allowed("shared@example.com", allowed));
-        assert!(!is_calendar_allowed("other@example.com", allowed));
-        assert!(!is_calendar_allowed("primary", allowed));
-        assert!(!is_calendar_allowed("PRIMARY", allowed));
-        assert!(!is_calendar_allowed("family@example.com.evil", allowed));
-    }
 
     #[tokio::test]
     async fn gets_selected_calendar_day_and_follows_pagination() {
