@@ -415,7 +415,7 @@ async function connectGoogle(){
  if(!popup){status.textContent="Allow pop-ups for this site to connect a Google account.";return}
  button.disabled=true;status.textContent="Preparing Google authorization…";
  try{
-  const before=state.googleConnections.map(c=>c.id+":"+c.status+":"+(c.scopes||[]).join(",")).join("|"),auth=await api("/integrations/google/oauth/start",{method:"POST",body:JSON.stringify({access})});
+  const before=state.googleConnections.map(c=>c.id+":"+c.status+":"+c.updated_at+":"+(c.scopes||[]).join(",")).join("|"),auth=await api("/integrations/google/oauth/start",{method:"POST",body:JSON.stringify({access})});
   popup.location.href=auth.authorization_url;status.textContent="Complete authorization in the Google window. This page will update automatically.";
   const deadline=Date.now()+auth.expires_in_seconds*1000;
   while(Date.now()<deadline){
