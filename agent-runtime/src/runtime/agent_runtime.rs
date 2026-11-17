@@ -161,6 +161,21 @@ impl AgentRuntime {
             content: input.into(),
         });
 
+        // Family data is trusted host context, not model-authored conversation
+        // content. Add it to the system instructions for every model turn.
+        let system_prompt = match context.family.as_ref() {
+            Some(family) => {
+                let family_json =
+                    serde_json::to_string_pretty(family).expect("family context is serializable");
+                Some(format!(
+                    "{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
+                    agent.system_prompt.as_deref().unwrap_or_default(),
+                    family_json,
+                ))
+            }
+            None => agent.system_prompt.clone(),
+        };
+
         let tools = match agent
             .tool_names
             .iter()
@@ -185,7 +200,7 @@ impl AgentRuntime {
 
         for iteration in 1..=agent.max_iterations {
             let request = ModelRequest {
-                system_prompt: agent.system_prompt.clone(),
+                system_prompt: system_prompt.clone(),
                 messages: messages.clone(),
                 tools: tools.clone(),
             };
@@ -521,5 +536,93 @@ mod external_run_id_tests {
         assert_eq!(result.run_id, run_id);
         assert_eq!(result.status, RunStatus::Completed);
         assert!(result.events.iter().all(|event| event.run_id == run_id));
+    }
+}
+
+#[cfg(test)]
+mod family_context_tests {
+    use std::sync::{Arc, Mutex};
+
+    use agent_models::ModelError;
+    use async_trait::async_trait;
+    use uuid::Uuid;
+
+    use crate::{
+        Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, FamilyContext,
+        FamilyMemberContext, ModelRequest, ModelTurn, ToolContext, ToolRegistry,
+    };
+
+    struct CapturingModel(Mutex<Option<ModelRequest>>);
+
+    #[async_trait]
+    impl AgentModel for CapturingModel {
+        async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, ModelError> {
+            *self.0.lock().unwrap() = Some(request);
+            Ok(ModelTurn {
+                content: Some("done".into()),
+                tool_calls: Vec::new(),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn selected_family_roster_is_injected_into_model_system_prompt() {
+        let model = Arc::new(CapturingModel(Mutex::new(None)));
+        let runtime = AgentRuntime::new(
+            model.clone(),
+            Arc::new(ToolRegistry::new()),
+            Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+        );
+        let agent = Agent {
+            id: "assistant".into(),
+            system_prompt: Some("You are a helpful assistant.".into()),
+            tool_names: Vec::new(),
+            max_iterations: 1,
+        };
+        let context = ToolContext {
+            family: Some(FamilyContext {
+                family_id: "family-1".into(),
+                family_name: "Home".into(),
+                family_role: "owner".into(),
+                relationship: "father".into(),
+                members: vec![
+                    FamilyMemberContext {
+                        user_id: "user-1".into(),
+                        name: Some("Javier".into()),
+                        role: "owner".into(),
+                        relationship: "father".into(),
+                    },
+                    FamilyMemberContext {
+                        user_id: "user-2".into(),
+                        name: Some("Lucas".into()),
+                        role: "member".into(),
+                        relationship: "son".into(),
+                    },
+                ],
+            }),
+            ..ToolContext::default()
+        };
+
+        runtime
+            .run(
+                Uuid::new_v4(),
+                &agent,
+                context,
+                Vec::new(),
+                "Who is in my family?",
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+
+        let request = model.0.lock().unwrap().take().unwrap();
+        let prompt = request.system_prompt.unwrap();
+        assert!(prompt.contains("Home"));
+        assert!(prompt.contains("Javier"));
+        assert!(prompt.contains("Lucas"));
+        assert!(prompt.contains("father"));
+        assert!(prompt.contains("son"));
+        assert!(prompt.contains("Do not infer additional family members"));
+        assert!(!prompt.contains("user-1"));
     }
 }

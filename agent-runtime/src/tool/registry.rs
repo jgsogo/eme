@@ -215,6 +215,7 @@ mod registration_tests {
                 family_name: "Home".into(),
                 family_role: "owner".into(),
                 relationship: "father".into(),
+                members: Vec::new(),
             }),
             ..ToolContext::default()
         };
