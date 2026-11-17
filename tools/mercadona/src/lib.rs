@@ -26,9 +26,15 @@ use agent_runtime::ToolRegistry;
 pub fn register_tools(registry: &mut ToolRegistry) -> Result<(), ConfigError> {
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
 
-    registry.register_from_file(data.join("search_products.toml"), search_products::SearchProducts)?;
+    registry.register_from_file(
+        data.join("search_products.toml"),
+        search_products::SearchProducts,
+    )?;
     registry.register_from_file(data.join("get_product.toml"), get_product::GetProduct)?;
-    registry.register_from_file(data.join("list_categories.toml"), list_categories::ListCategories)?;
+    registry.register_from_file(
+        data.join("list_categories.toml"),
+        list_categories::ListCategories,
+    )?;
     registry.register_from_file(data.join("get_category.toml"), get_category::GetCategory)?;
     registry.register_from_file(
         data.join("resolve_postal_code.toml"),
