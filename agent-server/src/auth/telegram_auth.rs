@@ -77,10 +77,11 @@ impl TelegramAuth {
         &self,
         token: &str,
         telegram_user_id: i64,
+        first_name: Option<&str>,
         identities: &dyn UserIdentityStore,
     ) -> bool {
         if identities
-            .resolve_or_create("telegram", &telegram_user_id.to_string(), None)
+            .resolve_or_create("telegram", &telegram_user_id.to_string(), first_name)
             .is_err()
         {
             return false;
