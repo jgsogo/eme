@@ -228,13 +228,18 @@ async fn get_family(
     };
     match service.get_family(actor, family_id).await {
         Ok((family, members)) => {
-            let members = match members.into_iter().map(|member| {
-                identities.get_user(member.user_id.clone())
-                    .map(|user| FamilyMemberDetails {
-                        member,
-                        display_name: user.and_then(|user| user.display_name),
-                    })
-            }).collect::<Result<Vec<_>, _>>() {
+            let members = match members
+                .into_iter()
+                .map(|member| {
+                    identities
+                        .get_user(member.user_id.clone())
+                        .map(|user| FamilyMemberDetails {
+                            member,
+                            display_name: user.and_then(|user| user.display_name),
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()
+            {
                 Ok(members) => members,
                 Err(_) => return HttpResponse::InternalServerError().finish(),
             };
