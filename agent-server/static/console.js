@@ -359,6 +359,8 @@ async function showConsole(){
  }else if(page==="families"){
   await loadFamilies();
   await loadFamilyDetails(state.families[0]?.id||null);
+ }else if(page==="tasks"){
+  state.agents=await api("/agents");renderTaskAgents();await loadTasks();resetTaskEditor();
  }else{
   await loadFamilies();await loadNotes();resetNoteEditor();
  }
