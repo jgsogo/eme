@@ -283,7 +283,7 @@ pub(super) async fn handle_message(
                         Ok(id) => id,
                         Err(_) => {
                             active_conversations.lock().await.remove(&conversation.id);
-                            let _ = gateway.send_message(message.chat_id, "Could not resolve a family member identity.").await;
+                            let _ = gateway\n                                .send_message(\n                                    message.chat_id,\n                                    "Could not resolve a family member identity.",\n                                )\n                                .await;
                             return;
                         }
                     };
