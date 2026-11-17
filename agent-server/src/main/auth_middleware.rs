@@ -17,7 +17,7 @@ where
     B: MessageBody + 'static,
 {
     let path = request.path();
-    if path == "/" || path.starts_with("/auth/") || path.starts_with("/invite/") {
+    if path == "/" || path == "/favicon.ico" || path.starts_with("/auth/") || path.starts_with("/invite/") {
         return Ok(next.call(request).await?.map_into_left_body());
     }
 
