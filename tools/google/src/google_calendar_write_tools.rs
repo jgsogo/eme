@@ -194,7 +194,7 @@ async fn authorized_client(
         .refresh_access_token(authorized.calendar.connection_id, &authorized.refresh_token)
         .await
         .map_err(|error| ToolError::Execution(error.to_string()))?;
-    let client = GoogleCalendarClient::from_access_token(token.access_token);
+    let client = GoogleCalendarClient::from_access_token(token);
     let public_id = authorized.calendar.id.to_string();
     Ok((client, authorized, public_id))
 }
