@@ -285,22 +285,21 @@ async fn oauth_callback(
             return HttpResponse::BadGateway().body("Could not verify Google account identity");
         }
     };
-    let refresh_token = match tokens.refresh_token {
+    let existing = match store.list_connections(user_id).await {
+        Ok(connections) => connections.into_iter().find(|connection| {
+            connection.provider == "google" && connection.provider_subject == identity.sub
+        }),
+        Err(error) => {
+            tracing::error!(%error, "could not look up existing Google connection");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    // Google may omit a refresh token on subsequent consent grants. Reuse the
+    // encrypted token only for this same verified provider subject.
+    let refresh_token = match tokens.refresh_token.clone() {
         Some(token) => token,
         None => {
-            // Google may omit a refresh token on subsequent consent grants.
-            // Reuse the previously encrypted token for this same verified
-            // Google subject; never fall back to another account's token.
-            let existing = match store.list_connections(user_id).await {
-                Ok(connections) => connections.into_iter().find(|connection| {
-                    connection.provider == "google" && connection.provider_subject == identity.sub
-                }),
-                Err(error) => {
-                    tracing::error!(%error, "could not look up existing Google connection");
-                    return HttpResponse::InternalServerError().finish();
-                }
-            };
-            let Some(existing) = existing else {
+            let Some(existing) = existing.as_ref() else {
                 return HttpResponse::Conflict()
                     .body("Google did not issue a refresh token for this new account");
             };
@@ -317,16 +316,28 @@ async fn oauth_callback(
         .create_connection(NewExternalConnection {
             owner_id: user_id,
             provider: "google".to_owned(),
-            provider_subject: identity.sub,
-            display_email: Some(identity.email),
+            provider_subject: identity.sub.clone(),
+            display_email: Some(identity.email.clone()),
             refresh_token,
-            granted_scopes: tokens.scopes,
+            granted_scopes: tokens.scopes.clone(),
         })
         .await
     {
         Ok(connection) => connection,
         Err(agent_storage::ExternalConnectionStorageError::AlreadyExists) => {
-            return HttpResponse::Conflict().body("This Google account is already connected");
+            let Some(existing) = existing else {
+                return HttpResponse::Conflict().body("This Google account is already connected");
+            };
+            match store
+                .update_credentials(user_id, existing.id, tokens.refresh_token, tokens.scopes)
+                .await
+            {
+                Ok(connection) => connection,
+                Err(error) => {
+                    tracing::error!(%error, "could not update existing Google connection");
+                    return HttpResponse::InternalServerError().finish();
+                }
+            }
         }
         Err(error) => {
             tracing::error!(%error, "could not persist Google account connection");
