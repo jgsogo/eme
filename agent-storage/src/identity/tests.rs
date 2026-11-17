@@ -111,3 +111,15 @@ fn display_name_update_rejects_empty_or_too_long_names() {
         Err(IdentityStoreError::UserNotFound(_))
     ));
 }
+
+
+#[test]
+fn managed_user_has_no_external_identity_and_persists_birthday() {
+    use chrono::NaiveDate;
+    let path = temporary_file();
+    let user = FileUserIdentityStore::open(&path).unwrap().create_user("Alex", Some(NaiveDate::from_ymd_opt(2018, 5, 12).unwrap())).unwrap();
+    let reopened = FileUserIdentityStore::open(&path).unwrap();
+    assert_eq!(reopened.get_user(user.id).unwrap().unwrap().birthday, user.birthday);
+    assert!(reopened.find_identity("telegram", "123").unwrap().is_none());
+    fs::remove_file(path).unwrap();
+}
