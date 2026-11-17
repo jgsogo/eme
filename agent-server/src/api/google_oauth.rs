@@ -7,13 +7,15 @@ use actix_web::{
     web::{self, Data, Json, Path as PathParam, Query},
 };
 use agent_storage::{
-    ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore, FileUserIdentityStore,
-    NewExternalAuthorization, NewExternalConnection, SqliteExternalConnectionStore, UserId,
-    UserIdentityStore,
+    CalendarAccessMode, ConnectedCalendarId, ConnectedCalendarStorageError, ConnectedCalendarStore,
+    DiscoveredCalendar, ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore,
+    FileUserIdentityStore, NewExternalAuthorization, NewExternalConnection,
+    SqliteConnectedCalendarStore, SqliteExternalConnectionStore, UserId, UserIdentityStore,
 };
 use chrono::{Duration, Utc};
 use google_tool::{
     CalendarScope, GoogleOAuthConfig, authorization_request, exchange_code, fetch_user_info,
+    list_calendars,
 };
 use serde::{Deserialize, Serialize};
 
@@ -23,6 +25,7 @@ const AUTHORIZATION_TTL_MINUTES: i64 = 10;
 pub struct GoogleOAuthState {
     config: Option<GoogleOAuthConfig>,
     store: Option<SqliteExternalConnectionStore>,
+    calendar_store: Option<SqliteConnectedCalendarStore>,
 }
 
 impl GoogleOAuthState {
@@ -41,15 +44,18 @@ impl GoogleOAuthState {
             return Ok(Self {
                 config: None,
                 store: None,
+                calendar_store: None,
             });
         }
         if configured.iter().any(|value| !*value) {
             return Err("Google OAuth requires GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI, and EME_CREDENTIAL_ENCRYPTION_KEY".to_owned());
         }
         let key = parse_encryption_key(encryption_key.as_deref().unwrap_or_default())?;
-        let store =
-            SqliteExternalConnectionStore::open(data_dir.join("external_connections.sqlite"), key)
-                .map_err(|error| format!("opening external connection storage: {error}"))?;
+        let database_path = data_dir.join("external_connections.sqlite");
+        let store = SqliteExternalConnectionStore::open(&database_path, key)
+            .map_err(|error| format!("opening external connection storage: {error}"))?;
+        let calendar_store = SqliteConnectedCalendarStore::open(&database_path)
+            .map_err(|error| format!("opening connected calendar storage: {error}"))?;
         Ok(Self {
             config: Some(GoogleOAuthConfig {
                 client_id: client_id.unwrap_or_default(),
@@ -57,11 +63,12 @@ impl GoogleOAuthState {
                 redirect_uri: redirect_uri.unwrap_or_default(),
             }),
             store: Some(store),
+            calendar_store: Some(calendar_store),
         })
     }
 
     fn enabled(&self) -> bool {
-        self.config.is_some() && self.store.is_some()
+        self.config.is_some() && self.store.is_some() && self.calendar_store.is_some()
     }
 }
 
@@ -404,12 +411,179 @@ async fn disconnect(
     HttpResponse::NoContent().finish()
 }
 
+
+
+#[derive(Serialize)]
+struct ConnectedCalendarResponse {
+    id: ConnectedCalendarId,
+    display_name: Option<String>,
+    time_zone: Option<String>,
+    provider_access_role: Option<String>,
+    selected: bool,
+    access_mode: CalendarAccessMode,
+}
+
+impl From<agent_storage::ConnectedCalendar> for ConnectedCalendarResponse {
+    fn from(calendar: agent_storage::ConnectedCalendar) -> Self {
+        Self {
+            id: calendar.id,
+            display_name: calendar.display_name,
+            time_zone: calendar.time_zone,
+            provider_access_role: calendar.provider_access_role,
+            selected: calendar.selected,
+            access_mode: calendar.access_mode,
+        }
+    }
+}
+
+fn calendar_storage_error(error: ConnectedCalendarStorageError) -> HttpResponse {
+    match error {
+        ConnectedCalendarStorageError::ConnectionNotFound
+        | ConnectedCalendarStorageError::CalendarNotFound => HttpResponse::NotFound().finish(),
+        ConnectedCalendarStorageError::InsufficientScopes => HttpResponse::Conflict()
+            .body("The connected Google account has not granted calendar write access"),
+        ConnectedCalendarStorageError::EmptyProviderCalendarId => HttpResponse::BadRequest().finish(),
+        ConnectedCalendarStorageError::Backend(error) => {
+            tracing::error!(%error, "connected calendar storage failed");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+#[get("/connections/{connection_id}/calendars")]
+async fn list_connected_calendars(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<GoogleOAuthState>,
+    connection_id: PathParam<String>,
+) -> impl Responder {
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
+    let owner = match current_user_id(&request, &auth, &identities) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let connection_id = match ExternalConnectionId::from_str(&connection_id) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
+    };
+    let calendars = state.calendar_store.as_ref().expect("enabled state has calendar storage")
+        .list_for_connection(owner, connection_id).await;
+    match calendars {
+        Ok(calendars) => HttpResponse::Ok().json(
+            calendars.into_iter().map(ConnectedCalendarResponse::from).collect::<Vec<_>>()
+        ),
+        Err(error) => calendar_storage_error(error),
+    }
+}
+
+#[post("/connections/{connection_id}/calendars/sync")]
+async fn sync_connected_calendars(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<GoogleOAuthState>,
+    connection_id: PathParam<String>,
+) -> impl Responder {
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
+    let owner = match current_user_id(&request, &auth, &identities) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let connection_id = match ExternalConnectionId::from_str(&connection_id) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
+    };
+    let store = state.store.as_ref().expect("enabled state has connection storage");
+    let connection = match store.get_connection(owner, connection_id).await {
+        Ok(Some(connection)) if connection.provider == "google"
+            && connection.status == ExternalConnectionStatus::Active => connection,
+        Ok(_) => return HttpResponse::NotFound().finish(),
+        Err(error) => {
+            tracing::error!(%error, "could not inspect Google connection for calendar sync");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    let refresh_token = match store.refresh_token(owner, connection_id).await {
+        Ok(token) => token,
+        Err(error) => {
+            tracing::error!(%error, "could not load Google credential for calendar sync");
+            return HttpResponse::InternalServerError().finish();
+        }
+    };
+    let config = state.config.as_ref().expect("enabled state has OAuth config");
+    let discovered = match list_calendars(config, &refresh_token).await {
+        Ok(calendars) => calendars.into_iter().map(|calendar| DiscoveredCalendar {
+            provider_calendar_id: calendar.id,
+            display_name: calendar.summary,
+            time_zone: calendar.time_zone,
+            provider_access_role: calendar.access_role,
+        }).collect(),
+        Err(error) => {
+            tracing::warn!(%error, connection_id = %connection.id, "Google Calendar discovery failed");
+            return HttpResponse::BadGateway().body("Google Calendar discovery failed");
+        }
+    };
+    let calendars = state.calendar_store.as_ref().expect("enabled state has calendar storage")
+        .sync_discovered(owner, connection_id, discovered).await;
+    match calendars {
+        Ok(calendars) => HttpResponse::Ok().json(
+            calendars.into_iter().map(ConnectedCalendarResponse::from).collect::<Vec<_>>()
+        ),
+        Err(error) => calendar_storage_error(error),
+    }
+}
+
+#[derive(Deserialize)]
+struct UpdateConnectedCalendarRequest {
+    selected: Option<bool>,
+    access_mode: Option<CalendarAccessMode>,
+}
+
+#[actix_web::patch("/calendars/{calendar_id}")]
+async fn update_connected_calendar(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<GoogleOAuthState>,
+    calendar_id: PathParam<String>,
+    body: Json<UpdateConnectedCalendarRequest>,
+) -> impl Responder {
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
+    if body.selected.is_none() && body.access_mode.is_none() {
+        return HttpResponse::BadRequest().body("At least one calendar setting must be supplied");
+    }
+    let owner = match current_user_id(&request, &auth, &identities) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let calendar_id = match ConnectedCalendarId::from_str(&calendar_id) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid calendar ID"),
+    };
+    let calendar = state.calendar_store.as_ref().expect("enabled state has calendar storage")
+        .update(owner, calendar_id, body.selected, body.access_mode).await;
+    match calendar {
+        Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
+        Err(error) => calendar_storage_error(error),
+    }
+}
+
 pub fn google_integrations_api() -> Scope {
     web::scope("/integrations/google")
         .service(start_oauth)
         .service(oauth_callback)
         .service(list_connections)
         .service(disconnect)
+        .service(list_connected_calendars)
+        .service(sync_connected_calendars)
+        .service(update_connected_calendar)
 }
 
 #[cfg(test)]
