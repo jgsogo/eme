@@ -3,7 +3,8 @@
 #[path = "types/mod.rs"]
 mod types;
 pub(super) use types::GoogleCalendarEvents;
-use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError, TokenResponse};
+use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError};
+use super::oauth::{GoogleOAuthConfig, refresh_access_token};
 
 use chrono::{DateTime, LocalResult, NaiveDate, TimeZone};
 use chrono_tz::Tz;
@@ -12,43 +13,25 @@ use serde_json::{Value, json};
 use url::Url;
 
 const API_BASE_URL: &str = "https://www.googleapis.com/calendar/v3";
-const TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 
 impl GoogleCalendarClient {
     async fn from_environment() -> Result<Self, GoogleCalendarError> {
-        let client_id = required_env("GOOGLE_OAUTH_CLIENT_ID")?;
-        let client_secret = required_env("GOOGLE_OAUTH_CLIENT_SECRET")?;
+        // Legacy single-account mode remains supported while the server-side
+        // connection store is introduced. OAuth token exchange itself is
+        // delegated to the oauth2 crate.
+        let config = GoogleOAuthConfig {
+            client_id: required_env("GOOGLE_OAUTH_CLIENT_ID")?,
+            client_secret: required_env("GOOGLE_OAUTH_CLIENT_SECRET")?,
+            // Refresh grants do not use a redirect URI. This syntactically
+            // valid placeholder is never sent in a refresh-token request.
+            redirect_uri: "http://localhost/oauth2/callback".to_owned(),
+        };
         let refresh_token = required_env("GOOGLE_OAUTH_REFRESH_TOKEN")?;
-        let client = Client::new();
-        let response = client
-            .post(TOKEN_URL)
-            .form(&[
-                ("client_id", client_id.as_str()),
-                ("client_secret", client_secret.as_str()),
-                ("refresh_token", refresh_token.as_str()),
-                ("grant_type", "refresh_token"),
-            ])
-            .send()
-            .await?;
-        let status = response.status();
-        let body = response.text().await?;
-        if !status.is_success() {
-            let detail = serde_json::from_str::<Value>(&body)
-                .ok()
-                .and_then(|value| {
-                    value
-                        .pointer("/error_description")
-                        .and_then(Value::as_str)
-                        .map(str::to_owned)
-                })
-                .unwrap_or(body);
-            return Err(GoogleCalendarError::OAuth(format!(
-                "HTTP {status}: {detail}"
-            )));
-        }
-        let token: TokenResponse = serde_json::from_str(&body)?;
+        let token = refresh_access_token(&config, &refresh_token)
+            .await
+            .map_err(|error| GoogleCalendarError::OAuth(error.to_string()))?;
         Ok(Self {
-            client,
+            client: Client::new(),
             access_token: token.access_token,
             base_url: API_BASE_URL.to_owned(),
         })
