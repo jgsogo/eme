@@ -31,6 +31,72 @@ impl GoogleCalendarAccessService {
         }
     }
 
+    /// List calendars visible to the caller without decrypting any credentials.
+    ///
+    /// The optional family ID must come from trusted ToolContext. Family roster
+    /// membership is resolved live, so stale shares for departed owners vanish.
+    pub async fn list_readable_calendars(
+        &self,
+        user_id: &str,
+        family_id: Option<&str>,
+    ) -> Result<Vec<agent_storage::ConnectedCalendar>, GoogleCalendarAccessError> {
+        let user = UserId::from_str(user_id)
+            .map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
+        let (family, owners) = match family_id {
+            Some(value) => {
+                let family = FamilyId::from_str(value)
+                    .map_err(|_| GoogleCalendarAccessError::NotAuthorized)?;
+                let context = self
+                    .families
+                    .context_for_member(user, family)
+                    .await
+                    .map_err(map_family_error)?;
+                let owners = context
+                    .members
+                    .iter()
+                    .map(|member| UserId::from_str(&member.user_id))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|_| GoogleCalendarAccessError::FamilyUnavailable)?;
+                (Some(family), owners)
+            }
+            None => (None, vec![user]),
+        };
+
+        let mut calendars = Vec::new();
+        for owner in owners {
+            let connections = self
+                .connections
+                .list_connections(owner)
+                .await
+                .map_err(|error| GoogleCalendarAccessError::Storage(error.to_string()))?;
+            for connection in connections.into_iter().filter(|connection| {
+                connection.provider == "google"
+                    && connection.status == ExternalConnectionStatus::Active
+            }) {
+                let connected = self
+                    .calendars
+                    .list_for_connection(owner, connection.id)
+                    .await
+                    .map_err(|error| GoogleCalendarAccessError::Storage(error.to_string()))?;
+                calendars.extend(connected.into_iter().filter(|calendar| {
+                    calendar.selected
+                        && (calendar.owner_id == user
+                            || (family.is_some()
+                                && calendar.family_id == family
+                                && calendar.family_access.is_some()))
+                }));
+            }
+        }
+        calendars.sort_by(|left, right| {
+            left.display_name
+                .as_deref()
+                .unwrap_or("")
+                .cmp(right.display_name.as_deref().unwrap_or(""))
+                .then_with(|| left.id.to_string().cmp(&right.id.to_string()))
+        });
+        Ok(calendars)
+    }
+
     /// Authorize a read using trusted caller and selected-family context.
     ///
     /// The user and family identifiers must come from ToolContext, never from
