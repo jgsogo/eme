@@ -16,7 +16,7 @@ pub use oauth::{
     refresh_access_token, revoke_token,
 };
 
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use agent_config::ConfigError;
 use agent_runtime::ToolRegistry;
