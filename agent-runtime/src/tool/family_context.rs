@@ -1,5 +1,6 @@
 //! Trusted family membership details resolved by the host platform.
 
+use chrono::NaiveDate;
 use serde::Serialize;
 
 /// One member of the family selected for a conversation.
@@ -10,6 +11,8 @@ pub struct FamilyMemberContext {
     pub user_id: String,
     /// Display name from the platform identity record, when available.
     pub name: Option<String>,
+    /// Calendar date of birth from the member's EME user profile, when available.
+    pub birthday: Option<NaiveDate>,
     /// Platform permission within the family (owner, admin, member).
     pub role: String,
     /// Family relationship (father, mother, son, daughter, etc.).
