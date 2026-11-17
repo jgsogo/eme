@@ -266,27 +266,38 @@ async fn invitation_creation_and_revocation_require_admin_role() {
     ));
 }
 
-
 #[tokio::test]
 async fn owner_can_add_managed_member_without_external_identity() {
     let (service, owner, _, family_id) = setup().await;
     let managed_user = UserId::new();
-    let member = service.add_managed_member(owner, family_id, managed_user, FamilyRelationship::Daughter).await.unwrap();
+    let member = service
+        .add_managed_member(owner, family_id, managed_user, FamilyRelationship::Daughter)
+        .await
+        .unwrap();
     assert_eq!(member.user_id, managed_user);
     assert_eq!(member.role, FamilyRole::Member);
     assert_eq!(member.relationship, FamilyRelationship::Daughter);
-    assert!(service.authorize_member_profile_update(owner, family_id, managed_user).await.is_ok());
+    assert!(
+        service
+            .authorize_member_profile_update(owner, family_id, managed_user)
+            .await
+            .is_ok()
+    );
 }
 
 #[tokio::test]
 async fn ordinary_members_cannot_add_managed_members_or_edit_profiles() {
     let (service, _, member, family_id) = setup().await;
     assert!(matches!(
-        service.add_managed_member(member, family_id, UserId::new(), FamilyRelationship::Other).await,
+        service
+            .add_managed_member(member, family_id, UserId::new(), FamilyRelationship::Other)
+            .await,
         Err(FamilyServiceError::Forbidden)
     ));
     assert!(matches!(
-        service.authorize_member_profile_update(member, family_id, member).await,
+        service
+            .authorize_member_profile_update(member, family_id, member)
+            .await,
         Err(FamilyServiceError::Forbidden)
     ));
 }
