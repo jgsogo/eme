@@ -301,16 +301,39 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
         let now = Utc::now().to_rfc3339();
         let db = self.db.lock().await;
         ensure_user(&db, x.owner_id).map_err(backend)?;
-        let result=db.execute("INSERT INTO external_connections(id,owner_id,provider,provider_subject,display_email,encrypted_refresh_token,granted_scopes,status,created_at,updated_at,revoked_at) VALUES(?1,?2,?3,?4,?5,?6,?7,'active',?8,?8,NULL)",params![id.to_string(),x.owner_id.to_string(),x.provider.trim(),x.provider_subject.trim(),x.display_email,token,scopes,now]);
-        match result {
-            Ok(_) => load(&db, x.owner_id, id)?.ok_or(ExternalConnectionStorageError::NotFound),
-            Err(rusqlite::Error::SqliteFailure(e, _))
-                if e.code == rusqlite::ErrorCode::ConstraintViolation =>
-            {
-                Err(ExternalConnectionStorageError::AlreadyExists)
-            }
-            Err(e) => Err(backend(e)),
-        }
+        // Reauthorizing an existing Google account updates its credentials and
+        // reactivates a previously disconnected EME connection without
+        // changing the stable internal connection ID.
+        let stored_id: String = db
+            .query_row(
+                "INSERT INTO external_connections(
+                    id,owner_id,provider,provider_subject,display_email,
+                    encrypted_refresh_token,granted_scopes,status,created_at,updated_at,revoked_at
+                 ) VALUES(?1,?2,?3,?4,?5,?6,?7,'active',?8,?8,NULL)
+                 ON CONFLICT(owner_id,provider,provider_subject) DO UPDATE SET
+                    display_email=excluded.display_email,
+                    encrypted_refresh_token=excluded.encrypted_refresh_token,
+                    granted_scopes=excluded.granted_scopes,
+                    status='active',
+                    updated_at=excluded.updated_at,
+                    revoked_at=NULL
+                 RETURNING id",
+                params![
+                    id.to_string(),
+                    x.owner_id.to_string(),
+                    x.provider.trim(),
+                    x.provider_subject.trim(),
+                    x.display_email,
+                    token,
+                    scopes,
+                    now
+                ],
+                |row| row.get(0),
+            )
+            .map_err(backend)?;
+        let stored_id = ExternalConnectionId::from_str(&stored_id)
+            .map_err(|error| ExternalConnectionStorageError::Backend(error.to_string()))?;
+        load(&db, x.owner_id, stored_id)?.ok_or(ExternalConnectionStorageError::NotFound)
     }
     async fn get_connection(
         &self,
