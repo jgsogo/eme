@@ -4,6 +4,7 @@ mod agents;
 mod conversations;
 mod families;
 mod notes;
+mod profile;
 mod runs;
 mod tasks;
 mod types;
@@ -18,6 +19,7 @@ pub use conversations::{
 };
 pub use families::{LanInvitationConfig, families_api, invitations_api};
 pub use notes::notes_api;
+pub use profile::profile_api;
 pub use runs::runs_api;
 pub use tasks::tasks_api;
 pub use types::{

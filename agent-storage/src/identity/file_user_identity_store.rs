@@ -63,6 +63,13 @@ impl UserIdentityStore for FileUserIdentityStore {
             .get(&user_id)
             .cloned())
     }
+    fn update_display_name(
+        &self,
+        user_id: UserId,
+        display_name: &str,
+    ) -> Result<User, IdentityStoreError> {
+        self.update(|state| state.update_display_name(user_id, display_name))
+    }
     fn find_identity(
         &self,
         provider: &str,

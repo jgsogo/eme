@@ -114,14 +114,17 @@ pub(super) async fn handle_message(
 
         // Only provision an EME account after the bearer token and optional
         // Telegram identity binding have been checked.
-        let (user, _) =
-            match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
-                Ok(identity) => identity,
-                Err(error) => {
-                    send_error(gateway, message.chat_id, "create your EME identity", error).await;
-                    return;
-                }
-            };
+        let (user, _) = match identities.resolve_or_create(
+            "telegram",
+            &telegram_user_id.to_string(),
+            message.first_name.as_deref(),
+        ) {
+            Ok(identity) => identity,
+            Err(error) => {
+                send_error(gateway, message.chat_id, "create your EME identity", error).await;
+                return;
+            }
+        };
 
         match families
             .accept_invitation(&token, &identity, user.id, FamilyRelationship::Other)
@@ -155,7 +158,12 @@ pub(super) async fn handle_message(
             return;
         }
         let token = arguments.trim_start_matches("auth_");
-        let response = if auth.complete_login(token, telegram_user_id, identities.as_ref()) {
+        let response = if auth.complete_login(
+            token,
+            telegram_user_id,
+            message.first_name.as_deref(),
+            identities.as_ref(),
+        ) {
             "Web login approved. You can return to the EME console."
         } else {
             "This login link is invalid or has expired. Please start again from the EME console."
@@ -175,7 +183,11 @@ pub(super) async fn handle_message(
             }
         };
     let user = if allowed.contains(&telegram_user_id) {
-        match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
+        match identities.resolve_or_create(
+            "telegram",
+            &telegram_user_id.to_string(),
+            message.first_name.as_deref(),
+        ) {
             Ok((user, _)) => Some(user),
             Err(error) => {
                 send_error(gateway, message.chat_id, "resolve your EME identity", error).await;
@@ -342,6 +354,7 @@ mod tests {
         IncomingMessage {
             chat_id: 42,
             user_id: Some(7),
+            first_name: Some("Javier".to_owned()),
             is_bot: false,
             message_id: 200,
             reply_to_message_id,

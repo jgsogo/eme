@@ -31,6 +31,16 @@ impl UserIdentityStore for InMemoryUserIdentityStore {
             .get(&user_id)
             .cloned())
     }
+    fn update_display_name(
+        &self,
+        user_id: UserId,
+        display_name: &str,
+    ) -> Result<User, IdentityStoreError> {
+        self.state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .update_display_name(user_id, display_name)
+    }
     fn find_identity(
         &self,
         provider: &str,

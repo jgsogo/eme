@@ -16,4 +16,6 @@ pub enum IdentityStoreError {
     IdentityAlreadyLinked { provider: String, subject: String },
     #[error("identity provider and subject must not be empty")]
     EmptyIdentity,
+    #[error("display name must contain between 1 and 80 characters")]
+    InvalidDisplayName,
 }

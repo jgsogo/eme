@@ -65,3 +65,49 @@ fn a_user_can_have_multiple_external_identities() {
         user.id
     );
 }
+
+#[test]
+fn display_name_can_be_updated_and_survives_reopening_store() {
+    let path = temporary_file();
+    let user = {
+        let store = FileUserIdentityStore::open(&path).unwrap();
+        store
+            .resolve_or_create("telegram", "987", Some("Telegram"))
+            .unwrap()
+            .0
+    };
+    let updated = FileUserIdentityStore::open(&path)
+        .unwrap()
+        .update_display_name(user.id, "  Javier Sogo  ")
+        .unwrap();
+    assert_eq!(updated.display_name.as_deref(), Some("Javier Sogo"));
+    let reopened = FileUserIdentityStore::open(&path).unwrap();
+    assert_eq!(
+        reopened
+            .get_user(user.id)
+            .unwrap()
+            .unwrap()
+            .display_name
+            .as_deref(),
+        Some("Javier Sogo")
+    );
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn display_name_update_rejects_empty_or_too_long_names() {
+    let store = InMemoryUserIdentityStore::default();
+    let (user, _) = store.resolve_or_create("telegram", "988", None).unwrap();
+    assert!(matches!(
+        store.update_display_name(user.id, "  "),
+        Err(IdentityStoreError::InvalidDisplayName)
+    ));
+    assert!(matches!(
+        store.update_display_name(user.id, &"x".repeat(81)),
+        Err(IdentityStoreError::InvalidDisplayName)
+    ));
+    assert!(matches!(
+        store.update_display_name(UserId::new(), "Javier"),
+        Err(IdentityStoreError::UserNotFound(_))
+    ));
+}

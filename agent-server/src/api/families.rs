@@ -17,7 +17,7 @@ pub use change_role_request::ChangeRoleRequest;
 pub use create_family_request::CreateFamilyRequest;
 pub use create_invitation_request::CreateInvitationRequest;
 pub use created_invitation::CreatedInvitation;
-pub use family_details::FamilyDetails;
+pub use family_details::{FamilyDetails, FamilyMemberDetails};
 pub use lan_invitation_config::LanInvitationConfig;
 pub use rename_family_request::RenameFamilyRequest;
 pub use transfer_ownership_request::TransferOwnershipRequest;
@@ -227,7 +227,24 @@ async fn get_family(
         Err(response) => return response,
     };
     match service.get_family(actor, family_id).await {
-        Ok((family, members)) => HttpResponse::Ok().json(FamilyDetails { family, members }),
+        Ok((family, members)) => {
+            let members = match members
+                .into_iter()
+                .map(|member| {
+                    identities
+                        .get_user(member.user_id.clone())
+                        .map(|user| FamilyMemberDetails {
+                            member,
+                            display_name: user.and_then(|user| user.display_name),
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()
+            {
+                Ok(members) => members,
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            };
+            HttpResponse::Ok().json(FamilyDetails { family, members })
+        }
         Err(error) => service_error(error),
     }
 }
@@ -634,7 +651,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::CREATED);
         let login: Value = test::read_body_json(response).await;
         let login_token = login["token"].as_str().unwrap();
-        assert!(auth.complete_login(login_token, 42, identities.as_ref()));
+        assert!(auth.complete_login(login_token, 42, None, identities.as_ref()));
 
         let response = test::call_service(
             &app,
@@ -743,7 +760,7 @@ mod tests {
         .await;
         let second_login: Value = test::read_body_json(response).await;
         let second_login_token = second_login["token"].as_str().unwrap();
-        assert!(auth.complete_login(second_login_token, 84, identities.as_ref()));
+        assert!(auth.complete_login(second_login_token, 84, None, identities.as_ref()));
 
         let response = test::call_service(
             &app,
