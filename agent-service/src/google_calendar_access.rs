@@ -319,13 +319,12 @@ mod tests {
                 .await,
             Err(GoogleCalendarAccessError::NotAuthorized)
         ));
-        assert!(
+        assert!(matches!(
             service
                 .list_readable_calendars(&member.to_string(), Some(&family_id))
-                .await
-                .unwrap()
-                .is_empty()
-        );
+                .await,
+            Err(GoogleCalendarAccessError::NotAuthorized)
+        ));
 
         drop(service);
         drop(calendars);
