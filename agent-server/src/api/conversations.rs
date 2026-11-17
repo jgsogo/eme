@@ -22,7 +22,7 @@ use agent_runtime::ToolContext;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
     Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
-    FileUserIdentityStore, UserIdentityStore,
+    FileUserIdentityStore, UserId, UserIdentityStore,
 };
 
 use tokio::time::sleep;
