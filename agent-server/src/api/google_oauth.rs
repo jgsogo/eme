@@ -7,11 +7,12 @@ use actix_web::{
     web::{self, Data, Json, Path as PathParam, Query},
 };
 use agent_storage::{
-    CalendarAccessMode, ConnectedCalendarId, ConnectedCalendarStorageError, ConnectedCalendarStore,
+    CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendarId, ConnectedCalendarStorageError, ConnectedCalendarStore, FamilyId,
     DiscoveredCalendar, ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore,
     FileUserIdentityStore, NewExternalAuthorization, NewExternalConnection,
     SqliteConnectedCalendarStore, SqliteExternalConnectionStore, UserId, UserIdentityStore,
 };
+use agent_service::{FamilyService, FamilyServiceError};
 use chrono::{Duration, Utc};
 use google_tool::{
     CalendarScope, GoogleOAuthConfig, authorization_request, exchange_code, fetch_user_info,
@@ -419,6 +420,8 @@ struct ConnectedCalendarResponse {
     provider_access_role: Option<String>,
     selected: bool,
     access_mode: CalendarAccessMode,
+    family_id: Option<FamilyId>,
+    family_access: Option<CalendarFamilyAccess>,
 }
 
 impl From<agent_storage::ConnectedCalendar> for ConnectedCalendarResponse {
@@ -430,6 +433,8 @@ impl From<agent_storage::ConnectedCalendar> for ConnectedCalendarResponse {
             provider_access_role: calendar.provider_access_role,
             selected: calendar.selected,
             access_mode: calendar.access_mode,
+            family_id: calendar.family_id,
+            family_access: calendar.family_access,
         }
     }
 }
@@ -606,6 +611,88 @@ async fn update_connected_calendar(
     }
 }
 
+
+#[derive(Deserialize)]
+struct ShareCalendarWithFamilyRequest {
+    family_id: String,
+    access: CalendarFamilyAccess,
+}
+
+fn family_sharing_error(error: FamilyServiceError) -> HttpResponse {
+    match error {
+        FamilyServiceError::NotFound | FamilyServiceError::NotMember => HttpResponse::NotFound().finish(),
+        FamilyServiceError::Forbidden => HttpResponse::Forbidden().finish(),
+        other => {
+            tracing::error!(%other, "could not validate family membership for calendar sharing");
+            HttpResponse::InternalServerError().finish()
+        }
+    }
+}
+
+#[actix_web::put("/calendars/{calendar_id}/family-sharing")]
+async fn share_calendar_with_family(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<GoogleOAuthState>,
+    families: Data<Arc<FamilyService>>,
+    calendar_id: PathParam<String>,
+    body: Json<ShareCalendarWithFamilyRequest>,
+) -> impl Responder {
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
+    let owner = match current_user_id(&request, &auth, &identities) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let calendar_id = match ConnectedCalendarId::from_str(&calendar_id) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid calendar ID"),
+    };
+    let family_id = match FamilyId::from_str(&body.family_id) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid family ID"),
+    };
+    // Sharing can only be configured with a family the calendar owner currently belongs to.
+    if let Err(error) = families.context_for_member(owner, family_id).await {
+        return family_sharing_error(error);
+    }
+    let calendar = state.calendar_store.as_ref().expect("enabled state has calendar storage")
+        .share_with_family(owner, calendar_id, family_id, body.access).await;
+    match calendar {
+        Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
+        Err(error) => calendar_storage_error(error),
+    }
+}
+
+#[actix_web::delete("/calendars/{calendar_id}/family-sharing")]
+async fn unshare_calendar_from_family(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<GoogleOAuthState>,
+    calendar_id: PathParam<String>,
+) -> impl Responder {
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
+    let owner = match current_user_id(&request, &auth, &identities) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let calendar_id = match ConnectedCalendarId::from_str(&calendar_id) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid calendar ID"),
+    };
+    let calendar = state.calendar_store.as_ref().expect("enabled state has calendar storage")
+        .unshare_from_family(owner, calendar_id).await;
+    match calendar {
+        Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
+        Err(error) => calendar_storage_error(error),
+    }
+}
+
 pub fn google_integrations_api() -> Scope {
     web::scope("/integrations/google")
         .service(start_oauth)
@@ -615,6 +702,8 @@ pub fn google_integrations_api() -> Scope {
         .service(list_connected_calendars)
         .service(sync_connected_calendars)
         .service(update_connected_calendar)
+        .service(share_calendar_with_family)
+        .service(unshare_calendar_from_family)
 }
 
 #[cfg(test)]
