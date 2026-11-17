@@ -5,6 +5,7 @@
 
 mod calendar;
 mod calendar_list;
+mod google_calendar_list_tool;
 mod runtime;
 pub mod oauth;
 
@@ -27,6 +28,10 @@ pub fn register_tools(
     runtime: Option<GoogleCalendarRuntimeConfig>,
 ) -> Result<(), ConfigError> {
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
+    registry.register_from_file(
+        data_dir.join("calendar_list.toml"),
+        google_calendar_list_tool::GoogleCalendarList::new(runtime.clone()),
+    )?;
     registry.register_from_file(
         data_dir.join("calendar_events.toml"),
         calendar::GoogleCalendarEvents::new(runtime),
