@@ -168,7 +168,7 @@ async fn main() -> Result<()> {
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
         }
-        app .service(console_root)
+        app.service(console_root)
             .service(conversations_page)
             .service(families_page)
             .service(console_stylesheet)
