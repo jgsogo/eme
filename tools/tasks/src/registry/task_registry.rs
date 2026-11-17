@@ -111,6 +111,40 @@ impl TaskRegistry {
             .cloned()
             .collect()
     }
+    /// Migrates tasks created under a transport-specific owner to the stable user identity.
+    pub fn migrate_owner(&self, old_user: &str, new_user: &str) -> Result<(), TaskError> {
+        if old_user == new_user {
+            return Ok(());
+        }
+        let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
+        let mut migrating = tasks.values()
+            .filter(|task| task.user_id == old_user)
+            .cloned()
+            .collect::<Vec<_>>();
+        if migrating.is_empty() {
+            return Ok(());
+        }
+        for task in &migrating {
+            if tasks.values().any(|other| {
+                other.user_id == new_user && other.name == task.name && other.id != task.id
+            }) {
+                return Err(TaskError::Invalid(format!(
+                    "cannot migrate task '{}': a task with that name already exists",
+                    task.name
+                )));
+            }
+        }
+        for task in &mut migrating {
+            task.user_id = new_user.to_owned();
+            self.persist(task)?;
+        }
+        for task in migrating {
+            tasks.insert(task.id, task);
+        }
+        self.notify();
+        Ok(())
+    }
+
     pub fn list(&self, user: &str) -> Vec<Task> {
         let mut result: Vec<_> = self
             .snapshot()
