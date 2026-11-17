@@ -15,3 +15,8 @@ pub(super) async fn invitation_page() -> impl Responder {
         .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/index.html"))
 }
+
+#[get("/favicon.ico")]
+pub(super) async fn favicon() -> impl Responder {
+    HttpResponse::NoContent().finish()
+}
