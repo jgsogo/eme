@@ -651,7 +651,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::CREATED);
         let login: Value = test::read_body_json(response).await;
         let login_token = login["token"].as_str().unwrap();
-        assert!(auth.complete_login(login_token, 42, identities.as_ref()));
+        assert!(auth.complete_login(login_token, 42, None, identities.as_ref()));
 
         let response = test::call_service(
             &app,
