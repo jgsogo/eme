@@ -203,6 +203,7 @@ impl TelegramGateway {
                                         .as_ref()
                                         .and_then(|user| i64::try_from(user.id).ok()),
                                     is_bot: message.from.as_ref().is_some_and(|user| user.is_bot),
+                                    first_name: message.from.as_ref().map(|user| user.first_name.clone()),
                                     message_id: message.message_id,
                                     reply_to_message_id: message
                                         .reply_to_message
@@ -351,6 +352,7 @@ mod tests {
         IncomingMessage {
             chat_id: 42,
             user_id: Some(7),
+            first_name: Some("Javier".to_owned()),
             is_bot: false,
             message_id: 200,
             reply_to_message_id,
