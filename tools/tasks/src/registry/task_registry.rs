@@ -117,7 +117,8 @@ impl TaskRegistry {
             return Ok(());
         }
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
-        let mut migrating = tasks.values()
+        let mut migrating = tasks
+            .values()
             .filter(|task| task.user_id == old_user)
             .cloned()
             .collect::<Vec<_>>();
@@ -205,7 +206,13 @@ impl TaskRegistry {
         Ok(value)
     }
     /// Replaces a task definition owned by the authenticated user.
-    pub fn update(&self, user: &str, id: Uuid, task: NewTask, enabled: bool) -> Result<Task, TaskError> {
+    pub fn update(
+        &self,
+        user: &str,
+        id: Uuid,
+        task: NewTask,
+        enabled: bool,
+    ) -> Result<Task, TaskError> {
         if user.trim().is_empty() {
             return Err(TaskError::Invalid("authenticated user is missing".into()));
         }
@@ -227,15 +234,31 @@ impl TaskRegistry {
             next_run: None,
         };
         validate(&value)?;
-        if !self.inner.agents.read().map_err(lock_error)?.contains(&value.agent) {
-            return Err(TaskError::Invalid(format!("unknown agent '{}'", value.agent)));
+        if !self
+            .inner
+            .agents
+            .read()
+            .map_err(lock_error)?
+            .contains(&value.agent)
+        {
+            return Err(TaskError::Invalid(format!(
+                "unknown agent '{}'",
+                value.agent
+            )));
         }
-        if tasks.values().any(|other| other.id != id && other.user_id == user && other.name == value.name) {
-            return Err(TaskError::Invalid("task name already exists for this user".into()));
+        if tasks
+            .values()
+            .any(|other| other.id != id && other.user_id == user && other.name == value.name)
+        {
+            return Err(TaskError::Invalid(
+                "task name already exists for this user".into(),
+            ));
         }
         value.next_run = next_run(&value, Utc::now())?;
         if value.enabled && value.schedule.is_none() && value.next_run.is_none() {
-            return Err(TaskError::Invalid("one-time task must be scheduled in the future".into()));
+            return Err(TaskError::Invalid(
+                "one-time task must be scheduled in the future".into(),
+            ));
         }
         self.persist(&value)?;
         tasks.insert(id, value.clone());
@@ -245,18 +268,29 @@ impl TaskRegistry {
 
     /// Enables or disables a task without changing its definition.
     pub fn set_enabled(&self, user: &str, id: Uuid, enabled: bool) -> Result<Task, TaskError> {
-        let current = self.inner.tasks.read().map_err(lock_error)?
-            .get(&id).filter(|task| task.user_id == user).cloned()
+        let current = self
+            .inner
+            .tasks
+            .read()
+            .map_err(lock_error)?
+            .get(&id)
+            .filter(|task| task.user_id == user)
+            .cloned()
             .ok_or(TaskError::NotFound)?;
-        self.update(user, id, NewTask {
-            name: current.name,
-            description: current.description,
-            agent: current.agent,
-            prompt: current.prompt,
-            schedule: current.schedule,
-            at: current.at,
-            timezone: current.timezone,
-        }, enabled)
+        self.update(
+            user,
+            id,
+            NewTask {
+                name: current.name,
+                description: current.description,
+                agent: current.agent,
+                prompt: current.prompt,
+                schedule: current.schedule,
+                at: current.at,
+                timezone: current.timezone,
+            },
+            enabled,
+        )
     }
 
     pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) {
