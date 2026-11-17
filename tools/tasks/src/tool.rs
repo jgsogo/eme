@@ -1,7 +1,7 @@
 //! Tool adapters for creating, listing and removing scheduled agent tasks.
 
 mod types;
-pub(super) use types::{TaskAdd, TaskList, TaskRemove};
+pub(crate) use types::{TaskAdd, TaskList, TaskRemove};
 
 use agent_runtime::{Tool, ToolContext, ToolError};
 use agent_service::{NewTask, TaskRegistry};
