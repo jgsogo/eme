@@ -4,6 +4,7 @@ use super::{
     IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore, identity_key,
 };
 use std::sync::{Arc, Mutex};
+use chrono::NaiveDate;
 
 #[derive(Clone, Default)]
 pub struct InMemoryUserIdentityStore {
@@ -22,6 +23,8 @@ impl UserIdentityStore for InMemoryUserIdentityStore {
             .unwrap_or_else(|p| p.into_inner())
             .resolve_or_create(provider, subject, display_name)?)
     }
+    fn create_user(&self, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError> { self.state.lock().unwrap_or_else(|p| p.into_inner()).create_user(display_name, birthday) }
+    fn update_profile(&self, user_id: UserId, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError> { self.state.lock().unwrap_or_else(|p| p.into_inner()).update_profile(user_id, display_name, birthday) }
     fn get_user(&self, user_id: UserId) -> Result<Option<User>, IdentityStoreError> {
         Ok(self
             .state
