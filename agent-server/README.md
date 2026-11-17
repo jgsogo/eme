@@ -64,7 +64,18 @@ Authenticated endpoints:
 
 OAuth state and PKCE verifiers are persisted with a ten-minute expiry. State is hashed at rest, the verifier is encrypted, and callbacks are single-use and bound to the initiating EME user. Google account identity is resolved through the OpenID Connect user-info endpoint and an unverified email is rejected.
 
-The current API supports account connections plus calendar discovery, selection, and per-calendar EME read/write settings. Family sharing and user-context calendar tool execution remain subsequent implementation steps.
+The current API supports account connections plus calendar discovery, selection, and per-calendar EME read/write settings. Family sharing configuration is now available. Delegated event access and user-context calendar tool execution remain subsequent implementation steps.
+
+Family sharing configuration is available for selected calendars:
+
+- `PUT /integrations/google/calendars/{eme_calendar_id}/family-sharing` accepts `{"family_id":"...","access":"viewer"}` or `{"family_id":"...","access":"contributor"}`. The authenticated calendar owner must currently belong to that EME family.
+- `DELETE /integrations/google/calendars/{eme_calendar_id}/family-sharing` removes the family association.
+- Calendar responses include `family_id` and `family_access` when sharing is configured.
+
+A viewer grant allows read operations; a contributor grant requests read/write capability but cannot exceed the owner's calendar access mode or Google's granted scopes. Contributor sharing is rejected unless the owner has configured read/write access. Changing the owner mode to read-only downgrades an existing contributor grant to viewer. Deselecting a calendar removes its family share. These are EME permissions only; no Google Calendar ACLs or credentials are shared.
+
+This PR adds the sharing configuration and membership validation. Delegated event access is not enabled until the subsequent runtime authorization/tool integration resolves the executing user's active family membership and applies the effective permission intersection on each invocation.
+
 
 Calendar management endpoints (also authenticated with the current EME browser session):
 
