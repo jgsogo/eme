@@ -28,7 +28,7 @@ use tracing::{error, info, warn};
 use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
-use console::{console_ui, invitation_page};
+use console::{console_ui, favicon, invitation_page};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -166,6 +166,7 @@ async fn main() -> Result<()> {
             app = app.app_data(web::Data::new(config));
         }
         app.service(console_ui)
+            .service(favicon)
             .service(invitation_page)
             .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
