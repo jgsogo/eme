@@ -1,0 +1,6 @@
+name = "google_list_calendars"
+description = "List the Google calendars the authenticated EME user can currently read, including calendars shared with the selected family."
+
+[parameters]
+type = "object"
+additionalProperties = false
