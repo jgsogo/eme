@@ -19,13 +19,19 @@ fn current_user(
     auth: &crate::auth::TelegramAuth,
     identities: &FileUserIdentityStore,
 ) -> Result<agent_storage::User, HttpResponse> {
-    let owner = auth.owner_for_request(request).ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    let subject = owner.strip_prefix("telegram:").filter(|value| !value.is_empty())
+    let owner = auth
+        .owner_for_request(request)
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    let identity = identities.find_identity("telegram", subject)
+    let subject = owner
+        .strip_prefix("telegram:")
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
+    let identity = identities
+        .find_identity("telegram", subject)
         .map_err(|_| HttpResponse::InternalServerError().finish())?
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    identities.get_user(identity.user_id)
+    identities
+        .get_user(identity.user_id)
         .map_err(|_| HttpResponse::InternalServerError().finish())?
         .ok_or_else(|| HttpResponse::Unauthorized().finish())
 }
@@ -64,5 +70,7 @@ async fn update_profile(
 }
 
 pub fn profile_api() -> Scope {
-    web::scope("/profile").service(get_profile).service(update_profile)
+    web::scope("/profile")
+        .service(get_profile)
+        .service(update_profile)
 }
