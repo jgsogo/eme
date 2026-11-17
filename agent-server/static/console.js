@@ -140,7 +140,7 @@ function renderFamilyMembers(){
   const transfer=isOwner&&!isSelf?'<button type="button" class="secondary" data-transfer-owner="'+escapeHtml(m.user_id)+'">Make owner</button>':'';
   const remove=!isSelf&&(isOwner||(isAdmin&&role==="member"))?'<button type="button" class="danger" data-remove-member="'+escapeHtml(m.user_id)+'">Remove</button>':'';
   const actions=roleControl||transfer||remove?'<div class="member-actions">'+roleControl+transfer+remove+'</div>':'';
-  return '<div class="family-member"><strong>'+escapeHtml(m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span>'+actions+'</div>';
+  return '<div class="family-member"><strong>'+escapeHtml(m.display_name||m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span>'+actions+'</div>';
  }).join(""):'<div class="hint">No members.</div>');
 }
 function currentFamilyMember(){
