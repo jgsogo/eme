@@ -65,8 +65,8 @@ impl GoogleOAuthTokenManager {
         refresh: F,
     ) -> Result<String, GoogleOAuthError>
     where
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<GoogleTokenSet, GoogleOAuthError>>,
+        F: FnOnce() -> Fut + Send,
+        Fut: Future<Output = Result<GoogleTokenSet, GoogleOAuthError>> + Send,
     {
         let connection = {
             let mut connections = self.connections.lock().await;
@@ -88,7 +88,11 @@ impl GoogleOAuthTokenManager {
         // Google normally returns a one-hour token. Use a conservative fallback
         // when the provider omits expires_in, stop using it 30 seconds early,
         // and cap local reuse at one minute to limit stale-token time after revocation.
-        let lifetime = token.expires_in_seconds.unwrap_or(300).saturating_sub(30).clamp(1, 60);
+        let lifetime = token
+            .expires_in_seconds
+            .unwrap_or(300)
+            .saturating_sub(30)
+            .clamp(1, 60);
         *cached = Some(CachedAccessToken {
             refresh_token_hash,
             access_token: access_token.clone(),
