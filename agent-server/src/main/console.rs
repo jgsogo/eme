@@ -5,18 +5,18 @@ use actix_web::{HttpResponse, Responder, get, http::header};
 #[get("/")]
 pub(super) async fn console_root() -> impl Responder {
     HttpResponse::Found()
-        .append_header((header::LOCATION, "/conversations"))
+        .append_header((header::LOCATION, "/console/conversations"))
         .finish()
 }
 
-#[get("/conversations")]
+#[get("/console/conversations")]
 pub(super) async fn conversations_page() -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/conversations.html"))
 }
 
-#[get("/families")]
+#[get("/console/families")]
 pub(super) async fn families_page() -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
