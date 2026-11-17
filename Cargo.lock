@@ -272,8 +272,8 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "uuid",
  "mercadona-tool",
+ "uuid",
 ]
 
 
