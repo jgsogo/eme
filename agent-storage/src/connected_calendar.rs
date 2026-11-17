@@ -468,6 +468,10 @@ mod tests {
             .unwrap();
         assert_eq!(first.len(), 1);
         assert!(!first[0].selected);
+        assert!(matches!(
+            calendars.share_with_family(owner, first[0].id, FamilyId::new(), CalendarFamilyAccess::Viewer).await,
+            Err(ConnectedCalendarStorageError::FamilyShareRequiresSelected)
+        ));
         let selected = calendars
             .update(
                 owner,
