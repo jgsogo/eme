@@ -10,8 +10,8 @@ use agent_runtime::{
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
-use google_tool::GoogleCalendarRuntimeConfig;
 use anyhow::{Context, Result};
+use google_tool::GoogleCalendarRuntimeConfig;
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
