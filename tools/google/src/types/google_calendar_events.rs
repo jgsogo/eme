@@ -35,20 +35,6 @@ impl Tool for GoogleCalendarEvents {
                 errors: vec!["'calendar_id' must be an EME connected-calendar ID.".into()],
             })?;
 
-        // Identity and family context are trusted host metadata. The model can
-        // supply only the opaque EME calendar ID, never an owner or family ID.
-        let family_id = context.family.as_ref().map(|family| family.family_id.as_str());
-        let authorized = runtime
-            .access
-            .authorize_read(user_id, calendar_id, family_id)
-            .await
-            .map_err(|error| ToolError::Execution(error.to_string()))?;
-
-        let token = refresh_access_token(&runtime.oauth, &authorized.refresh_token)
-            .await
-            .map_err(|error| ToolError::Execution(error.to_string()))?;
-        let client = GoogleCalendarClient::from_access_token(token.access_token);
-
         let date = arguments.get("date").and_then(Value::as_str);
         let time_min = arguments.get("time_min").and_then(Value::as_str);
         let time_max = arguments.get("time_max").and_then(Value::as_str);
@@ -63,6 +49,20 @@ impl Tool for GoogleCalendarEvents {
                 ],
             });
         }
+
+        // Identity and family context are trusted host metadata. The model can
+        // supply only the opaque EME calendar ID, never an owner or family ID.
+        let family_id = context.family.as_ref().map(|family| family.family_id.as_str());
+        let authorized = runtime
+            .access
+            .authorize_read(user_id, calendar_id, family_id)
+            .await
+            .map_err(|error| ToolError::Execution(error.to_string()))?;
+
+        let token = refresh_access_token(&runtime.oauth, &authorized.refresh_token)
+            .await
+            .map_err(|error| ToolError::Execution(error.to_string()))?;
+        let client = GoogleCalendarClient::from_access_token(token.access_token);
 
         let public_calendar_id = authorized.calendar.id.to_string();
         let provider_calendar_id = authorized.calendar.provider_calendar_id.as_str();
