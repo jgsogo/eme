@@ -24,6 +24,7 @@ tools = [
     "convert_timezone",
     "calculate_date_difference",
     "get_date_info",
+    "get_holidays",
     "parse_datetime",
     "sleep",
     "task_list",
