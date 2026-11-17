@@ -1,5 +1,5 @@
 //! Agent-facing free/busy lookup for a connected Google Calendar.
-use crate::{GoogleCalendarRuntimeConfig, calendar::GoogleCalendarClient, refresh_access_token};
+use crate::{GoogleCalendarRuntimeConfig, calendar::GoogleCalendarClient};
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use chrono::DateTime;
