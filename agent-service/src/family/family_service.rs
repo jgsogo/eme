@@ -350,7 +350,6 @@ impl FamilyService {
     }
 }
 
-
 fn role_name(role: FamilyRole) -> &'static str {
     match role {
         FamilyRole::Owner => "owner",
