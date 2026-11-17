@@ -1,6 +1,6 @@
 //! HTTP client for the anonymous Mercadona catalogue and Algolia search APIs.
 
-use reqwest::{Client, Method, Response, StatusCode, header};
+use reqwest::{Client, Method, Response, header};
 use serde_json::{Value, json};
 use std::time::Duration;
 use url::form_urlencoded;
@@ -84,13 +84,10 @@ impl MercadonaClient {
     }
 
     fn catalogue_url(&self, path: &str) -> String {
-        format!(
-            "{}{}?lang={}&wh={}",
-            BASE_URL,
-            path,
-            self.language,
-            self.warehouse
-        )
+        let mut query = form_urlencoded::Serializer::new(String::new());
+        query.append_pair("lang", &self.language);
+        query.append_pair("wh", &self.warehouse);
+        format!("{BASE_URL}{path}?{}", query.finish())
     }
 
     /// Search the warehouse's Algolia product index.
@@ -160,7 +157,13 @@ impl MercadonaClient {
             let mut rest = shell;
             while let Some(index) = rest.find(marker) {
                 rest = &rest[index + marker.len()..];
-                let end = rest.find(['"', '\''])?;
+                let end_double = rest.find('"');
+                let end_single = rest.find('\'');
+                let end = match (end_double, end_single) {
+                    (Some(left), Some(right)) => left.min(right),
+                    (Some(value), None) | (None, Some(value)) => value,
+                    (None, None) => return None,
+                };
                 let candidate = &rest[..end];
                 if candidate.starts_with("/v")
                     && candidate.contains("/index-")
@@ -178,7 +181,7 @@ impl MercadonaClient {
         let bytes = bundle.as_bytes();
         for (start, _) in bundle.match_indices('"') {
             let app_start = start + 1;
-            let app_end = app_start.checked_add(10)?;
+            let app_end = app_start + 10;
             if app_end >= bytes.len() || bytes.get(app_end) != Some(&b'"') {
                 continue;
             }
@@ -258,5 +261,40 @@ impl MercadonaClient {
             "warehouse": warehouse,
             "message": "Use this warehouse code in the warehouse argument of catalogue tools."
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finds_versioned_spa_entry_bundle() {
+        assert_eq!(
+            MercadonaClient::find_bundle_path(
+                r#"<script type="module" src="/v9200/index-AbC_123.js"></script>"#
+            ),
+            Some("/v9200/index-AbC_123.js".to_owned())
+        );
+    }
+
+    #[test]
+    fn extracts_algolia_credentials_from_bundle() {
+        let bundle = r#"const x="7UZJKL1DJ0",BGe="9d8f2e39e90df472b4f2e559a116fe17";"#;
+        assert_eq!(
+            MercadonaClient::parse_algolia_credentials(bundle),
+            Some((
+                "7UZJKL1DJ0".to_owned(),
+                "9d8f2e39e90df472b4f2e559a116fe17".to_owned()
+            ))
+        );
+    }
+
+    #[test]
+    fn ignores_malformed_algolia_credentials() {
+        assert_eq!(
+            MercadonaClient::parse_algolia_credentials(r#"const x="not-an-app-id",BGe="short";"#),
+            None
+        );
     }
 }
