@@ -49,6 +49,15 @@ impl GoogleOAuthTokenManager {
         .await
     }
 
+    /// Invalidate cached access tokens after disconnect or reauthorization.
+    /// The per-connection lock is retained so invalidation cannot race a refresh.
+    pub async fn invalidate(&self, connection_id: ExternalConnectionId) {
+        let connection = self.connections.lock().await.get(&connection_id).cloned();
+        if let Some(connection) = connection {
+            *connection.lock().await = None;
+        }
+    }
+
     async fn get_or_refresh<F, Fut>(
         &self,
         connection_id: ExternalConnectionId,
@@ -160,6 +169,23 @@ mod tests {
             task.await.unwrap();
         }
         assert_eq!(maximum.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn explicit_invalidation_forces_a_new_refresh() {
+        let manager = GoogleOAuthTokenManager::new();
+        let connection_id = ExternalConnectionId::new();
+        let first = manager
+            .get_or_refresh(connection_id, [3; 32], || async { Ok(token("first")) })
+            .await
+            .unwrap();
+        manager.invalidate(connection_id).await;
+        let second = manager
+            .get_or_refresh(connection_id, [3; 32], || async { Ok(token("second")) })
+            .await
+            .unwrap();
+        assert_eq!(first, "first");
+        assert_eq!(second, "second");
     }
 
     #[tokio::test]
