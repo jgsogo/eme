@@ -133,10 +133,12 @@ fn external_identity_can_be_resolved_from_its_eme_user() {
 
     assert_eq!(resolved, telegram_identity);
     assert_eq!(resolved.subject, "123456789");
-    assert!(store
-        .find_identity_for_user("google", user.id)
-        .unwrap()
-        .is_none());
+    assert!(
+        store
+            .find_identity_for_user("google", user.id)
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
@@ -144,10 +146,12 @@ fn managed_user_has_no_telegram_identity() {
     let store = InMemoryUserIdentityStore::default();
     let user = store.create_user("Alex", None).unwrap();
 
-    assert!(store
-        .find_identity_for_user("telegram", user.id)
-        .unwrap()
-        .is_none());
+    assert!(
+        store
+            .find_identity_for_user("telegram", user.id)
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]
