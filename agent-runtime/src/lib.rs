@@ -29,5 +29,5 @@ pub use runtime::{
     AgentRuntime, CancellationToken, EventSink, RunEvent, RunEventKind, RunFailure, RunResult,
     RunStatus,
 };
-pub use tool::{FamilyContext, Tool, ToolContext, ToolDispatcher, ToolError, ToolRegistry};
+pub use tool::{FamilyContext, FamilyMemberContext, Tool, ToolContext, ToolDispatcher, ToolError, ToolRegistry};
 pub use types::{Agent, Message, ModelRequest, ModelTurn, ToolCall, ToolDefinition};
