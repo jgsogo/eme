@@ -581,6 +581,7 @@ mod tests {
             .unwrap();
         assert_eq!(first.len(), 1);
         assert!(!first[0].selected);
+        assert!(calendars.get_selected(first[0].id).await.unwrap().is_none());
         assert!(matches!(
             calendars
                 .share_with_family(
@@ -602,6 +603,9 @@ mod tests {
             .await
             .unwrap();
         assert!(selected.selected);
+        let accessible = calendars.get_selected(selected.id).await.unwrap().unwrap();
+        assert_eq!(accessible.provider_calendar_id, "primary");
+        assert_eq!(accessible.owner_id, owner);
         let refreshed = calendars
             .sync_discovered(owner, connection.id, vec![discovered])
             .await
