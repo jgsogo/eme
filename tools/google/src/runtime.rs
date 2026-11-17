@@ -5,7 +5,7 @@ use std::sync::Arc;
 use agent_service::GoogleCalendarAccessService;
 use agent_storage::ExternalConnectionId;
 
-use crate::{GoogleOAuthConfig, GoogleOAuthError, GoogleOAuthTokenManager, GoogleTokenSet};
+use crate::{GoogleOAuthConfig, GoogleOAuthError, GoogleOAuthTokenManager};
 
 /// Server-composed configuration for Google Calendar tool execution.
 ///
@@ -32,7 +32,7 @@ impl GoogleCalendarRuntimeConfig {
         &self,
         connection_id: ExternalConnectionId,
         refresh_token: &str,
-    ) -> Result<GoogleTokenSet, GoogleOAuthError> {
+    ) -> Result<String, GoogleOAuthError> {
         self.token_manager
             .refresh_access_token(connection_id, &self.oauth, refresh_token)
             .await
