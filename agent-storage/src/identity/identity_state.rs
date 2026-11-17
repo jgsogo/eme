@@ -1,7 +1,7 @@
 //! Shared identity state and invariant-preserving operations.
 
 use super::{IdentityStoreError, User, UserId, UserIdentity};
-use chrono::Utc;
+use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -36,6 +36,7 @@ impl IdentityState {
         let user = User {
             id: UserId::new(),
             display_name: normalize_display_name(display_name),
+            birthday: None,
             created_at: now,
             updated_at: now,
         };
@@ -50,20 +51,52 @@ impl IdentityState {
         Ok((user, identity))
     }
 
+    pub(super) fn create_user(
+        &mut self,
+        display_name: &str,
+        birthday: Option<NaiveDate>,
+    ) -> Result<User, IdentityStoreError> {
+        let display_name = validate_display_name(display_name)?;
+        let now = Utc::now();
+        let user = User {
+            id: UserId::new(),
+            display_name: Some(display_name),
+            birthday,
+            created_at: now,
+            updated_at: now,
+        };
+        self.users.insert(user.id, user.clone());
+        Ok(user)
+    }
+
+    pub(super) fn update_profile(
+        &mut self,
+        user_id: UserId,
+        display_name: &str,
+        birthday: Option<NaiveDate>,
+    ) -> Result<User, IdentityStoreError> {
+        let display_name = validate_display_name(display_name)?;
+        let user = self
+            .users
+            .get_mut(&user_id)
+            .ok_or(IdentityStoreError::UserNotFound(user_id))?;
+        user.display_name = Some(display_name);
+        user.birthday = birthday;
+        user.updated_at = Utc::now();
+        Ok(user.clone())
+    }
+
     pub(super) fn update_display_name(
         &mut self,
         user_id: UserId,
         display_name: &str,
     ) -> Result<User, IdentityStoreError> {
-        let display_name = display_name.trim();
-        if display_name.is_empty() || display_name.chars().count() > 80 {
-            return Err(IdentityStoreError::InvalidDisplayName);
-        }
+        let display_name = validate_display_name(display_name)?;
         let user = self
             .users
             .get_mut(&user_id)
             .ok_or(IdentityStoreError::UserNotFound(user_id))?;
-        user.display_name = Some(display_name.to_owned());
+        user.display_name = Some(display_name);
         user.updated_at = Utc::now();
         Ok(user.clone())
     }
@@ -97,6 +130,14 @@ impl IdentityState {
         self.identities.insert(key, identity.clone());
         Ok(identity)
     }
+}
+
+fn validate_display_name(value: &str) -> Result<String, IdentityStoreError> {
+    let value = value.trim();
+    if value.is_empty() || value.chars().count() > 80 {
+        return Err(IdentityStoreError::InvalidDisplayName);
+    }
+    Ok(value.to_owned())
 }
 
 fn validate_identity(provider: &str, subject: &str) -> Result<(), IdentityStoreError> {

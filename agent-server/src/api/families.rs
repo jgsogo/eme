@@ -5,22 +5,26 @@ mod change_relationship_request;
 mod change_role_request;
 mod create_family_request;
 mod create_invitation_request;
+mod create_managed_member_request;
 mod created_invitation;
 mod family_details;
 mod lan_invitation_config;
 mod rename_family_request;
 mod transfer_ownership_request;
+mod update_member_profile_request;
 
 pub use accept_invitation_request::AcceptInvitationRequest;
 pub use change_relationship_request::ChangeRelationshipRequest;
 pub use change_role_request::ChangeRoleRequest;
 pub use create_family_request::CreateFamilyRequest;
 pub use create_invitation_request::CreateInvitationRequest;
+pub use create_managed_member_request::CreateManagedMemberRequest;
 pub use created_invitation::CreatedInvitation;
 pub use family_details::{FamilyDetails, FamilyMemberDetails};
 pub use lan_invitation_config::LanInvitationConfig;
 pub use rename_family_request::RenameFamilyRequest;
 pub use transfer_ownership_request::TransferOwnershipRequest;
+pub use update_member_profile_request::UpdateMemberProfileRequest;
 
 use std::{net::IpAddr, str::FromStr, sync::Arc};
 
@@ -234,6 +238,7 @@ async fn get_family(
                     identities
                         .get_user(member.user_id.clone())
                         .map(|user| FamilyMemberDetails {
+                            birthday: user.as_ref().and_then(|user| user.birthday),
                             member,
                             display_name: user.and_then(|user| user.display_name),
                         })
@@ -313,6 +318,83 @@ async fn list_members(
     match service.list_members(actor, family_id).await {
         Ok(members) => HttpResponse::Ok().json(members),
         Err(error) => service_error(error),
+    }
+}
+
+#[post("/{family_id}/members")]
+async fn add_managed_member(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    service: Data<Arc<FamilyService>>,
+    family_id: Path<String>,
+    body: Json<CreateManagedMemberRequest>,
+) -> impl Responder {
+    let (actor, _) = match authenticated_actor(&request, &auth, &identities) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let family_id = match parse_family_id(&family_id) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    if let Err(error) = service
+        .authorize_member_profile_update(actor, family_id, actor)
+        .await
+    {
+        return service_error(error);
+    }
+    let user = match identities.create_user(&body.name, body.birthday) {
+        Ok(user) => user,
+        Err(_) => {
+            return HttpResponse::BadRequest()
+                .body("member name must contain between 1 and 80 characters");
+        }
+    };
+    match service
+        .add_managed_member(actor, family_id, user.id, body.relationship)
+        .await
+    {
+        Ok(member) => HttpResponse::Created().json(FamilyMemberDetails {
+            member,
+            display_name: user.display_name,
+            birthday: user.birthday,
+        }),
+        Err(error) => service_error(error),
+    }
+}
+
+#[put("/{family_id}/members/{user_id}/profile")]
+async fn update_member_profile(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    service: Data<Arc<FamilyService>>,
+    path: Path<(String, String)>,
+    body: Json<UpdateMemberProfileRequest>,
+) -> impl Responder {
+    let (actor, _) = match authenticated_actor(&request, &auth, &identities) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    let (family_id, user_id) = path.into_inner();
+    let family_id = match parse_family_id(&family_id) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let user_id = match parse_user_id(&user_id) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    if let Err(error) = service
+        .authorize_member_profile_update(actor, family_id, user_id)
+        .await
+    {
+        return service_error(error);
+    }
+    match identities.update_profile(user_id, &body.name, body.birthday) {
+        Ok(user) => HttpResponse::Ok().json(serde_json::json!({ "user_id": user.id, "display_name": user.display_name, "birthday": user.birthday })),
+        Err(_) => HttpResponse::BadRequest().body("member name must contain between 1 and 80 characters"),
     }
 }
 
@@ -579,6 +661,8 @@ pub fn families_api() -> Scope {
         .service(rename_family)
         .service(delete_family)
         .service(list_members)
+        .service(add_managed_member)
+        .service(update_member_profile)
         .service(remove_member)
         .service(change_member_role)
         .service(change_member_relationship)
