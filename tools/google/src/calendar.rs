@@ -63,7 +63,7 @@ impl GoogleCalendarClient {
         .await
     }
 
-    async fn events_for_period(
+    pub(crate) async fn events_for_period(
         &self,
         calendar_id: &str,
         time_min: &str,
