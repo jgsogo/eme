@@ -2,7 +2,7 @@ const TERMINAL=new Set(["completed","failed","cancelled","timed_out","max_iterat
 const page=document.body.dataset.page;
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,runId:null,pollTimer:null};
+const state={agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],notes:[],selectedNote:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 const mobileDrawer=()=>window.matchMedia("(max-width:760px)").matches;
@@ -59,7 +59,64 @@ function renderMessages(messages=[]){
 function renderRunEvents(events=[]){$("run-events").innerHTML=events.length?events.map(event=>"<li>"+escapeHtml(event.kind)+(event.tool_name?" · "+escapeHtml(event.tool_name):"")+"</li>").join(""):"<li>No events yet.</li>"}
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId}
 async function loadConversations(){state.conversations=await api("/conversations");renderConversations()}
-async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList()}
+async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies()}
+function renderNotes(){
+ const target=$("notes-list");if(!target)return;
+ target.innerHTML=state.notes.length?state.notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">No notes yet. Create one to get started.</div>';
+}
+function resetNoteEditor(){
+ state.selectedNote=null;renderNotes();
+ if($("note-heading"))$("note-heading").textContent="Select a note";
+ $("note-title").value="";$("note-content").value="";$("note-family").value="";
+ for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=true;
+ $("delete-note").disabled=true;$("notes-status").textContent="Choose a note or create a new one. Notes are private by default.";
+}
+function startNewNote(){
+ state.selectedNote="new";renderNotes();
+ if($("note-heading"))$("note-heading").textContent="New note";
+ $("note-title").value="";$("note-content").value="";$("note-family").value="";
+ for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=false;
+ $("delete-note").disabled=true;$("notes-status").textContent="New private note. You can optionally share it with one family.";
+ $("note-title").focus();
+}
+async function selectNote(id){
+ const note=state.notes.find(item=>item.id===id);if(!note)return;
+ try{
+  const full=await api("/notes/"+encodeURIComponent(id));state.selectedNote=id;renderNotes();
+  if($("note-heading"))$("note-heading").textContent=full.title;
+  $("note-title").value=full.title;$("note-content").value=full.content;$("note-family").value=full.family_id||"";
+  const editable=full.owner_id===state.currentUserId;
+  for(const field of ["note-title","note-content","note-family","save-note"])$(field).disabled=!editable;
+  $("delete-note").disabled=!editable;
+  $("notes-status").textContent=!editable?"Shared note · read-only":(full.family_id?"Shared with "+(state.families.find(f=>f.id===full.family_id)?.name||"a family"):"Private note");
+ }catch(e){$("notes-status").textContent=e.message}
+}
+function renderNoteFamilies(){
+ const select=$("note-family");if(!select)return;const selected=select.value;
+ select.innerHTML='<option value="">Private — only me</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
+ if([...select.options].some(option=>option.value===selected))select.value=selected;
+}
+async function loadNotes(){
+ try{state.notes=await api("/notes");renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
+ catch(e){$("notes-list").innerHTML='<div class="hint">Unable to load notes: '+escapeHtml(e.message)+'</div>'}
+}
+async function saveNote(event){
+ event.preventDefault();const title=$("note-title").value.trim(),content=$("note-content").value,family_id=$("note-family").value||null;
+ if(!title){$("notes-status").textContent="A title is required.";return}
+ const body=JSON.stringify({title,content,family_id});$("save-note").disabled=true;
+ try{
+  const saved=state.selectedNote==="new"?await api("/notes",{method:"POST",body}):await api("/notes/"+encodeURIComponent(state.selectedNote),{method:"PUT",body});
+  await loadNotes();state.selectedNote=saved.id;renderNotes();await selectNote(saved.id);$("notes-status").textContent="Note saved.";
+ }catch(e){$("notes-status").textContent=e.message}
+ finally{$("save-note").disabled=false}
+}
+async function deleteNote(){
+ if(!state.selectedNote||state.selectedNote==="new")return;
+ if(!window.confirm("Delete this note permanently?"))return;
+ try{await api("/notes/"+encodeURIComponent(state.selectedNote),{method:"DELETE"});await loadNotes();resetNoteEditor();$("notes-status").textContent="Note deleted."}
+ catch(e){$("notes-status").textContent=e.message}
+}
+
 function renderFamilySelector(){const selector=$("family-selector");if(!selector)return;const selected=state.selectedFamilyId||"";selector.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");selector.value=state.families.some(f=>f.id===selected)?selected:"";selector.disabled=!state.selected||!!state.runId;state.selectedFamilyId=selector.value||null}
 function renderFamiliesList(){
  const target=$("families-list");if(!target)return;
@@ -233,6 +290,7 @@ async function deleteConversation(id){const conversation=state.conversations.fin
 async function sendMessage(){const input=$("prompt").value.trim();if(!input||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount;$("prompt").value="";setComposerEnabled(false);setStatus("Queued…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input})});state.runId=result.run_id;$("cancel-run").hidden=false;setStatus("Running · "+result.run_id.slice(0,8));await pollRun(id,result.run_id,previousMessageCount)}catch(e){setStatus(e.message,"error");setComposerEnabled(true);$("prompt").value=input}}
 async function pollRun(conversationId,runId,previousMessageCount){clearInterval(state.pollTimer);renderRunEvents([]);const poll=async()=>{try{const [run,events]=await Promise.all([api("/runs/"+encodeURIComponent(runId)),api("/runs/"+encodeURIComponent(runId)+"/events")]);renderRunEvents(events);if(!TERMINAL.has(run.status)){setStatus("Running · "+run.status);return}clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;let conversation=null;for(let attempt=0;attempt<40;attempt++){conversation=await api("/conversations/"+encodeURIComponent(conversationId));if((conversation.messages||[]).length>previousMessageCount)break;await new Promise(resolve=>setTimeout(resolve,100))}if(state.selected===conversationId){$("conversation-title").textContent=conversation.title||"New conversation";$("conversation-meta").textContent="Agent · "+conversation.agent+" · Conversation "+conversation.id;state.messageCount=(conversation.messages||[]).length;renderMessages(conversation.messages);setComposerEnabled(true)}await loadConversations();if(run.status==="completed")setStatus("Completed","ok");else setStatus(run.error||run.status,"error");setComposerEnabled(state.selected===conversationId);renderFamilySelector()}catch(e){clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;setStatus("Unable to retrieve run: "+e.message,"error");setComposerEnabled(true);renderFamilySelector()}};await poll();if(state.runId)state.pollTimer=setInterval(poll,1000)}
 on("open-conversations","click",()=>setDrawerOpen(true));on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("close-conversations","click",closeDrawer);on("drawer-backdrop","click",closeDrawer);document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});window.addEventListener("resize",()=>{if(!mobileDrawer())closeDrawer()});
+on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]");if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("cancel-run","click",async()=>{if(!state.runId)return;try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(e){setStatus(e.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&!state.runId)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function showConsole(){
  document.body.classList.remove("login-active");
@@ -242,9 +300,11 @@ async function showConsole(){
  if(page==="conversations"){
   state.agents=await api("/agents");renderAgents();await Promise.all([loadFamilies(),loadConversations()]);
   if(state.conversations.length)await selectConversation(state.conversations[0].id);else renderFamilySelector();
- }else{
+ }else if(page==="families"){
   await loadFamilies();
   await loadFamilyDetails(state.families[0]?.id||null);
+ }else{
+  await loadFamilies();await loadNotes();resetNoteEditor();
  }
  $("connection").textContent="Connected";
 }
@@ -280,6 +340,6 @@ on("invite-accept","click",async()=>{
 });
 on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFamilies()]);if(state.managedFamilyId)await loadFamilyDetails(state.managedFamilyId)}catch(e){setStatus(e.message,"error")}});
 on("logout","click",async()=>{
- try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];if(page==="conversations")renderConversations();await showLogin()}
+ try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];state.notes=[];state.selectedNote=null;if(page==="conversations")renderConversations();if(page==="notes")renderNotes();await showLogin()}
 });
 (async()=>{try{await api("/auth/session");await showConsole()}catch(e){await showLogin()}})();

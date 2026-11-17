@@ -30,7 +30,7 @@ use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
-    invitation_page,
+    invitation_page, notes_page,
 };
 
 #[actix_web::main]
@@ -71,14 +71,24 @@ async fn main() -> Result<()> {
     let task_registry =
         TaskRegistry::load(args.data_dir.join("tasks")).context("loading scheduled tasks")?;
 
+    let family_store = Arc::new(
+        SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
+            .context("opening family and invitation storage")?,
+    );
+
     let resolver = Arc::new(
-        ConfiguredAgentResolver::load(&args.data_dir, gateway_for_tools, task_registry.clone())
-            .with_context(|| {
-                format!(
-                    "loading platform configuration from {}",
-                    args.data_dir.display()
-                )
-            })?,
+        ConfiguredAgentResolver::load(
+            &args.data_dir,
+            gateway_for_tools,
+            task_registry.clone(),
+            Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+        )
+        .with_context(|| {
+            format!(
+                "loading platform configuration from {}",
+                args.data_dir.display()
+            )
+        })?,
     );
     info!(
         agents = resolver.agents.definitions().count(),
@@ -90,6 +100,7 @@ async fn main() -> Result<()> {
     }
 
     let agents = resolver.agent_catalog();
+    let notes_store = resolver.notes.clone();
     let telegram_agents = resolver
         .agents
         .definitions()
@@ -107,10 +118,6 @@ async fn main() -> Result<()> {
     let conversation_store = Arc::new(
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
-    );
-    let family_store = Arc::new(
-        SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
-            .context("opening family and invitation storage")?,
     );
     let family_service = Arc::new(FamilyService::new(
         Arc::clone(&family_store) as Arc<dyn FamilyStore>,
@@ -164,6 +171,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
+            .app_data(web::Data::new(notes_store.clone()))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)));
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
@@ -171,6 +179,7 @@ async fn main() -> Result<()> {
         app.service(console_root)
             .service(conversations_page)
             .service(families_page)
+            .service(notes_page)
             .service(console_stylesheet)
             .service(console_script)
             .service(favicon)
@@ -178,6 +187,7 @@ async fn main() -> Result<()> {
             .service(agent_server::auth::auth_api())
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
+            .service(agent_server::notes_api())
             .service(agent_server::invitations_api())
             .service(agent_server::agents_api())
             .service(agent_server::runs_api())

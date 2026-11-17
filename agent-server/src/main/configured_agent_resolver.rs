@@ -7,7 +7,9 @@ use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent, TaskRegistry};
+use agent_storage::FamilyStore;
 use anyhow::{Context, Result};
+use notes_tools::NotesStore;
 use telegram_tool::TelegramGateway;
 
 use super::console_event_sink::ConsoleEventSink;
@@ -17,6 +19,7 @@ pub(super) struct ConfiguredAgentResolver {
     pub(super) agents: AgentRegistry,
     models: ModelRegistry,
     tools: Arc<ToolRegistry>,
+    pub(super) notes: NotesStore,
 }
 
 impl ConfiguredAgentResolver {
@@ -35,6 +38,7 @@ impl ConfiguredAgentResolver {
         data_dir: &std::path::Path,
         telegram_gateway: Option<Arc<TelegramGateway>>,
         task_registry: TaskRegistry,
+        family_store: Arc<dyn FamilyStore>,
     ) -> Result<Self> {
         let models = ModelRegistry::load(data_dir).context("loading model providers")?;
 
@@ -48,6 +52,10 @@ impl ConfiguredAgentResolver {
         common_tools::register_tools(&mut tools).context("registering common tools")?;
         tasks_tool::register_tools(&mut tools, task_registry.clone())
             .context("registering task tools")?;
+        let notes =
+            notes_tools::register_tools(&mut tools, family_store, data_dir.join("notes.sqlite"))
+                .map_err(|error| anyhow::anyhow!(error.to_string()))
+                .context("registering notes tools")?;
         let tools = Arc::new(tools);
 
         let agents =
@@ -61,6 +69,7 @@ impl ConfiguredAgentResolver {
             agents,
             models,
             tools,
+            notes,
         })
     }
 }
