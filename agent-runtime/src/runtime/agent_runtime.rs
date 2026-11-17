@@ -1,7 +1,6 @@
 //! Coordinates model turns, tool calls, authorization, cancellation, and run results.
 
 use std::sync::Arc;
-use serde_json;
 use std::time::Duration;
 use uuid::Uuid;
 
