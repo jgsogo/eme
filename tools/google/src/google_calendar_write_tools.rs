@@ -109,8 +109,8 @@ impl Tool for GoogleCalendarUpdateEvent {
             1024,
             "google_calendar_update_event",
         )?;
-        let start = arguments.get("start").and_then(Value::as_str);
-        let end = arguments.get("end").and_then(Value::as_str);
+        let start = arguments.get("start").and_then(|value| value.as_str());
+        let end = arguments.get("end").and_then(|value| value.as_str());
         if start.is_some() != end.is_some() {
             return invalid(
                 "google_calendar_update_event",
@@ -150,7 +150,7 @@ impl Tool for GoogleCalendarUpdateEvent {
             operation = "update",
             user_id = context.user_id.as_deref().unwrap_or("unknown"),
             calendar_id = %public_id,
-            event_id = updated.get("id").and_then(Value::as_str).unwrap_or(event_id),
+            event_id = updated.get("id").and_then(|value| value.as_str()).unwrap_or(event_id),
             "Google Calendar event write completed"
         );
         serde_json::to_string_pretty(
@@ -198,7 +198,7 @@ async fn authorized_client(
 
 fn required_string<'a>(args: &'a Value, name: &str, tool: &str) -> Result<&'a str, ToolError> {
     args.get(name)
-        .and_then(Value::as_str)
+        .and_then(|value| value.as_str())
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or_else(|| ToolError::InvalidArguments {
