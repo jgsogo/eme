@@ -289,6 +289,17 @@ mod tests {
             family_access.calendar.family_access,
             Some(CalendarFamilyAccess::Viewer)
         );
+        let visible_to_member = service
+            .list_readable_calendars(&member.to_string(), Some(&family_id))
+            .await
+            .unwrap();
+        assert_eq!(visible_to_member.len(), 1);
+        assert_eq!(visible_to_member[0].id, discovered.id);
+        assert!(service
+            .list_readable_calendars(&member.to_string(), None)
+            .await
+            .unwrap()
+            .is_empty());
         assert!(matches!(
             service
                 .authorize_read(&member.to_string(), &calendar_id, None)
@@ -306,6 +317,11 @@ mod tests {
                 .await,
             Err(GoogleCalendarAccessError::NotAuthorized)
         ));
+        assert!(service
+            .list_readable_calendars(&member.to_string(), Some(&family_id))
+            .await
+            .unwrap()
+            .is_empty());
 
         drop(service);
         drop(calendars);
