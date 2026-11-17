@@ -273,6 +273,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "mercadona-tool",
 ]
 
 
@@ -2073,6 +2074,18 @@ dependencies = [
  "thiserror",
  "tokio",
  "wiremock",
+]
+
+[[package]]
+name = "mercadona-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
+ "reqwest 0.12.28",
+ "serde_json",
+ "url",
 ]
 
 [[package]]
