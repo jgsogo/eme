@@ -15,7 +15,11 @@ const API_BASE_URL: &str = "https://www.googleapis.com/calendar/v3";
 
 impl GoogleCalendarClient {
     pub(crate) fn from_access_token(access_token: String) -> Self {
-        Self { client: Client::new(), access_token, base_url: API_BASE_URL.to_owned() }
+        Self {
+            client: Client::new(),
+            access_token,
+            base_url: API_BASE_URL.to_owned(),
+        }
     }
 
     #[cfg(test)]
@@ -48,8 +52,14 @@ impl GoogleCalendarClient {
             .ok_or_else(|| GoogleCalendarError::InvalidTime("date is out of range".into()))?;
         let start = local_midnight(zone, date)?;
         let end = local_midnight(zone, next_day)?;
-        self.events_for_bounds(calendar_id, &start, &end, Some(zone_name), public_calendar_id)
-            .await
+        self.events_for_bounds(
+            calendar_id,
+            &start,
+            &end,
+            Some(zone_name),
+            public_calendar_id,
+        )
+        .await
     }
 
     async fn events_for_period(
