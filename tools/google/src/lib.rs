@@ -9,7 +9,7 @@ mod google_calendar_availability_tool;
 mod google_calendar_list_tool;
 mod google_calendar_write_tools;
 pub mod oauth;
-mod runtime;
+mod runtime;\nmod token_manager;
 
 pub use calendar_list::{GoogleCalendarSummary, list_calendars};
 pub use oauth::{
@@ -17,7 +17,7 @@ pub use oauth::{
     PendingAuthorization, authorization_request, exchange_code, fetch_user_info,
     refresh_access_token, revoke_token,
 };
-pub use runtime::GoogleCalendarRuntimeConfig;
+pub use runtime::GoogleCalendarRuntimeConfig;\npub use token_manager::GoogleOAuthTokenManager;
 
 use std::path::PathBuf;
 
