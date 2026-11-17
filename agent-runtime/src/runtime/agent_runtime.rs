@@ -165,8 +165,8 @@ impl AgentRuntime {
         // content. Add it to the system instructions for every model turn.
         let system_prompt = match context.family.as_ref() {
             Some(family) => {
-                let family_json = serde_json::to_string_pretty(family)
-                    .expect("family context is serializable");
+                let family_json =
+                    serde_json::to_string_pretty(family).expect("family context is serializable");
                 Some(format!(
                     "{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
                     agent.system_prompt.as_deref().unwrap_or_default(),
@@ -538,7 +538,6 @@ mod external_run_id_tests {
         assert!(result.events.iter().all(|event| event.run_id == run_id));
     }
 }
-
 
 #[cfg(test)]
 mod family_context_tests {
