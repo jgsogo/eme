@@ -276,7 +276,7 @@ on("login-start","click",async()=>{
 });
 on("invite-accept","click",async()=>{
  if(!pendingInviteToken)return;const button=$("invite-accept"),status=$("invite-status");button.disabled=true;status.textContent="Validating and accepting invitation…";
- try{await api("/invitations/accept",{method:"POST",body:JSON.stringify({token:pendingInviteToken,relationship:$("invite-relationship").value})});pendingInviteToken=null;window.history.replaceState({},"", "/families");$("invite-screen").hidden=true;await showConsole();setStatus("Family invitation accepted","ok")}catch(e){status.textContent=e.message;button.disabled=false}
+ try{await api("/invitations/accept",{method:"POST",body:JSON.stringify({token:pendingInviteToken,relationship:$("invite-relationship").value})});pendingInviteToken=null;window.history.replaceState({},"", "/console/families");$("invite-screen").hidden=true;await showConsole();setStatus("Family invitation accepted","ok")}catch(e){status.textContent=e.message;button.disabled=false}
 });
 on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFamilies()]);if(state.managedFamilyId)await loadFamilyDetails(state.managedFamilyId)}catch(e){setStatus(e.message,"error")}});
 on("logout","click",async()=>{
