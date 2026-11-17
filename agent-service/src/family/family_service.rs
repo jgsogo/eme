@@ -206,6 +206,7 @@ impl FamilyService {
                 user_id: member.user_id.to_string(),
                 name: None,
                 birthday: None,
+                telegram_id: None,
                 role: role_name(member.role).to_owned(),
                 relationship: relationship_name(member.relationship).to_owned(),
             })
