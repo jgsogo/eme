@@ -12,7 +12,11 @@ pub trait UserIdentityStore: Send + Sync {
         display_name: Option<&str>,
     ) -> Result<(User, UserIdentity), IdentityStoreError>;
     fn get_user(&self, user_id: UserId) -> Result<Option<User>, IdentityStoreError>;
-    fn update_display_name(&self, user_id: UserId, display_name: &str) -> Result<User, IdentityStoreError>;
+    fn update_display_name(
+        &self,
+        user_id: UserId,
+        display_name: &str,
+    ) -> Result<User, IdentityStoreError>;
     fn find_identity(
         &self,
         provider: &str,
