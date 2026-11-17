@@ -175,7 +175,7 @@ pub(super) async fn handle_message(
             }
         };
     let user = if allowed.contains(&telegram_user_id) {
-        match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), None) {
+        match identities.resolve_or_create("telegram", &telegram_user_id.to_string(), message.first_name.as_deref()) {
             Ok((user, _)) => Some(user),
             Err(error) => {
                 send_error(gateway, message.chat_id, "resolve your EME identity", error).await;
