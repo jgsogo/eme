@@ -373,6 +373,14 @@ async fn disconnect(
         Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
     };
     let store = state.store.as_ref().expect("enabled state has storage");
+    match store.get_connection(user_id, id).await {
+        Ok(Some(connection)) if connection.status == ExternalConnectionStatus::Active => {}
+        Ok(_) => return HttpResponse::NotFound().finish(),
+        Err(error) => {
+            tracing::error!(%error, "could not inspect Google connection before disconnect");
+            return HttpResponse::InternalServerError().finish();
+        }
+    }
     let refresh_token = match store.refresh_token(user_id, id).await {
         Ok(token) => token,
         Err(agent_storage::ExternalConnectionStorageError::NotFound) => {
