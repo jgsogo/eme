@@ -144,8 +144,18 @@ pub trait ConnectedCalendarStore: Send + Sync {
         selected: Option<bool>,
         access_mode: Option<CalendarAccessMode>,
     ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError>;
-    async fn share_with_family(&self, owner: UserId, id: ConnectedCalendarId, family_id: FamilyId, access: CalendarFamilyAccess) -> Result<ConnectedCalendar, ConnectedCalendarStorageError>;
-    async fn unshare_from_family(&self, owner: UserId, id: ConnectedCalendarId) -> Result<ConnectedCalendar, ConnectedCalendarStorageError>;
+    async fn share_with_family(
+        &self,
+        owner: UserId,
+        id: ConnectedCalendarId,
+        family_id: FamilyId,
+        access: CalendarFamilyAccess,
+    ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError>;
+    async fn unshare_from_family(
+        &self,
+        owner: UserId,
+        id: ConnectedCalendarId,
+    ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError>;
 }
 
 #[derive(Clone)]
@@ -162,7 +172,9 @@ impl SqliteConnectedCalendarStore {
         db.execute_batch(include_str!("../migrations/0002_family_invitations.sql"))?;
         db.execute_batch(include_str!("../migrations/0003_external_connections.sql"))?;
         db.execute_batch(include_str!("../migrations/0004_connected_calendars.sql"))?;
-        db.execute_batch(include_str!("../migrations/0005_calendar_family_sharing.sql"))?;
+        db.execute_batch(include_str!(
+            "../migrations/0005_calendar_family_sharing.sql"
+        ))?;
         Ok(Self {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
         })
@@ -218,7 +230,19 @@ fn parse_calendar(
         Option<String>,
     ),
 ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError> {
-    let (id, owner, connection, provider_id, name, zone, role, selected, access, family, family_access) = row;
+    let (
+        id,
+        owner,
+        connection,
+        provider_id,
+        name,
+        zone,
+        role,
+        selected,
+        access,
+        family,
+        family_access,
+    ) = row;
     Ok(ConnectedCalendar {
         id: ConnectedCalendarId::from_str(&id)
             .map_err(|e| ConnectedCalendarStorageError::Backend(e.to_string()))?,
@@ -232,8 +256,15 @@ fn parse_calendar(
         provider_access_role: role,
         selected,
         access_mode: CalendarAccessMode::parse(&access)?,
-        family_id: family.map(|value| FamilyId::from_str(&value).map_err(|error| ConnectedCalendarStorageError::Backend(error.to_string()))).transpose()?,
-        family_access: family_access.map(|value| CalendarFamilyAccess::parse(&value)).transpose()?,
+        family_id: family
+            .map(|value| {
+                FamilyId::from_str(&value)
+                    .map_err(|error| ConnectedCalendarStorageError::Backend(error.to_string()))
+            })
+            .transpose()?,
+        family_access: family_access
+            .map(|value| CalendarFamilyAccess::parse(&value))
+            .transpose()?,
     })
 }
 
@@ -383,18 +414,29 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
             .ok_or(ConnectedCalendarStorageError::CalendarNotFound)
     }
     async fn share_with_family(
-        &self, owner: UserId, id: ConnectedCalendarId, family_id: FamilyId,
+        &self,
+        owner: UserId,
+        id: ConnectedCalendarId,
+        family_id: FamilyId,
         access: CalendarFamilyAccess,
     ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError> {
-        let db = self.db.lock().map_err(|_| ConnectedCalendarStorageError::Backend("calendar database lock poisoned".into()))?;
-        let row = db.query_row(
-            "SELECT selected,access_mode FROM connected_calendars cal
+        let db = self.db.lock().map_err(|_| {
+            ConnectedCalendarStorageError::Backend("calendar database lock poisoned".into())
+        })?;
+        let row = db
+            .query_row(
+                "SELECT selected,access_mode FROM connected_calendars cal
              JOIN external_connections c ON c.id=cal.connection_id
              WHERE cal.id=?1 AND cal.owner_id=?2 AND c.status='active'",
-            params![id.to_string(), owner.to_string()],
-            |row| Ok((row.get::<_, i64>(0)? != 0, row.get::<_, String>(1)?)),
-        ).optional().map_err(backend)?.ok_or(ConnectedCalendarStorageError::CalendarNotFound)?;
-        if !row.0 { return Err(ConnectedCalendarStorageError::FamilyShareRequiresSelected); }
+                params![id.to_string(), owner.to_string()],
+                |row| Ok((row.get::<_, i64>(0)? != 0, row.get::<_, String>(1)?)),
+            )
+            .optional()
+            .map_err(backend)?
+            .ok_or(ConnectedCalendarStorageError::CalendarNotFound)?;
+        if !row.0 {
+            return Err(ConnectedCalendarStorageError::FamilyShareRequiresSelected);
+        }
         if access == CalendarFamilyAccess::Contributor && row.1 != "read_write" {
             return Err(ConnectedCalendarStorageError::FamilyWriteRequiresOwnerWrite);
         }
@@ -405,16 +447,33 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
                 AND c.owner_id=connected_calendars.owner_id AND c.status='active')
              RETURNING {SELECT_COLUMNS}"
         );
-        let row = db.query_row(&sql, params![family_id.to_string(), access.as_str(),
-            chrono::Utc::now().to_rfc3339(), id.to_string(), owner.to_string()], load_row)
-            .optional().map_err(backend)?;
-        row.map(parse_calendar).transpose()?.ok_or(ConnectedCalendarStorageError::CalendarNotFound)
+        let row = db
+            .query_row(
+                &sql,
+                params![
+                    family_id.to_string(),
+                    access.as_str(),
+                    chrono::Utc::now().to_rfc3339(),
+                    id.to_string(),
+                    owner.to_string()
+                ],
+                load_row,
+            )
+            .optional()
+            .map_err(backend)?;
+        row.map(parse_calendar)
+            .transpose()?
+            .ok_or(ConnectedCalendarStorageError::CalendarNotFound)
     }
 
     async fn unshare_from_family(
-        &self, owner: UserId, id: ConnectedCalendarId,
+        &self,
+        owner: UserId,
+        id: ConnectedCalendarId,
     ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError> {
-        let db = self.db.lock().map_err(|_| ConnectedCalendarStorageError::Backend("calendar database lock poisoned".into()))?;
+        let db = self.db.lock().map_err(|_| {
+            ConnectedCalendarStorageError::Backend("calendar database lock poisoned".into())
+        })?;
         let sql = format!(
             "UPDATE connected_calendars SET family_id=NULL,family_access=NULL,updated_at=?1
              WHERE id=?2 AND owner_id=?3 AND EXISTS(
@@ -422,11 +481,22 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
                 AND c.owner_id=connected_calendars.owner_id AND c.status='active')
              RETURNING {SELECT_COLUMNS}"
         );
-        let row = db.query_row(&sql, params![chrono::Utc::now().to_rfc3339(),
-            id.to_string(), owner.to_string()], load_row).optional().map_err(backend)?;
-        row.map(parse_calendar).transpose()?.ok_or(ConnectedCalendarStorageError::CalendarNotFound)
+        let row = db
+            .query_row(
+                &sql,
+                params![
+                    chrono::Utc::now().to_rfc3339(),
+                    id.to_string(),
+                    owner.to_string()
+                ],
+                load_row,
+            )
+            .optional()
+            .map_err(backend)?;
+        row.map(parse_calendar)
+            .transpose()?
+            .ok_or(ConnectedCalendarStorageError::CalendarNotFound)
     }
-
 }
 
 #[cfg(test)]
@@ -469,7 +539,14 @@ mod tests {
         assert_eq!(first.len(), 1);
         assert!(!first[0].selected);
         assert!(matches!(
-            calendars.share_with_family(owner, first[0].id, FamilyId::new(), CalendarFamilyAccess::Viewer).await,
+            calendars
+                .share_with_family(
+                    owner,
+                    first[0].id,
+                    FamilyId::new(),
+                    CalendarFamilyAccess::Viewer
+                )
+                .await,
             Err(ConnectedCalendarStorageError::FamilyShareRequiresSelected)
         ));
         let selected = calendars
@@ -489,12 +566,29 @@ mod tests {
         assert!(refreshed[0].selected);
         assert_eq!(refreshed[0].access_mode, CalendarAccessMode::ReadWrite);
         let family_id = FamilyId::new();
-        let shared = calendars.share_with_family(owner, first[0].id, family_id, CalendarFamilyAccess::Contributor).await.unwrap();
+        let shared = calendars
+            .share_with_family(
+                owner,
+                first[0].id,
+                family_id,
+                CalendarFamilyAccess::Contributor,
+            )
+            .await
+            .unwrap();
         assert_eq!(shared.family_id, Some(family_id));
-        assert_eq!(shared.family_access, Some(CalendarFamilyAccess::Contributor));
-        let downgraded = calendars.update(owner, first[0].id, None, Some(CalendarAccessMode::ReadOnly)).await.unwrap();
+        assert_eq!(
+            shared.family_access,
+            Some(CalendarFamilyAccess::Contributor)
+        );
+        let downgraded = calendars
+            .update(owner, first[0].id, None, Some(CalendarAccessMode::ReadOnly))
+            .await
+            .unwrap();
         assert_eq!(downgraded.family_access, Some(CalendarFamilyAccess::Viewer));
-        let unshared = calendars.unshare_from_family(owner, first[0].id).await.unwrap();
+        let unshared = calendars
+            .unshare_from_family(owner, first[0].id)
+            .await
+            .unwrap();
         assert_eq!(unshared.family_id, None);
         assert_eq!(unshared.family_access, None);
         assert!(matches!(

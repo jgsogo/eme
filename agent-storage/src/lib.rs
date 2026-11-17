@@ -12,8 +12,9 @@ mod memory;
 mod sqlite_family;
 
 pub use connected_calendar::{
-    CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendar, ConnectedCalendarId, ConnectedCalendarStorageError,
-    ConnectedCalendarStore, DiscoveredCalendar, SqliteConnectedCalendarStore,
+    CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendar, ConnectedCalendarId,
+    ConnectedCalendarStorageError, ConnectedCalendarStore, DiscoveredCalendar,
+    SqliteConnectedCalendarStore,
 };
 pub use contracts::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
