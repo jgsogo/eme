@@ -341,11 +341,10 @@ mod tests {
         );
     }
 
-            MercadonaClient::parse_algolia_credentials(r#"const x="not-an-app-id",BGe="short";"#),
+    #[test]
+    fn ignores_malformed_algolia_credentials() {
         assert_eq!(
-            MercadonaClient::parse_algolia_credentials(
-                r#"const x="not-an-app-id",BGe="short";"#
-            ),
+            MercadonaClient::parse_algolia_credentials(r#"const x="not-an-app-id",BGe="short";"#),
             None
         );
     }
