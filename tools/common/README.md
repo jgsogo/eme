@@ -1,28 +1,37 @@
 # common-tools
 
-Generic tools that expose information available directly from the runtime environment, without calling external services.
+Generic tools that expose useful information to agents, including deterministic date/time operations and calendar data.
 
 ## Tools
 
-### `get_current_datetime`
-Returns the current UTC date and time as an RFC 3339 timestamp, together with UTC timezone and Unix timestamps in seconds and milliseconds. Takes no arguments.
+### `get_holidays`
 
-### `get_timezone`
-Returns the current local datetime, UTC offset, and abbreviation for an IANA timezone. Optional `timezone`; defaults to `UTC`.
+Retrieves public holidays or official school holidays from [OpenHolidays API](https://www.openholidaysapi.org/).
 
-### `convert_timezone`
-Converts a datetime between IANA timezones. Required: `datetime`, `from_timezone`, and `to_timezone`. Datetimes may be RFC 3339 (with an explicit offset) or local ISO-like values interpreted in the source timezone. Ambiguous or nonexistent local times around daylight-saving transitions are rejected rather than guessed.
+Required arguments:
 
-### `calculate_date_difference`
-Returns signed elapsed seconds/days and calendar-day difference between `start` and `end`. Inputs accept ISO dates, local ISO-like datetimes, or RFC 3339 timestamps. Values without an offset are interpreted as UTC.
+- `holiday_type`: `public` or `school`.
+- `country_code`: ISO 3166-1 alpha-2 country code (for example, `ES`).
+- `valid_from` and `valid_to`: inclusive date range in `YYYY-MM-DD` format. Maximum range: three years.
 
-### `get_date_info`
-Returns weekday, ISO week/year, day of year, month length, and leap-year information for a `YYYY-MM-DD` date.
+Optional arguments:
 
-### `parse_datetime`
-Parses `value` and returns normalized date/time and Unix timestamps. Optional `format` accepts chrono strftime syntax; optional IANA `timezone` defaults to UTC. Without an explicit format, RFC 3339 and common ISO date/time forms are supported.
+- `subdivision_code`: administrative subdivision (for example, `ES-CL`, Castile and León).
+- `group_code`: school holiday group, where supported by the country.
+- `language_code`: ISO 639-1 language code for names; defaults to `EN`.
 
-### `sleep`
-Waits for `seconds` (integer, 0–30). The asynchronous wait is cancelled when its execution future is dropped. The maximum duration is deliberately bounded.
+The response includes the query metadata and the holiday records returned by the API, preserving fields such as start/end dates, holiday type, nationwide status, regional scope, subdivisions, groups and tags.
+
+The API is public and does not require credentials. Its holiday data is published under the Open Database License (ODbL); retain attribution to OpenHolidays API when using or redistributing the data.
+
+### Date and time tools
+
+- `get_current_datetime`: current UTC timestamp and Unix timestamps.
+- `get_timezone`: current local datetime for an IANA timezone.
+- `convert_timezone`: convert a datetime between IANA timezones.
+- `calculate_date_difference`: elapsed and calendar-day differences.
+- `get_date_info`: weekday, ISO week, day of year, month length and leap-year information.
+- `parse_datetime`: parse a date/time string.
+- `sleep`: bounded asynchronous delay (0–30 seconds).
 
 All tools are registered from their TOML definitions in `data/`; agents must explicitly allow the tools in their configuration.
