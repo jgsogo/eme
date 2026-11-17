@@ -76,6 +76,11 @@ async fn main() -> Result<()> {
         SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
             .context("opening family and invitation storage")?,
     );
+    let family_service = Arc::new(FamilyService::new(
+        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+        Arc::clone(&family_store) as Arc<dyn FamilyInvitationStore>,
+    ));
+    let google_runtime = google_oauth_state.calendar_runtime(Arc::clone(&family_service));
 
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(
@@ -83,6 +88,7 @@ async fn main() -> Result<()> {
             gateway_for_tools,
             task_registry.clone(),
             Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+            google_runtime,
         )
         .with_context(|| {
             format!(
@@ -123,10 +129,6 @@ async fn main() -> Result<()> {
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
     );
-    let family_service = Arc::new(FamilyService::new(
-        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
-        Arc::clone(&family_store) as Arc<dyn FamilyInvitationStore>,
-    ));
 
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
