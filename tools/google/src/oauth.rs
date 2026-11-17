@@ -116,6 +116,9 @@ pub fn authorization_request(
         .add_scope(Scope::new(CALENDAR_LIST_READONLY.to_owned()))
         .add_extra_param("access_type", "offline")
         .add_extra_param("include_granted_scopes", "true")
+        .add_extra_param("prompt", "consent")
+        .add_scope(Scope::new("openid".to_owned()))
+        .add_scope(Scope::new("email".to_owned()))
         .set_pkce_challenge(challenge);
     request = match scope {
         CalendarScope::ReadOnly => {
@@ -178,4 +181,33 @@ fn token_set<T: TokenResponse>(token: &T) -> GoogleTokenSet {
             .map(|scopes| scopes.iter().map(|scope| scope.to_string()).collect())
             .unwrap_or_default(),
     }
+}
+
+
+/// Verified account identity returned by Google's OpenID Connect user-info endpoint.
+#[derive(Debug, Clone, Deserialize)]
+pub struct GoogleUserInfo {
+    pub sub: String,
+    pub email: String,
+    pub email_verified: bool,
+}
+
+/// Resolve the Google account associated with an access token.
+pub async fn fetch_user_info(access_token: &str) -> Result<GoogleUserInfo, GoogleOAuthError> {
+    let client = oauth2::reqwest::ClientBuilder::new()
+        .redirect(oauth2::reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
+    let response = client
+        .get("https://openidconnect.googleapis.com/v1/userinfo")
+        .bearer_auth(access_token)
+        .send()
+        .await
+        .map_err(|error| GoogleOAuthError::Request(error.to_string()))?
+        .error_for_status()
+        .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
+    response
+        .json::<GoogleUserInfo>()
+        .await
+        .map_err(|error| GoogleOAuthError::Request(error.to_string()))
 }
