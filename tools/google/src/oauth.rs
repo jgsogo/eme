@@ -183,7 +183,6 @@ fn token_set<T: TokenResponse>(token: &T) -> GoogleTokenSet {
     }
 }
 
-
 /// Verified account identity returned by Google's OpenID Connect user-info endpoint.
 #[derive(Debug, Clone, Deserialize)]
 pub struct GoogleUserInfo {
@@ -211,7 +210,6 @@ pub async fn fetch_user_info(access_token: &str) -> Result<GoogleUserInfo, Googl
         .await
         .map_err(|error| GoogleOAuthError::Request(error.to_string()))
 }
-
 
 /// Revoke a Google OAuth token using Google's fixed revocation endpoint.
 pub async fn revoke_token(token: &str) -> Result<(), GoogleOAuthError> {
