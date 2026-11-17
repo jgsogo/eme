@@ -1,4 +1,10 @@
 //! Generic tools that expose information available from the local runtime.
+//!
+//! This crate provides deterministic utilities that do not require external
+//! services, such as date and time operations and bounded asynchronous delays.
+//!
+//! Tool definitions live alongside their implementations, while this crate's
+//! public entry point only registers them with the agent runtime.
 
 mod datetime;
 mod sleep;

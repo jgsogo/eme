@@ -1,3 +1,5 @@
+//! Google Calendar API models, client state and integration errors.
+
 mod google_calendar_error;
 pub(crate) use google_calendar_error::GoogleCalendarError;
 mod calendar;

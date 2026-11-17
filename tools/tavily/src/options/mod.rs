@@ -1,3 +1,5 @@
+//! Validated options accepted by the web-search tool.
+
 mod arguments;
 pub(crate) use arguments::Arguments;
 mod search_depth;

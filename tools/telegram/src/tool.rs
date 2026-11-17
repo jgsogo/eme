@@ -1,3 +1,5 @@
+//! Shared helpers and exports for Telegram tool adapters.
+
 mod ask_user;
 mod notify_user;
 

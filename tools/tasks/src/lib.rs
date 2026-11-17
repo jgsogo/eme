@@ -1,3 +1,11 @@
+//! Agent task-management tools.
+//!
+//! This crate adapts the task service to the agent tool interface, exposing
+//! operations to list, create and remove tasks.
+//!
+//! Ownership and persistence are handled by `agent-service`; each operation
+//! is scoped to the authenticated user supplied in `ToolContext`.
+
 mod tool;
 
 use agent_config::ConfigError;
