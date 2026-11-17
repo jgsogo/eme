@@ -23,10 +23,10 @@ impl GoogleOAuthState {
         let redirect_uri = std::env::var("GOOGLE_OAUTH_REDIRECT_URI").ok();
         let encryption_key = std::env::var("EME_CREDENTIAL_ENCRYPTION_KEY").ok();
         let configured = [client_id.is_some(), client_secret.is_some(), redirect_uri.is_some(), encryption_key.is_some()];
-        if configured.iter().all(|value| !value) {
+        if configured.iter().all(|value| !*value) {
             return Ok(Self { config: None, store: None });
         }
-        if configured.iter().any(|value| !value) {
+        if configured.iter().any(|value| !*value) {
             return Err("Google OAuth requires GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI, and EME_CREDENTIAL_ENCRYPTION_KEY".to_owned());
         }
         let key = parse_encryption_key(encryption_key.as_deref().unwrap_or_default())?;
