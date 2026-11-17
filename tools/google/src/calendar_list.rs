@@ -40,7 +40,7 @@ pub async fn list_calendars(
     loop {
         let mut request = client
             .get(CALENDAR_LIST_URL)
-            .bearer_auth(&token.access_token)
+            .bearer_auth(access_token)
             .query(&[("maxResults", "250")]);
         if let Some(token) = page_token.as_deref() {
             request = request.query(&[("pageToken", token)]);
