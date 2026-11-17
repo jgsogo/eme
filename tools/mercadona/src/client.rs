@@ -1,7 +1,7 @@
 //! HTTP client for the anonymous Mercadona catalogue and Algolia search APIs.
 
-use reqwest::{Client, Method, Response, header};
-use serde_json::{Value, json};
+use reqwest::{header, Client, Method, Response};
+use serde_json::{json, Value};
 use std::time::Duration;
 use url::form_urlencoded;
 
@@ -38,7 +38,10 @@ impl MercadonaClient {
             .ok()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| "es".to_owned());
-        if !language.bytes().all(|byte| byte.is_ascii_alphabetic() || byte == b'-') {
+        if !language
+            .bytes()
+            .all(|byte| byte.is_ascii_alphabetic() || byte == b'-')
+        {
             return Err("MERCADONA_LANG must contain only ASCII letters or '-'".to_owned());
         }
 
@@ -53,7 +56,12 @@ impl MercadonaClient {
         format!("{BASE_URL}{path}")
     }
 
-    async fn send_api(&self, method: Method, url: String, body: Option<Value>) -> Result<Value, String> {
+    async fn send_api(
+        &self,
+        method: Method,
+        url: String,
+        body: Option<Value>,
+    ) -> Result<Value, String> {
         let mut request = self
             .http
             .request(method, url)
@@ -62,7 +70,10 @@ impl MercadonaClient {
             .header(header::REFERER, format!("{BASE_URL}/"))
             .header(header::ORIGIN, BASE_URL)
             .header("x-version", API_VERSION)
-            .header("x-customer-device-id", "00000000-0000-0000-0000-000000000000");
+            .header(
+                "x-customer-device-id",
+                "00000000-0000-0000-0000-000000000000",
+            );
 
         if let Some(body) = body {
             request = request.json(&body);
@@ -110,9 +121,13 @@ impl MercadonaClient {
         params.append_pair("query", query);
         params.append_pair("hitsPerPage", &limit.to_string());
         let body = json!({ "params": params.finish() });
-        let url = format!("https://{}-dsn.algolia.net/1/indexes/{index}/query", app_id.to_lowercase());
+        let url = format!(
+            "https://{}-dsn.algolia.net/1/indexes/{index}/query",
+            app_id.to_lowercase()
+        );
 
-        let response = self.http
+        let response = self
+            .http
             .post(url)
             .header("X-Algolia-API-Key", api_key)
             .header("X-Algolia-Application-Id", app_id)
@@ -135,7 +150,8 @@ impl MercadonaClient {
             }
         }
 
-        let shell = self.http
+        let shell = self
+            .http
             .get(format!("{BASE_URL}/"))
             .header(header::ACCEPT, "text/html")
             .send()
@@ -149,7 +165,8 @@ impl MercadonaClient {
 
         let bundle_path = Self::find_bundle_path(&shell)
             .ok_or_else(|| "Mercadona SPA entry bundle was not found".to_owned())?;
-        let bundle = self.http
+        let bundle = self
+            .http
             .get(format!("{BASE_URL}{bundle_path}"))
             .send()
             .await
@@ -160,12 +177,13 @@ impl MercadonaClient {
             .await
             .map_err(|error| format!("cannot read Mercadona SPA bundle: {error}"))?;
 
-        Self::parse_algolia_credentials(&bundle)
-            .ok_or_else(|| "Algolia credentials were not found in the Mercadona SPA bundle; configure MERCADONA_ALGOLIA_APP_ID and MERCADONA_ALGOLIA_API_KEY".to_owned())
+        Self::parse_algolia_credentials(&bundle).ok_or_else(|| {
+            "Algolia credentials were not found in the Mercadona SPA bundle; configure MERCADONA_ALGOLIA_APP_ID and MERCADONA_ALGOLIA_API_KEY".to_owned()
+        })
     }
 
     fn find_bundle_path(shell: &str) -> Option<String> {
-        for marker in ["src=\"", "src='"] {
+        for marker in ["src=\\"", "src='"] {
             let mut rest = shell;
             while let Some(index) = rest.find(marker) {
                 rest = &rest[index + marker.len()..];
@@ -198,7 +216,10 @@ impl MercadonaClient {
                 continue;
             }
             let app_id = &bundle[app_start..app_end];
-            if !app_id.bytes().all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit()) {
+            if !app_id
+                .bytes()
+                .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+            {
                 continue;
             }
 
@@ -207,10 +228,14 @@ impl MercadonaClient {
                 continue;
             };
             let after_comma = after_comma.trim_start();
-            let Some(equal) = after_comma.find("=\"") else { continue };
+            let Some(equal) = after_comma.find("=\\"") else {
+                continue;
+            };
             let key_start = equal + 2;
             let key_tail = &after_comma[key_start..];
-            let Some(key_end) = key_tail.find('"') else { continue };
+            let Some(key_end) = key_tail.find('"') else {
+                continue;
+            };
             let api_key = &key_tail[..key_end];
             if api_key.len() == 32 && api_key.bytes().all(|byte| byte.is_ascii_hexdigit()) {
                 return Some((app_id.to_owned(), api_key.to_owned()));
@@ -221,25 +246,37 @@ impl MercadonaClient {
 
     /// Fetch the category tree for this warehouse.
     pub async fn categories(&self) -> Result<Value, String> {
-        self.send_api(Method::GET, self.catalogue_url("/api/categories/"), None).await
+        self.send_api(Method::GET, self.catalogue_url("/api/categories/"), None)
+            .await
     }
 
     /// Fetch one category, including its products/subcategories.
     pub async fn category(&self, id: &str) -> Result<Value, String> {
         let id = url::form_urlencoded::byte_serialize(id.as_bytes()).collect::<String>();
-        self.send_api(Method::GET, self.catalogue_url(&format!("/api/categories/{id}/")), None).await
+        self.send_api(
+            Method::GET,
+            self.catalogue_url(&format!("/api/categories/{id}/")),
+            None,
+        )
+        .await
     }
 
     /// Fetch one product's full detail.
     pub async fn product(&self, id: &str) -> Result<Value, String> {
         let id = url::form_urlencoded::byte_serialize(id.as_bytes()).collect::<String>();
-        self.send_api(Method::GET, self.catalogue_url(&format!("/api/products/{id}/")), None).await
+        self.send_api(
+            Method::GET,
+            self.catalogue_url(&format!("/api/products/{id}/")),
+            None,
+        )
+        .await
     }
 
     /// Resolve a Spanish postal code to the warehouse serving it.
     pub async fn resolve_postal_code(&self, postal_code: &str) -> Result<Value, String> {
         let url = self.api_url("/api/postal-codes/actions/change-pc/");
-        let response = self.http
+        let response = self
+            .http
             .post(url)
             .header(header::ACCEPT, "application/json")
             .header(header::CONTENT_TYPE, "application/json")
@@ -307,7 +344,9 @@ mod tests {
     #[test]
     fn ignores_malformed_algolia_credentials() {
         assert_eq!(
-            MercadonaClient::parse_algolia_credentials(r#"const x="not-an-app-id",BGe="short";"#),
+            MercadonaClient::parse_algolia_credentials(
+                r#"const x="not-an-app-id",BGe="short";"#
+            ),
             None
         );
     }
