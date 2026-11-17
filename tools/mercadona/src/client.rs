@@ -1,7 +1,7 @@
 //! HTTP client for the anonymous Mercadona catalogue and Algolia search APIs.
 
-use reqwest::{header, Client, Method, Response};
-use serde_json::{json, Value};
+use reqwest::{Client, Method, Response, header};
+use serde_json::{Value, json};
 use std::time::Duration;
 use url::form_urlencoded;
 
