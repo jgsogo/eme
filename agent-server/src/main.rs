@@ -28,7 +28,10 @@ use tracing::{error, info, warn};
 use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
-use console::{console_ui, favicon, invitation_page};
+use console::{
+    console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
+    invitation_page,
+};
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -165,7 +168,11 @@ async fn main() -> Result<()> {
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
         }
-        app.service(console_ui)
+        app .service(console_root)
+            .service(conversations_page)
+            .service(families_page)
+            .service(console_stylesheet)
+            .service(console_script)
             .service(favicon)
             .service(invitation_page)
             .service(agent_server::auth::auth_api())
