@@ -22,7 +22,7 @@ use agent_runtime::ToolContext;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
     Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
-    FileUserIdentityStore, UserIdentityStore,
+    FileUserIdentityStore, UserId, UserIdentityStore,
 };
 
 use tokio::time::sleep;
@@ -291,7 +291,20 @@ async fn continue_conversation(
             .context_for_member(identity.user_id, family_id)
             .await
         {
-            Ok(context) => Some(context),
+            Ok(mut context) => {
+                for member in &mut context.members {
+                    let member_id = match UserId::from_str(&member.user_id) {
+                        Ok(id) => id,
+                        Err(_) => return HttpResponse::InternalServerError().finish(),
+                    };
+                    let user = match identities.get_user(member_id) {
+                        Ok(user) => user,
+                        Err(_) => return HttpResponse::InternalServerError().finish(),
+                    };
+                    member.name = user.and_then(|user| user.display_name);
+                }
+                Some(context)
+            }
             Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
                 return HttpResponse::Conflict().body("selected family is no longer available");
             }

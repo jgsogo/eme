@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use agent_runtime::FamilyContext;
+use agent_runtime::{FamilyContext, FamilyMemberContext};
 use agent_storage::{
     Family, FamilyId, FamilyInvitationStore, FamilyInvitationSummary, FamilyMember,
     FamilyRelationship, FamilyRole, FamilyStore, InvitationTargetIdentity, InvitationToken, UserId,
@@ -166,21 +166,24 @@ impl FamilyService {
             FamilyRole::Admin => "admin",
             FamilyRole::Member => "member",
         };
-        let relationship = match member.relationship {
-            FamilyRelationship::Father => "father",
-            FamilyRelationship::Mother => "mother",
-            FamilyRelationship::Son => "son",
-            FamilyRelationship::Daughter => "daughter",
-            FamilyRelationship::Grandfather => "grandfather",
-            FamilyRelationship::Grandmother => "grandmother",
-            FamilyRelationship::Partner => "partner",
-            FamilyRelationship::Other => "other",
-        };
+        let relationship = relationship_name(member.relationship);
+        let members = self
+            .members(family_id)
+            .await?
+            .into_iter()
+            .map(|member| FamilyMemberContext {
+                user_id: member.user_id.to_string(),
+                name: None,
+                role: role_name(member.role).to_owned(),
+                relationship: relationship_name(member.relationship).to_owned(),
+            })
+            .collect();
         Ok(FamilyContext {
             family_id: family.id.to_string(),
             family_name: family.name,
             family_role: family_role.to_owned(),
             relationship: relationship.to_owned(),
+            members,
         })
     }
 
@@ -344,5 +347,26 @@ impl FamilyService {
             .transfer_ownership(family_id, actor, new_owner)
             .await
             .map_err(Into::into)
+    }
+}
+
+fn role_name(role: FamilyRole) -> &'static str {
+    match role {
+        FamilyRole::Owner => "owner",
+        FamilyRole::Admin => "admin",
+        FamilyRole::Member => "member",
+    }
+}
+
+fn relationship_name(relationship: FamilyRelationship) -> &'static str {
+    match relationship {
+        FamilyRelationship::Father => "father",
+        FamilyRelationship::Mother => "mother",
+        FamilyRelationship::Son => "son",
+        FamilyRelationship::Daughter => "daughter",
+        FamilyRelationship::Grandfather => "grandfather",
+        FamilyRelationship::Grandmother => "grandmother",
+        FamilyRelationship::Partner => "partner",
+        FamilyRelationship::Other => "other",
     }
 }
