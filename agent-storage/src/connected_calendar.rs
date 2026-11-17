@@ -514,6 +514,14 @@ mod tests {
         std::env::temp_dir().join(format!("eme-calendars-{}.sqlite", Uuid::new_v4()))
     }
 
+    #[test]
+    fn family_sharing_migration_is_idempotent() {
+        let path = path();
+        drop(SqliteConnectedCalendarStore::open(&path).unwrap());
+        drop(SqliteConnectedCalendarStore::open(&path).unwrap());
+        let _ = std::fs::remove_file(path);
+    }
+
     #[tokio::test]
     async fn sync_preserves_user_selection_and_isolated_by_owner() {
         let path = path();
