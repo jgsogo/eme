@@ -211,3 +211,21 @@ pub async fn fetch_user_info(access_token: &str) -> Result<GoogleUserInfo, Googl
         .await
         .map_err(|error| GoogleOAuthError::Request(error.to_string()))
 }
+
+
+/// Revoke a Google OAuth token using Google's fixed revocation endpoint.
+pub async fn revoke_token(token: &str) -> Result<(), GoogleOAuthError> {
+    let client = oauth2::reqwest::ClientBuilder::new()
+        .redirect(oauth2::reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
+    client
+        .post("https://oauth2.googleapis.com/revoke")
+        .form(&[("token", token)])
+        .send()
+        .await
+        .map_err(|error| GoogleOAuthError::Request(error.to_string()))?
+        .error_for_status()
+        .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
+    Ok(())
+}
