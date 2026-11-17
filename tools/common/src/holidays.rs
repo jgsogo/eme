@@ -112,7 +112,9 @@ impl Tool for GetHolidays {
             .header(reqwest::header::ACCEPT, "application/json")
             .send()
             .await
-            .map_err(|error| ToolError::Execution(format!("OpenHolidays API request failed: {error}")))?;
+            .map_err(|error| {
+                ToolError::Execution(format!("OpenHolidays API request failed: {error}"))
+            })?;
 
         let status = response.status();
         if !status.is_success() {
@@ -123,10 +125,9 @@ impl Tool for GetHolidays {
             )));
         }
 
-        let holidays: Value = response
-            .json()
-            .await
-            .map_err(|error| ToolError::Execution(format!("invalid OpenHolidays API response: {error}")))?;
+        let holidays: Value = response.json().await.map_err(|error| {
+            ToolError::Execution(format!("invalid OpenHolidays API response: {error}"))
+        })?;
 
         serde_json::to_string_pretty(&json!({
             "source": "OpenHolidays API",
@@ -170,8 +171,14 @@ mod tests {
     #[test]
     fn accepts_valid_date_range() {
         let arguments = args();
-        assert_eq!(parse_date(&arguments, "valid_from").unwrap().to_string(), "2026-01-01");
-        assert_eq!(HolidayKind::from_str("school").unwrap(), HolidayKind::School);
+        assert_eq!(
+            parse_date(&arguments, "valid_from").unwrap().to_string(),
+            "2026-01-01"
+        );
+        assert_eq!(
+            HolidayKind::from_str("school").unwrap(),
+            HolidayKind::School
+        );
     }
 
     #[test]
