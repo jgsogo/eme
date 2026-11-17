@@ -33,3 +33,25 @@ pub struct FamilyContext {
     /// Complete active family roster.
     pub members: Vec<FamilyMemberContext>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::FamilyMemberContext;
+
+    #[test]
+    fn serializes_telegram_id_without_exposing_internal_user_id() {
+        let member = FamilyMemberContext {
+            user_id: "internal-user-id".to_owned(),
+            name: Some("Javier".to_owned()),
+            birthday: None,
+            telegram_id: Some("123456789".to_owned()),
+            role: "owner".to_owned(),
+            relationship: "father".to_owned(),
+        };
+
+        let value = serde_json::to_value(member).unwrap();
+
+        assert_eq!(value["telegram_id"], "123456789");
+        assert!(value.get("user_id").is_none());
+    }
+}
