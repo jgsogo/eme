@@ -51,17 +51,35 @@ impl IdentityState {
         Ok((user, identity))
     }
 
-    pub(super) fn create_user(&mut self, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError> {
+    pub(super) fn create_user(
+        &mut self,
+        display_name: &str,
+        birthday: Option<NaiveDate>,
+    ) -> Result<User, IdentityStoreError> {
         let display_name = validate_display_name(display_name)?;
         let now = Utc::now();
-        let user = User { id: UserId::new(), display_name: Some(display_name), birthday, created_at: now, updated_at: now };
+        let user = User {
+            id: UserId::new(),
+            display_name: Some(display_name),
+            birthday,
+            created_at: now,
+            updated_at: now,
+        };
         self.users.insert(user.id, user.clone());
         Ok(user)
     }
 
-    pub(super) fn update_profile(&mut self, user_id: UserId, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError> {
+    pub(super) fn update_profile(
+        &mut self,
+        user_id: UserId,
+        display_name: &str,
+        birthday: Option<NaiveDate>,
+    ) -> Result<User, IdentityStoreError> {
         let display_name = validate_display_name(display_name)?;
-        let user = self.users.get_mut(&user_id).ok_or(IdentityStoreError::UserNotFound(user_id))?;
+        let user = self
+            .users
+            .get_mut(&user_id)
+            .ok_or(IdentityStoreError::UserNotFound(user_id))?;
         user.display_name = Some(display_name);
         user.birthday = birthday;
         user.updated_at = Utc::now();
@@ -116,7 +134,9 @@ impl IdentityState {
 
 fn validate_display_name(value: &str) -> Result<String, IdentityStoreError> {
     let value = value.trim();
-    if value.is_empty() || value.chars().count() > 80 { return Err(IdentityStoreError::InvalidDisplayName); }
+    if value.is_empty() || value.chars().count() > 80 {
+        return Err(IdentityStoreError::InvalidDisplayName);
+    }
     Ok(value.to_owned())
 }
 
