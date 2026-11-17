@@ -353,6 +353,7 @@ async fn oauth_callback(
             return HttpResponse::InternalServerError().finish();
         }
     };
+    state.token_manager.invalidate(connection.id).await;
     tracing::info!(audit_event = "google_connection_authorized", action = audit_action, user_id = %user_id, connection_id = %connection.id, granted_scope_count, "Google account connection authorized");
     HttpResponse::Created().json(ConnectedGoogleAccount {
         id: connection.id,
@@ -445,6 +446,7 @@ async fn disconnect(
         tracing::error!(%error, "could not revoke local Google connection");
         return HttpResponse::InternalServerError().finish();
     }
+    state.token_manager.invalidate(id).await;
     tracing::info!(audit_event = "google_connection_disconnected", user_id = %user_id, connection_id = %id, "Google account connection disconnected");
     // Local access is disabled first and remains disabled even if Google's
     // revocation endpoint is temporarily unavailable.
