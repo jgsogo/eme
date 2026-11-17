@@ -59,7 +59,10 @@ impl IdentityState {
         if display_name.is_empty() || display_name.chars().count() > 80 {
             return Err(IdentityStoreError::InvalidDisplayName);
         }
-        let user = self.users.get_mut(&user_id).ok_or(IdentityStoreError::UserNotFound(user_id))?;
+        let user = self
+            .users
+            .get_mut(&user_id)
+            .ok_or(IdentityStoreError::UserNotFound(user_id))?;
         user.display_name = Some(display_name.to_owned());
         user.updated_at = Utc::now();
         Ok(user.clone())
