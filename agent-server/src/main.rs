@@ -191,6 +191,7 @@ async fn main() -> Result<()> {
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
+            .service(agent_server::profile_api())
             .service(agent_server::tasks_api())
             .service(agent_server::invitations_api())
             .service(agent_server::agents_api())
