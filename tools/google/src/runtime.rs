@@ -17,10 +17,7 @@ pub struct GoogleCalendarRuntimeConfig {
 }
 
 impl GoogleCalendarRuntimeConfig {
-    pub fn new(
-        oauth: GoogleOAuthConfig,
-        access: Arc<GoogleCalendarAccessService>,
-    ) -> Self {
+    pub fn new(oauth: GoogleOAuthConfig, access: Arc<GoogleCalendarAccessService>) -> Self {
         Self { oauth, access }
     }
 }
