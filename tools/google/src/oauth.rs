@@ -168,10 +168,7 @@ pub async fn refresh_access_token(
     Ok(token_set(&token))
 }
 
-fn token_set<T>(token: &T) -> GoogleTokenSet
-where
-    T: TokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
-{
+fn token_set<T: TokenResponse>(token: &T) -> GoogleTokenSet {
     GoogleTokenSet {
         access_token: token.access_token().secret().clone(),
         refresh_token: token.refresh_token().map(|value| value.secret().clone()),
