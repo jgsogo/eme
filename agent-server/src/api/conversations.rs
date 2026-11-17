@@ -301,7 +301,10 @@ async fn continue_conversation(
                         Ok(user) => user,
                         Err(_) => return HttpResponse::InternalServerError().finish(),
                     };
-                    member.name = user.and_then(|user| user.display_name);
+                    if let Some(user) = user {
+                        member.name = user.display_name;
+                        member.birthday = user.birthday;
+                    }
                 }
                 Some(context)
             }
