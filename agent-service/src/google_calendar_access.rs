@@ -40,8 +40,8 @@ impl GoogleCalendarAccessService {
         user_id: &str,
         family_id: Option<&str>,
     ) -> Result<Vec<agent_storage::ConnectedCalendar>, GoogleCalendarAccessError> {
-        let user = UserId::from_str(user_id)
-            .map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
+        let user =
+            UserId::from_str(user_id).map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
         let (family, owners) = match family_id {
             Some(value) => {
                 let family = FamilyId::from_str(value)
@@ -295,11 +295,13 @@ mod tests {
             .unwrap();
         assert_eq!(visible_to_member.len(), 1);
         assert_eq!(visible_to_member[0].id, discovered.id);
-        assert!(service
-            .list_readable_calendars(&member.to_string(), None)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            service
+                .list_readable_calendars(&member.to_string(), None)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert!(matches!(
             service
                 .authorize_read(&member.to_string(), &calendar_id, None)
@@ -317,11 +319,13 @@ mod tests {
                 .await,
             Err(GoogleCalendarAccessError::NotAuthorized)
         ));
-        assert!(service
-            .list_readable_calendars(&member.to_string(), Some(&family_id))
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            service
+                .list_readable_calendars(&member.to_string(), Some(&family_id))
+                .await
+                .unwrap()
+                .is_empty()
+        );
 
         drop(service);
         drop(calendars);
