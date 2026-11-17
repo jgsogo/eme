@@ -123,3 +123,131 @@ fn map_family_error(error: FamilyServiceError) -> GoogleCalendarAccessError {
         _ => GoogleCalendarAccessError::FamilyUnavailable,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use agent_storage::{
+        CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendarStore, DiscoveredCalendar,
+        ExternalConnectionStore, FamilyInvitationStore, FamilyRelationship, InMemoryFamilyInvitationStore,
+        InMemoryFamilyStore, NewExternalConnection, SqliteConnectedCalendarStore,
+        SqliteExternalConnectionStore,
+    };
+
+    #[tokio::test]
+    async fn owner_and_current_family_members_can_read_but_removed_members_cannot() {
+        let path = std::env::temp_dir().join(format!(
+            "eme-google-access-{}.sqlite",
+            uuid::Uuid::new_v4()
+        ));
+        let owner = UserId::new();
+        let member = UserId::new();
+        let connections = Arc::new(
+            SqliteExternalConnectionStore::open(&path, [0x42; 32]).unwrap(),
+        );
+        let calendars = Arc::new(SqliteConnectedCalendarStore::open(&path).unwrap());
+        let connection = connections
+            .create_connection(NewExternalConnection {
+                owner_id: owner,
+                provider: "google".into(),
+                provider_subject: "google-subject".into(),
+                display_email: None,
+                refresh_token: "owner-refresh-token".into(),
+                granted_scopes: vec![
+                    "https://www.googleapis.com/auth/calendar.events.readonly".into(),
+                ],
+            })
+            .await
+            .unwrap();
+        let discovered = calendars
+            .sync_discovered(
+                owner,
+                connection.id,
+                vec![DiscoveredCalendar {
+                    provider_calendar_id: "private-calendar@example.com".into(),
+                    display_name: Some("Private".into()),
+                    time_zone: Some("Europe/Madrid".into()),
+                    provider_access_role: Some("owner".into()),
+                }],
+            )
+            .await
+            .unwrap()
+            .remove(0);
+        calendars
+            .update(
+                owner,
+                discovered.id,
+                Some(true),
+                Some(CalendarAccessMode::ReadOnly),
+            )
+            .await
+            .unwrap();
+
+        let family_store = Arc::new(InMemoryFamilyStore::default());
+        let invitations = Arc::new(InMemoryFamilyInvitationStore::new(family_store.clone()));
+        let family_service = Arc::new(FamilyService::new(
+            family_store,
+            invitations as Arc<dyn FamilyInvitationStore>,
+        ));
+        let family = family_service
+            .create_family(owner, "Home", FamilyRelationship::Other)
+            .await
+            .unwrap();
+        family_service
+            .add_managed_member(owner, family.id, member, FamilyRelationship::Other)
+            .await
+            .unwrap();
+        calendars
+            .share_with_family(
+                owner,
+                discovered.id,
+                family.id,
+                CalendarFamilyAccess::Viewer,
+            )
+            .await
+            .unwrap();
+
+        let service = GoogleCalendarAccessService::new(
+            calendars.clone(),
+            connections.clone(),
+            family_service.clone(),
+        );
+        let calendar_id = discovered.id.to_string();
+        let family_id = family.id.to_string();
+        let owner_access = service
+            .authorize_read(&owner.to_string(), &calendar_id, None)
+            .await
+            .unwrap();
+        assert_eq!(owner_access.refresh_token, "owner-refresh-token");
+        let family_access = service
+            .authorize_read(&member.to_string(), &calendar_id, Some(&family_id))
+            .await
+            .unwrap();
+        assert_eq!(
+            family_access.calendar.family_access,
+            Some(CalendarFamilyAccess::Viewer)
+        );
+        assert!(matches!(
+            service
+                .authorize_read(&member.to_string(), &calendar_id, None)
+                .await,
+            Err(GoogleCalendarAccessError::NotAuthorized)
+        ));
+
+        family_service
+            .remove_member(owner, family.id, member)
+            .await
+            .unwrap();
+        assert!(matches!(
+            service
+                .authorize_read(&member.to_string(), &calendar_id, Some(&family_id))
+                .await,
+            Err(GoogleCalendarAccessError::NotAuthorized)
+        ));
+
+        drop(service);
+        drop(calendars);
+        drop(connections);
+        let _ = std::fs::remove_file(path);
+    }
+}
