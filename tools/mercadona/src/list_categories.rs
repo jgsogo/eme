@@ -13,6 +13,7 @@ impl Tool for ListCategories {
     async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let client = MercadonaClient::new(warehouse(&arguments)).map_err(ToolError::Execution)?;
         let result = client.categories().await.map_err(ToolError::Execution)?;
-        serde_json::to_string_pretty(&result).map_err(|error| ToolError::Execution(error.to_string()))
+        serde_json::to_string_pretty(&result)
+            .map_err(|error| ToolError::Execution(error.to_string()))
     }
 }
