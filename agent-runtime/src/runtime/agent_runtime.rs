@@ -1,6 +1,6 @@
 //! Coordinates model turns, tool calls, authorization, cancellation, and run results.
 
-use std::sync::Arc;
+use std::sync::Arc;\nuse serde_json;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -161,6 +161,21 @@ impl AgentRuntime {
             content: input.into(),
         });
 
+        // Family data is trusted host context, not model-authored conversation
+        // content. Add it to the system instructions for every model turn.
+        let system_prompt = match context.family.as_ref() {
+            Some(family) => {
+                let family_json = serde_json::to_string_pretty(family)
+                    .expect("family context is serializable");
+                Some(format!(
+                    "{}\\n\\nTrusted context for the family selected in this conversation:\\n{}\\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
+                    agent.system_prompt.as_deref().unwrap_or_default(),
+                    family_json,
+                ))
+            }
+            None => agent.system_prompt.clone(),
+        };
+
         let tools = match agent
             .tool_names
             .iter()
@@ -185,7 +200,7 @@ impl AgentRuntime {
 
         for iteration in 1..=agent.max_iterations {
             let request = ModelRequest {
-                system_prompt: agent.system_prompt.clone(),
+                system_prompt: system_prompt.clone(),
                 messages: messages.clone(),
                 tools: tools.clone(),
             };
