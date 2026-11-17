@@ -300,7 +300,10 @@ async fn oauth_callback(
     let refresh_token = match tokens.refresh_token.clone() {
         Some(token) => token,
         None => {
-            let Some(existing) = existing.as_ref() else {
+            let Some(existing) = existing
+                .as_ref()
+                .filter(|connection| connection.status == ExternalConnectionStatus::Active)
+            else {
                 return HttpResponse::Conflict()
                     .body("Google did not issue a refresh token for this new account");
             };
