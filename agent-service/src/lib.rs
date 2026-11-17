@@ -8,6 +8,8 @@ mod authorized_google_calendar;
 mod family;
 mod google_calendar_access;
 mod google_calendar_access_error;
+#[cfg(test)]
+mod google_calendar_access_regressions;
 mod manager;
 mod run;
 mod runtime_executor;
