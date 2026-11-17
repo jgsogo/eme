@@ -71,7 +71,7 @@ async fn submit_run(
     http_request: HttpRequest,
     auth: Option<Data<crate::auth::TelegramAuth>>,
     manager: Data<RunManager>,
-    identities: Data<Arc<FileUserIdentityStore>>,
+    identities: Option<Data<Arc<FileUserIdentityStore>>>,
     request: Json<SubmitRunRequest>,
 ) -> impl Responder {
     if request.agent.trim().is_empty() {
@@ -85,7 +85,7 @@ async fn submit_run(
         .as_ref()
         .and_then(|auth| auth.owner_for_request(&http_request))
         .and_then(|owner| owner.strip_prefix("telegram:").map(str::to_owned))
-        .and_then(|subject| identities.find_identity("telegram", &subject).ok().flatten())
+        .and_then(|subject| identities.as_ref()?.find_identity("telegram", &subject).ok().flatten())
         .map(|identity| ToolContext::new(identity.user_id.to_string()))
         .unwrap_or_default();
 
