@@ -179,7 +179,9 @@ impl SqliteConnectedCalendarStore {
             |row| row.get(0),
         )?;
         if !has_family_share_columns {
-            db.execute_batch(include_str!("../migrations/0005_calendar_family_sharing.sql"))?;
+            db.execute_batch(include_str!(
+                "../migrations/0005_calendar_family_sharing.sql"
+            ))?;
         }
         Ok(Self {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
