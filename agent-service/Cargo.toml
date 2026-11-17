@@ -9,6 +9,7 @@ agent-config = { path = "../agent-config" }
 agent-runtime = { path = "../agent-runtime" }
 agent-storage = { path = "../agent-storage" }
 async-trait = { workspace = true }
+chrono = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
