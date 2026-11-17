@@ -113,6 +113,37 @@ fn display_name_update_rejects_empty_or_too_long_names() {
 }
 
 #[test]
+fn external_identity_can_be_resolved_from_its_eme_user() {
+    let store = InMemoryUserIdentityStore::default();
+    let (user, telegram_identity) = store
+        .resolve_or_create("telegram", "123456789", Some("Javier"))
+        .unwrap();
+
+    let resolved = store
+        .find_identity_for_user("telegram", user.id)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(resolved, telegram_identity);
+    assert_eq!(resolved.subject, "123456789");
+    assert!(store
+        .find_identity_for_user("google", user.id)
+        .unwrap()
+        .is_none());
+}
+
+#[test]
+fn managed_user_has_no_telegram_identity() {
+    let store = InMemoryUserIdentityStore::default();
+    let user = store.create_user("Alex", None).unwrap();
+
+    assert!(store
+        .find_identity_for_user("telegram", user.id)
+        .unwrap()
+        .is_none());
+}
+
+#[test]
 fn managed_user_has_no_external_identity_and_persists_birthday() {
     use chrono::NaiveDate;
     let path = temporary_file();
