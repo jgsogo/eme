@@ -15,6 +15,11 @@ use url::Url;
 const API_BASE_URL: &str = "https://www.googleapis.com/calendar/v3";
 
 impl GoogleCalendarClient {
+    pub(crate) fn from_access_token(access_token: String) -> Self {
+        Self { client: Client::new(), access_token, base_url: API_BASE_URL.to_owned() }
+    }
+
+    #[allow(dead_code)]
     async fn from_environment() -> Result<Self, GoogleCalendarError> {
         // Legacy single-account mode remains supported while the server-side
         // connection store is introduced. OAuth token exchange itself is
@@ -51,6 +56,7 @@ impl GoogleCalendarClient {
         calendar_id: &str,
         date: &str,
         time_zone_override: Option<&str>,
+        public_calendar_id: &str,
     ) -> Result<Value, GoogleCalendarError> {
         let date = NaiveDate::parse_from_str(date, "%Y-%m-%d")
             .map_err(|error| GoogleCalendarError::InvalidTime(error.to_string()))?;
@@ -66,7 +72,7 @@ impl GoogleCalendarClient {
             .ok_or_else(|| GoogleCalendarError::InvalidTime("date is out of range".into()))?;
         let start = local_midnight(zone, date)?;
         let end = local_midnight(zone, next_day)?;
-        self.events_for_bounds(calendar_id, &start, &end, Some(zone_name))
+        self.events_for_bounds(calendar_id, &start, &end, Some(zone_name), public_calendar_id)
             .await
     }
 
@@ -75,6 +81,7 @@ impl GoogleCalendarClient {
         calendar_id: &str,
         time_min: &str,
         time_max: &str,
+        public_calendar_id: &str,
     ) -> Result<Value, GoogleCalendarError> {
         let start = DateTime::parse_from_rfc3339(time_min)
             .map_err(|error| GoogleCalendarError::InvalidTime(error.to_string()))?;
@@ -85,7 +92,7 @@ impl GoogleCalendarClient {
                 "'time_min' must be earlier than 'time_max'".into(),
             ));
         }
-        self.events_for_bounds(calendar_id, time_min, time_max, None)
+        self.events_for_bounds(calendar_id, time_min, time_max, None, public_calendar_id)
             .await
     }
 
@@ -122,6 +129,7 @@ impl GoogleCalendarClient {
         time_min: &str,
         time_max: &str,
         time_zone: Option<String>,
+        public_calendar_id: &str,
     ) -> Result<Value, GoogleCalendarError> {
         let url = self.calendar_url(calendar_id, true)?;
         let mut events = Vec::new();
@@ -150,7 +158,7 @@ impl GoogleCalendarClient {
             }
         }
         Ok(json!({
-            "calendar_id": calendar_id,
+            "calendar_id": public_calendar_id,
             "time_zone": time_zone,
             "time_min": time_min,
             "time_max": time_max,
@@ -258,11 +266,11 @@ mod tests {
 
         let client = GoogleCalendarClient::with_base_url("token".into(), server.uri());
         let events = client
-            .events_for_day("team@example.com", "2026-11-14", None)
+            .events_for_day("team@example.com", "2026-11-14", None, "eme-calendar-id")
             .await
             .unwrap();
         assert_eq!(events["event_count"], 2);
-        assert_eq!(events["calendar_id"], "team@example.com");
+        assert_eq!(events["calendar_id"], "eme-calendar-id");
         assert_eq!(events["time_zone"], "Europe/Madrid");
     }
 
@@ -275,6 +283,7 @@ mod tests {
                 "calendar-id",
                 "2026-11-15T00:00:00Z",
                 "2026-11-14T00:00:00Z",
+                "eme-calendar-id",
             )
             .await
             .unwrap_err();
