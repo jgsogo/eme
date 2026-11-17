@@ -589,12 +589,14 @@ mod family_context_tests {
                     FamilyMemberContext {
                         user_id: "user-1".into(),
                         name: Some("Javier".into()),
+                        birthday: None,
                         role: "owner".into(),
                         relationship: "father".into(),
                     },
                     FamilyMemberContext {
                         user_id: "user-2".into(),
                         name: Some("Lucas".into()),
+                        birthday: None,
                         role: "member".into(),
                         relationship: "son".into(),
                     },
