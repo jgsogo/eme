@@ -756,15 +756,19 @@ async fn unshare_calendar_from_family(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("Invalid calendar ID"),
     };
-    let calendar = state
+    let calendar_store = state
         .calendar_store
         .as_ref()
-        .expect("enabled state has calendar storage")
-        .unshare_from_family(owner, calendar_id)
-        .await;
+        .expect("enabled state has calendar storage");
+    let previous_family_id = match calendar_store.get_selected(calendar_id).await {
+        Ok(Some(calendar)) => calendar.family_id,
+        Ok(None) => None,
+        Err(error) => return calendar_storage_error(error),
+    };
+    let calendar = calendar_store.unshare_from_family(owner, calendar_id).await;
     match calendar {
         Ok(calendar) => {
-            tracing::info!(audit_event = "google_calendar_unshared_from_family", user_id = %owner, calendar_id = %calendar.id, "Google Calendar family sharing removed");
+            tracing::info!(audit_event = "google_calendar_unshared_from_family", user_id = %owner, calendar_id = %calendar.id, family_id = ?previous_family_id, "Google Calendar family sharing removed");
             HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar))
         },
         Err(error) => calendar_storage_error(error),
