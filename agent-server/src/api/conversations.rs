@@ -424,7 +424,7 @@ mod tests {
         .await;
         let login: Value = test::read_body_json(response).await;
         let token = login["token"].as_str().unwrap();
-        assert!(auth.complete_login(token, 42, identities.as_ref()));
+        assert!(auth.complete_login(token, 42, None, identities.as_ref()));
         let response = test::call_service(
             &app,
             test::TestRequest::post()
