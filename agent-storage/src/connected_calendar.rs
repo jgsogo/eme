@@ -253,7 +253,8 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
         let rows = statement
             .query_map(params![owner.to_string(), connection.to_string()], load_row)
             .map_err(backend)?;
-        rows.map(|row| parse_calendar(row.map_err(backend)?)).collect()
+        rows.map(|row| parse_calendar(row.map_err(backend)?))
+            .collect()
     }
 
     async fn list_for_connection(
