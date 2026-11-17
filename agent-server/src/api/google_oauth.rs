@@ -259,8 +259,32 @@ async fn oauth_callback(
             return HttpResponse::BadGateway().body("Could not verify Google account identity");
         }
     };
-    let Some(refresh_token) = tokens.refresh_token else {
-        return HttpResponse::Conflict().body("Google did not issue a refresh token. Revoke the previous EME grant in Google account settings and try again.");
+    let refresh_token = match tokens.refresh_token {
+        Some(token) => token,
+        None => {
+            // Google may omit a refresh token on subsequent consent grants.
+            // Reuse the previously encrypted token for this same verified
+            // Google subject; never fall back to another account's token.
+            let existing = match store.list_connections(user_id).await {
+                Ok(connections) => connections.into_iter().find(|connection| {
+                    connection.provider == "google" && connection.provider_subject == identity.sub
+                }),
+                Err(error) => {
+                    tracing::error!(%error, "could not look up existing Google connection");
+                    return HttpResponse::InternalServerError().finish();
+                }
+            };
+            let Some(existing) = existing else {
+                return HttpResponse::Conflict().body("Google did not issue a refresh token for this new account");
+            };
+            match store.refresh_token(user_id, existing.id).await {
+                Ok(token) => token,
+                Err(error) => {
+                    tracing::error!(%error, "could not recover existing Google refresh token");
+                    return HttpResponse::InternalServerError().finish();
+                }
+            }
+        }
     };
     let connection = match store
         .create_connection(NewExternalConnection {
