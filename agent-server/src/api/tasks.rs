@@ -29,7 +29,9 @@ struct TaskRequest {
     enabled: bool,
 }
 
-fn default_enabled() -> bool { true }
+fn default_enabled() -> bool {
+    true
+}
 
 impl From<TaskRequest> for NewTask {
     fn from(value: TaskRequest) -> Self {
@@ -51,16 +53,21 @@ fn actor(
     identities: &FileUserIdentityStore,
     tasks: &TaskRegistry,
 ) -> Result<String, HttpResponse> {
-    let owner = auth.owner_for_request(request)
+    let owner = auth
+        .owner_for_request(request)
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    let subject = owner.strip_prefix("telegram:")
+    let subject = owner
+        .strip_prefix("telegram:")
         .filter(|value| !value.is_empty())
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    let identity = identities.find_identity("telegram", subject)
+    let identity = identities
+        .find_identity("telegram", subject)
         .map_err(|_| HttpResponse::InternalServerError().finish())?
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
     let user_id = identity.user_id.to_string();
-    tasks.migrate_owner(&owner, &user_id).map_err(error_response)?;
+    tasks
+        .migrate_owner(&owner, &user_id)
+        .map_err(error_response)?;
     Ok(user_id)
 }
 
