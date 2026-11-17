@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 agent-config = { path = "../../agent-config" }
 agent-runtime = { path = "../../agent-runtime" }
+agent-service = { path = "../../agent-service" }
 
 async-trait = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
