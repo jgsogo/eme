@@ -1,5 +1,5 @@
 use super::GoogleCalendarClient;
-use crate::{GoogleCalendarRuntimeConfig, refresh_access_token};
+use crate::GoogleCalendarRuntimeConfig;
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
