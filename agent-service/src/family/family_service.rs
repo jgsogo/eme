@@ -205,6 +205,7 @@ impl FamilyService {
             .map(|member| FamilyMemberContext {
                 user_id: member.user_id.to_string(),
                 name: None,
+                birthday: None,
                 role: role_name(member.role).to_owned(),
                 relationship: relationship_name(member.relationship).to_owned(),
             })
