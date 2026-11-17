@@ -188,7 +188,8 @@ async fn authorized_client(
         .authorize_write(user_id, calendar_id, family_id)
         .await
         .map_err(|error| ToolError::Execution(error.to_string()))?;
-    let token = refresh_access_token(&runtime.oauth, &authorized.refresh_token)
+    let token = runtime
+        .refresh_access_token(authorized.calendar.connection_id, &authorized.refresh_token)
         .await
         .map_err(|error| ToolError::Execution(error.to_string()))?;
     let client = GoogleCalendarClient::from_access_token(token.access_token);
