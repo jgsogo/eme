@@ -6,7 +6,7 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post,
     web::{self, Data, Json, Path as PathParam, Query},
 };
-use agent_service::{FamilyService, FamilyServiceError};
+use agent_service::{FamilyService, FamilyServiceError, GoogleCalendarAccessService};
 use agent_storage::{
     CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendarId, ConnectedCalendarStorageError,
     ConnectedCalendarStore, DiscoveredCalendar, ExternalConnectionId, ExternalConnectionStatus,
@@ -16,8 +16,8 @@ use agent_storage::{
 };
 use chrono::{Duration, Utc};
 use google_tool::{
-    CalendarScope, GoogleOAuthConfig, authorization_request, exchange_code, fetch_user_info,
-    list_calendars,
+    CalendarScope, GoogleCalendarRuntimeConfig, GoogleOAuthConfig, authorization_request,
+    exchange_code, fetch_user_info, list_calendars,
 };
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +71,23 @@ impl GoogleOAuthState {
 
     fn enabled(&self) -> bool {
         self.config.is_some() && self.store.is_some() && self.calendar_store.is_some()
+    }
+
+    /// Compose the trusted Google Calendar tool runtime from the same stores
+    /// used by the authenticated OAuth and calendar-management endpoints.
+    pub fn calendar_runtime(
+        &self,
+        families: Arc<FamilyService>,
+    ) -> Option<GoogleCalendarRuntimeConfig> {
+        let oauth = self.config.clone()?;
+        let connections = self.store.clone()?;
+        let calendars = self.calendar_store.clone()?;
+        let access = Arc::new(GoogleCalendarAccessService::new(
+            Arc::new(calendars),
+            Arc::new(connections),
+            families,
+        ));
+        Some(GoogleCalendarRuntimeConfig::new(oauth, access))
     }
 }
 
