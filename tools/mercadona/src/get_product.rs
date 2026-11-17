@@ -1,6 +1,9 @@
 //! Agent tool for retrieving full Mercadona product details.
 
-use crate::{arguments::{required_string, warehouse}, client::MercadonaClient};
+use crate::{
+    arguments::{required_string, warehouse},
+    client::MercadonaClient,
+};
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
@@ -14,6 +17,7 @@ impl Tool for GetProduct {
         let id = required_string(&arguments, "product_id")?;
         let client = MercadonaClient::new(warehouse(&arguments)).map_err(ToolError::Execution)?;
         let result = client.product(id).await.map_err(ToolError::Execution)?;
-        serde_json::to_string_pretty(&result).map_err(|error| ToolError::Execution(error.to_string()))
+        serde_json::to_string_pretty(&result)
+            .map_err(|error| ToolError::Execution(error.to_string()))
     }
 }
