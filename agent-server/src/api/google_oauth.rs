@@ -448,6 +448,12 @@ fn calendar_storage_error(error: ConnectedCalendarStorageError) -> HttpResponse 
         ConnectedCalendarStorageError::EmptyProviderCalendarId => {
             HttpResponse::BadRequest().finish()
         }
+        ConnectedCalendarStorageError::FamilyShareRequiresSelected => {
+            HttpResponse::Conflict().body("Select the calendar before sharing it")
+        }
+        ConnectedCalendarStorageError::FamilyWriteRequiresOwnerWrite => {
+            HttpResponse::Conflict().body("Contributor sharing requires owner read/write access")
+        }
         ConnectedCalendarStorageError::Backend(error) => {
             tracing::error!(%error, "connected calendar storage failed");
             HttpResponse::InternalServerError().finish()
