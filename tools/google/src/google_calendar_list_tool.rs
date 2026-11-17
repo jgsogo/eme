@@ -21,12 +21,17 @@ impl GoogleCalendarList {
 impl Tool for GoogleCalendarList {
     async fn execute(&self, context: &ToolContext, _arguments: Value) -> Result<String, ToolError> {
         let runtime = self.runtime.as_ref().ok_or_else(|| {
-            ToolError::Configuration("Google Calendar OAuth is not configured on this server.".into())
+            ToolError::Configuration(
+                "Google Calendar OAuth is not configured on this server.".into(),
+            )
         })?;
         let user_id = context.user_id.as_deref().ok_or_else(|| {
             ToolError::Configuration("Google Calendar requires an authenticated EME user.".into())
         })?;
-        let family_id = context.family.as_ref().map(|family| family.family_id.as_str());
+        let family_id = context
+            .family
+            .as_ref()
+            .map(|family| family.family_id.as_str());
         let calendars = runtime
             .access
             .list_readable_calendars(user_id, family_id)
