@@ -3,7 +3,8 @@
 #[path = "types/mod.rs"]
 mod types;
 pub(super) use types::GoogleCalendarEvents;
-use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError};
+pub(crate) use types::GoogleCalendarClient;
+use types::{Calendar, EventsPage, GoogleCalendarError};
 
 use chrono::{DateTime, LocalResult, NaiveDate, TimeZone};
 use chrono_tz::Tz;
@@ -153,6 +154,21 @@ impl GoogleCalendarClient {
         }))
     }
 
+    pub(crate) async fn create_event(&self, calendar_id: &str, event: Value) -> Result<Value, GoogleCalendarError> {
+        let url = self.calendar_url(calendar_id, true)?;
+        let response = self.client.post(url).bearer_auth(&self.access_token).json(&event).send().await?;
+        self.decode_response(response).await
+    }
+
+    pub(crate) async fn update_event(&self, calendar_id: &str, event_id: &str, patch: Value) -> Result<Value, GoogleCalendarError> {
+        let mut url = self.calendar_url(calendar_id, true)?;
+        url.path_segments_mut()
+            .map_err(|_| GoogleCalendarError::InvalidTime("invalid Google Calendar API URL".into()))?
+            .push(event_id);
+        let response = self.client.patch(url).bearer_auth(&self.access_token).json(&patch).send().await?;
+        self.decode_response(response).await
+    }
+
     async fn decode_response<T: serde::de::DeserializeOwned>(
         &self,
         response: reqwest::Response,
@@ -235,6 +251,20 @@ mod tests {
         assert_eq!(events["event_count"], 2);
         assert_eq!(events["calendar_id"], "eme-calendar-id");
         assert_eq!(events["time_zone"], "Europe/Madrid");
+    }
+
+    #[tokio::test]
+    async fn creates_and_patches_events() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST")).and(path("/calendars/primary/events")).and(bearer_token("token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"created"})))
+            .mount(&server).await;
+        Mock::given(method("PATCH")).and(path("/calendars/primary/events/event-1")).and(bearer_token("token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"id":"event-1","summary":"Updated"})))
+            .mount(&server).await;
+        let client = GoogleCalendarClient::with_base_url("token".into(), server.uri());
+        assert_eq!(client.create_event("primary", json!({"summary":"New"})).await.unwrap()["id"], "created");
+        assert_eq!(client.update_event("primary", "event-1", json!({"summary":"Updated"})).await.unwrap()["summary"], "Updated");
     }
 
     #[tokio::test]
