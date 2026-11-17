@@ -64,4 +64,26 @@ Authenticated endpoints:
 
 OAuth state and PKCE verifiers are persisted with a ten-minute expiry. State is hashed at rest, the verifier is encrypted, and callbacks are single-use and bound to the initiating EME user. Google account identity is resolved through the OpenID Connect user-info endpoint and an unverified email is rejected.
 
-The current API slice connects accounts only. Calendar discovery/selection, per-calendar permissions, family sharing, and user-context calendar tool execution are subsequent implementation steps.
+The current API supports account connections plus calendar discovery, selection, and per-calendar EME read/write settings. Family sharing and user-context calendar tool execution remain subsequent implementation steps.
+
+Calendar management endpoints (also authenticated with the current EME browser session):
+
+- `GET /integrations/google/connections/{connection_id}/calendars` lists calendars already discovered for one of the caller's active Google connections.
+- `POST /integrations/google/connections/{connection_id}/calendars/sync` refreshes the calendar list from Google's `calendarList.list` API. Newly discovered calendars are unselected and read-only; a sync updates provider metadata without resetting the user's existing selection or EME access mode.
+- `PATCH /integrations/google/calendars/{calendar_id}` accepts either or both of `selected` (boolean) and `access_mode` (`read_only` or `read_write`). Calendar IDs in these APIs are EME-generated IDs, not Google provider IDs. Write access is rejected unless the connected account has actually granted Google's `calendar.events` or broader `calendar` scope.
+
+For example:
+
+```http
+POST /integrations/google/connections/{connection_id}/calendars/sync
+```
+
+```http
+PATCH /integrations/google/calendars/{eme_calendar_id}
+Content-Type: application/json
+
+{"selected":true,"access_mode":"read_only"}
+```
+
+The API does not delete calendars or events from Google. Deselecting a calendar only removes it from EME's future allowlist. Family sharing and agent execution authorization are not part of this slice.
+
