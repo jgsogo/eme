@@ -157,8 +157,12 @@ mod tests {
 
     #[test]
     fn detects_common_mobile_user_agents() {
-        assert!(is_mobile_user_agent("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)"));
-        assert!(is_mobile_user_agent("Mozilla/5.0 (Linux; Android 15; Pixel 9)"));
+        assert!(is_mobile_user_agent(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)"
+        ));
+        assert!(is_mobile_user_agent(
+            "Mozilla/5.0 (Linux; Android 15; Pixel 9)"
+        ));
         assert!(!is_mobile_user_agent("Mozilla/5.0 (X11; Linux x86_64)"));
     }
 }
