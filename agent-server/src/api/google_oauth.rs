@@ -257,14 +257,25 @@ async fn disconnect(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
     };
-    match state.store.as_ref().expect("enabled state has storage").revoke_connection(user_id, id).await {
-        Ok(()) => HttpResponse::NoContent().finish(),
-        Err(agent_storage::ExternalConnectionStorageError::NotFound) => HttpResponse::NotFound().finish(),
+    let store = state.store.as_ref().expect("enabled state has storage");
+    let refresh_token = match store.refresh_token(user_id, id).await {
+        Ok(token) => token,
+        Err(agent_storage::ExternalConnectionStorageError::NotFound) => return HttpResponse::NotFound().finish(),
         Err(error) => {
-            tracing::error!(%error, "could not disconnect Google account");
-            HttpResponse::InternalServerError().finish()
+            tracing::error!(%error, "could not load Google credential for revocation");
+            return HttpResponse::InternalServerError().finish();
         }
+    };
+    if let Err(error) = store.revoke_connection(user_id, id).await {
+        tracing::error!(%error, "could not revoke local Google connection");
+        return HttpResponse::InternalServerError().finish();
     }
+    // Local access is disabled first and remains disabled even if Google's
+    // revocation endpoint is temporarily unavailable.
+    if let Err(error) = google_tool::revoke_token(&refresh_token).await {
+        tracing::warn!(%error, "local Google connection revoked, but provider token revocation failed");
+    }
+    HttpResponse::NoContent().finish()
 }
 
 pub fn google_integrations_api() -> Scope {
@@ -273,4 +284,17 @@ pub fn google_integrations_api() -> Scope {
         .service(oauth_callback)
         .service(list_connections)
         .service(disconnect)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::parse_encryption_key;
+
+    #[test]
+    fn parses_exactly_32_bytes_of_hex_key_material() {
+        assert_eq!(parse_encryption_key(&"ab".repeat(32)).unwrap(), [0xab; 32]);
+        assert!(parse_encryption_key("abcd").is_err());
+        assert!(parse_encryption_key(&"xz".repeat(32)).is_err());
+    }
 }
