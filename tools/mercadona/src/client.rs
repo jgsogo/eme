@@ -25,14 +25,26 @@ impl MercadonaClient {
             .user_agent(USER_AGENT)
             .build()
             .map_err(|error| format!("cannot create Mercadona HTTP client: {error}"))?;
+        let warehouse = warehouse.into();
+        if warehouse.is_empty()
+            || !warehouse
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+        {
+            return Err("warehouse must contain only letters, digits, '_' or '-'".to_owned());
+        }
+
         let language = std::env::var("MERCADONA_LANG")
             .ok()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| "es".to_owned());
+        if !language.bytes().all(|byte| byte.is_ascii_alphabetic() || byte == b'-') {
+            return Err("MERCADONA_LANG must contain only ASCII letters or '-'".to_owned());
+        }
 
         Ok(Self {
             http,
-            warehouse: warehouse.into(),
+            warehouse,
             language,
         })
     }
@@ -191,8 +203,10 @@ impl MercadonaClient {
             }
 
             let tail = &bundle[app_end + 1..];
-            let Some(comma) = tail.find(',') else { continue };
-            let after_comma = tail[comma + 1..].trim_start();
+            let Some(after_comma) = tail.strip_prefix(',') else {
+                continue;
+            };
+            let after_comma = after_comma.trim_start();
             let Some(equal) = after_comma.find("=\"") else { continue };
             let key_start = equal + 2;
             let key_tail = &after_comma[key_start..];
