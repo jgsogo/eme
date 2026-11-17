@@ -52,7 +52,7 @@ impl Tool for GoogleCalendarCheckAvailability {
             .refresh_access_token(authorized.calendar.connection_id, &authorized.refresh_token)
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
-        let client = GoogleCalendarClient::from_access_token(token.access_token);
+        let client = GoogleCalendarClient::from_access_token(token);
         let calendar = authorized.calendar.id.to_string();
         let events = client
             .events_for_period(
