@@ -12,7 +12,7 @@ pub mod auth;
 
 pub use api::{
     AgentCatalog, AgentListItem, CancelRunResponse, ContinueConversationRequest,
-    ConversationSummary, CreateConversationRequest, GetRunResponse, LanInvitationConfig,
+    ConversationSummary, CreateConversationRequest, GetRunResponse, GoogleOAuthState, LanInvitationConfig,
     RunEventResponse, SubmitRunRequest, SubmitRunResponse, UpdateConversationRequest, agents_api,
-    conversations_api, families_api, invitations_api, notes_api, profile_api, runs_api, tasks_api,
+    conversations_api, families_api, google_integrations_api, invitations_api, notes_api, profile_api, runs_api, tasks_api,
 };
