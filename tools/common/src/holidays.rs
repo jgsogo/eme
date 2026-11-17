@@ -82,6 +82,8 @@ impl Tool for GetHolidays {
         }
 
         let language = optional_string(&arguments, "language_code").unwrap_or("EN");
+        let from_text = from.to_string();
+        let to_text = to.to_string();
         let client = Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .user_agent(concat!("eme-ai-platform/", env!("CARGO_PKG_VERSION")))
@@ -93,8 +95,8 @@ impl Tool for GetHolidays {
             .query(&[
                 ("countryIsoCode", country),
                 ("languageIsoCode", language),
-                ("validFrom", &from.to_string()),
-                ("validTo", &to.to_string()),
+                ("validFrom", from_text.as_str()),
+                ("validTo", to_text.as_str()),
             ]);
 
         if let Some(subdivision) = optional_string(&arguments, "subdivision_code") {
@@ -128,6 +130,7 @@ impl Tool for GetHolidays {
 
         serde_json::to_string_pretty(&json!({
             "source": "OpenHolidays API",
+            "data_license": "Open Database License (ODbL)",
             "holiday_type": match kind {
                 HolidayKind::Public => "public",
                 HolidayKind::School => "school",
