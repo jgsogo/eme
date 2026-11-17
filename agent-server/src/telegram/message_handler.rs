@@ -7,7 +7,7 @@ use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
     ConversationId, ConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
-    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore,
+    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore, UserId,
     UserIdentityStore,
 };
 use telegram_tool::{IncomingMessage, TelegramGateway};
@@ -277,7 +277,28 @@ pub(super) async fn handle_message(
 
     let family = match conversation.selected_family_id {
         Some(family_id) => match family_service.context_for_member(user.id, family_id).await {
-            Ok(context) => Some(context),
+            Ok(mut context) => {
+                for member in &mut context.members {
+                    let member_id = match member.user_id.parse::<UserId>() {
+                        Ok(id) => id,
+                        Err(_) => {
+                            active_conversations.lock().await.remove(&conversation.id);
+                            let _ = gateway.send_message(message.chat_id, "Could not resolve a family member identity.").await;
+                            return;
+                        }
+                    };
+                    let user = match identities.get_user(member_id) {
+                        Ok(user) => user,
+                        Err(error) => {
+                            active_conversations.lock().await.remove(&conversation.id);
+                            send_error(gateway, message.chat_id, "load a family member", error).await;
+                            return;
+                        }
+                    };
+                    member.name = user.and_then(|user| user.display_name);
+                }
+                Some(context)
+            }
             Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
                 active_conversations.lock().await.remove(&conversation.id);
                 let _ = gateway.send_message(
