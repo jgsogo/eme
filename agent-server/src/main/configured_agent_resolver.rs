@@ -1,5 +1,7 @@
 //! Loads configured providers, tools, and agents into runtime instances.
 
+use super::console_event_sink::ConsoleEventSink;
+
 use std::sync::Arc;
 
 use agent_models::Registry as ModelRegistry;
@@ -8,12 +10,11 @@ use agent_runtime::{
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
+use google_tool::GoogleCalendarRuntimeConfig;
 use anyhow::{Context, Result};
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
-use super::console_event_sink::ConsoleEventSink;
-use google_tool::GoogleCalendarRuntimeConfig;
 
 /// Resolves configured agent names into concrete runtime instances.
 pub(super) struct ConfiguredAgentResolver {
