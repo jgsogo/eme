@@ -1,7 +1,5 @@
 //! Agent-facing discovery of calendars the authenticated user may read.
 
-use std::sync::Arc;
-
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::{Value, json};
