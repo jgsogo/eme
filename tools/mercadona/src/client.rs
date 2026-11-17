@@ -183,7 +183,7 @@ impl MercadonaClient {
     }
 
     fn find_bundle_path(shell: &str) -> Option<String> {
-        for marker in ["src=\\"", "src='"] {
+        for marker in ["src=\"", "src='"] {
             let mut rest = shell;
             while let Some(index) = rest.find(marker) {
                 rest = &rest[index + marker.len()..];
@@ -228,7 +228,7 @@ impl MercadonaClient {
                 continue;
             };
             let after_comma = after_comma.trim_start();
-            let Some(equal) = after_comma.find("=\\"") else {
+            let Some(equal) = after_comma.find("=\"") else {
                 continue;
             };
             let key_start = equal + 2;
