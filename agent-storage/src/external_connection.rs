@@ -535,6 +535,28 @@ mod tests {
             b"refresh-a"
         );
         assert_eq!(s.list_connections(u).await.unwrap().len(), 2);
+
+        s.revoke_connection(u, a.id).await.unwrap();
+        let reconnected = s
+            .create_connection(NewExternalConnection {
+                owner_id: u,
+                provider: "google".into(),
+                provider_subject: "a".into(),
+                display_email: Some("a@example.com".into()),
+                refresh_token: "replacement-refresh".into(),
+                granted_scopes: vec!["scope".into()],
+            })
+            .await
+            .unwrap();
+        assert_eq!(reconnected.id, a.id);
+        assert_eq!(reconnected.status, ExternalConnectionStatus::Active);
+        assert_eq!(
+            CredentialCipher::new(key())
+                .decrypt(&reconnected.encrypted_refresh_token)
+                .unwrap(),
+            b"replacement-refresh"
+        );
+        assert_eq!(s.list_connections(u).await.unwrap().len(), 2);
         drop(s);
         let _ = std::fs::remove_file(p);
     }
