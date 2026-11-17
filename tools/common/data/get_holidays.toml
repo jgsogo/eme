@@ -1,0 +1,37 @@
+name = "get_holidays"
+description = "Retrieve official public holidays or school holidays from OpenHolidays API for a country and date range. Supports regional subdivision and school holiday group filters. Date ranges may not exceed three years."
+[parameters]
+type = "object"
+required = ["holiday_type", "country_code", "valid_from", "valid_to"]
+additionalProperties = false
+
+[parameters.properties.holiday_type]
+type = "string"
+enum = ["public", "school"]
+description = "Which calendar to query: public holidays or school holidays."
+
+[parameters.properties.country_code]
+type = "string"
+description = "ISO 3166-1 alpha-2 country code, for example ES, FR or DE."
+
+[parameters.properties.valid_from]
+type = "string"
+format = "date"
+description = "First date to include, YYYY-MM-DD."
+
+[parameters.properties.valid_to]
+type = "string"
+format = "date"
+description = "Last date to include, YYYY-MM-DD."
+
+[parameters.properties.language_code]
+type = "string"
+description = "ISO 639-1 language code for holiday names. Defaults to EN."
+
+[parameters.properties.subdivision_code]
+type = "string"
+description = "Optional administrative subdivision code, for example ES-CL for Castile and León."
+
+[parameters.properties.group_code]
+type = "string"
+description = "Optional holiday group code. Relevant to school holidays in countries that define holiday groups."
