@@ -17,7 +17,7 @@ use agent_storage::{
 use chrono::{Duration, Utc};
 use google_tool::{
     CalendarScope, GoogleCalendarRuntimeConfig, GoogleOAuthConfig, authorization_request,
-    exchange_code, fetch_user_info, list_calendars,
+    exchange_code, fetch_user_info, list_calendars_with_access_token, GoogleOAuthTokenManager,
 };
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +28,7 @@ pub struct GoogleOAuthState {
     config: Option<GoogleOAuthConfig>,
     store: Option<SqliteExternalConnectionStore>,
     calendar_store: Option<SqliteConnectedCalendarStore>,
+    token_manager: Arc<GoogleOAuthTokenManager>,
 }
 
 impl GoogleOAuthState {
@@ -47,6 +48,7 @@ impl GoogleOAuthState {
                 config: None,
                 store: None,
                 calendar_store: None,
+                token_manager: Arc::new(GoogleOAuthTokenManager::new()),
             });
         }
         if configured.iter().any(|value| !*value) {
@@ -66,6 +68,7 @@ impl GoogleOAuthState {
             }),
             store: Some(store),
             calendar_store: Some(calendar_store),
+            token_manager: Arc::new(GoogleOAuthTokenManager::new()),
         })
     }
 
@@ -87,7 +90,7 @@ impl GoogleOAuthState {
             Arc::new(connections),
             families,
         ));
-        Some(GoogleCalendarRuntimeConfig::new(oauth, access))
+        Some(GoogleCalendarRuntimeConfig::new(oauth, access, self.token_manager.clone()))
     }
 }
 
@@ -316,6 +319,8 @@ async fn oauth_callback(
             }
         }
     };
+    let audit_action = if existing.is_some() { "reauthorize" } else { "connect" };
+    let granted_scope_count = tokens.scopes.len();
     let connection = match store
         .create_connection(NewExternalConnection {
             owner_id: user_id,
@@ -348,6 +353,7 @@ async fn oauth_callback(
             return HttpResponse::InternalServerError().finish();
         }
     };
+    tracing::info!(audit_event = "google_connection_authorized", action = audit_action, user_id = %user_id, connection_id = %connection.id, granted_scope_count, "Google account connection authorized");
     HttpResponse::Created().json(ConnectedGoogleAccount {
         id: connection.id,
         email: connection.display_email,
@@ -439,6 +445,7 @@ async fn disconnect(
         tracing::error!(%error, "could not revoke local Google connection");
         return HttpResponse::InternalServerError().finish();
     }
+    tracing::info!(audit_event = "google_connection_disconnected", user_id = %user_id, connection_id = %id, "Google account connection disconnected");
     // Local access is disabled first and remains disabled even if Google's
     // revocation endpoint is temporarily unavailable.
     if let Err(error) = google_tool::revoke_token(&refresh_token).await {
@@ -579,7 +586,14 @@ async fn sync_connected_calendars(
         .config
         .as_ref()
         .expect("enabled state has OAuth config");
-    let discovered = match list_calendars(config, &refresh_token).await {
+    let token = match state.token_manager.refresh_access_token(connection_id, config, &refresh_token).await {
+        Ok(token) => token,
+        Err(error) => {
+            tracing::warn!(%error, connection_id = %connection.id, "Google Calendar token refresh failed during discovery");
+            return HttpResponse::BadGateway().body("Google Calendar token refresh failed");
+        }
+    };
+    let discovered = match list_calendars_with_access_token(&token.access_token).await {
         Ok(calendars) => calendars
             .into_iter()
             .map(|calendar| DiscoveredCalendar {
@@ -601,12 +615,15 @@ async fn sync_connected_calendars(
         .sync_discovered(owner, connection_id, discovered)
         .await;
     match calendars {
-        Ok(calendars) => HttpResponse::Ok().json(
-            calendars
-                .into_iter()
-                .map(ConnectedCalendarResponse::from)
-                .collect::<Vec<_>>(),
-        ),
+        Ok(calendars) => {
+            tracing::info!(audit_event = "google_calendars_synchronized", user_id = %owner, connection_id = %connection_id, calendar_count = calendars.len(), "Google calendars synchronized");
+            HttpResponse::Ok().json(
+                calendars
+                    .into_iter()
+                    .map(ConnectedCalendarResponse::from)
+                    .collect::<Vec<_>>(),
+            )
+        },
         Err(error) => calendar_storage_error(error),
     }
 }
@@ -647,7 +664,10 @@ async fn update_connected_calendar(
         .update(owner, calendar_id, body.selected, body.access_mode)
         .await;
     match calendar {
-        Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
+        Ok(calendar) => {
+            tracing::info!(audit_event = "google_calendar_permissions_updated", user_id = %owner, calendar_id = %calendar.id, selected = calendar.selected, access_mode = ?calendar.access_mode, "Google Calendar permissions updated");
+            HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar))
+        },
         Err(error) => calendar_storage_error(error),
     }
 }
@@ -707,7 +727,10 @@ async fn share_calendar_with_family(
         .share_with_family(owner, calendar_id, family_id, body.access)
         .await;
     match calendar {
-        Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
+        Ok(calendar) => {
+            tracing::info!(audit_event = "google_calendar_shared_with_family", user_id = %owner, calendar_id = %calendar.id, family_id = %family_id, access = ?body.access, "Google Calendar family sharing updated");
+            HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar))
+        },
         Err(error) => calendar_storage_error(error),
     }
 }
@@ -738,7 +761,10 @@ async fn unshare_calendar_from_family(
         .unshare_from_family(owner, calendar_id)
         .await;
     match calendar {
-        Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
+        Ok(calendar) => {
+            tracing::info!(audit_event = "google_calendar_unshared_from_family", user_id = %owner, calendar_id = %calendar.id, "Google Calendar family sharing removed");
+            HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar))
+        },
         Err(error) => calendar_storage_error(error),
     }
 }
