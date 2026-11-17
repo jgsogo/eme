@@ -299,6 +299,7 @@ version = "0.1.0"
 dependencies = [
  "agent-runtime",
  "async-trait",
+ "ring",
  "chrono",
  "rusqlite",
  "serde",
