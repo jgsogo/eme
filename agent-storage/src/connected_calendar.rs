@@ -246,8 +246,14 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
             .map_err(backend)?;
         }
         tx.commit().map_err(backend)?;
-        drop(db);
-        self.list_for_connection(owner, connection).await
+        let sql = format!(
+            "SELECT {SELECT_COLUMNS} FROM connected_calendars WHERE owner_id=?1 AND connection_id=?2 ORDER BY display_name,provider_calendar_id"
+        );
+        let mut statement = db.prepare(&sql).map_err(backend)?;
+        let rows = statement
+            .query_map(params![owner.to_string(), connection.to_string()], load_row)
+            .map_err(backend)?;
+        rows.map(|row| parse_calendar(row.map_err(backend)?)).collect()
     }
 
     async fn list_for_connection(
