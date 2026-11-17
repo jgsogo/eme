@@ -13,6 +13,10 @@ pub enum GoogleCalendarAccessError {
     InvalidIdentity,
     #[error("the Google connection does not grant calendar event read access")]
     InsufficientScopes,
+    #[error("the caller does not have write permission for this calendar")]
+    WriteNotAuthorized,
+    #[error("the Google connection does not grant calendar event write access")]
+    InsufficientWriteScopes,
     #[error("Google Calendar authorization storage failed: {0}")]
     Storage(String),
     #[error("family membership could not be verified")]

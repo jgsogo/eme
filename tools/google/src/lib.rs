@@ -3,9 +3,10 @@
 //! This crate groups tools for Google services. Calendar tools are available
 //! today; Gmail tools can be added here without introducing another crate.
 
-mod calendar;
+pub(crate) mod calendar;
 mod calendar_list;
 mod google_calendar_list_tool;
+mod google_calendar_write_tools;
 pub mod oauth;
 mod runtime;
 
@@ -34,7 +35,15 @@ pub fn register_tools(
     )?;
     registry.register_from_file(
         data_dir.join("calendar_events.toml"),
-        calendar::GoogleCalendarEvents::new(runtime),
+        calendar::GoogleCalendarEvents::new(runtime.clone()),
+    )?;
+    registry.register_from_file(
+        data_dir.join("calendar_create_event.toml"),
+        google_calendar_write_tools::GoogleCalendarCreateEvent::new(runtime.clone()),
+    )?;
+    registry.register_from_file(
+        data_dir.join("calendar_update_event.toml"),
+        google_calendar_write_tools::GoogleCalendarUpdateEvent::new(runtime),
     )?;
 
     Ok(())
