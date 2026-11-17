@@ -12,6 +12,7 @@ use anyhow::{Context, Result};
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
+use google_tool::GoogleCalendarRuntimeConfig;
 
 use super::console_event_sink::ConsoleEventSink;
 
@@ -40,6 +41,7 @@ impl ConfiguredAgentResolver {
         telegram_gateway: Option<Arc<TelegramGateway>>,
         task_registry: TaskRegistry,
         family_store: Arc<dyn FamilyStore>,
+        google_runtime: Option<GoogleCalendarRuntimeConfig>,
     ) -> Result<Self> {
         let models = ModelRegistry::load(data_dir).context("loading model providers")?;
 
@@ -48,7 +50,7 @@ impl ConfiguredAgentResolver {
         telegram_tool::register_tools(&mut tools, telegram_gateway)
             .context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
-        google_tool::register_tools(&mut tools).context("registering Google tools")?;
+        google_tool::register_tools(&mut tools, google_runtime).context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         common_tools::register_tools(&mut tools).context("registering common tools")?;
         tasks_tool::register_tools(&mut tools, task_registry.clone())
