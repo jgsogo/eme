@@ -593,7 +593,7 @@ async fn sync_connected_calendars(
             return HttpResponse::BadGateway().body("Google Calendar token refresh failed");
         }
     };
-    let discovered = match list_calendars_with_access_token(&token.access_token).await {
+    let discovered = match list_calendars_with_access_token(&token).await {
         Ok(calendars) => calendars
             .into_iter()
             .map(|calendar| DiscoveredCalendar {
