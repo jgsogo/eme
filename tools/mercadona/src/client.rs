@@ -117,10 +117,12 @@ impl MercadonaClient {
     pub async fn search_products(&self, query: &str, limit: usize) -> Result<Value, String> {
         let (app_id, api_key) = self.algolia_credentials().await?;
         let index = format!("products_prod_{}_{}", self.warehouse, self.language);
-        let mut params = form_urlencoded::Serializer::new(String::new());
-        params.append_pair("query", query);
-        params.append_pair("hitsPerPage", &limit.to_string());
-        let body = json!({ "params": params.finish() });
+        let body = {
+            let mut params = form_urlencoded::Serializer::new(String::new());
+            params.append_pair("query", query);
+            params.append_pair("hitsPerPage", &limit.to_string());
+            json!({ "params": params.finish() })
+        };
         let url = format!(
             "https://{}-dsn.algolia.net/1/indexes/{index}/query",
             app_id.to_lowercase()
