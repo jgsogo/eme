@@ -62,7 +62,7 @@ impl Tool for GoogleCalendarCreateEvent {
             operation = "create",
             user_id = context.user_id.as_deref().unwrap_or("unknown"),
             calendar_id = %public_id,
-            event_id = created.get("id").and_then(Value::as_str).unwrap_or("unknown"),
+            event_id = created.get("id").and_then(|value| value.as_str()).unwrap_or("unknown"),
             "Google Calendar event write completed"
         );
         serde_json::to_string_pretty(
