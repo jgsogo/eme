@@ -172,9 +172,15 @@ impl SqliteConnectedCalendarStore {
         db.execute_batch(include_str!("../migrations/0002_family_invitations.sql"))?;
         db.execute_batch(include_str!("../migrations/0003_external_connections.sql"))?;
         db.execute_batch(include_str!("../migrations/0004_connected_calendars.sql"))?;
-        db.execute_batch(include_str!(
-            "../migrations/0005_calendar_family_sharing.sql"
-        ))?;
+        let has_family_share_columns: bool = db.query_row(
+            "SELECT COUNT(*) = 2 FROM pragma_table_info('connected_calendars')
+             WHERE name IN ('family_id', 'family_access')",
+            [],
+            |row| row.get(0),
+        )?;
+        if !has_family_share_columns {
+            db.execute_batch(include_str!("../migrations/0005_calendar_family_sharing.sql"))?;
+        }
         Ok(Self {
             db: std::sync::Arc::new(std::sync::Mutex::new(db)),
         })
