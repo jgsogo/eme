@@ -73,6 +73,9 @@ impl GoogleCalendarAccessService {
                 connection.provider == "google"
                     && connection.status == ExternalConnectionStatus::Active
             }) {
+                if !has_calendar_read_scope(&connection.granted_scopes) {
+                    continue;
+                }
                 let connected = self
                     .calendars
                     .list_for_connection(owner, connection.id)
@@ -156,15 +159,7 @@ impl GoogleCalendarAccessService {
             })
             .ok_or(GoogleCalendarAccessError::NotFound)?;
 
-        let has_read_scope = connection.granted_scopes.iter().any(|scope| {
-            matches!(
-                scope.as_str(),
-                "https://www.googleapis.com/auth/calendar.events.readonly"
-                    | "https://www.googleapis.com/auth/calendar.events"
-                    | "https://www.googleapis.com/auth/calendar"
-            )
-        });
-        if !has_read_scope {
+        if !has_calendar_read_scope(&connection.granted_scopes) {
             return Err(GoogleCalendarAccessError::InsufficientScopes);
         }
 
@@ -179,6 +174,17 @@ impl GoogleCalendarAccessService {
             refresh_token,
         })
     }
+}
+
+fn has_calendar_read_scope(scopes: &[String]) -> bool {
+    scopes.iter().any(|scope| {
+        matches!(
+            scope.as_str(),
+            "https://www.googleapis.com/auth/calendar.events.readonly"
+                | "https://www.googleapis.com/auth/calendar.events"
+                | "https://www.googleapis.com/auth/calendar"
+        )
+    })
 }
 
 fn map_family_error(error: FamilyServiceError) -> GoogleCalendarAccessError {
