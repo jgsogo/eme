@@ -1,4 +1,4 @@
-use super::super::refresh_access_token;
+use crate::refresh_access_token;
 use super::GoogleCalendarClient;
 use crate::GoogleCalendarRuntimeConfig;
 use agent_runtime::{Tool, ToolContext, ToolError};
