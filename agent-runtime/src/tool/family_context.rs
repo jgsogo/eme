@@ -13,6 +13,8 @@ pub struct FamilyMemberContext {
     pub name: Option<String>,
     /// Calendar date of birth from the member's EME user profile, when available.
     pub birthday: Option<NaiveDate>,
+    /// Telegram account identifier linked to this EME user, when available.
+    pub telegram_id: Option<String>,
     /// Platform permission within the family (owner, admin, member).
     pub role: String,
     /// Family relationship (father, mother, son, daughter, etc.).
