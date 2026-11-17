@@ -125,7 +125,8 @@ async fn update_task(
         Err(_) => return HttpResponse::BadRequest().body("invalid task identifier"),
     };
     let body = body.into_inner();
-    match tasks.update(&user, id, body.into(), body.enabled) {
+    let enabled = body.enabled;
+    match tasks.update(&user, id, body.into(), enabled) {
         Ok(task) => HttpResponse::Ok().json(task),
         Err(error) => error_response(error),
     }
