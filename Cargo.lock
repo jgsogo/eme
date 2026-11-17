@@ -299,6 +299,7 @@ dependencies = [
  "agent-runtime",
  "agent-storage",
  "async-trait",
+ "chrono",
  "serde",
  "thiserror",
  "tokio",
