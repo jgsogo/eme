@@ -2,9 +2,9 @@
 
 #[path = "types/mod.rs"]
 mod types;
+use super::oauth::{GoogleOAuthConfig, refresh_access_token};
 pub(super) use types::GoogleCalendarEvents;
 use types::{Calendar, EventsPage, GoogleCalendarClient, GoogleCalendarError};
-use super::oauth::{GoogleOAuthConfig, refresh_access_token};
 
 use chrono::{DateTime, LocalResult, NaiveDate, TimeZone};
 use chrono_tz::Tz;
