@@ -1,0 +1,9 @@
+name = "mercadona_list_categories"
+description = "List the Mercadona product category tree for a warehouse, including category identifiers and names."
+[parameters]
+type = "object"
+additionalProperties = false
+
+[parameters.properties.warehouse]
+type = "string"
+description = "Optional Mercadona warehouse code. Defaults to MERCADONA_WAREHOUSE or mad1."
