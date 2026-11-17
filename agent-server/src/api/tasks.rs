@@ -49,6 +49,7 @@ fn actor(
     request: &HttpRequest,
     auth: &crate::auth::TelegramAuth,
     identities: &FileUserIdentityStore,
+    tasks: &TaskRegistry,
 ) -> Result<String, HttpResponse> {
     let owner = auth.owner_for_request(request)
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
@@ -58,7 +59,9 @@ fn actor(
     let identity = identities.find_identity("telegram", subject)
         .map_err(|_| HttpResponse::InternalServerError().finish())?
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    Ok(identity.user_id.to_string())
+    let user_id = identity.user_id.to_string();
+    tasks.migrate_owner(&owner, &user_id).map_err(error_response)?;
+    Ok(user_id)
 }
 
 fn error_response(error: TaskError) -> HttpResponse {
@@ -76,7 +79,7 @@ async fn list_tasks(
     identities: Data<Arc<FileUserIdentityStore>>,
     tasks: Data<TaskRegistry>,
 ) -> impl Responder {
-    let user = match actor(&request, &auth, &identities) {
+    let user = match actor(&request, &auth, &identities, &tasks) {
         Ok(user) => user,
         Err(response) => return response,
     };
