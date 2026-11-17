@@ -18,8 +18,7 @@ const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const CALENDAR_LIST_READONLY: &str =
     "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
-const CALENDAR_EVENTS_READONLY: &str =
-    "https://www.googleapis.com/auth/calendar.events.readonly";
+const CALENDAR_EVENTS_READONLY: &str = "https://www.googleapis.com/auth/calendar.events.readonly";
 const CALENDAR_EVENTS: &str = "https://www.googleapis.com/auth/calendar.events";
 
 /// Credentials and callback configuration for one Google OAuth application.
@@ -119,7 +118,9 @@ pub fn authorization_request(
         .add_extra_param("include_granted_scopes", "true")
         .set_pkce_challenge(challenge);
     request = match scope {
-        CalendarScope::ReadOnly => request.add_scope(Scope::new(CALENDAR_EVENTS_READONLY.to_owned())),
+        CalendarScope::ReadOnly => {
+            request.add_scope(Scope::new(CALENDAR_EVENTS_READONLY.to_owned()))
+        }
         CalendarScope::ReadWrite => request.add_scope(Scope::new(CALENDAR_EVENTS.to_owned())),
     };
     let (url, state) = request.url();
