@@ -46,7 +46,7 @@ impl GoogleOAuthState {
 }
 
 fn parse_encryption_key(value: &str) -> Result<[u8; 32], String> {
-    if value.len() != 64 {
+    if value.len() != 64 || !value.is_ascii() {
         return Err("EME_CREDENTIAL_ENCRYPTION_KEY must contain exactly 64 hexadecimal characters".to_owned());
     }
     let mut key = [0_u8; 32];
@@ -72,7 +72,7 @@ fn current_user_id(
     Ok(identity.user_id)
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum RequestedAccess { ReadOnly, ReadWrite }
 
@@ -106,7 +106,22 @@ async fn start_oauth(
     };
     let config = state.config.as_ref().expect("enabled state has OAuth config");
     let store = state.store.as_ref().expect("enabled state has storage");
-    let pending = match authorization_request(config, body.access.into()) {
+    let access: CalendarScope = body.access.into();
+    let requested_scopes = match access {
+        CalendarScope::ReadOnly => vec![
+            "https://www.googleapis.com/auth/calendar.calendarlist.readonly".to_owned(),
+            "https://www.googleapis.com/auth/calendar.events.readonly".to_owned(),
+            "openid".to_owned(),
+            "email".to_owned(),
+        ],
+        CalendarScope::ReadWrite => vec![
+            "https://www.googleapis.com/auth/calendar.calendarlist.readonly".to_owned(),
+            "https://www.googleapis.com/auth/calendar.events".to_owned(),
+            "openid".to_owned(),
+            "email".to_owned(),
+        ],
+    };
+    let pending = match authorization_request(config, access) {
         Ok(value) => value,
         Err(error) => {
             tracing::error!(%error, "could not create Google OAuth request");
@@ -119,7 +134,7 @@ async fn start_oauth(
         provider: "google".to_owned(),
         state: pending.state,
         pkce_verifier: pending.pkce_verifier,
-        requested_scopes: Vec::new(),
+        requested_scopes,
         expires_at,
     }).await {
         tracing::error!(%error, "could not persist Google OAuth state");
