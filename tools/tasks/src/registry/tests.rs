@@ -94,31 +94,44 @@ fn persists_tasks_across_registry_restarts() {
     fs::remove_dir_all(directory).unwrap();
 }
 
-
 #[test]
 fn task_definitions_can_be_updated_and_enabled_without_cross_user_access() {
     let directory = temp_dir();
     let registry = TaskRegistry::load(&directory).unwrap();
-    registry.validate_agents(["assistant".to_owned(), "researcher".to_owned()]).unwrap();
-    let task = registry.add("telegram:10", NewTask {
-        name: "daily".into(),
-        description: "old description".into(),
-        agent: "assistant".into(),
-        prompt: "old prompt".into(),
-        schedule: Some("0 0 8 * * *".into()),
-        at: None,
-        timezone: Some("Europe/Madrid".into()),
-    }).unwrap();
+    registry
+        .validate_agents(["assistant".to_owned(), "researcher".to_owned()])
+        .unwrap();
+    let task = registry
+        .add(
+            "telegram:10",
+            NewTask {
+                name: "daily".into(),
+                description: "old description".into(),
+                agent: "assistant".into(),
+                prompt: "old prompt".into(),
+                schedule: Some("0 0 8 * * *".into()),
+                at: None,
+                timezone: Some("Europe/Madrid".into()),
+            },
+        )
+        .unwrap();
 
-    let updated = registry.update("telegram:10", task.id, NewTask {
-        name: "weekly".into(),
-        description: "updated description".into(),
-        agent: "researcher".into(),
-        prompt: "updated prompt".into(),
-        schedule: Some("0 0 9 * * MON".into()),
-        at: None,
-        timezone: Some("Europe/Madrid".into()),
-    }, true).unwrap();
+    let updated = registry
+        .update(
+            "telegram:10",
+            task.id,
+            NewTask {
+                name: "weekly".into(),
+                description: "updated description".into(),
+                agent: "researcher".into(),
+                prompt: "updated prompt".into(),
+                schedule: Some("0 0 9 * * MON".into()),
+                at: None,
+                timezone: Some("Europe/Madrid".into()),
+            },
+            true,
+        )
+        .unwrap();
     assert_eq!(updated.name, "weekly");
     assert_eq!(updated.agent, "researcher");
     assert_eq!(updated.prompt, "updated prompt");
