@@ -86,7 +86,8 @@ impl GoogleOAuthTokenManager {
         let token = refresh().await?;
         let access_token = token.access_token;
         // Google normally returns a one-hour token. Use a conservative fallback
-        // when the provider omits expires_in, stop using it 30 seconds early,\n        // and cap local reuse at one minute to limit stale-token time after revocation.
+        // when the provider omits expires_in, stop using it 30 seconds early,
+        // and cap local reuse at one minute to limit stale-token time after revocation.
         let lifetime = token.expires_in_seconds.unwrap_or(300).saturating_sub(30).clamp(1, 60);
         *cached = Some(CachedAccessToken {
             refresh_token_hash,
