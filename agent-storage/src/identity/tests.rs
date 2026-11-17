@@ -25,6 +25,13 @@ fn telegram_identity_resolves_to_the_same_user_after_reopening_store() {
     assert_eq!(first_user.id, second_user.id);
     assert_eq!(first_identity, second_identity);
     assert_eq!(second_user.display_name.as_deref(), Some("Javier"));
+    assert_eq!(
+        reopened
+            .find_identity_for_user("telegram", second_user.id)
+            .unwrap()
+            .unwrap(),
+        second_identity
+    );
     fs::remove_file(path).unwrap();
 }
 
