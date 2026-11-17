@@ -1,12 +1,7 @@
-//! Generic tools that expose information available from the local runtime.
-//!
-//! This crate provides deterministic utilities that do not require external
-//! services, such as date and time operations and bounded asynchronous delays.
-//!
-//! Tool definitions live alongside their implementations, while this crate's
-//! public entry point only registers them with the agent runtime.
+//! Generic tools that expose useful information from the runtime and external public data sources.
 
 mod datetime;
+mod holidays;
 mod sleep;
 
 use agent_config::ConfigError;
@@ -32,5 +27,6 @@ pub fn register_tools(registry: &mut ToolRegistry) -> Result<(), ConfigError> {
     )?;
     registry.register_from_file(data.join("get_date_info.toml"), datetime::GetDateInfo)?;
     registry.register_from_file(data.join("parse_datetime.toml"), datetime::ParseDateTime)?;
+    registry.register_from_file(data.join("get_holidays.toml"), holidays::GetHolidays)?;
     registry.register_from_file(data.join("sleep.toml"), sleep::Sleep)
 }
