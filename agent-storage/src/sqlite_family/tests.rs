@@ -1,7 +1,6 @@
 //! Tests for SQLite family, membership, and invitation persistence.
 
 use super::*;
-use chrono::Duration;
 
 fn database_path() -> std::path::PathBuf {
     std::env::temp_dir().join(format!("eme-family-{}.sqlite", Uuid::new_v4()))
