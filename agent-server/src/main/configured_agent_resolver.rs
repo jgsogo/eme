@@ -51,6 +51,7 @@ impl ConfiguredAgentResolver {
         google_tool::register_tools(&mut tools).context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         common_tools::register_tools(&mut tools).context("registering common tools")?;
+        mercadona_tool::register_tools(&mut tools).context("registering Mercadona tools")?;
         tasks_tool::register_tools(&mut tools, task_registry.clone())
             .context("registering task tools")?;
         let notes =
