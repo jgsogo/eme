@@ -13,10 +13,16 @@ impl Tool for ResolvePostalCode {
     async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let postal_code = required_string(&arguments, "postal_code")?;
         if postal_code.len() != 5 || !postal_code.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err(ToolError::Execution("'postal_code' must contain exactly five digits".into()));
+            return Err(ToolError::Execution(
+                "'postal_code' must contain exactly five digits".into(),
+            ));
         }
         let client = MercadonaClient::new("mad1").map_err(ToolError::Execution)?;
-        let result = client.resolve_postal_code(postal_code).await.map_err(ToolError::Execution)?;
-        serde_json::to_string_pretty(&result).map_err(|error| ToolError::Execution(error.to_string()))
+        let result = client
+            .resolve_postal_code(postal_code)
+            .await
+            .map_err(ToolError::Execution)?;
+        serde_json::to_string_pretty(&result)
+            .map_err(|error| ToolError::Execution(error.to_string()))
     }
 }
