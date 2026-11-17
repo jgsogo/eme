@@ -4,6 +4,7 @@ use super::{
     IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore, identity_key,
 };
 use serde_json;
+use chrono::NaiveDate;
 use std::{
     fs::{self, OpenOptions},
     io::{self, Write},
@@ -54,6 +55,8 @@ impl UserIdentityStore for FileUserIdentityStore {
     ) -> Result<(User, UserIdentity), IdentityStoreError> {
         self.update(|state| state.resolve_or_create(provider, subject, display_name))
     }
+    fn create_user(&self, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError> { self.update(|state| state.create_user(display_name, birthday)) }
+    fn update_profile(&self, user_id: UserId, display_name: &str, birthday: Option<NaiveDate>) -> Result<User, IdentityStoreError> { self.update(|state| state.update_profile(user_id, display_name, birthday)) }
     fn get_user(&self, user_id: UserId) -> Result<Option<User>, IdentityStoreError> {
         Ok(self
             .state
