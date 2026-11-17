@@ -116,6 +116,9 @@ async fn main() -> Result<()> {
         FileUserIdentityStore::open(args.data_dir.join("users.json"))
             .context("opening persistent user identity storage")?,
     );
+    let google_oauth_state = agent_server::GoogleOAuthState::from_env(&args.data_dir)
+        .map_err(anyhow::Error::msg)
+        .context("configuring Google OAuth integration")?;
     let conversation_store = Arc::new(
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
@@ -174,6 +177,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&family_service)))
             .app_data(web::Data::new(notes_store.clone()))
             .app_data(web::Data::new(task_registry.clone()))
+            .app_data(web::Data::new(google_oauth_state.clone()))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)));
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
@@ -189,6 +193,7 @@ async fn main() -> Result<()> {
             .service(favicon)
             .service(invitation_page)
             .service(agent_server::auth::auth_api())
+            .service(agent_server::google_integrations_api())
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
