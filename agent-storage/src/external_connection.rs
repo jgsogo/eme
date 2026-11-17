@@ -92,12 +92,6 @@ pub enum ExternalConnectionStatus {
     Revoked,
 }
 impl ExternalConnectionStatus {
-    fn text(self) -> &'static str {
-        match self {
-            Self::Active => "active",
-            Self::Revoked => "revoked",
-        }
-    }
     fn parse(s: &str) -> Result<Self, ExternalConnectionStorageError> {
         match s {
             "active" => Ok(Self::Active),
@@ -115,6 +109,8 @@ pub struct ExternalConnection {
     pub provider: String,
     pub provider_subject: String,
     pub display_email: Option<String>,
+    /// Never include ciphertext in serialized API responses.
+    #[serde(skip)]
     pub encrypted_refresh_token: Vec<u8>,
     pub granted_scopes: Vec<String>,
     pub status: ExternalConnectionStatus,
@@ -314,7 +310,8 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
         o: UserId,
         id: ExternalConnectionId,
     ) -> Result<Option<ExternalConnection>, ExternalConnectionStorageError> {
-        load(&self.db.lock().await, o, id)
+        let db = self.db.lock().await;
+        load(&db, o, id)
     }
     async fn list_connections(
         &self,
