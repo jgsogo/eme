@@ -1,2 +1,2 @@
 //! Tool type for converting a datetime between IANA timezones.
-pub(super) struct ConvertTimezone;
+pub(in crate::datetime) struct ConvertTimezone;

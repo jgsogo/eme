@@ -1,2 +1,2 @@
 //! Tool type for retrieving the current UTC timestamp.
-pub(super) struct CurrentDateTime;
+pub(in crate::datetime) struct CurrentDateTime;
