@@ -20,6 +20,7 @@ where
     if path == "/"
         || path == "/console/conversations"
         || path == "/console/families"
+        || path == "/console/notes"
         || path.starts_with("/assets/")
         || path == "/favicon.ico"
         || path.starts_with("/auth/")

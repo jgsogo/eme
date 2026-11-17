@@ -14,5 +14,5 @@ pub use api::{
     AgentCatalog, AgentListItem, CancelRunResponse, ContinueConversationRequest,
     ConversationSummary, CreateConversationRequest, GetRunResponse, LanInvitationConfig,
     RunEventResponse, SubmitRunRequest, SubmitRunResponse, UpdateConversationRequest, agents_api,
-    conversations_api, families_api, invitations_api, runs_api,
+    conversations_api, families_api, invitations_api, notes_api, runs_api,
 };

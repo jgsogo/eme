@@ -29,4 +29,6 @@ tools = [
     "task_list",
     "task_add",
     "task_remove",
+    "list_notes",
+    "get_note",
 ]

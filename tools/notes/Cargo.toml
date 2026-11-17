@@ -1,0 +1,17 @@
+[package]
+name = "notes-tools"
+version = "0.1.0"
+edition = "2024"
+description = "User-owned notes with optional family sharing and agent retrieval tools."
+
+[dependencies]
+agent-runtime = { path = "../../agent-runtime" }
+agent-storage = { path = "../../agent-storage" }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }

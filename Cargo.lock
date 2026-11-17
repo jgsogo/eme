@@ -263,6 +263,7 @@ dependencies = [
  "common-tools",
  "google-tool",
  "meteosource-tool",
+ "notes-tools",
  "serde",
  "serde_json",
  "tasks-tool",
@@ -274,6 +275,22 @@ dependencies = [
  "uuid",
 ]
 
+
+[[package]]
+name = "notes-tools"
+version = "0.1.0"
+dependencies = [
+ "agent-runtime",
+ "agent-storage",
+ "async-trait",
+ "chrono",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
 [[package]]
 name = "agent-service"
 version = "0.1.0"

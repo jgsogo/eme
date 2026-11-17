@@ -3,6 +3,7 @@
 mod agents;
 mod conversations;
 mod families;
+mod notes;
 mod runs;
 mod types;
 
@@ -15,6 +16,7 @@ pub use conversations::{
     UpdateConversationRequest, conversations_api,
 };
 pub use families::{LanInvitationConfig, families_api, invitations_api};
+pub use notes::notes_api;
 pub use runs::runs_api;
 pub use types::{
     AgentCatalog, AgentListItem, CancelRunResponse, GetRunResponse, RunEventResponse,
