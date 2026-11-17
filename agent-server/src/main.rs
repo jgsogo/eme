@@ -30,8 +30,8 @@ use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
-    console_root, console_script, console_stylesheet, conversations_page, families_page, favicon, integrations_page,
-    invitation_page, notes_page, profile_page, tasks_page,
+    console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
+    integrations_page, invitation_page, notes_page, profile_page, tasks_page,
 };
 
 #[actix_web::main]
