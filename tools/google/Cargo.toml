@@ -16,7 +16,8 @@ reqwest = { workspace = true }
 oauth2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tracing = { workspace = true }\ntokio = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true }
 
