@@ -1,5 +1,6 @@
 //! Persistence contracts and storage backends for the EME agent platform.
 mod contracts;
+mod connected_calendar;
 mod conversation;
 mod external_connection;
 mod family;
@@ -10,6 +11,10 @@ mod identity;
 mod memory;
 mod sqlite_family;
 
+pub use connected_calendar::{
+    CalendarAccessMode, ConnectedCalendar, ConnectedCalendarId, ConnectedCalendarStorageError,
+    ConnectedCalendarStore, DiscoveredCalendar, SqliteConnectedCalendarStore,
+};
 pub use contracts::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
     StoredRunEvent, StoredRunStatus,
