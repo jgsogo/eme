@@ -300,12 +300,9 @@ dependencies = [
  "agent-storage",
  "async-trait",
  "chrono",
- "chrono-tz",
- "cron",
  "serde",
  "thiserror",
  "tokio",
- "toml",
  "tracing",
  "uuid",
 ]
@@ -3249,8 +3246,15 @@ dependencies = [
  "agent-runtime",
  "agent-service",
  "async-trait",
+ "chrono",
+ "chrono-tz",
+ "cron",
  "serde",
  "serde_json",
+ "thiserror",
+ "tokio",
+ "toml",
+ "tracing",
  "uuid",
 ]
 

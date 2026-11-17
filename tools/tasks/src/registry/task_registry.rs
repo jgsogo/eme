@@ -111,6 +111,41 @@ impl TaskRegistry {
             .cloned()
             .collect()
     }
+    /// Migrates tasks created under a transport-specific owner to the stable user identity.
+    pub fn migrate_owner(&self, old_user: &str, new_user: &str) -> Result<(), TaskError> {
+        if old_user == new_user {
+            return Ok(());
+        }
+        let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
+        let mut migrating = tasks
+            .values()
+            .filter(|task| task.user_id == old_user)
+            .cloned()
+            .collect::<Vec<_>>();
+        if migrating.is_empty() {
+            return Ok(());
+        }
+        for task in &migrating {
+            if tasks.values().any(|other| {
+                other.user_id == new_user && other.name == task.name && other.id != task.id
+            }) {
+                return Err(TaskError::Invalid(format!(
+                    "cannot migrate task '{}': a task with that name already exists",
+                    task.name
+                )));
+            }
+        }
+        for task in &mut migrating {
+            task.user_id = new_user.to_owned();
+            self.persist(task)?;
+        }
+        for task in migrating {
+            tasks.insert(task.id, task);
+        }
+        self.notify();
+        Ok(())
+    }
+
     pub fn list(&self, user: &str) -> Vec<Task> {
         let mut result: Vec<_> = self
             .snapshot()
@@ -170,6 +205,94 @@ impl TaskRegistry {
         self.notify();
         Ok(value)
     }
+    /// Replaces a task definition owned by the authenticated user.
+    pub fn update(
+        &self,
+        user: &str,
+        id: Uuid,
+        task: NewTask,
+        enabled: bool,
+    ) -> Result<Task, TaskError> {
+        if user.trim().is_empty() {
+            return Err(TaskError::Invalid("authenticated user is missing".into()));
+        }
+        let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
+        if !tasks.get(&id).is_some_and(|value| value.user_id == user) {
+            return Err(TaskError::NotFound);
+        }
+        let mut value = Task {
+            id,
+            user_id: user.into(),
+            name: task.name,
+            description: task.description,
+            agent: task.agent,
+            prompt: task.prompt,
+            schedule: task.schedule,
+            at: task.at,
+            timezone: task.timezone,
+            enabled,
+            next_run: None,
+        };
+        validate(&value)?;
+        if !self
+            .inner
+            .agents
+            .read()
+            .map_err(lock_error)?
+            .contains(&value.agent)
+        {
+            return Err(TaskError::Invalid(format!(
+                "unknown agent '{}'",
+                value.agent
+            )));
+        }
+        if tasks
+            .values()
+            .any(|other| other.id != id && other.user_id == user && other.name == value.name)
+        {
+            return Err(TaskError::Invalid(
+                "task name already exists for this user".into(),
+            ));
+        }
+        value.next_run = next_run(&value, Utc::now())?;
+        if value.enabled && value.schedule.is_none() && value.next_run.is_none() {
+            return Err(TaskError::Invalid(
+                "one-time task must be scheduled in the future".into(),
+            ));
+        }
+        self.persist(&value)?;
+        tasks.insert(id, value.clone());
+        self.notify();
+        Ok(value)
+    }
+
+    /// Enables or disables a task without changing its definition.
+    pub fn set_enabled(&self, user: &str, id: Uuid, enabled: bool) -> Result<Task, TaskError> {
+        let current = self
+            .inner
+            .tasks
+            .read()
+            .map_err(lock_error)?
+            .get(&id)
+            .filter(|task| task.user_id == user)
+            .cloned()
+            .ok_or(TaskError::NotFound)?;
+        self.update(
+            user,
+            id,
+            NewTask {
+                name: current.name,
+                description: current.description,
+                agent: current.agent,
+                prompt: current.prompt,
+                schedule: current.schedule,
+                at: current.at,
+                timezone: current.timezone,
+            },
+            enabled,
+        )
+    }
+
     pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) {
         if let Ok(mut tasks) = self.inner.tasks.write() {
             if let Some(task) = tasks.get_mut(&id) {

@@ -1,4 +1,4 @@
-//! Task definitions and persistent task registry.
+//! User-scoped task definitions and file-backed persistence.
 
 mod inner;
 mod new_task;

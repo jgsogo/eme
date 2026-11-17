@@ -2,13 +2,20 @@
 name = "tasks-tool"
 version = "0.1.0"
 edition = "2024"
-description = "User-scoped task management tools for AI agents."
+description = "User-scoped task definitions, scheduling and agent tools."
 
 [dependencies]
 agent-config = { path = "../../agent-config" }
 agent-runtime = { path = "../../agent-runtime" }
 agent-service = { path = "../../agent-service" }
 async-trait = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+cron = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
 uuid = { workspace = true }

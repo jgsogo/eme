@@ -30,6 +30,13 @@ pub(super) async fn notes_page() -> impl Responder {
         .body(include_str!("../../static/notes.html"))
 }
 
+#[get("/console/tasks")]
+pub(super) async fn tasks_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/tasks.html"))
+}
+
 #[actix_web::get("/invite/{token}")]
 pub(super) async fn invitation_page() -> impl Responder {
     HttpResponse::Ok()

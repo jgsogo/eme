@@ -6,10 +6,11 @@ use agent_models::Registry as ModelRegistry;
 use agent_runtime::{
     Agent, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ToolDispatcher, ToolRegistry,
 };
-use agent_service::{AgentRuntimeResolver, ResolvedAgent, TaskRegistry};
+use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
 use anyhow::{Context, Result};
 use notes_tools::NotesStore;
+use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
 
 use super::console_event_sink::ConsoleEventSink;

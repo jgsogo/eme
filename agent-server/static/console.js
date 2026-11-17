@@ -2,7 +2,7 @@ const TERMINAL=new Set(["completed","failed","cancelled","timed_out","max_iterat
 const page=document.body.dataset.page;
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],notes:[],selectedNote:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,runId:null,pollTimer:null};
+const state={agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 const mobileDrawer=()=>window.matchMedia("(max-width:760px)").matches;
@@ -290,8 +290,64 @@ async function deleteConversation(id){const conversation=state.conversations.fin
 async function sendMessage(){const input=$("prompt").value.trim();if(!input||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount;$("prompt").value="";setComposerEnabled(false);setStatus("Queued…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input})});state.runId=result.run_id;$("cancel-run").hidden=false;setStatus("Running · "+result.run_id.slice(0,8));await pollRun(id,result.run_id,previousMessageCount)}catch(e){setStatus(e.message,"error");setComposerEnabled(true);$("prompt").value=input}}
 async function pollRun(conversationId,runId,previousMessageCount){clearInterval(state.pollTimer);renderRunEvents([]);const poll=async()=>{try{const [run,events]=await Promise.all([api("/runs/"+encodeURIComponent(runId)),api("/runs/"+encodeURIComponent(runId)+"/events")]);renderRunEvents(events);if(!TERMINAL.has(run.status)){setStatus("Running · "+run.status);return}clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;let conversation=null;for(let attempt=0;attempt<40;attempt++){conversation=await api("/conversations/"+encodeURIComponent(conversationId));if((conversation.messages||[]).length>previousMessageCount)break;await new Promise(resolve=>setTimeout(resolve,100))}if(state.selected===conversationId){$("conversation-title").textContent=conversation.title||"New conversation";$("conversation-meta").textContent="Agent · "+conversation.agent+" · Conversation "+conversation.id;state.messageCount=(conversation.messages||[]).length;renderMessages(conversation.messages);setComposerEnabled(true)}await loadConversations();if(run.status==="completed")setStatus("Completed","ok");else setStatus(run.error||run.status,"error");setComposerEnabled(state.selected===conversationId);renderFamilySelector()}catch(e){clearInterval(state.pollTimer);state.runId=null;$("cancel-run").hidden=true;setStatus("Unable to retrieve run: "+e.message,"error");setComposerEnabled(true);renderFamilySelector()}};await poll();if(state.runId)state.pollTimer=setInterval(poll,1000)}
 on("open-conversations","click",()=>setDrawerOpen(true));on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("close-conversations","click",closeDrawer);on("drawer-backdrop","click",closeDrawer);document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer()});window.addEventListener("resize",()=>{if(!mobileDrawer())closeDrawer()});
-on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]");if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("cancel-run","click",async()=>{if(!state.runId)return;try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(e){setStatus(e.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&!state.runId)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
+async function loadTasks(){
+ try{state.tasks=await api("/tasks");renderTasks()}
+ catch(e){$("tasks-list").innerHTML='<div class="empty">Unable to load tasks: '+escapeHtml(e.message)+'</div>'}
+}
+function renderTasks(){
+ $("tasks-list").innerHTML=state.tasks.length?state.tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">No tasks yet. Create one to get started.</div>';
+}
+function renderTaskAgents(){
+ const select=$("task-agent"),selected=select.value;
+ select.innerHTML=state.agents.map(agent=>'<option value="'+escapeHtml(agent.name)+'">'+escapeHtml(agent.name)+'</option>').join("");
+ if(state.agents.some(agent=>agent.name===selected))select.value=selected;
+}
+function resetTaskEditor(){
+ state.selectedTask=null;renderTasks();
+ for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
+ $("task-heading").textContent="Select a task";
+ $("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
+ $("delete-task").disabled=true;$("tasks-status").textContent="Choose a task or create a new one.";
+}
+function startNewTask(){
+ state.selectedTask="new";renderTasks();
+ for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
+ $("task-heading").textContent="New task";
+ $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
+ renderTaskAgents();$("tasks-status").textContent="Set either a cron schedule or a one-time execution date, not both.";$("task-name").focus();
+}
+function toLocalDateTime(value){const date=new Date(value);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)}
+function selectTask(id){
+ const task=state.tasks.find(item=>item.id===id);if(!task)return;
+ state.selectedTask=id;renderTasks();
+ for(const field of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
+ $("delete-task").disabled=false;$("task-heading").textContent=task.name;
+ renderTaskAgents();$("task-name").value=task.name;$("task-description").value=task.description||"";$("task-agent").value=task.agent;$("task-prompt").value=task.prompt;
+ $("task-schedule").value=task.schedule||"";
+ $("task-at").value=task.at?toLocalDateTime(task.at):"";
+ $("task-timezone").value=task.timezone||"Europe/Madrid";$("task-enabled").checked=!!task.enabled;
+ $("tasks-status").textContent=task.enabled?"Task is enabled.":"Task is disabled.";
+}
+async function saveTask(event){
+ event.preventDefault();
+ const schedule=$("task-schedule").value.trim(),atValue=$("task-at").value;
+ if(Boolean(schedule)===Boolean(atValue)){$("tasks-status").textContent="Specify either a cron schedule or a one-time date, but not both.";return}
+ const body={name:$("task-name").value.trim(),description:$("task-description").value.trim(),agent:$("task-agent").value,prompt:$("task-prompt").value,schedule:schedule||null,at:atValue?new Date(atValue).toISOString():null,timezone:schedule?($("task-timezone").value.trim()||"UTC"):null,enabled:$("task-enabled").checked};
+ $("save-task").disabled=true;
+ try{
+  const saved=state.selectedTask==="new"?await api("/tasks",{method:"POST",body:JSON.stringify(body)}):await api("/tasks/"+encodeURIComponent(state.selectedTask),{method:"PUT",body:JSON.stringify(body)});
+  await loadTasks();selectTask(saved.id);$("tasks-status").textContent="Task saved.";
+ }catch(e){$("tasks-status").textContent=e.message}
+ finally{$("save-task").disabled=false}
+}
+async function deleteTask(){
+ if(!state.selectedTask||state.selectedTask==="new")return;
+ if(!window.confirm("Delete this task permanently?"))return;
+ try{await api("/tasks/"+encodeURIComponent(state.selectedTask),{method:"DELETE"});await loadTasks();resetTaskEditor();$("tasks-status").textContent="Task deleted."}
+ catch(e){$("tasks-status").textContent=e.message}
+}
 async function showConsole(){
  document.body.classList.remove("login-active");
  $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
@@ -303,6 +359,8 @@ async function showConsole(){
  }else if(page==="families"){
   await loadFamilies();
   await loadFamilyDetails(state.families[0]?.id||null);
+ }else if(page==="tasks"){
+  state.agents=await api("/agents");renderTaskAgents();await loadTasks();resetTaskEditor();
  }else{
   await loadFamilies();await loadNotes();resetNoteEditor();
  }
@@ -340,6 +398,6 @@ on("invite-accept","click",async()=>{
 });
 on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFamilies()]);if(state.managedFamilyId)await loadFamilyDetails(state.managedFamilyId)}catch(e){setStatus(e.message,"error")}});
 on("logout","click",async()=>{
- try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];state.notes=[];state.selectedNote=null;if(page==="conversations")renderConversations();if(page==="notes")renderNotes();await showLogin()}
+ try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];state.notes=[];state.selectedNote=null;state.tasks=[];state.selectedTask=null;if(page==="conversations")renderConversations();if(page==="notes")renderNotes();if(page==="tasks")renderTasks();await showLogin()}
 });
 (async()=>{try{await api("/auth/session");await showConsole()}catch(e){await showLogin()}})();

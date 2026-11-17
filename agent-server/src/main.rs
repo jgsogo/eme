@@ -16,12 +16,13 @@ use std::sync::Arc;
 
 use actix_web::{App, HttpServer, middleware, web};
 use agent_server::{LanInvitationConfig, auth::TelegramAuth};
-use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager, TaskRegistry, TaskScheduler};
+use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager};
 use agent_storage::{
     ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteFamilyStore,
 };
 use anyhow::{Context, Result};
 use clap::Parser;
+use tasks_tool::{TaskRegistry, TaskScheduler};
 use telegram_tool::TelegramGateway;
 use tracing::{error, info, warn};
 
@@ -30,7 +31,7 @@ use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
-    invitation_page, notes_page,
+    invitation_page, notes_page, tasks_page,
 };
 
 #[actix_web::main]
@@ -109,7 +110,7 @@ async fn main() -> Result<()> {
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?;
-    let task_scheduler = TaskScheduler::start(task_registry, manager.clone());
+    let task_scheduler = TaskScheduler::start(task_registry.clone(), manager.clone());
     info!("task scheduler started");
     let identity_store = Arc::new(
         FileUserIdentityStore::open(args.data_dir.join("users.json"))
@@ -172,6 +173,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
             .app_data(web::Data::new(notes_store.clone()))
+            .app_data(web::Data::new(task_registry.clone()))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)));
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
@@ -180,6 +182,7 @@ async fn main() -> Result<()> {
             .service(conversations_page)
             .service(families_page)
             .service(notes_page)
+            .service(tasks_page)
             .service(console_stylesheet)
             .service(console_script)
             .service(favicon)
@@ -188,6 +191,7 @@ async fn main() -> Result<()> {
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
+            .service(agent_server::tasks_api())
             .service(agent_server::invitations_api())
             .service(agent_server::agents_api())
             .service(agent_server::runs_api())

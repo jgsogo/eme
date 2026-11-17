@@ -1,16 +1,14 @@
-//! Agent task-management tools.
-//!
-//! This crate adapts the task service to the agent tool interface, exposing
-//! operations to list, create and remove tasks.
-//!
-//! Ownership and persistence are handled by `agent-service`; each operation
-//! is scoped to the authenticated user supplied in `ToolContext`.
+//! Complete task lifecycle: TOML persistence, scheduling and agent tools.
 
+mod registry;
+mod scheduler;
 mod tool;
+
+pub use registry::{NewTask, Task, TaskError, TaskRegistry};
+pub use scheduler::TaskScheduler;
 
 use agent_config::ConfigError;
 use agent_runtime::ToolRegistry;
-use agent_service::TaskRegistry;
 use std::path::PathBuf;
 
 pub fn register_tools(registry: &mut ToolRegistry, tasks: TaskRegistry) -> Result<(), ConfigError> {
