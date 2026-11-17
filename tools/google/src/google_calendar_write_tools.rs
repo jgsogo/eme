@@ -148,7 +148,8 @@ impl Tool for GoogleCalendarUpdateEvent {
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         tracing::info!(
-            audit_event = "google_calendar_event_write",\n            operation = "update",
+            audit_event = "google_calendar_event_write",
+            operation = "update",
             user_id = context.user_id.as_deref().unwrap_or("unknown"),
             calendar_id = %public_id,
             event_id = updated.get("id").and_then(|value| value.as_str()).unwrap_or(event_id),
