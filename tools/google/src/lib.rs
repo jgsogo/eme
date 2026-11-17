@@ -4,8 +4,10 @@
 //! today; Gmail tools can be added here without introducing another crate.
 
 mod calendar;
+mod calendar_list;
 pub mod oauth;
 
+pub use calendar_list::{GoogleCalendarSummary, list_calendars};
 pub use oauth::{
     CalendarScope, GoogleOAuthConfig, GoogleOAuthError, GoogleTokenSet, GoogleUserInfo,
     PendingAuthorization, authorization_request, exchange_code, fetch_user_info,
