@@ -50,6 +50,21 @@ impl IdentityState {
         Ok((user, identity))
     }
 
+    pub(super) fn update_display_name(
+        &mut self,
+        user_id: UserId,
+        display_name: &str,
+    ) -> Result<User, IdentityStoreError> {
+        let display_name = display_name.trim();
+        if display_name.is_empty() || display_name.chars().count() > 80 {
+            return Err(IdentityStoreError::InvalidDisplayName);
+        }
+        let user = self.users.get_mut(&user_id).ok_or(IdentityStoreError::UserNotFound(user_id))?;
+        user.display_name = Some(display_name.to_owned());
+        user.updated_at = Utc::now();
+        Ok(user.clone())
+    }
+
     pub(super) fn link_identity(
         &mut self,
         user_id: UserId,
