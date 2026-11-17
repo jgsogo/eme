@@ -19,4 +19,6 @@ use stored_task::StoredTask;
 
 const LEGACY_TASK_OWNER: &str = "telegram:118716073";
 
-fn default_enabled() -> bool { true }
+fn default_enabled() -> bool {
+    true
+}
