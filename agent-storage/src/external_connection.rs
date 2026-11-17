@@ -350,9 +350,6 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
     ) -> Result<String, ExternalConnectionStorageError> {
         let db = self.db.lock().await;
         let connection = load(&db, owner, id)?.ok_or(ExternalConnectionStorageError::NotFound)?;
-        if connection.status != ExternalConnectionStatus::Active {
-            return Err(ExternalConnectionStorageError::NotFound);
-        }
         let plaintext = self.cipher.decrypt(&connection.encrypted_refresh_token)?;
         String::from_utf8(plaintext).map_err(|_| ExternalConnectionStorageError::Encryption)
     }
