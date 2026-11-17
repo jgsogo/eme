@@ -411,8 +411,6 @@ async fn disconnect(
     HttpResponse::NoContent().finish()
 }
 
-
-
 #[derive(Serialize)]
 struct ConnectedCalendarResponse {
     id: ConnectedCalendarId,
@@ -442,7 +440,9 @@ fn calendar_storage_error(error: ConnectedCalendarStorageError) -> HttpResponse 
         | ConnectedCalendarStorageError::CalendarNotFound => HttpResponse::NotFound().finish(),
         ConnectedCalendarStorageError::InsufficientScopes => HttpResponse::Conflict()
             .body("The connected Google account has not granted calendar write access"),
-        ConnectedCalendarStorageError::EmptyProviderCalendarId => HttpResponse::BadRequest().finish(),
+        ConnectedCalendarStorageError::EmptyProviderCalendarId => {
+            HttpResponse::BadRequest().finish()
+        }
         ConnectedCalendarStorageError::Backend(error) => {
             tracing::error!(%error, "connected calendar storage failed");
             HttpResponse::InternalServerError().finish()
@@ -469,11 +469,18 @@ async fn list_connected_calendars(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
     };
-    let calendars = state.calendar_store.as_ref().expect("enabled state has calendar storage")
-        .list_for_connection(owner, connection_id).await;
+    let calendars = state
+        .calendar_store
+        .as_ref()
+        .expect("enabled state has calendar storage")
+        .list_for_connection(owner, connection_id)
+        .await;
     match calendars {
         Ok(calendars) => HttpResponse::Ok().json(
-            calendars.into_iter().map(ConnectedCalendarResponse::from).collect::<Vec<_>>()
+            calendars
+                .into_iter()
+                .map(ConnectedCalendarResponse::from)
+                .collect::<Vec<_>>(),
         ),
         Err(error) => calendar_storage_error(error),
     }
@@ -498,10 +505,17 @@ async fn sync_connected_calendars(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
     };
-    let store = state.store.as_ref().expect("enabled state has connection storage");
+    let store = state
+        .store
+        .as_ref()
+        .expect("enabled state has connection storage");
     let connection = match store.get_connection(owner, connection_id).await {
-        Ok(Some(connection)) if connection.provider == "google"
-            && connection.status == ExternalConnectionStatus::Active => connection,
+        Ok(Some(connection))
+            if connection.provider == "google"
+                && connection.status == ExternalConnectionStatus::Active =>
+        {
+            connection
+        }
         Ok(_) => return HttpResponse::NotFound().finish(),
         Err(error) => {
             tracing::error!(%error, "could not inspect Google connection for calendar sync");
@@ -515,24 +529,37 @@ async fn sync_connected_calendars(
             return HttpResponse::InternalServerError().finish();
         }
     };
-    let config = state.config.as_ref().expect("enabled state has OAuth config");
+    let config = state
+        .config
+        .as_ref()
+        .expect("enabled state has OAuth config");
     let discovered = match list_calendars(config, &refresh_token).await {
-        Ok(calendars) => calendars.into_iter().map(|calendar| DiscoveredCalendar {
-            provider_calendar_id: calendar.id,
-            display_name: calendar.summary,
-            time_zone: calendar.time_zone,
-            provider_access_role: calendar.access_role,
-        }).collect(),
+        Ok(calendars) => calendars
+            .into_iter()
+            .map(|calendar| DiscoveredCalendar {
+                provider_calendar_id: calendar.id,
+                display_name: calendar.summary,
+                time_zone: calendar.time_zone,
+                provider_access_role: calendar.access_role,
+            })
+            .collect(),
         Err(error) => {
             tracing::warn!(%error, connection_id = %connection.id, "Google Calendar discovery failed");
             return HttpResponse::BadGateway().body("Google Calendar discovery failed");
         }
     };
-    let calendars = state.calendar_store.as_ref().expect("enabled state has calendar storage")
-        .sync_discovered(owner, connection_id, discovered).await;
+    let calendars = state
+        .calendar_store
+        .as_ref()
+        .expect("enabled state has calendar storage")
+        .sync_discovered(owner, connection_id, discovered)
+        .await;
     match calendars {
         Ok(calendars) => HttpResponse::Ok().json(
-            calendars.into_iter().map(ConnectedCalendarResponse::from).collect::<Vec<_>>()
+            calendars
+                .into_iter()
+                .map(ConnectedCalendarResponse::from)
+                .collect::<Vec<_>>(),
         ),
         Err(error) => calendar_storage_error(error),
     }
@@ -567,8 +594,12 @@ async fn update_connected_calendar(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("Invalid calendar ID"),
     };
-    let calendar = state.calendar_store.as_ref().expect("enabled state has calendar storage")
-        .update(owner, calendar_id, body.selected, body.access_mode).await;
+    let calendar = state
+        .calendar_store
+        .as_ref()
+        .expect("enabled state has calendar storage")
+        .update(owner, calendar_id, body.selected, body.access_mode)
+        .await;
     match calendar {
         Ok(calendar) => HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar)),
         Err(error) => calendar_storage_error(error),

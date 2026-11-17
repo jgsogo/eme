@@ -1,6 +1,6 @@
 //! Persistence contracts and storage backends for the EME agent platform.
-mod contracts;
 mod connected_calendar;
+mod contracts;
 mod conversation;
 mod external_connection;
 mod family;

@@ -45,23 +45,36 @@ pub async fn list_calendars(
         if let Some(token) = page_token.as_deref() {
             request = request.query(&[("pageToken", token)]);
         }
-        let response = request.send().await
+        let response = request
+            .send()
+            .await
             .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
         let status = response.status();
-        let body = response.text().await
+        let body = response
+            .text()
+            .await
             .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
         if !status.is_success() {
             let detail = serde_json::from_str::<serde_json::Value>(&body)
                 .ok()
-                .and_then(|value| value.pointer("/error/message").and_then(serde_json::Value::as_str).map(str::to_owned))
+                .and_then(|value| {
+                    value
+                        .pointer("/error/message")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_owned)
+                })
                 .unwrap_or(body);
-            return Err(GoogleOAuthError::Request(format!("Google Calendar API returned {status}: {detail}")));
+            return Err(GoogleOAuthError::Request(format!(
+                "Google Calendar API returned {status}: {detail}"
+            )));
         }
         let page: CalendarListPage = serde_json::from_str(&body)
             .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
         calendars.extend(page.items);
         page_token = page.next_page_token;
-        if page_token.is_none() { break; }
+        if page_token.is_none() {
+            break;
+        }
     }
     Ok(calendars)
 }
@@ -80,7 +93,8 @@ mod tests {
                 "accessRole": "owner"
             }],
             "nextPageToken": "next"
-        })).unwrap();
+        }))
+        .unwrap();
         assert_eq!(page.items.len(), 1);
         assert_eq!(page.items[0].id, "primary");
         assert_eq!(page.items[0].time_zone.as_deref(), Some("Europe/Madrid"));
