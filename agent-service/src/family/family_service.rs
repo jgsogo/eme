@@ -89,6 +89,20 @@ impl FamilyService {
         Ok(family)
     }
 
+    /// Adds a manually managed member without creating an external identity.
+    pub async fn add_managed_member(&self, actor: UserId, family_id: FamilyId, user_id: UserId, relationship: FamilyRelationship) -> Result<FamilyMember, FamilyServiceError> {
+        self.require_admin(family_id, actor).await?;
+        let member = FamilyMember { family_id, user_id, role: FamilyRole::Member, relationship, joined_at: Utc::now() };
+        self.families.add_member(member.clone()).await?;
+        Ok(member)
+    }
+
+    pub async fn authorize_member_profile_update(&self, actor: UserId, family_id: FamilyId, target: UserId) -> Result<(), FamilyServiceError> {
+        self.require_admin(family_id, actor).await?;
+        self.actor_member(family_id, target).await?;
+        Ok(())
+    }
+
     pub async fn list_families(&self, actor: UserId) -> Result<Vec<Family>, FamilyServiceError> {
         self.families.list_families(actor).await.map_err(Into::into)
     }
