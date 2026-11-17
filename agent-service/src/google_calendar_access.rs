@@ -42,8 +42,8 @@ impl GoogleCalendarAccessService {
         calendar_id: &str,
         family_id: Option<&str>,
     ) -> Result<AuthorizedGoogleCalendar, GoogleCalendarAccessError> {
-        let user = UserId::from_str(user_id)
-            .map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
+        let user =
+            UserId::from_str(user_id).map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
         let calendar_id = ConnectedCalendarId::from_str(calendar_id)
             .map_err(|_| GoogleCalendarAccessError::NotFound)?;
 
@@ -129,22 +129,18 @@ mod tests {
     use super::*;
     use agent_storage::{
         CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendarStore, DiscoveredCalendar,
-        ExternalConnectionStore, FamilyInvitationStore, FamilyRelationship, InMemoryFamilyInvitationStore,
-        InMemoryFamilyStore, NewExternalConnection, SqliteConnectedCalendarStore,
-        SqliteExternalConnectionStore,
+        ExternalConnectionStore, FamilyInvitationStore, FamilyRelationship,
+        InMemoryFamilyInvitationStore, InMemoryFamilyStore, NewExternalConnection,
+        SqliteConnectedCalendarStore, SqliteExternalConnectionStore,
     };
 
     #[tokio::test]
     async fn owner_and_current_family_members_can_read_but_removed_members_cannot() {
-        let path = std::env::temp_dir().join(format!(
-            "eme-google-access-{}.sqlite",
-            uuid::Uuid::new_v4()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("eme-google-access-{}.sqlite", uuid::Uuid::new_v4()));
         let owner = UserId::new();
         let member = UserId::new();
-        let connections = Arc::new(
-            SqliteExternalConnectionStore::open(&path, [0x42; 32]).unwrap(),
-        );
+        let connections = Arc::new(SqliteExternalConnectionStore::open(&path, [0x42; 32]).unwrap());
         let calendars = Arc::new(SqliteConnectedCalendarStore::open(&path).unwrap());
         let connection = connections
             .create_connection(NewExternalConnection {
