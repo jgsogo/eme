@@ -348,6 +348,18 @@ async function deleteTask(){
  try{await api("/tasks/"+encodeURIComponent(state.selectedTask),{method:"DELETE"});await loadTasks();resetTaskEditor();$("tasks-status").textContent="Task deleted."}
  catch(e){$("tasks-status").textContent=e.message}
 }
+async function loadProfile(){
+ try{const profile=await api("/profile");$("profile-display-name").value=profile.display_name||"";$("profile-status").textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
+ catch(e){$("profile-status").textContent=e.message}
+}
+async function saveProfile(event){
+ event.preventDefault();const name=$("profile-display-name").value.trim();if(!name){$("profile-status").textContent="Display name must not be empty.";return}
+ $("save-profile").disabled=true;
+ try{const profile=await api("/profile",{method:"PUT",body:JSON.stringify({display_name:name})});$("profile-display-name").value=profile.display_name;$("profile-status").textContent="Profile saved."}
+ catch(e){$("profile-status").textContent=e.message}
+ finally{$("save-profile").disabled=false}
+}
+on("profile-form","submit",saveProfile);
 async function showConsole(){
  document.body.classList.remove("login-active");
  $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
@@ -361,6 +373,8 @@ async function showConsole(){
   await loadFamilyDetails(state.families[0]?.id||null);
  }else if(page==="tasks"){
   state.agents=await api("/agents");renderTaskAgents();await loadTasks();resetTaskEditor();
+ }else if(page==="profile"){
+  await loadProfile();
  }else{
   await loadFamilies();await loadNotes();resetNoteEditor();
  }
