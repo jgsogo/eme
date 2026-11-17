@@ -58,6 +58,13 @@ impl Tool for GoogleCalendarCreateEvent {
             )
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
+        tracing::info!(
+            operation = "create",
+            user_id = context.user_id.as_deref().unwrap_or("unknown"),
+            calendar_id = %public_id,
+            event_id = created.get("id").and_then(Value::as_str).unwrap_or("unknown"),
+            "Google Calendar event write completed"
+        );
         serde_json::to_string_pretty(
             &json!({"calendar_id": public_id, "event": public_event(created)}),
         )
@@ -139,6 +146,13 @@ impl Tool for GoogleCalendarUpdateEvent {
             )
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
+        tracing::info!(
+            operation = "update",
+            user_id = context.user_id.as_deref().unwrap_or("unknown"),
+            calendar_id = %public_id,
+            event_id = updated.get("id").and_then(Value::as_str).unwrap_or(event_id),
+            "Google Calendar event write completed"
+        );
         serde_json::to_string_pretty(
             &json!({"calendar_id": public_id, "event": public_event(updated)}),
         )
