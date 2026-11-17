@@ -275,7 +275,8 @@ async fn oauth_callback(
                 }
             };
             let Some(existing) = existing else {
-                return HttpResponse::Conflict().body("Google did not issue a refresh token for this new account");
+                return HttpResponse::Conflict()
+                    .body("Google did not issue a refresh token for this new account");
             };
             match store.refresh_token(user_id, existing.id).await {
                 Ok(token) => token,
