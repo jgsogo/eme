@@ -76,6 +76,20 @@ impl UserIdentityStore for InMemoryUserIdentityStore {
             .get(&identity_key(provider, subject))
             .cloned())
     }
+    fn find_identity_for_user(
+        &self,
+        provider: &str,
+        user_id: UserId,
+    ) -> Result<Option<UserIdentity>, IdentityStoreError> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .identities
+            .values()
+            .find(|identity| identity.provider == provider && identity.user_id == user_id)
+            .cloned())
+    }
     fn link_identity(
         &self,
         user_id: UserId,

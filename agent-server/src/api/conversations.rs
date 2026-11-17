@@ -297,6 +297,12 @@ async fn continue_conversation(
                         Ok(id) => id,
                         Err(_) => return HttpResponse::InternalServerError().finish(),
                     };
+                    member.telegram_id =
+                        match identities.find_identity_for_user("telegram", member_id) {
+                            Ok(Some(identity)) => Some(identity.subject),
+                            Ok(None) => None,
+                            Err(_) => return HttpResponse::InternalServerError().finish(),
+                        };
                     let user = match identities.get_user(member_id) {
                         Ok(user) => user,
                         Err(_) => return HttpResponse::InternalServerError().finish(),
