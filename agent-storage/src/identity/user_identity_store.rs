@@ -34,6 +34,12 @@ pub trait UserIdentityStore: Send + Sync {
         provider: &str,
         subject: &str,
     ) -> Result<Option<UserIdentity>, IdentityStoreError>;
+    /// Finds an external identity linked to an internal user for a provider.
+    fn find_identity_for_user(
+        &self,
+        provider: &str,
+        user_id: UserId,
+    ) -> Result<Option<UserIdentity>, IdentityStoreError>;
     fn link_identity(
         &self,
         user_id: UserId,
