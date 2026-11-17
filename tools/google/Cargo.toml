@@ -7,6 +7,7 @@ edition = "2024"
 agent-config = { path = "../../agent-config" }
 agent-runtime = { path = "../../agent-runtime" }
 agent-service = { path = "../../agent-service" }
+agent-storage = { path = "../../agent-storage" }
 
 async-trait = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
