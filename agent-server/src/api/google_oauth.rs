@@ -2,10 +2,19 @@
 
 use std::{path::Path, str::FromStr, sync::Arc};
 
-use actix_web::{HttpRequest, HttpResponse, Responder, Scope, delete, get, post, web::{self, Data, Json, Path as PathParam, Query}};
-use agent_storage::{ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore, FileUserIdentityStore, NewExternalAuthorization, NewExternalConnection, SqliteExternalConnectionStore, UserId, UserIdentityStore};
+use actix_web::{
+    HttpRequest, HttpResponse, Responder, Scope, delete, get, post,
+    web::{self, Data, Json, Path as PathParam, Query},
+};
+use agent_storage::{
+    ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore, FileUserIdentityStore,
+    NewExternalAuthorization, NewExternalConnection, SqliteExternalConnectionStore, UserId,
+    UserIdentityStore,
+};
 use chrono::{Duration, Utc};
-use google_tool::{CalendarScope, GoogleOAuthConfig, authorization_request, exchange_code, fetch_user_info};
+use google_tool::{
+    CalendarScope, GoogleOAuthConfig, authorization_request, exchange_code, fetch_user_info,
+};
 use serde::{Deserialize, Serialize};
 
 const AUTHORIZATION_TTL_MINUTES: i64 = 10;
@@ -22,16 +31,25 @@ impl GoogleOAuthState {
         let client_secret = std::env::var("GOOGLE_OAUTH_CLIENT_SECRET").ok();
         let redirect_uri = std::env::var("GOOGLE_OAUTH_REDIRECT_URI").ok();
         let encryption_key = std::env::var("EME_CREDENTIAL_ENCRYPTION_KEY").ok();
-        let configured = [client_id.is_some(), client_secret.is_some(), redirect_uri.is_some(), encryption_key.is_some()];
+        let configured = [
+            client_id.is_some(),
+            client_secret.is_some(),
+            redirect_uri.is_some(),
+            encryption_key.is_some(),
+        ];
         if configured.iter().all(|value| !*value) {
-            return Ok(Self { config: None, store: None });
+            return Ok(Self {
+                config: None,
+                store: None,
+            });
         }
         if configured.iter().any(|value| !*value) {
             return Err("Google OAuth requires GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI, and EME_CREDENTIAL_ENCRYPTION_KEY".to_owned());
         }
         let key = parse_encryption_key(encryption_key.as_deref().unwrap_or_default())?;
-        let store = SqliteExternalConnectionStore::open(data_dir.join("external_connections.sqlite"), key)
-            .map_err(|error| format!("opening external connection storage: {error}"))?;
+        let store =
+            SqliteExternalConnectionStore::open(data_dir.join("external_connections.sqlite"), key)
+                .map_err(|error| format!("opening external connection storage: {error}"))?;
         Ok(Self {
             config: Some(GoogleOAuthConfig {
                 client_id: client_id.unwrap_or_default(),
@@ -42,12 +60,17 @@ impl GoogleOAuthState {
         })
     }
 
-    fn enabled(&self) -> bool { self.config.is_some() && self.store.is_some() }
+    fn enabled(&self) -> bool {
+        self.config.is_some() && self.store.is_some()
+    }
 }
 
 fn parse_encryption_key(value: &str) -> Result<[u8; 32], String> {
     if value.len() != 64 || !value.is_ascii() {
-        return Err("EME_CREDENTIAL_ENCRYPTION_KEY must contain exactly 64 hexadecimal characters".to_owned());
+        return Err(
+            "EME_CREDENTIAL_ENCRYPTION_KEY must contain exactly 64 hexadecimal characters"
+                .to_owned(),
+        );
     }
     let mut key = [0_u8; 32];
     for (index, byte) in key.iter_mut().enumerate() {
@@ -63,10 +86,15 @@ fn current_user_id(
     auth: &crate::auth::TelegramAuth,
     identities: &FileUserIdentityStore,
 ) -> Result<UserId, HttpResponse> {
-    let owner = auth.owner_for_request(request).ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    let subject = owner.strip_prefix("telegram:").filter(|value| !value.is_empty())
+    let owner = auth
+        .owner_for_request(request)
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
-    let identity = identities.find_identity("telegram", subject)
+    let subject = owner
+        .strip_prefix("telegram:")
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
+    let identity = identities
+        .find_identity("telegram", subject)
         .map_err(|_| HttpResponse::InternalServerError().finish())?
         .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
     Ok(identity.user_id)
@@ -74,16 +102,24 @@ fn current_user_id(
 
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum RequestedAccess { ReadOnly, ReadWrite }
+enum RequestedAccess {
+    ReadOnly,
+    ReadWrite,
+}
 
 impl From<RequestedAccess> for CalendarScope {
     fn from(value: RequestedAccess) -> Self {
-        match value { RequestedAccess::ReadOnly => Self::ReadOnly, RequestedAccess::ReadWrite => Self::ReadWrite }
+        match value {
+            RequestedAccess::ReadOnly => Self::ReadOnly,
+            RequestedAccess::ReadWrite => Self::ReadWrite,
+        }
     }
 }
 
 #[derive(Deserialize)]
-struct StartGoogleOAuthRequest { access: RequestedAccess }
+struct StartGoogleOAuthRequest {
+    access: RequestedAccess,
+}
 
 #[derive(Serialize)]
 struct StartGoogleOAuthResponse {
@@ -99,12 +135,17 @@ async fn start_oauth(
     state: Data<GoogleOAuthState>,
     body: Json<StartGoogleOAuthRequest>,
 ) -> impl Responder {
-    if !state.enabled() { return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured"); }
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
     let user_id = match current_user_id(&request, &auth, &identities) {
         Ok(id) => id,
         Err(response) => return response,
     };
-    let config = state.config.as_ref().expect("enabled state has OAuth config");
+    let config = state
+        .config
+        .as_ref()
+        .expect("enabled state has OAuth config");
     let store = state.store.as_ref().expect("enabled state has storage");
     let access: CalendarScope = body.access.into();
     let requested_scopes = match access {
@@ -129,14 +170,17 @@ async fn start_oauth(
         }
     };
     let expires_at = Utc::now() + Duration::minutes(AUTHORIZATION_TTL_MINUTES);
-    if let Err(error) = store.begin_authorization(NewExternalAuthorization {
-        user_id,
-        provider: "google".to_owned(),
-        state: pending.state,
-        pkce_verifier: pending.pkce_verifier,
-        requested_scopes,
-        expires_at,
-    }).await {
+    if let Err(error) = store
+        .begin_authorization(NewExternalAuthorization {
+            user_id,
+            provider: "google".to_owned(),
+            state: pending.state,
+            pkce_verifier: pending.pkce_verifier,
+            requested_scopes,
+            expires_at,
+        })
+        .await
+    {
         tracing::error!(%error, "could not persist Google OAuth state");
         return HttpResponse::InternalServerError().finish();
     }
@@ -147,7 +191,11 @@ async fn start_oauth(
 }
 
 #[derive(Deserialize)]
-struct GoogleOAuthCallback { code: Option<String>, state: String, error: Option<String> }
+struct GoogleOAuthCallback {
+    code: Option<String>,
+    state: String,
+    error: Option<String>,
+}
 
 #[derive(Serialize)]
 struct ConnectedGoogleAccount {
@@ -165,13 +213,18 @@ async fn oauth_callback(
     state: Data<GoogleOAuthState>,
     query: Query<GoogleOAuthCallback>,
 ) -> impl Responder {
-    if !state.enabled() { return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured"); }
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
     let user_id = match current_user_id(&request, &auth, &identities) {
         Ok(id) => id,
         Err(response) => return response,
     };
     let store = state.store.as_ref().expect("enabled state has storage");
-    let consumed = match store.consume_authorization("google", &query.state, Utc::now()).await {
+    let consumed = match store
+        .consume_authorization("google", &query.state, Utc::now())
+        .await
+    {
         Ok(value) => value,
         Err(error) => {
             tracing::warn!(%error, "rejected Google OAuth callback state");
@@ -181,11 +234,16 @@ async fn oauth_callback(
     if consumed.user_id != user_id {
         return HttpResponse::Forbidden().body("OAuth authorization belongs to another user");
     }
-    if query.error.is_some() { return HttpResponse::BadRequest().body("Google authorization was not completed"); }
+    if query.error.is_some() {
+        return HttpResponse::BadRequest().body("Google authorization was not completed");
+    }
     let Some(code) = query.code.as_ref().filter(|value| !value.is_empty()) else {
         return HttpResponse::BadRequest().body("Google did not return an authorization code");
     };
-    let config = state.config.as_ref().expect("enabled state has OAuth config");
+    let config = state
+        .config
+        .as_ref()
+        .expect("enabled state has OAuth config");
     let tokens = match exchange_code(config, code.clone(), consumed.pkce_verifier).await {
         Ok(tokens) => tokens,
         Err(error) => {
@@ -204,14 +262,17 @@ async fn oauth_callback(
     let Some(refresh_token) = tokens.refresh_token else {
         return HttpResponse::Conflict().body("Google did not issue a refresh token. Revoke the previous EME grant in Google account settings and try again.");
     };
-    let connection = match store.create_connection(NewExternalConnection {
-        owner_id: user_id,
-        provider: "google".to_owned(),
-        provider_subject: identity.sub,
-        display_email: Some(identity.email),
-        refresh_token,
-        granted_scopes: tokens.scopes,
-    }).await {
+    let connection = match store
+        .create_connection(NewExternalConnection {
+            owner_id: user_id,
+            provider: "google".to_owned(),
+            provider_subject: identity.sub,
+            display_email: Some(identity.email),
+            refresh_token,
+            granted_scopes: tokens.scopes,
+        })
+        .await
+    {
         Ok(connection) => connection,
         Err(agent_storage::ExternalConnectionStorageError::AlreadyExists) => {
             return HttpResponse::Conflict().body("This Google account is already connected");
@@ -236,18 +297,31 @@ async fn list_connections(
     identities: Data<Arc<FileUserIdentityStore>>,
     state: Data<GoogleOAuthState>,
 ) -> impl Responder {
-    if !state.enabled() { return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured"); }
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
     let user_id = match current_user_id(&request, &auth, &identities) {
         Ok(id) => id,
         Err(response) => return response,
     };
-    match state.store.as_ref().expect("enabled state has storage").list_connections(user_id).await {
-        Ok(connections) => HttpResponse::Ok().json(connections.into_iter().map(|connection| ConnectedGoogleAccount {
-            id: connection.id,
-            email: connection.display_email,
-            scopes: connection.granted_scopes,
-            status: connection.status,
-        }).collect::<Vec<_>>()),
+    match state
+        .store
+        .as_ref()
+        .expect("enabled state has storage")
+        .list_connections(user_id)
+        .await
+    {
+        Ok(connections) => HttpResponse::Ok().json(
+            connections
+                .into_iter()
+                .map(|connection| ConnectedGoogleAccount {
+                    id: connection.id,
+                    email: connection.display_email,
+                    scopes: connection.granted_scopes,
+                    status: connection.status,
+                })
+                .collect::<Vec<_>>(),
+        ),
         Err(error) => {
             tracing::error!(%error, "could not list Google account connections");
             HttpResponse::InternalServerError().finish()
@@ -263,7 +337,9 @@ async fn disconnect(
     state: Data<GoogleOAuthState>,
     connection_id: PathParam<String>,
 ) -> impl Responder {
-    if !state.enabled() { return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured"); }
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
     let user_id = match current_user_id(&request, &auth, &identities) {
         Ok(id) => id,
         Err(response) => return response,
@@ -275,7 +351,9 @@ async fn disconnect(
     let store = state.store.as_ref().expect("enabled state has storage");
     let refresh_token = match store.refresh_token(user_id, id).await {
         Ok(token) => token,
-        Err(agent_storage::ExternalConnectionStorageError::NotFound) => return HttpResponse::NotFound().finish(),
+        Err(agent_storage::ExternalConnectionStorageError::NotFound) => {
+            return HttpResponse::NotFound().finish();
+        }
         Err(error) => {
             tracing::error!(%error, "could not load Google credential for revocation");
             return HttpResponse::InternalServerError().finish();
@@ -300,7 +378,6 @@ pub fn google_integrations_api() -> Scope {
         .service(list_connections)
         .service(disconnect)
 }
-
 
 #[cfg(test)]
 mod tests {
