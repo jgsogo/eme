@@ -296,7 +296,8 @@ pub(super) async fn handle_message(
                         Ok(user) => user,
                         Err(error) => {
                             active_conversations.lock().await.remove(&conversation.id);
-                            send_error(gateway, message.chat_id, "load a family member", error).await;
+                            send_error(gateway, message.chat_id, "load a family member", error)
+                                .await;
                             return;
                         }
                     };
