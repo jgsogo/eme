@@ -1,6 +1,5 @@
-use crate::refresh_access_token;
 use super::GoogleCalendarClient;
-use crate::GoogleCalendarRuntimeConfig;
+use crate::{GoogleCalendarRuntimeConfig, refresh_access_token};
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
@@ -20,7 +19,9 @@ impl GoogleCalendarEvents {
 impl Tool for GoogleCalendarEvents {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let runtime = self.runtime.as_ref().ok_or_else(|| {
-            ToolError::Configuration("Google Calendar OAuth is not configured on this server.".into())
+            ToolError::Configuration(
+                "Google Calendar OAuth is not configured on this server.".into(),
+            )
         })?;
         let user_id = context.user_id.as_deref().ok_or_else(|| {
             ToolError::Configuration("Google Calendar requires an authenticated EME user.".into())
@@ -52,7 +53,10 @@ impl Tool for GoogleCalendarEvents {
 
         // Identity and family context are trusted host metadata. The model can
         // supply only the opaque EME calendar ID, never an owner or family ID.
-        let family_id = context.family.as_ref().map(|family| family.family_id.as_str());
+        let family_id = context
+            .family
+            .as_ref()
+            .map(|family| family.family_id.as_str());
         let authorized = runtime
             .access
             .authorize_read(user_id, calendar_id, family_id)
