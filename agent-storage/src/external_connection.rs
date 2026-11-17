@@ -177,6 +177,13 @@ pub trait ExternalConnectionStore: Send + Sync {
         owner: UserId,
         id: ExternalConnectionId,
     ) -> Result<Option<ExternalConnection>, ExternalConnectionStorageError>;
+    /// Decrypt a refresh token for a trusted server-side provider operation.
+    /// This must never be exposed through an HTTP response or agent tool.
+    async fn refresh_token(
+        &self,
+        owner: UserId,
+        id: ExternalConnectionId,
+    ) -> Result<String, ExternalConnectionStorageError>;
     async fn list_connections(
         &self,
         owner: UserId,
@@ -313,6 +320,20 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
         let db = self.db.lock().await;
         load(&db, o, id)
     }
+    async fn refresh_token(
+        &self,
+        owner: UserId,
+        id: ExternalConnectionId,
+    ) -> Result<String, ExternalConnectionStorageError> {
+        let db = self.db.lock().await;
+        let connection = load(&db, owner, id)?.ok_or(ExternalConnectionStorageError::NotFound)?;
+        if connection.status != ExternalConnectionStatus::Active {
+            return Err(ExternalConnectionStorageError::NotFound);
+        }
+        let plaintext = self.cipher.decrypt(&connection.encrypted_refresh_token)?;
+        String::from_utf8(plaintext).map_err(|_| ExternalConnectionStorageError::Encryption)
+    }
+
     async fn list_connections(
         &self,
         o: UserId,
