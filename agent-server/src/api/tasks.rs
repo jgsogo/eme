@@ -94,7 +94,7 @@ async fn create_task(
     tasks: Data<TaskRegistry>,
     body: Json<TaskRequest>,
 ) -> impl Responder {
-    let user = match actor(&request, &auth, &identities) {
+    let user = match actor(&request, &auth, &identities, &tasks) {
         Ok(user) => user,
         Err(response) => return response,
     };
@@ -119,7 +119,7 @@ async fn update_task(
     task_id: Path<String>,
     body: Json<TaskRequest>,
 ) -> impl Responder {
-    let user = match actor(&request, &auth, &identities) {
+    let user = match actor(&request, &auth, &identities, &tasks) {
         Ok(user) => user,
         Err(response) => return response,
     };
@@ -143,7 +143,7 @@ async fn delete_task(
     tasks: Data<TaskRegistry>,
     task_id: Path<String>,
 ) -> impl Responder {
-    let user = match actor(&request, &auth, &identities) {
+    let user = match actor(&request, &auth, &identities, &tasks) {
         Ok(user) => user,
         Err(response) => return response,
     };
