@@ -137,6 +137,12 @@ pub trait ConnectedCalendarStore: Send + Sync {
         owner: UserId,
         connection: ExternalConnectionId,
     ) -> Result<Vec<ConnectedCalendar>, ConnectedCalendarStorageError>;
+    /// Resolve a selected calendar by its internal EME identifier.
+    /// Only calendars backed by an active provider connection are returned.
+    async fn get_selected(
+        &self,
+        id: ConnectedCalendarId,
+    ) -> Result<Option<ConnectedCalendar>, ConnectedCalendarStorageError>;
     async fn update(
         &self,
         owner: UserId,
@@ -361,6 +367,27 @@ impl ConnectedCalendarStore for SqliteConnectedCalendarStore {
             .map_err(backend)?;
         rows.map(|row| parse_calendar(row.map_err(backend)?))
             .collect()
+    }
+
+    async fn get_selected(
+        &self,
+        id: ConnectedCalendarId,
+    ) -> Result<Option<ConnectedCalendar>, ConnectedCalendarStorageError> {
+        let db = self.db.lock().map_err(|_| {
+            ConnectedCalendarStorageError::Backend("calendar database lock poisoned".into())
+        })?;
+        let sql = format!(
+            "SELECT {SELECT_COLUMNS} FROM connected_calendars cal
+             WHERE cal.id=?1 AND cal.selected=1 AND EXISTS(
+                SELECT 1 FROM external_connections c
+                WHERE c.id=cal.connection_id AND c.owner_id=cal.owner_id
+                  AND c.provider='google' AND c.status='active')"
+        );
+        let row = db
+            .query_row(&sql, [id.to_string()], load_row)
+            .optional()
+            .map_err(backend)?;
+        row.map(parse_calendar).transpose()
     }
 
     async fn update(
