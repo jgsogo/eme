@@ -59,7 +59,7 @@ impl Tool for GoogleCalendarCreateEvent {
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         tracing::info!(
-            operation = "create",
+            audit_event = "google_calendar_event_write",\n            operation = "create",
             user_id = context.user_id.as_deref().unwrap_or("unknown"),
             calendar_id = %public_id,
             event_id = created.get("id").and_then(|value| value.as_str()).unwrap_or("unknown"),
@@ -147,7 +147,7 @@ impl Tool for GoogleCalendarUpdateEvent {
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         tracing::info!(
-            operation = "update",
+            audit_event = "google_calendar_event_write",\n            operation = "update",
             user_id = context.user_id.as_deref().unwrap_or("unknown"),
             calendar_id = %public_id,
             event_id = updated.get("id").and_then(|value| value.as_str()).unwrap_or(event_id),
