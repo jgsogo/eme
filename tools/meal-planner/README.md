@@ -72,3 +72,8 @@ The authenticated API exposes:
 - `POST /meal-planner/plans/{plan_id}/shopping-list/items` to add a manual item
 - `PUT /meal-planner/plans/{plan_id}/shopping-list/items/{item_id}` to edit an item or mark it purchased
 - `DELETE /meal-planner/plans/{plan_id}/shopping-list/items/{item_id}` to remove an item (generated items are retained as removal markers for future regeneration)
+
+
+## AI-assisted planning
+
+Agent proposals are untrusted, non-persistent values. The Meal Planner application validates each proposal against the selected week, household members, recipes and school-menu records. Saving a proposal creates or updates a draft; confirming a saved draft is a separate explicit operation. Agent tools are thin adapters over these application use cases, and the assistant must explicitly allow-list each tool.
