@@ -16,6 +16,7 @@ use std::{str::FromStr, sync::Arc};
 #[derive(Deserialize)]
 struct SearchQuery {
     q: Option<String>,
+    family_id: Option<String>,
 }
 
 fn error_response(error: MealPlannerError) -> HttpResponse {
@@ -111,7 +112,12 @@ async fn list_recipes(
         Err(response) => return response,
     };
 
-    match store.list_recipes(&user.to_string(), &ids, query.q.as_deref()) {
+    let family_id = match query.family_id.as_deref() {
+        Some(id) => id,
+        None => return HttpResponse::BadRequest().body("family_id is required"),
+    };
+    if let Err(response) = validate_family(Some(family_id), &ids) { return response; }
+    match store.list_recipes(&user.to_string(), &[family_id.to_owned()], query.q.as_deref()) {
         Ok(recipes) => HttpResponse::Ok().json(recipes),
         Err(error) => error_response(error),
     }
@@ -152,6 +158,7 @@ async fn get_recipe(
     families: Data<Arc<FamilyService>>,
     store: Data<MealPlannerStore>,
     id: Path<i64>,
+    query: Query<SearchQuery>,
 ) -> impl Responder {
     let user = match authenticated_user(&request, &auth, &identities) {
         Ok(user) => user,
@@ -162,7 +169,12 @@ async fn get_recipe(
         Err(response) => return response,
     };
 
-    match store.get_recipe(id.into_inner(), &user.to_string(), &ids) {
+    let family_id = match query.family_id.as_deref() {
+        Some(id) => id,
+        None => return HttpResponse::BadRequest().body("family_id is required"),
+    };
+    if let Err(response) = validate_family(Some(family_id), &ids) { return response; }
+    match store.get_recipe(id.into_inner(), &user.to_string(), &[family_id.to_owned()]) {
         Ok(recipe) => HttpResponse::Ok().json(recipe),
         Err(error) => error_response(error),
     }
