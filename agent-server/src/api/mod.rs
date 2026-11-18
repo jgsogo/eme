@@ -4,6 +4,7 @@ mod agents;
 mod conversations;
 mod families;
 mod google_oauth;
+mod meal_planner;
 mod notes;
 mod profile;
 mod runs;
@@ -20,6 +21,7 @@ pub use conversations::{
 };
 pub use families::{LanInvitationConfig, families_api, invitations_api};
 pub use google_oauth::{GoogleOAuthState, google_integrations_api};
+pub use meal_planner::meal_planner_api;
 pub use notes::notes_api;
 pub use profile::profile_api;
 pub use runs::runs_api;

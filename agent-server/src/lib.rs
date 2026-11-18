@@ -15,5 +15,6 @@ pub use api::{
     ConversationSummary, CreateConversationRequest, GetRunResponse, GoogleOAuthState,
     LanInvitationConfig, RunEventResponse, SubmitRunRequest, SubmitRunResponse,
     UpdateConversationRequest, agents_api, conversations_api, families_api,
-    google_integrations_api, invitations_api, notes_api, profile_api, runs_api, tasks_api,
+    google_integrations_api, invitations_api, meal_planner_api, notes_api, profile_api, runs_api,
+    tasks_api,
 };

@@ -1,12 +1,11 @@
 //! Meal planning domain and application foundation for the EME platform.
 //!
-//! The crate owns household identities, meal participation rules and persistence.
-//! It is hosted inside the EME monorepo; HTTP handlers and agent tools remain thin
-//! adapters, while authorization and request lifecycle belong to the EME runtime.
-
+//! The crate owns household identities, meal participation rules, recipes and
+//! persistence. HTTP handlers and agent tools remain thin adapters.
 mod config;
 mod domain;
 mod error;
+mod recipes;
 mod store;
 
 pub use config::MealPlannerConfig;
@@ -16,4 +15,5 @@ pub use domain::{
     resolve_date, resolve_week,
 };
 pub use error::MealPlannerError;
+pub use recipes::{Recipe, RecipeDraft, RecipeIngredient};
 pub use store::MealPlannerStore;

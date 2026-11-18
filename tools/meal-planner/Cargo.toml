@@ -8,3 +8,5 @@ description = "Meal planning domain and application foundation for the EME platf
 rusqlite = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
