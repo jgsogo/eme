@@ -29,3 +29,12 @@ Ingredient amounts and units are optional and remain unknown when not supplied. 
 The SQLite recipe table stores a validated, versioned-by-migration JSON payload alongside searchable title and timestamps. The application boundary exposes create, replace, retrieve, list/search and delete operations through `MealPlannerStore`. Search is case-insensitive across title, description, ingredient names, categories and tags.
 
 The authenticated server exposes the catalogue at `/meal-planner/recipes` and serves a responsive recipe page at `/console/recipes`. The cooking view keeps ingredients and preparation steps in their original order and lets the cook check them off locally; those checklist states are not persisted as recipe data.
+
+
+## School lunch menus
+
+School lunch menus are date-keyed records, separate from family recipes and household participation rules. Each date has an explicit state: known, not_published, closed or unknown. A missing database record is distinct from every explicit state. A known menu must contain at least one item; other states cannot contain dishes.
+
+Menu items retain optional notes, allergen annotations (unknown differs from a checked empty list) and dietary alternatives. Records retain source, import timestamp and origin. Manual entries and corrections take precedence: imports skip dates already marked manual, while later imports may refresh earlier imported records.
+
+The application supports manual save/edit, date and inclusive range retrieval, deletion, and a provider-neutral batch import boundary. No public school-menu API or provider format is assumed; a concrete importer should be added only after its source and format are identified. Holiday calendars remain separate context and are not used to infer that a menu is absent or a school is closed.
