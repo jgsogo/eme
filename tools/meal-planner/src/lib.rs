@@ -34,3 +34,4 @@ pub use shopping_lists::{
     NewShoppingListItem, ShoppingList, ShoppingListItem, ShoppingListItemUpdate,
 };
 pub use store::MealPlannerStore;
+pub use tools::register_tools;
