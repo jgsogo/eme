@@ -98,6 +98,15 @@ function renderWeekView() {
       '</article>';
   }).join("") + '</div>';
 
+  // Bind directly to the newly rendered day buttons. This keeps the action
+  // reliable when the week view is replaced after loading or saving.
+  $("menu-week-view").querySelectorAll("[data-edit-date]").forEach(button => {
+    button.addEventListener("click", () => {
+      const date = button.dataset.editDate;
+      edit(state.entries.find(item => item.date === date), date);
+    });
+  });
+
   if (state.selected) {
     const entry = state.entries.find(item => item.date === state.selected);
     edit(entry, state.selected);
@@ -157,7 +166,7 @@ function edit(entry, date) {
       : "Manually entered or corrected")
     : "No menu record exists for this date. Add the dishes and save to create it.";
 
-  $("menu-form").addEventListener("submit", save);
+  // The editor sits after the full week overview, so bring it into view;\n  // otherwise the click can appear to have done nothing on shorter screens.\n  editor.scrollIntoView({ behavior: "smooth", block: "start" });\n\n  $("menu-form").addEventListener("submit", save);
   $("cancel-menu").addEventListener("click", () => {
     state.selected = null;
     renderWeekView();
@@ -261,12 +270,6 @@ async function loadWeek() {
     throw error;
   }
 }
-
-$("menu-content").addEventListener("click", event => {
-  const button = event.target.closest("[data-edit-date]");
-  if (!button) return;
-  edit(state.entries.find(item => item.date === button.dataset.editDate), button.dataset.editDate);
-});
 
 $("previous-week").addEventListener("click", () => {
   const start = monday($("week-date").value);
