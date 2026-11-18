@@ -18,4 +18,4 @@ $("menu-list").addEventListener("click",e=>{const b=e.target.closest("[data-date
 $("menu-content").addEventListener("click",e=>{const b=e.target.closest("[data-edit-date]");if(!b)return;state.selected=b.dataset.editDate;renderList()});
 $("week-date").addEventListener("change",()=>loadWeek().catch(()=>{}));
 $("logout").addEventListener("click",async()=>{try{await api("/auth/logout",{method:"POST"});window.location.reload()}catch(error){$("connection").textContent="Sign out failed: "+error.message}});
-(async()=>{$("week-date").value=dateString(new Date());try{await loadWeek();$("connection").textContent="Connected"}catch(error){$("connection").textContent="Connection error";$("menu-list").textContent=error.message;console.error("Failed to load school menus",error)}})();
+(async()=>{$("week-date").value=dateString(new Date());try{await loadWeek();$("logout").hidden=false;$("connection").textContent="Connected"}catch(error){$("connection").textContent="Connection error";$("menu-list").textContent=error.message;console.error("Failed to load school menus",error)}})();
