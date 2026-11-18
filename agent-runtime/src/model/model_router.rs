@@ -10,8 +10,12 @@ use crate::{AgentModel, CancellationToken, ModelRequest, ModelTurn};
 /// Events emitted while a router evaluates compatible model candidates.
 #[derive(Debug, Clone)]
 pub enum ModelRoutingEvent {
-    CandidatesDiscovered { model_ids: Vec<String> },
-    CandidateAttemptStarted { model_id: String },
+    CandidatesDiscovered {
+        model_ids: Vec<String>,
+    },
+    CandidateAttemptStarted {
+        model_id: String,
+    },
     CandidateAttemptFailed {
         model_id: String,
         category: ModelFailureCategory,
@@ -21,8 +25,12 @@ pub enum ModelRoutingEvent {
         to_model_id: String,
         category: ModelFailureCategory,
     },
-    ModelSelected { model_id: String },
-    RoutingFailed { attempted_candidates: usize },
+    ModelSelected {
+        model_id: String,
+    },
+    RoutingFailed {
+        attempted_candidates: usize,
+    },
 }
 
 /// Receives routing lifecycle events without exposing provider error payloads.
@@ -98,7 +106,6 @@ impl ModelRouter for FixedModelRouter {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
@@ -106,9 +113,7 @@ mod tests {
     use agent_models::ModelError;
     use async_trait::async_trait;
 
-    use super::{
-        FixedModelRouter, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink,
-    };
+    use super::{FixedModelRouter, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink};
     use crate::{AgentModel, CancellationToken, ModelRequest, ModelTurn};
 
     struct CompletedModel;
