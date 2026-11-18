@@ -13,6 +13,14 @@ pub struct RunEvent {
     pub iteration: Option<usize>,
     /// Tool name for tool execution events.
     pub tool_name: Option<String>,
+    /// Provider-qualified model identity associated with a routing event.
+    pub model_id: Option<String>,
+    /// Next provider-qualified candidate selected for a fallback attempt.
+    pub next_model_id: Option<String>,
+    /// Deterministically ordered compatible model candidates.
+    pub model_candidates: Option<Vec<String>>,
+    /// Number of candidates attempted before routing terminated.
+    pub attempted_candidates: Option<usize>,
     /// Stable error category; raw error messages are excluded.
     pub error_category: Option<&'static str>,
     pub occurred_at: SystemTime,

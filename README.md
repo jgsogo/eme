@@ -133,6 +133,22 @@ The `basic_agent` example demonstrates an end-to-end agent workflow:
 
 The example includes an addition tool and demonstrates tool-failure recovery: a deprecated tool returns an error, the model receives that error, and it can select an alternative tool.
 
+## Model routing and fallback
+
+Agents declare the capabilities they require rather than pinning a provider/model identifier. For each model turn, the runtime asks the configured registry for all compatible models. Candidate order is deterministic, and model identifiers remain provider-qualified.
+
+The router resolves each candidate lazily and records the routing lifecycle:
+
+1. The compatible candidate set is discovered.
+2. Each candidate attempt is recorded before its request.
+3. A failed candidate records a structured category (rate limited, quota exceeded, transient, candidate unavailable, or permanent).
+4. Retryable or unavailable candidates may lead to a fallback event naming the next candidate.
+5. A successful candidate is recorded as selected and is attached to the model-response event.
+
+Permanent request failures stop routing immediately. Attempts are bounded by the number of compatible candidates. Routing events are available through the run events API and in the web console's **Current run events** panel. Events contain provider-qualified model IDs and failure categories, not credentials or raw provider response bodies.
+
+This is per model invocation: a multi-turn run can select a different compatible model on a later turn. Tool execution remains outside the routing boundary and is never replayed by model fallback.
+
 ## Getting started
 
 ### Prerequisites

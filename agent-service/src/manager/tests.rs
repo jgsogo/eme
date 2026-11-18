@@ -3,8 +3,8 @@
 use std::{sync::Arc, time::Duration};
 
 use agent_runtime::{
-    CancellationToken, FamilyContext, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
-    ToolContext,
+    CancellationToken, FamilyContext, ModelFailureCategory, RunEvent as RuntimeEvent,
+    RunEventKind as RuntimeEventKind, ToolContext,
 };
 use async_trait::async_trait;
 use tokio::sync::Notify;
@@ -382,6 +382,127 @@ async fn runtime_events_are_inserted_between_lifecycle_events() {
     })
     .await
     .expect("runtime events should be ordered with lifecycle events");
+}
+
+struct ModelRoutingEventExecutor;
+
+#[async_trait]
+impl RunExecutor for ModelRoutingEventExecutor {
+    async fn execute(
+        &self,
+        run_id: RunId,
+        _agent: String,
+        _input: String,
+        _history: Vec<agent_runtime::Message>,
+        _context: ToolContext,
+        _cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        Ok(ExecutionReport {
+            outcome: ExecutionOutcome::Completed(None),
+            runtime_events: vec![
+                RuntimeEvent {
+                    run_id: run_id.as_uuid(),
+                    iteration: 1,
+                    kind: RuntimeEventKind::ModelCandidatesDiscovered {
+                        model_ids: vec!["provider/first".into(), "provider/second".into()],
+                    },
+                },
+                RuntimeEvent {
+                    run_id: run_id.as_uuid(),
+                    iteration: 1,
+                    kind: RuntimeEventKind::ModelCandidateAttemptStarted {
+                        model_id: "provider/first".into(),
+                    },
+                },
+                RuntimeEvent {
+                    run_id: run_id.as_uuid(),
+                    iteration: 1,
+                    kind: RuntimeEventKind::ModelCandidateAttemptFailed {
+                        model_id: "provider/first".into(),
+                        category: ModelFailureCategory::RateLimited,
+                    },
+                },
+                RuntimeEvent {
+                    run_id: run_id.as_uuid(),
+                    iteration: 1,
+                    kind: RuntimeEventKind::ModelFallback {
+                        from_model_id: "provider/first".into(),
+                        to_model_id: "provider/second".into(),
+                        category: ModelFailureCategory::RateLimited,
+                    },
+                },
+                RuntimeEvent {
+                    run_id: run_id.as_uuid(),
+                    iteration: 1,
+                    kind: RuntimeEventKind::ModelSelected {
+                        model_id: "provider/second".into(),
+                    },
+                },
+                RuntimeEvent {
+                    run_id: run_id.as_uuid(),
+                    iteration: 1,
+                    kind: RuntimeEventKind::ModelResponded {
+                        model_id: "provider/second".into(),
+                        tool_calls: 0,
+                    },
+                },
+            ],
+            messages: None,
+        })
+    }
+}
+
+#[tokio::test]
+async fn model_routing_events_preserve_candidates_failures_and_fallback_metadata() {
+    let manager = RunManager::new(Arc::new(ModelRoutingEventExecutor), 1, 2).unwrap();
+    let run_id = manager
+        .submit("assistant", "hello", Vec::new(), ToolContext::default())
+        .await
+        .unwrap();
+
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            let events = manager.events(run_id).await.unwrap();
+            if events
+                .last()
+                .is_some_and(|event| event.kind == RunEventKind::Completed)
+            {
+                let candidates = events
+                    .iter()
+                    .find(|event| event.kind == RunEventKind::ModelCandidatesDiscovered)
+                    .unwrap();
+                assert_eq!(
+                    candidates.model_candidates.as_deref(),
+                    Some(&["provider/first".to_owned(), "provider/second".to_owned()][..])
+                );
+
+                let failed = events
+                    .iter()
+                    .find(|event| event.kind == RunEventKind::ModelCandidateAttemptFailed)
+                    .unwrap();
+                assert_eq!(failed.model_id.as_deref(), Some("provider/first"));
+                assert_eq!(failed.error_category, Some("rate_limited"));
+
+                let fallback = events
+                    .iter()
+                    .find(|event| event.kind == RunEventKind::ModelFallback)
+                    .unwrap();
+                assert_eq!(fallback.model_id.as_deref(), Some("provider/first"));
+                assert_eq!(fallback.next_model_id.as_deref(), Some("provider/second"));
+                assert_eq!(fallback.error_category, Some("rate_limited"));
+
+                let selected = events
+                    .iter()
+                    .find(|event| event.kind == RunEventKind::ModelSelected)
+                    .unwrap();
+                assert_eq!(selected.model_id.as_deref(), Some("provider/second"));
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("model routing events should be recorded");
 }
 
 #[tokio::test]
