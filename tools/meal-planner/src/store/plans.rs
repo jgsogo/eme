@@ -401,7 +401,7 @@ impl MealPlannerStore {
             ));
         }
         let revision: i64 = connection.query_row(
-            "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE week_start = ?1",
+            "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE family_id = 'legacy' AND week_start = ?1",
             [week_start.to_string()],
             |row| row.get(0),
         )?;
@@ -489,7 +489,7 @@ fn latest_plan_id(
 ) -> Result<Option<i64>, MealPlannerError> {
     Ok(connection
         .query_row(
-            "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
+            "SELECT id FROM weekly_plans WHERE family_id = 'legacy' AND week_start = ?1 ORDER BY revision DESC LIMIT 1",
             [week_start.to_string()],
             |row| row.get(0),
         )
