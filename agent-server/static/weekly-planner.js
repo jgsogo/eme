@@ -65,7 +65,7 @@ function updateRecipeField(){
 }
 async function savePlan(){
  try{
-  state.plan=await api("/meal-planner/plans/"+state.weekStart,{method:"PUT",body:JSON.stringify({assignments:state.plan.assignments})});
+  state.plan=await api("/meal-planner/plans/"+state.weekStart+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({assignments:state.plan.assignments})});
   state.shoppingListNeedsRegeneration=Boolean(state.shoppingList);
   renderGrid();renderShoppingList();$("assignment-editor").hidden=true;
  }catch(e){$("assignment-error").textContent=e.message}
@@ -77,7 +77,7 @@ async function loadShoppingList(){
  $("shopping-list-message").textContent="";
  $("shopping-list-items").innerHTML='<p class="hint">Loading shopping list…</p>';
  try{
-  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list");
+  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list?family_id="+encodeURIComponent(state.familyId));
   state.shoppingListNeedsRegeneration=false;
  }catch(e){
   if(e.status===404)state.shoppingList=null;
@@ -114,7 +114,7 @@ async function generateShoppingList(){
  if(state.shoppingList&&!confirm("Regenerate this list from the selected plan revision? Manual additions, removals, purchases and quantity overrides will be reconciled."))return;
  const button=$("generate-shopping-list");button.disabled=true;
  try{
-  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/generate",{method:"POST"});
+  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/generate?family_id="+encodeURIComponent(state.familyId),{method:"POST"});
   state.shoppingListNeedsRegeneration=false;
   $("shopping-list-message").textContent="Shopping list generated.";
   renderShoppingList();
@@ -148,7 +148,7 @@ $("shopping-item-form").addEventListener("submit",async event=>{
  if(raw!==""&&(!Number.isFinite(quantity)||quantity<=0)){$("shopping-list-message").textContent="Enter a positive quantity or leave it blank.";return}
  const button=event.submitter;button.disabled=true;
  try{
-  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items",{method:"POST",body:JSON.stringify({name,quantity,unit:$("shopping-item-unit").value.trim()||null})});
+  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items?family_id="+encodeURIComponent(state.familyId),{method:"POST",body:JSON.stringify({name,quantity,unit:$("shopping-item-unit").value.trim()||null})});
   $("shopping-item-name").value="";$("shopping-item-quantity").value="";$("shopping-item-unit").value="";
   $("shopping-list-message").textContent="Item added.";renderShoppingList();
  }catch(e){$("shopping-list-message").textContent=e.message}
@@ -158,7 +158,7 @@ $("shopping-list-items").addEventListener("click",async event=>{
  const row=event.target.closest("[data-shopping-item]");if(!row||!state.plan)return;
  const itemId=Number(row.dataset.shoppingItem);
  if(event.target.closest("[data-remove-shopping]")){
-  try{state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items/"+itemId,{method:"DELETE"});$("shopping-list-message").textContent="Item removed.";renderShoppingList()}catch(e){$("shopping-list-message").textContent=e.message}
+  try{state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items/"+itemId+"?family_id="+encodeURIComponent(state.familyId),{method:"DELETE"});$("shopping-list-message").textContent="Item removed.";renderShoppingList()}catch(e){$("shopping-list-message").textContent=e.message}
   return;
  }
  if(event.target.closest("[data-save-shopping]")){
@@ -198,8 +198,8 @@ $("assignment-form").addEventListener("submit",async event=>{
 $("assignment-arrangement").addEventListener("change",updateRecipeField);
 $("close-editor").addEventListener("click",()=>$("assignment-editor").hidden=true);
 $("remove-assignment").addEventListener("click",()=>{if(state.editingId!==null){state.plan.assignments=state.plan.assignments.filter(a=>a.id!==state.editingId);savePlan()}});
-$("confirm-plan").addEventListener("click",async()=>{if(!confirm("Confirm this week's plan? Confirmed plans are immutable; later changes require a new revision."))return;try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"/confirm",{method:"POST"});renderGrid()}catch(e){alert(e.message)}});
-$("revise-plan").addEventListener("click",async()=>{try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"/revise",{method:"POST"});renderGrid();await loadShoppingList()}catch(e){alert(e.message)}});
+$("confirm-plan").addEventListener("click",async()=>{if(!confirm("Confirm this week's plan? Confirmed plans are immutable; later changes require a new revision."))return;try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"/confirm?family_id="+encodeURIComponent(state.familyId),{method:"POST"});renderGrid()}catch(e){alert(e.message)}});
+$("revise-plan").addEventListener("click",async()=>{try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"/revise?family_id="+encodeURIComponent(state.familyId),{method:"POST"});renderGrid();await loadShoppingList()}catch(e){alert(e.message)}});
 $("previous-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),-7));loadWeek()});
 $("next-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),7));loadWeek()});
 $("week-date").addEventListener("change",()=>{if($("week-date").value){state.weekStart=localDate(mondayOf(parseDate($("week-date").value)));loadWeek()}});
