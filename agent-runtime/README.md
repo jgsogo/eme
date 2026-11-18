@@ -17,7 +17,7 @@ The crate will implement:
 - **Tool definitions and validation:** loading tool metadata and validating model-provided arguments against declared JSON Schemas before execution.
 - **Deterministic authorization:** policy interfaces and implementations that will decide whether a requested tool action is permitted independently of model output.
 - **Execution lifecycle controls:** run identity, iteration limits, timeout and cancellation handling, and explicit terminal outcomes.
-- **Execution events and failures:** structured events and failure information that will make an individual run inspectable by service-level orchestration.
+- **Execution events and failures:** structured events for candidate discovery, candidate attempts, fallback decisions, selected models, tool execution, cancellation, and timeouts. Routing events expose provider-qualified model IDs and failure categories without retaining provider response payloads.
 - **Trusted runtime context:** inject the current UTC date and timestamp into every model request, independently of agent instructions and tool availability.
 
 ## Boundaries
