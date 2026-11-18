@@ -9,7 +9,7 @@ use super::{
     RunStatus, StopReason,
 };
 use crate::{
-    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, ModelRouter, FixedModelRouter, PolicyEngine,
+    Agent, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest, ModelRouter, PolicyEngine,
     RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
 
@@ -272,7 +272,7 @@ impl AgentRuntime {
                         }
                     }
                 }
-                None => match self.model.complete(request).await {
+                None => match self.model_router.complete(&agent.capabilities, request).await {
                     Ok(routed) => routed.turn,
                     Err(error) => {
                         let error = RuntimeError::Model(error);
