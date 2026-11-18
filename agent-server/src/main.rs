@@ -235,8 +235,10 @@ async fn main() -> Result<()> {
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
-            .service(agent_server::meal_planner_api())
+            // Register the more specific scope before /meal-planner; otherwise
+            // the broader scope captures school-menu requests and returns 404.
             .service(agent_server::school_menus_api())
+            .service(agent_server::meal_planner_api())
             .service(agent_server::profile_api())
             .service(agent_server::tasks_api())
             .service(agent_server::invitations_api())

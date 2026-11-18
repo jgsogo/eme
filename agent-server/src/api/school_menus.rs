@@ -24,7 +24,7 @@ fn error_response(e: MealPlannerError) -> HttpResponse {
         _ => HttpResponse::InternalServerError().finish(),
     }
 }
-#[get("")]
+#[get("/")]
 async fn list(store: Data<MealPlannerStore>, q: Query<RangeQuery>) -> impl Responder {
     match store.list_school_menus(q.from, q.to) {
         Ok(v) => HttpResponse::Ok().json(v),
@@ -119,6 +119,24 @@ mod tests {
         let v: SchoolMenuEntry = test::call_and_read_body_json(&app, req).await;
         assert_eq!(v.draft.items[0].name, "Lentils")
     }
+    #[actix_web::test]
+    async fn listing_school_menus_returns_empty_list_when_no_menus_exist() {
+        let s = MealPlannerStore::open_in_memory().unwrap();
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(s))
+                .service(school_menus_api()),
+        )
+        .await;
+        let req = test::TestRequest::get()
+            .uri("/meal-planner/school-menus/?from=2026-11-16&to=2026-11-22")
+            .to_request();
+        let response = test::call_service(&app, req).await;
+        assert_eq!(response.status(), actix_web::http::StatusCode::OK);
+        let entries: Vec<SchoolMenuEntry> = test::read_body_json(response).await;
+        assert!(entries.is_empty());
+    }
+
     #[actix_web::test]
     async fn path_date_mismatch_is_rejected() {
         let s = MealPlannerStore::open_in_memory().unwrap();
