@@ -148,8 +148,10 @@ impl ShoppingList {
             let match_index = old_items.iter().position(|item| {
                 !item.manually_added
                     && normalize_name(&item.name) == normalize_name(&generated_item.name)
-                    && normalize_unit(item.unit.as_deref()).0
-                        == normalize_unit(generated_item.unit.as_deref()).0
+                    && (item.manually_removed
+                        || item.quantity_overridden
+                        || normalize_unit(item.unit.as_deref()).0
+                            == normalize_unit(generated_item.unit.as_deref()).0)
             });
             if let Some(index) = match_index {
                 let mut previous = old_items.remove(index);
