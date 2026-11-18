@@ -107,6 +107,7 @@ async fn main() -> Result<()> {
             &args.data_dir,
             gateway_for_tools,
             task_registry.clone(),
+            meal_planner_store.clone(),
             Arc::clone(&family_store) as Arc<dyn FamilyStore>,
             google_runtime,
         )

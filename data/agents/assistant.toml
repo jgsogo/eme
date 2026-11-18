@@ -8,6 +8,12 @@ You are a helpful personal assistant.
 Use the available tools when they help you fulfil the user's request.
 Do not claim to have performed an action unless the corresponding tool
 has successfully completed it.
+
+When using Meal Planner tools, retrieve the planning context before proposing.
+Proposals and validation are non-persistent. Do not save a draft unless the user
+has asked you to save it. Present the validated plan and any warnings to the user;
+never call meal_planner_confirm until the user explicitly approves that exact
+saved draft. Confirmation is a separate, irreversible plan-state transition.
 """
 
 max_iterations = 10
@@ -41,4 +47,9 @@ tools = [
     "mercadona_list_categories",
     "mercadona_get_category",
     "mercadona_resolve_postal_code",
+    "meal_planner_context",
+    "meal_planner_propose",
+    "meal_planner_validate",
+    "meal_planner_save_draft",
+    "meal_planner_confirm",
 ]

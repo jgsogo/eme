@@ -1,0 +1,63 @@
+name = "meal_planner_save_draft"
+description = "Save a validated meal-plan proposal as an editable draft. It never confirms the plan. If the latest revision is confirmed, this explicit save creates a new draft revision and preserves the confirmed snapshot. If validation fails, returns structured issues and does not persist anything."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["week_start", "assignments"]
+
+[parameters.properties.week_start]
+type = "string"
+format = "date"
+description = "Monday local calendar date identifying the planning week."
+
+[parameters.properties.assignments]
+type = "array"
+description = "Candidate meal assignments for this Monday-to-Sunday week."
+
+[parameters.properties.assignments.items]
+type = "object"
+additionalProperties = false
+required = ["id", "date", "meal_type", "participants", "arrangement"]
+
+[parameters.properties.assignments.items.properties.id]
+type = "integer"
+minimum = 1
+
+[parameters.properties.assignments.items.properties.date]
+type = "string"
+format = "date"
+
+[parameters.properties.assignments.items.properties.meal_type]
+type = "string"
+enum = ["breakfast", "lunch", "dinner"]
+
+[parameters.properties.assignments.items.properties.participants]
+type = "array"
+minItems = 1
+
+[parameters.properties.assignments.items.properties.participants.items]
+type = "object"
+additionalProperties = false
+required = ["member_id", "name"]
+
+[parameters.properties.assignments.items.properties.participants.items.properties.member_id]
+type = "integer"
+minimum = 1
+
+[parameters.properties.assignments.items.properties.participants.items.properties.name]
+type = "string"
+minLength = 1
+
+[parameters.properties.assignments.items.properties.arrangement]
+type = "string"
+enum = ["home", "school", "away", "not_participating"]
+
+[parameters.properties.assignments.items.properties.recipe_id]
+anyOf = [{ type = "integer", minimum = 1 }, { type = "null" }]
+
+[parameters.properties.assignments.items.properties.school_menu_date]
+anyOf = [{ type = "string", format = "date" }, { type = "null" }]
+
+[parameters.properties.assignments.items.properties.notes]
+anyOf = [{ type = "string" }, { type = "null" }]

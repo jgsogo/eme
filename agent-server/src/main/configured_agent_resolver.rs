@@ -13,6 +13,7 @@ use agent_storage::FamilyStore;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use google_tool::GoogleCalendarRuntimeConfig;
+use meal_planner::MealPlannerStore;
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
@@ -43,6 +44,7 @@ impl ConfiguredAgentResolver {
         data_dir: &std::path::Path,
         telegram_gateway: Option<Arc<TelegramGateway>>,
         task_registry: TaskRegistry,
+        meal_planner_store: MealPlannerStore,
         family_store: Arc<dyn FamilyStore>,
         google_runtime: Option<GoogleCalendarRuntimeConfig>,
     ) -> Result<Self> {
@@ -58,6 +60,9 @@ impl ConfiguredAgentResolver {
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         common_tools::register_tools(&mut tools).context("registering common tools")?;
         mercadona_tool::register_tools(&mut tools).context("registering Mercadona tools")?;
+        meal_planner::register_tools(&mut tools, meal_planner_store)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))
+            .context("registering Meal Planner tools")?;
         tasks_tool::register_tools(&mut tools, task_registry.clone())
             .context("registering task tools")?;
         let notes =

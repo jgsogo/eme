@@ -1,0 +1,12 @@
+name = "meal_planner_confirm"
+description = "Explicitly confirm the already-saved latest draft for a week. Revalidates it first. Confirmation is a separate operation and makes that plan revision immutable."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["week_start"]
+
+[parameters.properties.week_start]
+type = "string"
+format = "date"
+description = "Monday local calendar date identifying the planning week."

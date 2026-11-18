@@ -2,6 +2,7 @@
 //!
 //! The crate owns household identities, meal participation rules, recipes and
 //! persistence. HTTP handlers and agent tools remain thin adapters.
+mod application;
 mod config;
 mod domain;
 mod error;
@@ -10,7 +11,12 @@ mod recipes;
 mod school_menus;
 mod shopping_lists;
 mod store;
+mod tools;
 
+pub use application::{
+    MealPlannerApplication, PlanProposal, PlanValidation, PlanValidationIssue, PlanningContext,
+    PlanningParticipation, ValidationSeverity,
+};
 pub use config::MealPlannerConfig;
 pub use domain::{
     FamilyMember, MealArrangement, MealException, MealParticipation, MealType, MealWeekday,
@@ -28,3 +34,4 @@ pub use shopping_lists::{
     NewShoppingListItem, ShoppingList, ShoppingListItem, ShoppingListItemUpdate,
 };
 pub use store::MealPlannerStore;
+pub use tools::register_tools;

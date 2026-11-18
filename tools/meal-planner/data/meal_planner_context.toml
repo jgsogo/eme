@@ -1,0 +1,12 @@
+name = "meal_planner_context"
+description = "Retrieve the authenticated household's planning context for a week: members, resolved participation rules, recipes, school menus and the latest saved plan."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["week_start"]
+
+[parameters.properties.week_start]
+type = "string"
+format = "date"
+description = "Monday local calendar date identifying the planning week."

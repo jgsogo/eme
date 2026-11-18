@@ -5,8 +5,13 @@ edition = "2024"
 description = "Meal planning domain and application foundation for the EME platform."
 
 [dependencies]
+agent-runtime = { path = "../../agent-runtime" }
+async-trait = { workspace = true }
 rusqlite = { workspace = true }
 thiserror = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
