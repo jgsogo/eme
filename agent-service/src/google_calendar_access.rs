@@ -40,6 +40,21 @@ impl GoogleCalendarAccessService {
         user_id: &str,
         family_id: Option<&str>,
     ) -> Result<Vec<agent_storage::ConnectedCalendar>, GoogleCalendarAccessError> {
+        Ok(self
+            .list_readable_calendars_with_permissions(user_id, family_id)
+            .await?
+            .into_iter()
+            .map(|(calendar, _)| calendar)
+            .collect())
+    }
+
+    /// List calendars visible to the caller together with their effective write
+    /// permission, combining EME settings, family sharing and Google OAuth scopes.
+    pub async fn list_readable_calendars_with_permissions(
+        &self,
+        user_id: &str,
+        family_id: Option<&str>,
+    ) -> Result<Vec<(agent_storage::ConnectedCalendar, bool)>, GoogleCalendarAccessError> {
         let user =
             UserId::from_str(user_id).map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
         let (family, owners) = match family_id {
@@ -81,16 +96,28 @@ impl GoogleCalendarAccessService {
                     .list_for_connection(owner, connection.id)
                     .await
                     .map_err(|error| GoogleCalendarAccessError::Storage(error.to_string()))?;
-                calendars.extend(connected.into_iter().filter(|calendar| {
-                    calendar.selected
-                        && (calendar.owner_id == user
-                            || (family.is_some()
-                                && calendar.family_id == family
-                                && calendar.family_access.is_some()))
-                }));
+                calendars.extend(
+                    connected
+                        .into_iter()
+                        .filter(|calendar| {
+                            calendar.selected
+                                && (calendar.owner_id == user
+                                    || (family.is_some()
+                                        && calendar.family_id == family
+                                        && calendar.family_access.is_some()))
+                        })
+                        .map(|calendar| {
+                            let can_write = calendar.access_mode == CalendarAccessMode::ReadWrite
+                                && (calendar.owner_id == user
+                                    || calendar.family_access
+                                        == Some(CalendarFamilyAccess::Contributor))
+                                && has_calendar_write_scope(&connection.granted_scopes);
+                            (calendar, can_write)
+                        }),
+                );
             }
         }
-        calendars.sort_by(|left, right| {
+        calendars.sort_by(|(left, _), (right, _)| {
             left.display_name
                 .as_deref()
                 .unwrap_or("")
