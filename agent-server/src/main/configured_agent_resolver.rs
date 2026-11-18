@@ -83,9 +83,19 @@ impl AgentRuntimeResolver for ConfiguredAgentResolver {
             .get(agent_name)
             .ok_or_else(|| format!("unknown agent '{agent_name}'"))?;
 
-        let model_name = self.models.first_compatible_model(&definition.capabilities)
-            .ok_or_else(|| format!("no configured model satisfies agent '{}' capabilities {:?}", definition.name, definition.capabilities))?;
-        let client = self.models.resolve_model(&model_name).map_err(|error| error.to_string())?;
+        let model_name = self
+            .models
+            .first_compatible_model(&definition.capabilities)
+            .ok_or_else(|| {
+                format!(
+                    "no configured model satisfies agent '{}' capabilities {:?}",
+                    definition.name, definition.capabilities
+                )
+            })?;
+        let client = self
+            .models
+            .resolve_model(&model_name)
+            .map_err(|error| error.to_string())?;
 
         let agent = Agent::from(definition);
         let model = Arc::new(ModelAdapter::new(client));

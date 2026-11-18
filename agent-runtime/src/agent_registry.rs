@@ -353,7 +353,7 @@ instructions = "Test"
         let definition = r#"
 name = "duplicate"
 description = "Test agent"
-model = "test/model"
+capabilities = ["chat"]
 instructions = "Test"
 "#;
         fs::write(agents_dir.join("a.toml"), definition).unwrap();
