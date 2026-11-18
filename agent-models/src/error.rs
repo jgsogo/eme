@@ -50,9 +50,9 @@ impl ModelError {
     /// reason to believe another candidate may work.
     pub fn failure_category(&self) -> ModelFailureCategory {
         match self {
-            Self::MissingApiKey(_)
-            | Self::UnsupportedProvider(_)
-            | Self::UnsupportedModel(_) => ModelFailureCategory::CandidateUnavailable,
+            Self::MissingApiKey(_) | Self::UnsupportedProvider(_) | Self::UnsupportedModel(_) => {
+                ModelFailureCategory::CandidateUnavailable
+            }
             Self::Http(error) if error.is_timeout() || error.is_connect() => {
                 ModelFailureCategory::Transient
             }
@@ -74,7 +74,6 @@ impl ModelError {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
