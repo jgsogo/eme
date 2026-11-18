@@ -250,7 +250,7 @@ async function loadWeek() {
   $("menu-content").innerHTML = '<p class="empty">Loading school menus…</p>';
 
   try {
-    const entries = await api("/meal-planner/school-menus/?from=" +
+    const entries = await api("/meal-planner/school-menus/?family_id=" + encodeURIComponent(state.familyId) + "&from=" +
       dateString(start) + "&to=" + dateString(end));
     if (request !== state.loadRequest) return;
     state.entries = entries;
