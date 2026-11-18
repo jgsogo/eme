@@ -203,4 +203,4 @@ $("revise-plan").addEventListener("click",async()=>{try{state.plan=await api("/m
 $("previous-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),-7));loadWeek()});
 $("next-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),7));loadWeek()});
 $("week-date").addEventListener("change",()=>{if($("week-date").value){state.weekStart=localDate(mondayOf(parseDate($("week-date").value)));loadWeek()}});
-(async()=>{try{await api("/auth/session");state.weekStart=localDate(mondayOf(new Date()));await loadWeek()}catch(e){$("connection").textContent="Sign in required";$("planner-grid").innerHTML='<p class="empty">Sign in to use the weekly planner.</p>'}})();
+(async()=>{try{await window.emeConsoleReady;state.weekStart=localDate(mondayOf(new Date()));await loadWeek()}catch(e){$("connection").textContent="Error loading planner: "+e.message;$("planner-grid").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}})();

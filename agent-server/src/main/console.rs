@@ -179,6 +179,13 @@ pub(super) async fn console_stylesheet() -> impl Responder {
         .body(include_str!("../../static/console.css"))
 }
 
+#[get("/assets/console-auth.js")]
+pub(super) async fn console_auth_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/console-auth.js"))
+}
+
 #[get("/assets/console.js")]
 pub(super) async fn console_script() -> impl Responder {
     HttpResponse::Ok()
