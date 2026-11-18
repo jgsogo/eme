@@ -16,8 +16,8 @@ use agent_storage::{
 };
 use chrono::{Duration, Utc};
 use google_tool::{
-    CalendarScope, GoogleCalendarRuntimeConfig, GoogleOAuthConfig, authorization_request,
-    exchange_code, fetch_user_info, list_calendars_with_access_token, GoogleOAuthTokenManager,
+    CalendarScope, GoogleCalendarRuntimeConfig, GoogleOAuthConfig, GoogleOAuthTokenManager,
+    authorization_request, exchange_code, fetch_user_info, list_calendars_with_access_token,
 };
 use serde::{Deserialize, Serialize};
 
@@ -90,7 +90,11 @@ impl GoogleOAuthState {
             Arc::new(connections),
             families,
         ));
-        Some(GoogleCalendarRuntimeConfig::new(oauth, access, self.token_manager.clone()))
+        Some(GoogleCalendarRuntimeConfig::new(
+            oauth,
+            access,
+            self.token_manager.clone(),
+        ))
     }
 }
 
@@ -319,7 +323,11 @@ async fn oauth_callback(
             }
         }
     };
-    let audit_action = if existing.is_some() { "reauthorize" } else { "connect" };
+    let audit_action = if existing.is_some() {
+        "reauthorize"
+    } else {
+        "connect"
+    };
     let granted_scope_count = tokens.scopes.len();
     let connection = match store
         .create_connection(NewExternalConnection {
@@ -598,7 +606,11 @@ async fn sync_connected_calendars(
         .config
         .as_ref()
         .expect("enabled state has OAuth config");
-    let token = match state.token_manager.refresh_access_token(connection_id, config, &refresh_token).await {
+    let token = match state
+        .token_manager
+        .refresh_access_token(connection_id, config, &refresh_token)
+        .await
+    {
         Ok(token) => token,
         Err(error) => {
             tracing::warn!(%error, connection_id = %connection.id, "Google Calendar token refresh failed during discovery");
@@ -635,7 +647,7 @@ async fn sync_connected_calendars(
                     .map(ConnectedCalendarResponse::from)
                     .collect::<Vec<_>>(),
             )
-        },
+        }
         Err(error) => calendar_storage_error(error),
     }
 }
@@ -679,7 +691,7 @@ async fn update_connected_calendar(
         Ok(calendar) => {
             tracing::info!(audit_event = "google_calendar_permissions_updated", user_id = %owner, calendar_id = %calendar.id, selected = calendar.selected, access_mode = ?calendar.access_mode, "Google Calendar permissions updated");
             HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar))
-        },
+        }
         Err(error) => calendar_storage_error(error),
     }
 }
