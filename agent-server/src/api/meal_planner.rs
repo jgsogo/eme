@@ -168,7 +168,7 @@ async fn create_recipe(
     let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await {
         Ok(id) => id, Err(response) => return response,
     };
-    if body.family_id.as_deref().is_some_and(|shared| shared != family_id) {
+    if body.family_id.as_deref().is_some_and(|shared| shared != family_id.as_str()) {
         return HttpResponse::BadRequest().body("recipes can only be shared with the selected family");
     }
 
