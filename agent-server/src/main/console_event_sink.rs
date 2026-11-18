@@ -47,8 +47,8 @@ impl EventSink for ConsoleEventSink {
                     info!(run_id = %event.run_id, iteration = event.iteration, tool = %name, "tool execution finished");
                 }
             }
-            RunEventKind::ModelFailed { category, error } => {
-                warn!(run_id = %event.run_id, iteration = event.iteration, error_category = ?category, %error, "model request failed")
+            RunEventKind::ModelFailed { category } => {
+                warn!(run_id = %event.run_id, iteration = event.iteration, error_category = ?category, "model request failed")
             }
             RunEventKind::Cancelled => {
                 info!(run_id = %event.run_id, iteration = event.iteration, "runtime cancellation observed")
