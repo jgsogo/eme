@@ -6,6 +6,7 @@ mod migrations;
 mod plans;
 mod recipes;
 mod school_menus;
+mod shopping_lists;
 #[cfg(test)]
 mod tests;
 
