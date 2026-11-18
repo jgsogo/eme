@@ -391,7 +391,7 @@ function renderIntegrationNav(){
  const summary=$("google-integration-summary");if(!summary)return;
  const active=state.googleConnections.filter(connection=>connection.status==="active").length;
  summary.textContent=state.googleConnections.length
-  ? active+" active account"+(active===1?"":"s")+" · "+state.googleConnections.length+" connected"
+  ? active+" active account"+(active===1?"":"s")+" · "+state.googleConnections.length+" saved"
   : "Connect an account to get started";
 }
 function renderGoogleConnections(){
