@@ -230,3 +230,18 @@ body:has(#shopping-list-panel) main{overflow:auto}
 /* Spacing for the Meals section navigation and sidebar actions. */
 .meals-section-nav{margin-bottom:14px}
 .recipes-sidebar>button{margin:8px 0 12px}
+
+/* Consistent seven-day school menu overview. */
+.school-menu-week{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.school-menu-day{min-width:0;padding:12px;background:var(--panel);border:1px solid var(--border);border-radius:10px}
+.school-menu-day>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.school-menu-day>header strong{text-transform:capitalize}
+.school-menu-day>header span,.school-menu-day small{font-size:11px;color:var(--muted)}
+.school-menu-items{margin:0 0 10px;padding-left:18px}
+.school-menu-items li{padding:3px 0;font-size:13px}
+.school-menu-items p{margin:2px 0;color:var(--muted);font-size:12px}
+.school-menu-placeholder{min-height:58px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--border);border-radius:7px;padding:10px}
+.school-menu-day>button{padding:5px 8px;font-size:11px}
+.school-menu-editor{margin-top:14px;padding:16px;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
+.school-menu-editor h2{margin-bottom:12px}
+@media(max-width:900px){.school-menu-week{grid-template-columns:1fr}}
