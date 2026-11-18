@@ -42,7 +42,7 @@ function monday(value) {
 function statusLabel(status) {
   return ({
     known: "Menu published",
-    not_published: "Not published",
+
     closed: "School closed",
     unknown: "Unknown / not imported",
   })[status] || status;
@@ -86,7 +86,7 @@ function renderWeekView() {
   $("menu-week-view").innerHTML = '<div class="school-menu-week">' + days.map(({ date, entry }) => {
     const hasMenu = Boolean(entry);
     const content = entry?.status === "known"
-      ? renderMenuItems(entry.items || []) + (entry.notes ? '<p>' + esc(entry.notes) + '</p>' : '')
+      ? renderMenuItems(entry.items || [])
       : renderMenuPlaceholder(entry);
     const action = hasMenu ? "Edit menu" : "Add menu";
 
@@ -131,15 +131,12 @@ function edit(entry, date) {
     '<label for="menu-status">Menu status</label>' +
     '<select id="menu-status">' +
     '<option value="known">Menu published</option>' +
-    '<option value="not_published">Not published</option>' +
     '<option value="closed">School closed</option>' +
     '<option value="unknown">Unknown / not imported</option>' +
     '</select>' +
     '<label for="menu-items">Dishes</label>' +
     '<textarea id="menu-items" rows="7" placeholder="One dish per line: dish | notes | allergens | dietary alternatives&#10;Vegetable soup | contains celery | celery | vegan option"></textarea>' +
     '<p class="hint school-menu-field-help">Enter one dish per line. The optional fields after the dish name are notes, allergens and dietary alternatives, separated by |.</p>' +
-    '<label for="menu-notes">Menu notes</label>' +
-    '<textarea id="menu-notes" rows="3" placeholder="Additional information about this day’s menu"></textarea>' +
     '<p id="menu-provenance" class="hint"></p>' +
     '<div class="recipe-actions">' +
     '<button type="submit">' + (isNew ? "Add menu" : "Save changes") + '</button>' +
@@ -151,14 +148,13 @@ function edit(entry, date) {
 
   // A newly added menu is expected to contain published dishes. Existing records
   // keep their current status when opened for editing.
-  $("menu-status").value = entry?.status || "known";
+  $("menu-status").value = entry?.status === "not_published" ? "unknown" : (entry?.status || "known");
   $("menu-items").value = (entry?.items || []).map(item => [
     item.name,
     item.notes || "",
     item.allergens?.join(", ") || "",
     item.dietary_alternatives?.join(", ") || "",
   ].join(" | ")).join("\n");
-  $("menu-notes").value = entry?.notes || "";
   $("menu-provenance").textContent = entry
     ? (entry.origin === "import"
       ? "Imported from " + (entry.source || "unspecified source") +
@@ -209,7 +205,7 @@ async function save(event) {
   try {
     await api("/meal-planner/school-menus/" + date, {
       method: "PUT",
-      body: JSON.stringify({ date, status, items, notes: $("menu-notes").value || null }),
+      body: JSON.stringify({ date, status, items }),
     });
     state.selected = null;
     await loadWeek();
