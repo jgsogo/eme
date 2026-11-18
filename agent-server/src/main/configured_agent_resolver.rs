@@ -8,9 +8,9 @@ use agent_runtime::{
     ModelRouter, RoutedModelTurn, ToolDispatcher, ToolRegistry,
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
-use async_trait::async_trait;
 use agent_storage::FamilyStore;
 use anyhow::{Context, Result};
+use async_trait::async_trait;
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
