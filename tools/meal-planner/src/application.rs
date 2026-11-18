@@ -75,35 +75,58 @@ pub struct PlanProposal {
 }
 
 #[derive(Clone)]
-pub struct MealPlannerApplication { store: MealPlannerStore }
+pub struct MealPlannerApplication {
+    store: MealPlannerStore,
+}
 
 impl MealPlannerApplication {
-    pub fn new(store: MealPlannerStore) -> Self { Self { store } }
+    pub fn new(store: MealPlannerStore) -> Self {
+        Self { store }
+    }
 
-    pub fn planning_context(&self, week_start: NaiveDate) -> Result<PlanningContext, MealPlannerError> {
+    pub fn planning_context(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<PlanningContext, MealPlannerError> {
         if week_start.weekday() != Weekday::Mon {
-            return Err(MealPlannerError::InvalidInput("week_start must be a Monday".into()));
+            return Err(MealPlannerError::InvalidInput(
+                "week_start must be a Monday".into(),
+            ));
         }
-        let week_end = week_start.checked_add_days(Days::new(6))
-            .ok_or_else(|| MealPlannerError::InvalidInput("week_start is outside the supported date range".into()))?;
-        let participation = self.store.resolve_meal_week(week_start)?.into_iter().map(|entry| {
-            let (arrangement, source) = match entry.status {
-                crate::ParticipationStatus::Unconfigured => (None, None),
-                crate::ParticipationStatus::Configured { arrangement, source } => {
-                    let source = match source {
-                        crate::ParticipationSource::RecurringRule => "recurring_rule",
-                        crate::ParticipationSource::DateException => "date_exception",
-                    };
-                    (Some(arrangement), Some(source.to_owned()))
+        let week_end = week_start.checked_add_days(Days::new(6)).ok_or_else(|| {
+            MealPlannerError::InvalidInput("week_start is outside the supported date range".into())
+        })?;
+        let participation = self
+            .store
+            .resolve_meal_week(week_start)?
+            .into_iter()
+            .map(|entry| {
+                let (arrangement, source) = match entry.status {
+                    crate::ParticipationStatus::Unconfigured => (None, None),
+                    crate::ParticipationStatus::Configured {
+                        arrangement,
+                        source,
+                    } => {
+                        let source = match source {
+                            crate::ParticipationSource::RecurringRule => "recurring_rule",
+                            crate::ParticipationSource::DateException => "date_exception",
+                        };
+                        (Some(arrangement), Some(source.to_owned()))
+                    }
+                };
+                PlanningParticipation {
+                    date: entry.date,
+                    meal_type: entry.meal_type,
+                    member_id: entry.member.id,
+                    member_name: entry.member.name,
+                    arrangement,
+                    source,
                 }
-            };
-            PlanningParticipation {
-                date: entry.date, meal_type: entry.meal_type, member_id: entry.member.id,
-                member_name: entry.member.name, arrangement, source,
-            }
-        }).collect();
+            })
+            .collect();
         Ok(PlanningContext {
-            week_start, week_end,
+            week_start,
+            week_end,
             members: self.store.list_family_members()?,
             participation,
             recipes: self.store.list_recipes(None)?,
@@ -113,21 +136,39 @@ impl MealPlannerApplication {
     }
 
     /// Build a candidate and deterministic feedback without writing to storage.
-    pub fn propose(&self, week_start: NaiveDate, draft: WeeklyPlanDraft) -> Result<PlanProposal, MealPlannerError> {
+    pub fn propose(
+        &self,
+        week_start: NaiveDate,
+        draft: WeeklyPlanDraft,
+    ) -> Result<PlanProposal, MealPlannerError> {
         let validation = self.validate(week_start, &draft)?;
-        Ok(PlanProposal { week_start, draft, validation })
+        Ok(PlanProposal {
+            week_start,
+            draft,
+            validation,
+        })
     }
 
-    pub fn validate(&self, week_start: NaiveDate, draft: &WeeklyPlanDraft) -> Result<PlanValidation, MealPlannerError> {
+    pub fn validate(
+        &self,
+        week_start: NaiveDate,
+        draft: &WeeklyPlanDraft,
+    ) -> Result<PlanValidation, MealPlannerError> {
         let members = self.store.list_family_members()?;
         let recipes = self.store.list_recipes(None)?;
         let menus = match week_start.checked_add_days(Days::new(6)) {
             Some(end) => self.store.list_school_menus(week_start, end)?,
             None => Vec::new(),
         };
-        let member_by_id = members.iter().map(|item| (item.id, item)).collect::<HashMap<_, _>>();
+        let member_by_id = members
+            .iter()
+            .map(|item| (item.id, item))
+            .collect::<HashMap<_, _>>();
         let recipe_ids = recipes.iter().map(|item| item.id).collect::<HashSet<_>>();
-        let menu_by_date = menus.iter().map(|item| (item.draft.date, item)).collect::<HashMap<_, _>>();
+        let menu_by_date = menus
+            .iter()
+            .map(|item| (item.draft.date, item))
+            .collect::<HashMap<_, _>>();
         let mut issues = Vec::new();
         let mut assignment_ids = HashSet::new();
         let mut slot_participants = HashSet::new();
@@ -151,13 +192,40 @@ impl MealPlannerApplication {
             let meal = Some(assignment.meal_type);
             let id = Some(assignment.id);
             if assignment.id <= 0 || !assignment_ids.insert(assignment.id) {
-                issues.push(issue("assignment_id_unique", ValidationSeverity::Error, "Assignment IDs must be positive and unique within a plan.", date, meal, id, None, None));
+                issues.push(issue(
+                    "assignment_id_unique",
+                    ValidationSeverity::Error,
+                    "Assignment IDs must be positive and unique within a plan.",
+                    date,
+                    meal,
+                    id,
+                    None,
+                    None,
+                ));
             }
             if week_end.is_none_or(|end| assignment.date < week_start || assignment.date > end) {
-                issues.push(issue("assignment_within_week", ValidationSeverity::Error, "The assignment date must belong to the selected Monday-to-Sunday week.", date, meal, id, None, None));
+                issues.push(issue(
+                    "assignment_within_week",
+                    ValidationSeverity::Error,
+                    "The assignment date must belong to the selected Monday-to-Sunday week.",
+                    date,
+                    meal,
+                    id,
+                    None,
+                    None,
+                ));
             }
             if assignment.participants.is_empty() {
-                issues.push(issue("assignment_has_participants", ValidationSeverity::Error, "Every assignment must include at least one participant.", date, meal, id, None, None));
+                issues.push(issue(
+                    "assignment_has_participants",
+                    ValidationSeverity::Error,
+                    "Every assignment must include at least one participant.",
+                    date,
+                    meal,
+                    id,
+                    None,
+                    None,
+                ));
             }
             let mut local_members = HashSet::new();
             for participant in &assignment.participants {
@@ -165,9 +233,22 @@ impl MealPlannerApplication {
                     issues.push(issue("participant_identity_valid", ValidationSeverity::Error, "Each participant needs a positive member ID and a non-empty snapshot name.", date, meal, id, Some(participant.member_id), None));
                 }
                 if !local_members.insert(participant.member_id) {
-                    issues.push(issue("participant_unique_in_assignment", ValidationSeverity::Error, "A participant appears more than once in this assignment.", date, meal, id, Some(participant.member_id), None));
+                    issues.push(issue(
+                        "participant_unique_in_assignment",
+                        ValidationSeverity::Error,
+                        "A participant appears more than once in this assignment.",
+                        date,
+                        meal,
+                        id,
+                        Some(participant.member_id),
+                        None,
+                    ));
                 }
-                if !slot_participants.insert((assignment.date, assignment.meal_type, participant.member_id)) {
+                if !slot_participants.insert((
+                    assignment.date,
+                    assignment.meal_type,
+                    participant.member_id,
+                )) {
                     issues.push(issue("participant_single_assignment_per_slot", ValidationSeverity::Error, "A participant cannot have multiple assignments for the same date and meal.", date, meal, id, Some(participant.member_id), None));
                 }
                 match member_by_id.get(&participant.member_id) {
@@ -211,10 +292,28 @@ impl MealPlannerApplication {
                 }
                 MealArrangement::School => {
                     if assignment.recipe_id.is_some() {
-                        issues.push(issue("school_without_recipe", ValidationSeverity::Error, "School assignments cannot reference a family recipe.", date, meal, id, None, assignment.recipe_id));
+                        issues.push(issue(
+                            "school_without_recipe",
+                            ValidationSeverity::Error,
+                            "School assignments cannot reference a family recipe.",
+                            date,
+                            meal,
+                            id,
+                            None,
+                            assignment.recipe_id,
+                        ));
                     }
                     if assignment.school_menu_date != Some(assignment.date) {
-                        issues.push(issue("school_menu_matches_date", ValidationSeverity::Error, "A school assignment must reference the menu for its own date.", date, meal, id, None, None));
+                        issues.push(issue(
+                            "school_menu_matches_date",
+                            ValidationSeverity::Error,
+                            "A school assignment must reference the menu for its own date.",
+                            date,
+                            meal,
+                            id,
+                            None,
+                            None,
+                        ));
                     } else {
                         match menu_by_date.get(&assignment.date) {
                             None => issues.push(issue("school_menu_recorded", ValidationSeverity::Warning, "No school menu is recorded for this date; this is not evidence that the school is closed.", date, meal, id, None, None)),
@@ -249,10 +348,16 @@ impl MealPlannerApplication {
     }
 
     /// Persist a validated proposal as a draft. This operation never confirms it.
-    pub fn save_draft(&self, week_start: NaiveDate, draft: WeeklyPlanDraft) -> Result<WeeklyPlan, MealPlannerError> {
+    pub fn save_draft(
+        &self,
+        week_start: NaiveDate,
+        draft: WeeklyPlanDraft,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
         let validation = self.validate(week_start, &draft)?;
         if !validation.valid {
-            return Err(MealPlannerError::InvalidInput("the proposal has validation errors; correct it before saving".into()));
+            return Err(MealPlannerError::InvalidInput(
+                "the proposal has validation errors; correct it before saving".into(),
+            ));
         }
         match self.store.get_weekly_plan(week_start)? {
             None => self.store.create_weekly_plan(week_start, draft),
@@ -266,14 +371,26 @@ impl MealPlannerApplication {
     }
 
     /// Confirm only the already-saved latest draft after revalidating it.
-    pub fn confirm_saved_draft(&self, week_start: NaiveDate) -> Result<WeeklyPlan, MealPlannerError> {
-        let plan = self.store.get_weekly_plan(week_start)?.ok_or(MealPlannerError::NotFound)?;
+    pub fn confirm_saved_draft(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        let plan = self
+            .store
+            .get_weekly_plan(week_start)?
+            .ok_or(MealPlannerError::NotFound)?;
         if plan.status != WeeklyPlanStatus::Draft {
-            return Err(MealPlannerError::Conflict("only a saved draft can be confirmed".into()));
+            return Err(MealPlannerError::Conflict(
+                "only a saved draft can be confirmed".into(),
+            ));
         }
-        let draft = WeeklyPlanDraft { assignments: plan.assignments.clone() };
+        let draft = WeeklyPlanDraft {
+            assignments: plan.assignments.clone(),
+        };
         if !self.validate(week_start, &draft)?.valid {
-            return Err(MealPlannerError::InvalidInput("the saved draft has validation errors; correct it before confirming".into()));
+            return Err(MealPlannerError::InvalidInput(
+                "the saved draft has validation errors; correct it before confirming".into(),
+            ));
         }
         self.store.confirm_weekly_plan(week_start)
     }
@@ -306,13 +423,25 @@ mod tests {
     use super::*;
     use crate::{MealAssignment, PlanParticipant};
 
-    fn monday() -> NaiveDate { NaiveDate::from_ymd_opt(2026, 11, 16).unwrap() }
+    fn monday() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()
+    }
     fn draft(member_id: i64) -> WeeklyPlanDraft {
-        WeeklyPlanDraft { assignments: vec![MealAssignment {
-            id: 1, date: monday(), meal_type: MealType::Lunch,
-            participants: vec![PlanParticipant { member_id, name: "Alex".into() }],
-            arrangement: MealArrangement::Home, recipe_id: None, school_menu_date: None, notes: None,
-        }] }
+        WeeklyPlanDraft {
+            assignments: vec![MealAssignment {
+                id: 1,
+                date: monday(),
+                meal_type: MealType::Lunch,
+                participants: vec![PlanParticipant {
+                    member_id,
+                    name: "Alex".into(),
+                }],
+                arrangement: MealArrangement::Home,
+                recipe_id: None,
+                school_menu_date: None,
+                notes: None,
+            }],
+        }
     }
 
     #[test]
