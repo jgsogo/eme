@@ -236,7 +236,7 @@ impl MealPlannerStore {
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
         ensure_member(&connection, member_id)?;
-        connection.execute("INSERT INTO recurring_participation_rules(member_id, weekday, meal_type, arrangement, effective_from, effective_until) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        connection.execute("INSERT INTO recurring_participation_rules(family_id, member_id, weekday, meal_type, arrangement, effective_from, effective_until) VALUES ('legacy', ?1, ?2, ?3, ?4, ?5, ?6)",
             params![member_id, weekday as u8, meal_type.as_str(), arrangement.as_str(), effective_from.map(|d| d.to_string()), effective_until.map(|d| d.to_string())])?;
         load_rule(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
     }
@@ -286,7 +286,7 @@ impl MealPlannerStore {
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
         ensure_member(&connection, member_id)?;
-        connection.execute("INSERT INTO meal_participation_exceptions(member_id, date, meal_type, arrangement) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(member_id, date, meal_type) DO UPDATE SET arrangement = excluded.arrangement",
+        connection.execute("INSERT INTO meal_participation_exceptions(family_id, member_id, date, meal_type, arrangement) VALUES ('legacy', ?1, ?2, ?3, ?4) ON CONFLICT(family_id, member_id, date, meal_type) DO UPDATE SET arrangement = excluded.arrangement",
             params![member_id, date.to_string(), meal_type.as_str(), arrangement.as_str()])?;
         load_exception(&connection, member_id, date, meal_type)?.ok_or(MealPlannerError::NotFound)
     }
