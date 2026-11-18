@@ -20,7 +20,7 @@ mod tool;
 mod types;
 
 pub use agent::AgentDefinition;
-pub use agent_models::ModelError;
+pub use agent_models::{ModelError, ModelFailureCategory};
 pub use agent_registry::AgentRegistry;
 pub use error::{ErrorCategory, RuntimeError};
 pub(crate) use model::FixedModelRouter;
