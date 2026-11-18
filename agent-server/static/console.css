@@ -304,3 +304,9 @@ body:has(#shopping-list-panel) main{overflow:auto}
 @media(prefers-reduced-transparency:reduce){
  .school-menu-day.status-closed{opacity:.78}
 }
+
+/* School-menu calendar weekend visibility. */
+.school-menu-weekends-toggle{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);white-space:nowrap;cursor:pointer}
+.school-menu-weekends-toggle input{margin:0;accent-color:var(--accent)}
+#menu-month-view.weekdays-only .school-menu-calendar-weekdays,
+#menu-month-view.weekdays-only .school-menu-month{grid-template-columns:repeat(5,minmax(0,1fr))}
