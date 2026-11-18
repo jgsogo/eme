@@ -1,0 +1,225 @@
+//! SQLite persistence for weekly plans and immutable confirmed revisions.
+use crate::{
+    MealPlannerError, MealPlannerStore,
+    domain::{MealArrangement, ParticipationStatus},
+    plans::{MealAssignment, PlanParticipant, WeeklyPlan, WeeklyPlanDraft, WeeklyPlanStatus},
+};
+use chrono::{Datelike, NaiveDate, Utc, Weekday};
+use rusqlite::{OptionalExtension, params};
+
+impl MealPlannerStore {
+    /// Create a draft using the current household participation rules.
+    /// Resolved participants are snapshotted into the draft and are not
+    /// silently recalculated when household rules later change.
+    pub fn create_weekly_plan_from_rules(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        if week_start.weekday() != Weekday::Mon {
+            return Err(MealPlannerError::InvalidInput(
+                "week_start must be a Monday".into(),
+            ));
+        }
+        let resolved = self.resolve_meal_week(week_start)?;
+        let mut assignments: Vec<MealAssignment> = Vec::new();
+        for participation in resolved {
+            let arrangement = match participation.status {
+                ParticipationStatus::Unconfigured => continue,
+                ParticipationStatus::Configured { arrangement, .. } => arrangement,
+            };
+            let assignment = assignments.iter_mut().find(|item| {
+                item.date == participation.date
+                    && item.meal_type == participation.meal_type
+                    && item.arrangement == arrangement
+            });
+            let participant = PlanParticipant {
+                member_id: participation.member.id,
+                name: participation.member.name,
+            };
+            if let Some(assignment) = assignment {
+                assignment.participants.push(participant);
+            } else {
+                let id = assignments.len() as i64 + 1;
+                assignments.push(MealAssignment {
+                    id,
+                    date: participation.date,
+                    meal_type: participation.meal_type,
+                    participants: vec![participant],
+                    arrangement,
+                    recipe_id: None,
+                    school_menu_date: (arrangement == MealArrangement::School)
+                        .then_some(participation.date),
+                    notes: None,
+                });
+            }
+        }
+        self.create_weekly_plan(week_start, WeeklyPlanDraft { assignments })
+    }
+
+    pub fn create_weekly_plan(
+        &self,
+        week_start: NaiveDate,
+        draft: WeeklyPlanDraft,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        let draft = draft
+            .validate(week_start)
+            .map_err(MealPlannerError::InvalidInput)?;
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let revision: i64 = connection.query_row(
+            "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE week_start = ?1",
+            [week_start.to_string()],
+            |row| row.get(0),
+        )?;
+        let now = Utc::now().timestamp();
+        let assignments = serde_json::to_string(&draft.assignments)?;
+        connection.execute(
+            "INSERT INTO weekly_plans(week_start, revision, status, assignments, created_at) VALUES (?1, ?2, 'draft', ?3, ?4)",
+            params![week_start.to_string(), revision, assignments, now],
+        )?;
+        load_plan(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn get_weekly_plan(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<Option<WeeklyPlan>, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let id = connection.query_row(
+            "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
+            [week_start.to_string()],
+            |row| row.get::<_, i64>(0),
+        ).optional()?;
+        id.map(|id| load_plan(&connection, id)).transpose().map(Option::flatten)
+    }
+
+    pub fn list_weekly_plan_revisions(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<Vec<WeeklyPlan>, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut statement = connection.prepare(
+            "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC",
+        )?;
+        let ids = statement.query_map([week_start.to_string()], |row| row.get::<_, i64>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        ids.into_iter().map(|id| {
+            load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)
+        }).collect()
+    }
+
+    /// Replace the latest draft. Confirmed plans are never updated in place.
+    pub fn update_weekly_plan(
+        &self,
+        week_start: NaiveDate,
+        draft: WeeklyPlanDraft,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        let draft = draft.validate(week_start).map_err(MealPlannerError::InvalidInput)?;
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
+        let status: String = connection.query_row(
+            "SELECT status FROM weekly_plans WHERE id = ?1", [id], |row| row.get(0)
+        )?;
+        if status != "draft" {
+            return Err(MealPlannerError::Conflict(
+                "confirmed plans are immutable; create a revision first".into(),
+            ));
+        }
+        let assignments = serde_json::to_string(&draft.assignments)?;
+        connection.execute(
+            "UPDATE weekly_plans SET assignments = ?1 WHERE id = ?2",
+            params![assignments, id],
+        )?;
+        load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn confirm_weekly_plan(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
+        let now = Utc::now().timestamp();
+        let changed = connection.execute(
+            "UPDATE weekly_plans SET status = 'confirmed', confirmed_at = ?1 WHERE id = ?2 AND status = 'draft'",
+            params![now, id],
+        )?;
+        if changed == 0 {
+            return Err(MealPlannerError::Conflict(
+                "only a draft plan can be confirmed".into(),
+            ));
+        }
+        load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)
+    }
+
+    /// Copy the latest confirmed snapshot into a new editable revision.
+    pub fn revise_weekly_plan(
+        &self,
+        week_start: NaiveDate,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
+        let source = load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)?;
+        if source.status != WeeklyPlanStatus::Confirmed {
+            return Err(MealPlannerError::Conflict(
+                "only a confirmed plan can be revised".into(),
+            ));
+        }
+        let revision: i64 = connection.query_row(
+            "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE week_start = ?1",
+            [week_start.to_string()],
+            |row| row.get(0),
+        )?;
+        let now = Utc::now().timestamp();
+        let assignments = serde_json::to_string(&source.assignments)?;
+        connection.execute(
+            "INSERT INTO weekly_plans(week_start, revision, status, assignments, created_at) VALUES (?1, ?2, 'draft', ?3, ?4)",
+            params![week_start.to_string(), revision, assignments, now],
+        )?;
+        load_plan(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
+    }
+}
+
+fn latest_plan_id(
+    connection: &rusqlite::Connection,
+    week_start: NaiveDate,
+) -> Result<Option<i64>, MealPlannerError> {
+    Ok(connection.query_row(
+        "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
+        [week_start.to_string()],
+        |row| row.get(0),
+    ).optional()?)
+}
+
+fn load_plan(
+    connection: &rusqlite::Connection,
+    id: i64,
+) -> Result<Option<WeeklyPlan>, MealPlannerError> {
+    connection.query_row(
+        "SELECT id, week_start, revision, status, assignments, created_at, confirmed_at FROM weekly_plans WHERE id = ?1",
+        [id],
+        |row| {
+            let week_start: String = row.get(1)?;
+            let status: String = row.get(3)?;
+            let assignments: String = row.get(4)?;
+            let confirmed_at: Option<i64> = row.get(6)?;
+            Ok((row.get::<_, i64>(0)?, week_start, row.get::<_, i64>(2)?, status, assignments, row.get::<_, i64>(5)?, confirmed_at))
+        },
+    ).optional()?.map(|(id, week_start, revision, status, assignments, created_at, confirmed_at)| {
+        let week_start = NaiveDate::parse_from_str(&week_start, "%Y-%m-%d")
+            .map_err(|error| MealPlannerError::InvalidInput(format!("invalid plan date in database: {error}")))?;
+        let status = match status.as_str() {
+            "draft" => WeeklyPlanStatus::Draft,
+            "confirmed" => WeeklyPlanStatus::Confirmed,
+            _ => return Err(MealPlannerError::InvalidInput("invalid plan status in database".into())),
+        };
+        Ok(WeeklyPlan {
+            id,
+            week_start,
+            revision,
+            status,
+            assignments: serde_json::from_str(&assignments)?,
+            created_at,
+            confirmed_at,
+        })
+    }).transpose()
+}
