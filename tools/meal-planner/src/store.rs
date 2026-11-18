@@ -1,9 +1,9 @@
 //! SQLite storage bootstrap and Meal Planner persistence boundary.
 mod household;
-mod recipes;
 #[cfg(test)]
 mod household_tests;
 mod migrations;
+mod recipes;
 #[cfg(test)]
 mod tests;
 
@@ -24,7 +24,10 @@ impl MealPlannerStore {
     /// Open the configured database, creating its parent directory if necessary.
     pub fn open(config: &MealPlannerConfig) -> Result<Self, MealPlannerError> {
         let path = config.database_path();
-        if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        if let Some(parent) = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
             std::fs::create_dir_all(parent)?;
         }
         Self::from_connection(Connection::open(path)?)
@@ -36,13 +39,19 @@ impl MealPlannerStore {
     }
 
     pub fn health_check(&self) -> Result<(), MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         connection.query_row("SELECT 1", [], |row| row.get::<_, i64>(0))?;
         Ok(())
     }
 
     pub fn schema_version(&self) -> Result<i64, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         Ok(connection.pragma_query_value(None, "user_version", |row| row.get(0))?)
     }
 
@@ -50,6 +59,8 @@ impl MealPlannerStore {
         connection.busy_timeout(Duration::from_secs(5))?;
         connection.execute_batch("PRAGMA foreign_keys = ON;")?;
         migrations::apply(&mut connection)?;
-        Ok(Self { connection: Arc::new(Mutex::new(connection)) })
+        Ok(Self {
+            connection: Arc::new(Mutex::new(connection)),
+        })
     }
 }

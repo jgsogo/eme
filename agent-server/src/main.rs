@@ -32,9 +32,9 @@ use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
-    integrations_page, invitation_page, recipes_page, recipes_script, mobile_conversations_page, mobile_families_page,
+    integrations_page, invitation_page, mobile_conversations_page, mobile_families_page,
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
-    mobile_tasks_page, notes_page, profile_page, tasks_page,
+    mobile_tasks_page, notes_page, profile_page, recipes_page, recipes_script, tasks_page,
 };
 
 #[actix_web::main]

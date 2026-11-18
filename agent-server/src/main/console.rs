@@ -73,13 +73,15 @@ pub(super) async fn profile_page() -> impl Responder {
 
 #[get("/console/recipes")]
 pub(super) async fn recipes_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/recipes.html"))
 }
 
 #[get("/assets/recipes.js")]
 pub(super) async fn recipes_script() -> impl Responder {
-    HttpResponse::Ok().content_type("text/javascript; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
         .body(include_str!("../../static/recipes.js"))
 }
 

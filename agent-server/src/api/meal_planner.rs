@@ -7,7 +7,9 @@ use meal_planner::{MealPlannerError, MealPlannerStore, RecipeDraft};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-struct SearchQuery { q: Option<String> }
+struct SearchQuery {
+    q: Option<String>,
+}
 
 fn error_response(error: MealPlannerError) -> HttpResponse {
     match error {

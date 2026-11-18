@@ -12,7 +12,9 @@ pub enum MealPlannerError {
     NotFound,
     #[error("meal planner conflict: {0}")]
     Conflict(String),
-    #[error("meal planner database schema version {current} is newer than supported version {supported}")]
+    #[error(
+        "meal planner database schema version {current} is newer than supported version {supported}"
+    )]
     UnsupportedSchemaVersion { current: i64, supported: i64 },
     #[error("meal planner storage error: {0}")]
     Storage(#[from] rusqlite::Error),

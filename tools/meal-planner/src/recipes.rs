@@ -57,21 +57,41 @@ impl RecipeDraft {
             if ingredient.name.trim().is_empty() {
                 return Err("ingredient name must not be empty".into());
             }
-            if ingredient.amount.is_some_and(|amount| !amount.is_finite() || amount <= 0.0) {
-                return Err(format!("ingredient '{}' has an invalid amount", ingredient.name));
+            if ingredient
+                .amount
+                .is_some_and(|amount| !amount.is_finite() || amount <= 0.0)
+            {
+                return Err(format!(
+                    "ingredient '{}' has an invalid amount",
+                    ingredient.name
+                ));
             }
-            if ingredient.unit.as_ref().is_some_and(|unit| unit.trim().is_empty()) {
-                return Err(format!("ingredient '{}' has an empty unit", ingredient.name));
+            if ingredient
+                .unit
+                .as_ref()
+                .is_some_and(|unit| unit.trim().is_empty())
+            {
+                return Err(format!(
+                    "ingredient '{}' has an empty unit",
+                    ingredient.name
+                ));
             }
         }
         self.title = title.to_owned();
         for ingredient in &mut self.ingredients {
             ingredient.name = ingredient.name.trim().to_owned();
             ingredient.unit = ingredient.unit.take().map(|value| value.trim().to_owned());
-            ingredient.preparation_note = ingredient.preparation_note.take()
-                .map(|value| value.trim().to_owned()).filter(|value| !value.is_empty());
+            ingredient.preparation_note = ingredient
+                .preparation_note
+                .take()
+                .map(|value| value.trim().to_owned())
+                .filter(|value| !value.is_empty());
         }
-        self.steps = self.steps.into_iter().map(|step| step.trim().to_owned()).collect();
+        self.steps = self
+            .steps
+            .into_iter()
+            .map(|step| step.trim().to_owned())
+            .collect();
         self.categories = normalize_labels(std::mem::take(&mut self.categories));
         self.tags = normalize_labels(std::mem::take(&mut self.tags));
         self.dietary_information = normalize_labels(std::mem::take(&mut self.dietary_information));
@@ -84,14 +104,20 @@ impl RecipeDraft {
 }
 
 fn clean_optional(value: Option<String>) -> Option<String> {
-    value.map(|value| value.trim().to_owned()).filter(|value| !value.is_empty())
+    value
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
 }
 
 fn normalize_labels(values: Vec<String>) -> Vec<String> {
     let mut result: Vec<String> = Vec::new();
     for value in values {
         let value = value.trim();
-        if !value.is_empty() && !result.iter().any(|existing| existing.eq_ignore_ascii_case(value)) {
+        if !value.is_empty()
+            && !result
+                .iter()
+                .any(|existing| existing.eq_ignore_ascii_case(value))
+        {
             result.push(value.to_owned());
         }
     }
@@ -104,13 +130,22 @@ mod tests {
 
     fn draft() -> RecipeDraft {
         RecipeDraft {
-            title: "  Tomato pasta ".into(), description: None, servings: 2,
+            title: "  Tomato pasta ".into(),
+            description: None,
+            servings: 2,
             ingredients: vec![RecipeIngredient {
-                name: " Pasta ".into(), amount: None, unit: None, preparation_note: None,
+                name: " Pasta ".into(),
+                amount: None,
+                unit: None,
+                preparation_note: None,
             }],
             steps: vec!["  Boil water ".into()],
-            categories: vec![" Dinner ".into(), "dinner".into()], tags: vec![],
-            source: None, notes: None, dietary_information: vec![], allergens: None,
+            categories: vec![" Dinner ".into(), "dinner".into()],
+            tags: vec![],
+            source: None,
+            notes: None,
+            dietary_information: vec![],
+            allergens: None,
         }
     }
 
