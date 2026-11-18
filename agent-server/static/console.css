@@ -112,3 +112,8 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
  .integrations-sidebar .connect-controls select,.integrations-sidebar .connect-controls button{width:100%}
  .integration-details{min-height:360px}
 }
+
+/* Profile section navigation */
+.profile-section-nav{display:flex;align-items:center;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.profile-section-link{display:inline-block;padding:7px 11px;border-radius:7px;text-decoration:none;color:var(--muted);font-size:13px}
+.profile-section-link.active{background:var(--panel2);color:var(--text)}
