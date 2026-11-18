@@ -225,3 +225,8 @@ body:has(#shopping-list-panel) main{overflow:auto}
 .main-nav-menu-link{display:block;padding:8px 10px;border-radius:7px;color:var(--muted);text-decoration:none;white-space:nowrap}
 .main-nav-menu-link:hover,.main-nav-menu-link.active{background:var(--panel2);color:var(--text)}
 .main-nav-menu-link.active{font-weight:650}
+
+
+/* Spacing for the Meals section navigation and sidebar actions. */
+.meals-section-nav{margin-bottom:14px}
+.recipes-sidebar>button{margin:8px 0 12px}
