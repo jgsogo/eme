@@ -215,6 +215,17 @@ capabilities = ["chat"]
         assert!(!registry.contains_compatible_model(&[ModelCapability::Reasoning]));
         assert_eq!(registry.first_compatible_model(&[]), None);
 
+        // Candidate ordering is stable across provider files and independent
+        // of the order in which those files are discovered.
+        let ordered = directory.case("ordered");
+        write_provider(&ordered, "z.toml", "zeta", "gemini");
+        write_provider(&ordered, "a.toml", "alpha", "gemini");
+        let ordered_registry = Registry::load(&ordered).unwrap();
+        assert_eq!(
+            ordered_registry.compatible_models(&[ModelCapability::Chat]),
+            vec!["alpha/test-model", "zeta/test-model"]
+        );
+
         // Duplicate provider identifiers are rejected across files.
         let duplicate = directory.case("duplicate");
         write_provider(&duplicate, "a.toml", "same", "gemini");
