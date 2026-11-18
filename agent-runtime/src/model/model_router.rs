@@ -30,6 +30,12 @@ pub trait ModelRouter: Send + Sync {
 /// Adapts the legacy single-model interface for tests and embedded callers.
 pub(crate) struct FixedModelRouter(Arc<dyn AgentModel>);
 
+impl FixedModelRouter {
+    pub(crate) fn new(model: Arc<dyn AgentModel>) -> Self {
+        Self(model)
+    }
+}
+
 #[async_trait]
 impl ModelRouter for FixedModelRouter {
     async fn complete(
