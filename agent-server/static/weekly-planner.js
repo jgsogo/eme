@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const state={weekStart:null,plan:null,members:[],recipes:[],menus:[],editingId:null,shoppingList:null,shoppingListNeedsRegeneration:false};
+const state={weekStart:null,plan:null,members:[],recipes:[],menus:[],editingId:null,shoppingList:null,shoppingListNeedsRegeneration:false,familyId:""};
 const meals=[["breakfast","Breakfast"],["lunch","Lunch"],["dinner","Dinner"]];
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const text=await response.text();let value=null;try{value=text?JSON.parse(text):null}catch{value=text}if(!response.ok){const error=new Error(typeof value==="string"?value:value?.error||response.statusText);error.status=response.status;throw error}return value}
 function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -11,7 +11,6 @@ function dateLabel(value,options={weekday:"short",day:"numeric",month:"short"}){
 function weekDates(){return Array.from({length:7},(_,i)=>localDate(addDays(parseDate(state.weekStart),i)))}
 function recipeTitle(id){return state.recipes.find(r=>r.id===id)?.title||"Recipe unavailable"}
 function menuFor(date){return state.menus.find(menu=>menu.draft.date===date)}
-function renderMembers(){$("member-list").innerHTML=state.members.filter(m=>m.active).map(m=>'<span class="member-chip">'+esc(m.name)+'</span>').join("")||'<span class="hint">Add household members to start assigning meals.</span>'}
 function renderGrid(){
  const plan=state.plan;
  if(!plan){$("planner-grid").innerHTML='<p class="empty">No weekly plan exists.</p>';return}
@@ -128,13 +127,14 @@ async function loadWeek(){
  $("planner-grid").innerHTML='<p class="hint">Loading weekly plan…</p>';
  $("assignment-editor").hidden=true;
  try{
-  const [members,recipes]=await Promise.all([api("/meal-planner/members"),api("/meal-planner/recipes")]);
+  state.familyId=window.emeMealsFamily.currentFamilyId();
+  const [members,recipes]=await Promise.all([api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId)),api("/meal-planner/recipes?family_id="+encodeURIComponent(state.familyId))]);
   state.members=members;state.recipes=recipes;
   const dates=weekDates();
   state.menus=await api("/meal-planner/school-menus?from="+dates[0]+"&to="+dates[6]);
   try{state.plan=await api("/meal-planner/plans/"+state.weekStart)}
   catch(e){if(e.status!==404)throw e;state.plan=await api("/meal-planner/plans/"+state.weekStart,{method:"POST"})}
-  renderMembers();renderGrid();await loadShoppingList();$("connection").textContent="Connected";
+  renderGrid();await loadShoppingList();$("connection").textContent="Connected";
  }catch(e){$("connection").textContent="Connection error";$("planner-grid").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}
 }
 
@@ -203,4 +203,5 @@ $("revise-plan").addEventListener("click",async()=>{try{state.plan=await api("/m
 $("previous-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),-7));loadWeek()});
 $("next-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),7));loadWeek()});
 $("week-date").addEventListener("change",()=>{if($("week-date").value){state.weekStart=localDate(mondayOf(parseDate($("week-date").value)));loadWeek()}});
-(async()=>{try{await window.emeConsoleReady;state.weekStart=localDate(mondayOf(new Date()));await loadWeek()}catch(e){$("connection").textContent="Error loading planner: "+e.message;$("planner-grid").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}})();
+window.addEventListener("eme:family-changed",()=>{state.plan=null;state.shoppingList=null;loadWeek()});
+(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();state.weekStart=localDate(mondayOf(new Date()));await loadWeek()}catch(e){$("connection").textContent="Error loading planner: "+e.message;$("planner-grid").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}})();
