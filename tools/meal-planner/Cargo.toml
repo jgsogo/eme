@@ -7,3 +7,4 @@ description = "Meal planning domain and application foundation for the EME platf
 [dependencies]
 rusqlite = { workspace = true }
 thiserror = { workspace = true }
+chrono = { workspace = true }

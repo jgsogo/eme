@@ -1,48 +1,21 @@
 # meal-planner
 
-The Meal Planner is an application module hosted inside the EME monorepo. It is
-implemented as a Rust crate at `tools/meal-planner`, not as a separately
-deployed service or a second web application.
+The Meal Planner is an application module hosted inside the EME monorepo, not a separately deployed service.
 
-## Responsibilities
+## Household and meal participation
 
-The crate is the owner of Meal Planner domain rules, application use cases and
-persistence as those capabilities are introduced. Its internal boundaries are
-kept separate so domain and application logic can be tested without the agent
-runtime, HTTP server or a live database.
+The crate owns stable family-member identities, recurring participation rules and date-specific exceptions. The initial meal types are breakfast, lunch and dinner. Arrangements are home, school, away and not participating. Recurring rules are keyed by member, weekday and meal type and may have inclusive effective date bounds.
 
-The initial foundation provides:
+A date-specific exception overrides the recurring rule. When recurring rules overlap, the rule with the latest effective start wins; an unbounded start sorts first and the stable rule ID breaks ties. Missing configuration is distinct from an explicit not-participating choice.
 
-- A configurable SQLite database owned by the Meal Planner module.
-- Versioned, transactional schema migrations.
-- A small storage boundary that can be shared by server-side adapters.
-- Stable application error categories for validation, missing resources,
-  conflicts and persistence failures.
+The pure domain resolver can resolve one local calendar date or seven consecutive dates without depending on SQLite, HTTP or the agent runtime. The store provides CRUD operations and delegates date/week resolution to that domain function.
 
-The initial migration establishes module-owned metadata storage. Household,
-recipe, school-menu, meal-plan and shopping-list tables belong in their
-respective follow-up changes rather than being introduced before their domain
-models are defined.
+Member deactivation preserves identity and configuration. Deletion is allowed only when referential constraints permit it. Confirmed-plan snapshots will be added with weekly planning so later rule edits cannot rewrite historical plans.
 
 ## Server integration
 
-`agent-server` opens the database during startup and shares the store through
-Actix application data for future API handlers. By default the database is
-`<data-dir>/meal-planner.sqlite`; use `--meal-planner-database <path>` to
-override it. The server reports the selected path and schema version through
-its existing structured logging.
-
-The crate does not register agent tools or expose HTTP routes yet. Those are
-thin adapters to be added when the corresponding application use cases are
-implemented. Agent authorization remains the responsibility of
-`agent-runtime`, and the existing EME web console remains the UI.
+The server opens the SQLite database at startup and shares the store through Actix application data. The default database path is in the server data directory; use the --meal-planner-database option to override it.
 
 ## Development
 
-The workspace CI runs formatting, checks and tests for this crate with the
-rest of the workspace.
-
-```bash
-cargo test -p meal-planner
-cargo check -p agent-server
-```
+Run cargo test -p meal-planner and cargo check -p agent-server. The household tests also cover recurring-rule precedence and date-specific overrides.

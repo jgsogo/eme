@@ -1,19 +1,19 @@
 //! Meal planning domain and application foundation for the EME platform.
 //!
-//! This crate owns the Meal Planner's domain rules, application use cases and
-//! persistence as those capabilities are introduced. It is hosted in the EME
-//! monorepo and is designed as a modular application module, not a separately
-//! deployed service.
-//!
-//! The initial public surface provides configuration, a SQLite-backed store
-//! and stable application errors. Domain features and their use cases are
-//! added in focused modules; agent tools and HTTP handlers remain adapters,
-//! while authorization and request lifecycle stay with the EME runtime/server.
+//! The crate owns household identities, meal participation rules and persistence.
+//! It is hosted inside the EME monorepo; HTTP handlers and agent tools remain thin
+//! adapters, while authorization and request lifecycle belong to the EME runtime.
 
 mod config;
+mod domain;
 mod error;
 mod store;
 
 pub use config::MealPlannerConfig;
+pub use domain::{
+    FamilyMember, MealArrangement, MealException, MealParticipation, MealType, MealWeekday,
+    ParticipationResolver, ParticipationSource, ParticipationStatus, RecurringParticipationRule,
+    resolve_date, resolve_week,
+};
 pub use error::MealPlannerError;
 pub use store::MealPlannerStore;
