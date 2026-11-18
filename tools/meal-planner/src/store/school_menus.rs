@@ -191,7 +191,7 @@ mod tests {
             (17, SchoolMenuStatus::NotPublished),
             (18, SchoolMenuStatus::Closed),
         ] {
-            s.save_school_menu(menu(d, status, "")).unwrap()
+            s.save_school_menu(menu(d, status, "")).unwrap();
         }
         let v = s.list_school_menus(date(16), date(18)).unwrap();
         assert_eq!(v.len(), 3);
