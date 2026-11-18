@@ -64,7 +64,8 @@ async fn remove(store: Data<MealPlannerStore>, date: Path<NaiveDate>) -> impl Re
 }
 #[post("/import")]
 async fn import(store: Data<MealPlannerStore>, body: Json<ImportRequest>) -> impl Responder {
-    match store.import_school_menus(&body.source, body.entries) {
+    let ImportRequest { source, entries } = body.into_inner();
+    match store.import_school_menus(&source, entries) {
         Ok(v) => HttpResponse::Ok().json(v),
         Err(e) => error_response(e),
     }
