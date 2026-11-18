@@ -250,7 +250,7 @@ fn latest_plan_id(
         .optional()?)
 }
 
-fn load_plan(
+pub(super) fn load_plan(
     connection: &rusqlite::Connection,
     id: i64,
 ) -> Result<Option<WeeklyPlan>, MealPlannerError> {
