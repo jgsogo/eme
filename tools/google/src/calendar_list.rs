@@ -30,6 +30,14 @@ pub async fn list_calendars(
     refresh_token: &str,
 ) -> Result<Vec<GoogleCalendarSummary>, GoogleOAuthError> {
     let token = refresh_access_token(config, refresh_token).await?;
+    list_calendars_with_access_token(&token.access_token).await
+}
+
+/// Fetch calendars using an already-refreshed access token. The caller must
+/// coordinate refreshes through `GoogleOAuthTokenManager`.
+pub async fn list_calendars_with_access_token(
+    access_token: &str,
+) -> Result<Vec<GoogleCalendarSummary>, GoogleOAuthError> {
     let client = oauth2::reqwest::ClientBuilder::new()
         .redirect(oauth2::reqwest::redirect::Policy::none())
         .build()
@@ -40,7 +48,7 @@ pub async fn list_calendars(
     loop {
         let mut request = client
             .get(CALENDAR_LIST_URL)
-            .bearer_auth(&token.access_token)
+            .bearer_auth(access_token)
             .query(&[("maxResults", "250")]);
         if let Some(token) = page_token.as_deref() {
             request = request.query(&[("pageToken", token)]);

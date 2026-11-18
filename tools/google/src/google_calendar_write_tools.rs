@@ -1,5 +1,5 @@
 //! Agent-facing Google Calendar event creation and update tools.
-use crate::{GoogleCalendarRuntimeConfig, calendar::GoogleCalendarClient, refresh_access_token};
+use crate::{GoogleCalendarRuntimeConfig, calendar::GoogleCalendarClient};
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use chrono::DateTime;
@@ -59,6 +59,7 @@ impl Tool for GoogleCalendarCreateEvent {
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         tracing::info!(
+            audit_event = "google_calendar_event_write",
             operation = "create",
             user_id = context.user_id.as_deref().unwrap_or("unknown"),
             calendar_id = %public_id,
@@ -147,6 +148,7 @@ impl Tool for GoogleCalendarUpdateEvent {
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         tracing::info!(
+            audit_event = "google_calendar_event_write",
             operation = "update",
             user_id = context.user_id.as_deref().unwrap_or("unknown"),
             calendar_id = %public_id,
@@ -188,10 +190,11 @@ async fn authorized_client(
         .authorize_write(user_id, calendar_id, family_id)
         .await
         .map_err(|error| ToolError::Execution(error.to_string()))?;
-    let token = refresh_access_token(&runtime.oauth, &authorized.refresh_token)
+    let token = runtime
+        .refresh_access_token(authorized.calendar.connection_id, &authorized.refresh_token)
         .await
         .map_err(|error| ToolError::Execution(error.to_string()))?;
-    let client = GoogleCalendarClient::from_access_token(token.access_token);
+    let client = GoogleCalendarClient::from_access_token(token);
     let public_id = authorized.calendar.id.to_string();
     Ok((client, authorized, public_id))
 }

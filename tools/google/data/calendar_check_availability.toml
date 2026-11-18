@@ -1,0 +1,22 @@
+name = "google_check_availability"
+description = "Check whether a connected Google Calendar has busy events in a time range. Returns only busy intervals, not event details."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["calendar_id", "time_min", "time_max"]
+
+[parameters.properties.calendar_id]
+type = "string"
+minLength = 1
+description = "Internal EME connected-calendar ID returned by google_list_calendars. Never use a Google provider calendar ID."
+
+[parameters.properties.time_min]
+type = "string"
+format = "date-time"
+description = "Inclusive range start as an RFC 3339 timestamp with timezone."
+
+[parameters.properties.time_max]
+type = "string"
+format = "date-time"
+description = "Exclusive range end as an RFC 3339 timestamp with timezone."

@@ -1,5 +1,5 @@
 use super::GoogleCalendarClient;
-use crate::{GoogleCalendarRuntimeConfig, refresh_access_token};
+use crate::GoogleCalendarRuntimeConfig;
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
@@ -63,10 +63,11 @@ impl Tool for GoogleCalendarEvents {
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
 
-        let token = refresh_access_token(&runtime.oauth, &authorized.refresh_token)
+        let token = runtime
+            .refresh_access_token(authorized.calendar.connection_id, &authorized.refresh_token)
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
-        let client = GoogleCalendarClient::from_access_token(token.access_token);
+        let client = GoogleCalendarClient::from_access_token(token);
 
         let public_calendar_id = authorized.calendar.id.to_string();
         let provider_calendar_id = authorized.calendar.provider_calendar_id.as_str();

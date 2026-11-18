@@ -20,6 +20,7 @@ tools = [
     "web_search",
     "google_list_calendars",
     "google_calendar_events",
+    "google_check_availability",
     "google_calendar_create_event",
     "google_calendar_update_event",
     "get_current_datetime",

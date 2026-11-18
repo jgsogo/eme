@@ -5,18 +5,21 @@
 
 pub(crate) mod calendar;
 mod calendar_list;
+mod google_calendar_availability_tool;
 mod google_calendar_list_tool;
 mod google_calendar_write_tools;
 pub mod oauth;
 mod runtime;
+mod token_manager;
 
-pub use calendar_list::{GoogleCalendarSummary, list_calendars};
+pub use calendar_list::{GoogleCalendarSummary, list_calendars, list_calendars_with_access_token};
 pub use oauth::{
     CalendarScope, GoogleOAuthConfig, GoogleOAuthError, GoogleTokenSet, GoogleUserInfo,
     PendingAuthorization, authorization_request, exchange_code, fetch_user_info,
     refresh_access_token, revoke_token,
 };
 pub use runtime::GoogleCalendarRuntimeConfig;
+pub use token_manager::GoogleOAuthTokenManager;
 
 use std::path::PathBuf;
 
@@ -36,6 +39,10 @@ pub fn register_tools(
     registry.register_from_file(
         data_dir.join("calendar_events.toml"),
         calendar::GoogleCalendarEvents::new(runtime.clone()),
+    )?;
+    registry.register_from_file(
+        data_dir.join("calendar_check_availability.toml"),
+        google_calendar_availability_tool::GoogleCalendarCheckAvailability::new(runtime.clone()),
     )?;
     registry.register_from_file(
         data_dir.join("calendar_create_event.toml"),
