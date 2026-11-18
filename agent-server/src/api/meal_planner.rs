@@ -241,15 +241,19 @@ async fn delete_recipe(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
     identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
     store: Data<MealPlannerStore>,
     id: Path<i64>,
+    query: Query<SearchQuery>,
 ) -> impl Responder {
     let user = match authenticated_user(&request, &auth, &identities) {
         Ok(user) => user,
         Err(response) => return response,
     };
-
-    match store.delete_recipe(id.into_inner(), &user.to_string()) {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await {
+        Ok(id) => id, Err(response) => return response,
+    };
+    match store.delete_recipe_for_family(id.into_inner(), &user.to_string(), &family_id) {
         Ok(()) => HttpResponse::NoContent().finish(),
         Err(error) => error_response(error),
     }
