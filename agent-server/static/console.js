@@ -387,7 +387,15 @@ on("profile-form","submit",saveProfile);
 
 function googleHasWriteScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
 function googleHasReadScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events.readonly"||scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
+function renderIntegrationNav(){
+ const summary=$("google-integration-summary");if(!summary)return;
+ const active=state.googleConnections.filter(connection=>connection.status==="active").length;
+ summary.textContent=state.googleConnections.length
+  ? active+" active account"+(active===1?"":"s")+" · "+state.googleConnections.length+" connected"
+  : "Connect an account to get started";
+}
 function renderGoogleConnections(){
+ renderIntegrationNav();
  const target=$("google-connections");if(!target)return;
  if(!state.googleConnections.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No Google accounts connected yet.</div></div>';return}
  target.innerHTML=state.googleConnections.map(connection=>{
