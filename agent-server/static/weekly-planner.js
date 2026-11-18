@@ -131,9 +131,9 @@ async function loadWeek(){
   const [members,recipes]=await Promise.all([api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId)),api("/meal-planner/recipes?family_id="+encodeURIComponent(state.familyId))]);
   state.members=members;state.recipes=recipes;
   const dates=weekDates();
-  state.menus=await api("/meal-planner/school-menus?from="+dates[0]+"&to="+dates[6]);
-  try{state.plan=await api("/meal-planner/plans/"+state.weekStart)}
-  catch(e){if(e.status!==404)throw e;state.plan=await api("/meal-planner/plans/"+state.weekStart,{method:"POST"})}
+  state.menus=await api("/meal-planner/school-menus?family_id="+encodeURIComponent(state.familyId)+"&from="+dates[0]+"&to="+dates[6]);
+  try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"?family_id="+encodeURIComponent(state.familyId))}
+  catch(e){if(e.status!==404)throw e;state.plan=await api("/meal-planner/plans/"+state.weekStart+"?family_id="+encodeURIComponent(state.familyId),{method:"POST"})}
   renderGrid();await loadShoppingList();$("connection").textContent="Connected";
  }catch(e){$("connection").textContent="Connection error";$("planner-grid").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}
 }
@@ -168,7 +168,7 @@ $("shopping-list-items").addEventListener("click",async event=>{
   if(!name){$("shopping-list-message").textContent="Item name cannot be empty.";return}
   if(raw!==""&&(!Number.isFinite(quantity)||quantity<=0)){$("shopping-list-message").textContent="Enter a positive quantity or leave it blank.";return}
   try{
-   state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items/"+itemId,{method:"PUT",body:JSON.stringify({name,quantity,unit:row.querySelector("[data-shopping-unit]").value.trim()||null,purchased:row.querySelector("[data-shopping-purchased]").checked})});
+   state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items/"+itemId+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({name,quantity,unit:row.querySelector("[data-shopping-unit]").value.trim()||null,purchased:row.querySelector("[data-shopping-purchased]").checked})});
    $("shopping-list-message").textContent="Item updated.";renderShoppingList();
   }catch(e){$("shopping-list-message").textContent=e.message}
  }
