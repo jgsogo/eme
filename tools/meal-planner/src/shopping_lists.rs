@@ -76,9 +76,10 @@ pub(super) fn generate_items(
             let (unit, multiplier) = normalize_unit(ingredient.unit.as_deref());
             let quantity = ingredient.amount.map(|amount| amount * factor * multiplier);
             let key = (normalize_name(&ingredient.name), unit.clone());
-            if let Some(existing) = items.iter_mut().find(|item| {
-                (normalize_name(&item.name), item.unit.clone()) == key
-            }) {
+            if let Some(existing) = items
+                .iter_mut()
+                .find(|item| (normalize_name(&item.name), item.unit.clone()) == key)
+            {
                 existing.quantity = match (existing.quantity, quantity) {
                     (Some(left), Some(right)) => Some(left + right),
                     _ => None,
@@ -100,7 +101,11 @@ pub(super) fn generate_items(
 }
 
 fn normalize_name(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 
 /// Convert only explicitly supported units. Unknown units are grouped only
@@ -116,9 +121,7 @@ fn normalize_unit(value: Option<&str>) -> (Option<String>, f64) {
             (Some("ml".into()), 1.0)
         }
         "l" | "liter" | "liters" | "litre" | "litres" => (Some("ml".into()), 1000.0),
-        "pc" | "pcs" | "piece" | "pieces" | "unit" | "units" => {
-            (Some("piece".into()), 1.0)
-        }
+        "pc" | "pcs" | "piece" | "pieces" | "unit" | "units" => (Some("piece".into()), 1.0),
         other => (Some(other.to_owned()), 1.0),
     }
 }
@@ -184,7 +187,9 @@ impl ShoppingList {
         // Preserve manually added items and removed/edited/purchased entries whose
         // source no longer appears; mark generated leftovers stale for review.
         for mut previous in old_items {
-            if previous.manually_added || previous.manually_removed || previous.purchased
+            if previous.manually_added
+                || previous.manually_removed
+                || previous.purchased
                 || previous.quantity_overridden
             {
                 if !previous.manually_added {
@@ -254,7 +259,9 @@ impl ShoppingListItemUpdate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MealAssignment, MealType, PlanParticipant, RecipeDraft, RecipeIngredient, WeeklyPlanStatus};
+    use crate::{
+        MealAssignment, MealType, PlanParticipant, RecipeDraft, RecipeIngredient, WeeklyPlanStatus,
+    };
     use chrono::NaiveDate;
 
     fn recipe(id: i64, servings: u32, amount: Option<f64>, unit: Option<&str>) -> crate::Recipe {
@@ -283,8 +290,16 @@ mod tests {
 
     #[test]
     fn scales_by_participant_count_and_converts_compatible_units() {
-        let p = plan(vec![assignment(1, MealArrangement::Home, Some(1), 4), assignment(2, MealArrangement::Home, Some(2), 1)]);
-        let generated = generate_items(&p, |id| match id { 1 => Some(recipe(1, 2, Some(250.0), Some("g"))), 2 => Some(recipe(2, 1, Some(0.25), Some("kg"))), _ => None }).unwrap();
+        let p = plan(vec![
+            assignment(1, MealArrangement::Home, Some(1), 4),
+            assignment(2, MealArrangement::Home, Some(2), 1),
+        ]);
+        let generated = generate_items(&p, |id| match id {
+            1 => Some(recipe(1, 2, Some(250.0), Some("g"))),
+            2 => Some(recipe(2, 1, Some(0.25), Some("kg"))),
+            _ => None,
+        })
+        .unwrap();
         assert_eq!(generated.len(), 1);
         assert_eq!(generated[0].quantity, Some(750.0));
         assert_eq!(generated[0].unit.as_deref(), Some("g"));
@@ -293,8 +308,13 @@ mod tests {
 
     #[test]
     fn unknown_quantities_remain_unknown_and_non_home_meals_are_excluded() {
-        let p = plan(vec![assignment(1, MealArrangement::Home, Some(1), 2), assignment(2, MealArrangement::School, Some(2), 1), assignment(3, MealArrangement::Away, Some(2), 1)]);
-        let generated = generate_items(&p, |id| (id == 1).then(|| recipe(1, 2, None, None))).unwrap();
+        let p = plan(vec![
+            assignment(1, MealArrangement::Home, Some(1), 2),
+            assignment(2, MealArrangement::School, Some(2), 1),
+            assignment(3, MealArrangement::Away, Some(2), 1),
+        ]);
+        let generated =
+            generate_items(&p, |id| (id == 1).then(|| recipe(1, 2, None, None))).unwrap();
         assert_eq!(generated.len(), 1);
         assert_eq!(generated[0].quantity, None);
         assert_eq!(generated[0].unit, None);
@@ -311,8 +331,20 @@ mod tests {
             ],
         };
         let generated = vec![
-            GeneratedItem { name: "Tomato".into(), quantity: Some(4.0), unit: Some("piece".into()), source_assignment_ids: vec![2], source_recipe_ids: vec![2] },
-            GeneratedItem { name: "Milk".into(), quantity: Some(1.0), unit: Some("l".into()), source_assignment_ids: vec![3], source_recipe_ids: vec![3] },
+            GeneratedItem {
+                name: "Tomato".into(),
+                quantity: Some(4.0),
+                unit: Some("piece".into()),
+                source_assignment_ids: vec![2],
+                source_recipe_ids: vec![2],
+            },
+            GeneratedItem {
+                name: "Milk".into(),
+                quantity: Some(1.0),
+                unit: Some("l".into()),
+                source_assignment_ids: vec![3],
+                source_recipe_ids: vec![3],
+            },
         ];
         let result = ShoppingList::reconcile(Some(old), 7, 2, generated, 3);
         assert_eq!(result.id, 9);
