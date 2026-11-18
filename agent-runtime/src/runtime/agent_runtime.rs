@@ -244,8 +244,11 @@ impl AgentRuntime {
                 Some(deadline) => {
                     match tokio::time::timeout_at(
                         deadline,
-                        self.model_router
-                            .complete(&agent.capabilities, request, cancellation.clone()),
+                        self.model_router.complete(
+                            &agent.capabilities,
+                            request,
+                            cancellation.clone(),
+                        ),
                     )
                     .await
                     {
