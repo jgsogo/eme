@@ -283,7 +283,9 @@ mod tests {
     fn recipe(id: i64, servings: u32, amount: Option<f64>, unit: Option<&str>) -> crate::Recipe {
         crate::Recipe {
             id,
+            owner_id: "test-user".into(),
             draft: RecipeDraft {
+                family_id: None,
                 title: format!("Recipe {id}"),
                 description: None,
                 servings,
