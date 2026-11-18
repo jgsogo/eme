@@ -515,8 +515,6 @@ mod tests {
         );
         assert!(app.confirm_saved_draft(monday()).is_err());
     }
-
-
     #[test]
     fn saving_after_confirmation_creates_a_new_draft_revision() {
         let store = MealPlannerStore::open_in_memory().unwrap();
@@ -530,7 +528,10 @@ mod tests {
         let saved = app.save_draft(monday(), revised).unwrap();
         assert_eq!(saved.revision, first.revision + 1);
         assert_eq!(saved.status, WeeklyPlanStatus::Draft);
-        assert_eq!(saved.assignments[0].notes.as_deref(), Some("Updated after approval"));
+        assert_eq!(
+            saved.assignments[0].notes.as_deref(),
+            Some("Updated after approval")
+        );
         let revisions = store.list_weekly_plan_revisions(monday()).unwrap();
         assert_eq!(revisions.len(), 2);
         assert_eq!(revisions[1].status, WeeklyPlanStatus::Confirmed);
