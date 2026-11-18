@@ -4,7 +4,10 @@ use actix_web::{
     web::{self, Data, Json, Path, Query},
 };
 use chrono::NaiveDate;
-use meal_planner::{\n    MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft,\n    ShoppingListItemUpdate, WeeklyPlanDraft,\n};
+use meal_planner::{
+    MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft,
+    ShoppingListItemUpdate, WeeklyPlanDraft,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -218,7 +221,8 @@ async fn remove_shopping_list_item(
         Err(error) => error_response(error),
     }
 }
-\npub fn meal_planner_api() -> Scope {
+
+pub fn meal_planner_api() -> Scope {
     web::scope("/meal-planner")
         .service(list_members)
         .service(create_member)
@@ -232,5 +236,10 @@ async fn remove_shopping_list_item(
         .service(create_weekly_plan)
         .service(update_weekly_plan)
         .service(confirm_weekly_plan)
-        .service(revise_weekly_plan)\n        .service(get_shopping_list)\n        .service(generate_shopping_list)\n        .service(add_shopping_list_item)\n        .service(update_shopping_list_item)\n        .service(remove_shopping_list_item)
+        .service(revise_weekly_plan)
+        .service(get_shopping_list)
+        .service(generate_shopping_list)
+        .service(add_shopping_list_item)
+        .service(update_shopping_list_item)
+        .service(remove_shopping_list_item)
 }
