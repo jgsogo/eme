@@ -32,7 +32,7 @@ use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
-    integrations_page, invitation_page, mobile_conversations_page, mobile_families_page,
+    integrations_page, invitation_page, recipes_page, recipes_script, mobile_conversations_page, mobile_families_page,
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
     mobile_tasks_page, notes_page, profile_page, tasks_page,
 };
@@ -213,6 +213,8 @@ async fn main() -> Result<()> {
             .service(profile_page)
             .service(integrations_page)
             .service(tasks_page)
+            .service(recipes_page)
+            .service(recipes_script)
             .service(console_stylesheet)
             .service(console_script)
             .service(mobile_stylesheet)
@@ -224,6 +226,7 @@ async fn main() -> Result<()> {
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
+            .service(agent_server::meal_planner_api())
             .service(agent_server::profile_api())
             .service(agent_server::tasks_api())
             .service(agent_server::invitations_api())

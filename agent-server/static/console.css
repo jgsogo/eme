@@ -129,3 +129,25 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 .profile-section-nav{display:flex;align-items:center;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--border)}
 .profile-section-link{display:inline-block;padding:7px 11px;border-radius:7px;text-decoration:none;color:var(--muted);font-size:13px}
 .profile-section-link.active{background:var(--panel2);color:var(--text)}
+
+/* Meal Planner recipe catalogue and cooking view */
+.recipes-view{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:14px;height:100%;min-height:0}
+.recipes-sidebar,.recipe-main{padding:16px;min-height:0;overflow:auto}
+.recipes-toolbar{display:flex;gap:8px;align-items:center;margin:10px 0}
+.recipes-toolbar input,.recipe-form input,.recipe-form textarea{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font:inherit;margin:5px 0 12px}
+.recipe-list{display:flex;flex-direction:column;gap:7px}
+.recipe-list button{background:var(--panel2);color:var(--text);border:1px solid var(--border);text-align:left}
+.recipe-list button.active{border-color:var(--accent)}
+.recipe-main h2{font-size:18px;color:var(--text);letter-spacing:0;text-transform:none}
+.recipe-form{max-width:900px}
+.recipe-form textarea{resize:vertical}
+.recipe-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.recipe-actions{display:flex;gap:8px;flex-wrap:wrap}
+.cooking-section{margin:20px 0}
+.cooking-section h3{font-size:14px;margin-bottom:8px}
+.cooking-check{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border);color:var(--text)}
+.cooking-check input{margin-top:5px;accent-color:var(--accent)}
+.cooking-check.done span{text-decoration:line-through;color:var(--muted)}
+.cooking-step-number{display:inline-grid;place-items:center;flex:none;width:24px;height:24px;border-radius:50%;background:var(--panel2);color:var(--accent);font-size:12px}
+.recipe-meta{color:var(--muted);font-size:12px;margin:5px 0 14px}
+@media(max-width:760px){.recipes-view{grid-template-columns:1fr;grid-template-rows:minmax(150px,auto) minmax(0,1fr);overflow:auto}.recipes-sidebar,.recipe-main{overflow:visible;padding:12px}.recipe-grid{grid-template-columns:1fr}}
