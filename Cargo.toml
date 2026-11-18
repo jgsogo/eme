@@ -15,6 +15,7 @@ members = [
     "tools/common",
     "tools/tasks",
     "tools/notes",
+    "tools/meal-planner",
     "tools/mercadona",
 ]
 
