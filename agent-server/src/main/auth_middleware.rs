@@ -24,6 +24,7 @@ where
         || path == "/console/families"
         || path == "/console/notes"
         || path == "/console/profile"
+        || path == "/console/integrations"
         || path == "/console/tasks"
         || path.starts_with("/assets/")
         || path == "/favicon.ico"

@@ -384,8 +384,10 @@ async function deleteTask(){
  catch(e){$("tasks-status").textContent=e.message}
 }
 async function loadProfile(){
- try{const profile=await api("/profile");$("profile-display-name").value=profile.display_name||"";$("profile-status").textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
- catch(e){$("profile-status").textContent=e.message}
+ const displayName=$("profile-display-name"),status=$("profile-status");
+ if(!displayName||!status)return;
+ try{const profile=await api("/profile");displayName.value=profile.display_name||"";status.textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
+ catch(e){status.textContent=e.message}
 }
 async function saveProfile(event){
  event.preventDefault();const name=$("profile-display-name").value.trim();if(!name){$("profile-status").textContent="Display name must not be empty.";return}
@@ -499,7 +501,8 @@ async function showConsole(){
  }else if(page==="tasks"){
   state.agents=await api("/agents");renderTaskAgents();await loadTasks();resetTaskEditor();
  }else if(page==="profile"){
-  await loadProfile();
+  await Promise.all([loadProfile(),loadFamilies()]);
+  await loadFamilyDetails(state.families[0]?.id||null);
  }else if(page==="integrations"){
   await loadIntegrations();
  }else{
@@ -541,4 +544,16 @@ on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFa
 on("logout","click",async()=>{
  try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];state.notes=[];state.selectedNote=null;state.tasks=[];state.selectedTask=null;if(page==="conversations")renderConversations();if(page==="notes")renderNotes();if(page==="tasks")renderTasks();await showLogin()}
 });
-(async()=>{try{await api("/auth/session");await showConsole()}catch(e){await showLogin()}})();
+(async()=>{
+ try{await api("/auth/session")}
+ catch{await showLogin();return}
+ try{await showConsole()}
+ catch(error){
+  document.body.classList.remove("login-active");
+  $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
+  document.querySelector("main").hidden=false;
+  $("connection").textContent="Error loading page: "+error.message;
+  $("connection").className="hint error";
+  console.error("Failed to initialize console page",error);
+ }
+})();
