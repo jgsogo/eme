@@ -361,12 +361,13 @@ impl MealPlannerApplication {
         }
         match self.store.get_weekly_plan(week_start)? {
             None => self.store.create_weekly_plan(week_start, draft),
-            Some(plan) if plan.status == WeeklyPlanStatus::Draft => {
-                self.store.update_weekly_plan(week_start, draft)
-            }
-            Some(_) => Err(MealPlannerError::Conflict(
-                "the latest plan is confirmed; create a new revision before saving a draft".into(),
-            )),
+            Some(plan) => match plan.status {
+                WeeklyPlanStatus::Draft => self.store.update_weekly_plan(week_start, draft),
+                WeeklyPlanStatus::Confirmed => {
+                    self.store.revise_weekly_plan(week_start)?;
+                    self.store.update_weekly_plan(week_start, draft)
+                }
+            },
         }
     }
 
