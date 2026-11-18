@@ -225,11 +225,7 @@ mod tests {
 
         assert_eq!(store.list_recipes("a", &[], None).unwrap().len(), 2);
         assert!(store.get_recipe(private.id, "b", &[]).is_err());
-        assert!(
-            store
-                .get_recipe(shared.id, "b", &["f1".into()])
-                .is_ok()
-        );
+        assert!(store.get_recipe(shared.id, "b", &["f1".into()]).is_ok());
     }
 
     #[test]
