@@ -228,7 +228,6 @@ pub async fn revoke_token(token: &str) -> Result<(), GoogleOAuthError> {
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -255,7 +254,10 @@ mod tests {
         let url = authorization_url(CalendarScope::ReadOnly);
 
         assert_eq!(query_parameter(&url, "prompt").as_deref(), Some("consent"));
-        assert_eq!(query_parameter(&url, "access_type").as_deref(), Some("offline"));
+        assert_eq!(
+            query_parameter(&url, "access_type").as_deref(),
+            Some("offline")
+        );
         assert_eq!(
             query_parameter(&url, "include_granted_scopes").as_deref(),
             Some("false")
@@ -264,7 +266,11 @@ mod tests {
         let scopes = query_parameter(&url, "scope").expect("scope parameter");
         assert!(scopes.contains(CALENDAR_LIST_READONLY));
         assert!(scopes.contains(CALENDAR_EVENTS_READONLY));
-        assert!(!scopes.split_whitespace().any(|scope| scope == CALENDAR_EVENTS));
+        assert!(
+            !scopes
+                .split_whitespace()
+                .any(|scope| scope == CALENDAR_EVENTS)
+        );
     }
 
     #[test]
@@ -274,6 +280,10 @@ mod tests {
 
         assert!(scopes.contains(CALENDAR_LIST_READONLY));
         assert!(scopes.contains(CALENDAR_EVENTS));
-        assert!(!scopes.split_whitespace().any(|scope| scope == CALENDAR_EVENTS_READONLY));
+        assert!(
+            !scopes
+                .split_whitespace()
+                .any(|scope| scope == CALENDAR_EVENTS_READONLY)
+        );
     }
 }
