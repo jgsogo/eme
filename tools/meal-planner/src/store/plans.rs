@@ -8,6 +8,107 @@ use chrono::{Datelike, NaiveDate, Utc, Weekday};
 use rusqlite::{OptionalExtension, params};
 
 impl MealPlannerStore {
+    pub fn create_weekly_plan_from_rules_for_family(&self, family_id: &str, week_start: NaiveDate) -> Result<WeeklyPlan, MealPlannerError> {
+        let resolved = self.resolve_meal_week_for_family(family_id, week_start)?;
+        let mut assignments: Vec<MealAssignment> = Vec::new();
+        for participation in resolved {
+            let arrangement = match participation.status {
+                ParticipationStatus::Unconfigured => continue,
+                ParticipationStatus::Configured { arrangement, .. } => arrangement,
+            };
+            let participant = PlanParticipant { member_id: participation.member.id, name: participation.member.name };
+            if let Some(assignment) = assignments.iter_mut().find(|item| item.date == participation.date && item.meal_type == participation.meal_type && item.arrangement == arrangement) {
+                assignment.participants.push(participant);
+            } else {
+                let id = assignments.len() as i64 + 1;
+                assignments.push(MealAssignment {
+                    id, date: participation.date, meal_type: participation.meal_type,
+                    participants: vec![participant], arrangement, recipe_id: None,
+                    school_menu_date: (arrangement == MealArrangement::School).then_some(participation.date),
+                    notes: None,
+                });
+            }
+        }
+        self.create_weekly_plan_for_family(family_id, week_start, WeeklyPlanDraft { assignments })
+    }
+
+    pub fn create_weekly_plan_for_family(&self, family_id: &str, week_start: NaiveDate, draft: WeeklyPlanDraft) -> Result<WeeklyPlan, MealPlannerError> {
+        let draft = draft.validate(week_start).map_err(MealPlannerError::InvalidInput)?;
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_family_references(&connection, family_id, &draft)?;
+        let revision: i64 = connection.query_row(
+            "SELECT COALESCE(MAX(revision),0)+1 FROM weekly_plans WHERE family_id=?1 AND week_start=?2",
+            params![family_id, week_start.to_string()], |row| row.get(0)
+        )?;
+        let now = Utc::now().timestamp();
+        let assignments = serde_json::to_string(&draft.assignments)?;
+        connection.execute(
+            "INSERT INTO weekly_plans(family_id,week_start,revision,status,assignments,created_at) VALUES(?1,?2,?3,'draft',?4,?5)",
+            params![family_id, week_start.to_string(), revision, assignments, now]
+        )?;
+        load_plan(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn get_weekly_plan_for_family(&self, family_id: &str, week_start: NaiveDate) -> Result<Option<WeeklyPlan>, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let id = connection.query_row(
+            "SELECT id FROM weekly_plans WHERE family_id=?1 AND week_start=?2 ORDER BY revision DESC LIMIT 1",
+            params![family_id, week_start.to_string()], |row| row.get::<_, i64>(0)
+        ).optional()?;
+        match id { Some(id) => load_plan(&connection, id), None => Ok(None) }
+    }
+
+    pub fn list_weekly_plan_revisions_for_family(&self, family_id: &str, week_start: NaiveDate) -> Result<Vec<WeeklyPlan>, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut statement = connection.prepare("SELECT id FROM weekly_plans WHERE family_id=?1 AND week_start=?2 ORDER BY revision DESC")?;
+        let ids = statement.query_map(params![family_id, week_start.to_string()], |row| row.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
+        ids.into_iter().map(|id| load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)).collect()
+    }
+
+    pub fn update_weekly_plan_for_family(&self, family_id: &str, week_start: NaiveDate, draft: WeeklyPlanDraft) -> Result<WeeklyPlan, MealPlannerError> {
+        let draft = draft.validate(week_start).map_err(MealPlannerError::InvalidInput)?;
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_family_references(&connection, family_id, &draft)?;
+        let id = latest_plan_id_for_family(&connection, family_id, week_start)?.ok_or(MealPlannerError::NotFound)?;
+        let status: String = connection.query_row("SELECT status FROM weekly_plans WHERE id=?1 AND family_id=?2", params![id, family_id], |row| row.get(0))?;
+        if status != "draft" { return Err(MealPlannerError::Conflict("confirmed plans are immutable; create a revision first".into())); }
+        let assignments = serde_json::to_string(&draft.assignments)?;
+        connection.execute("UPDATE weekly_plans SET assignments=?1 WHERE id=?2 AND family_id=?3", params![assignments, id, family_id])?;
+        load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn confirm_weekly_plan_for_family(&self, family_id: &str, week_start: NaiveDate) -> Result<WeeklyPlan, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let id = latest_plan_id_for_family(&connection, family_id, week_start)?.ok_or(MealPlannerError::NotFound)?;
+        let now = Utc::now().timestamp();
+        let changed = connection.execute("UPDATE weekly_plans SET status='confirmed',confirmed_at=?1 WHERE id=?2 AND family_id=?3 AND status='draft'", params![now, id, family_id])?;
+        if changed == 0 { return Err(MealPlannerError::Conflict("only a draft plan can be confirmed".into())); }
+        load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn revise_weekly_plan_for_family(&self, family_id: &str, week_start: NaiveDate) -> Result<WeeklyPlan, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let id = latest_plan_id_for_family(&connection, family_id, week_start)?.ok_or(MealPlannerError::NotFound)?;
+        let source = load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)?;
+        if source.status != WeeklyPlanStatus::Confirmed { return Err(MealPlannerError::Conflict("only a confirmed plan can be revised".into())); }
+        let revision: i64 = connection.query_row(
+            "SELECT COALESCE(MAX(revision),0)+1 FROM weekly_plans WHERE family_id=?1 AND week_start=?2",
+            params![family_id, week_start.to_string()], |row| row.get(0)
+        )?;
+        let now = Utc::now().timestamp();
+        let assignments = serde_json::to_string(&source.assignments)?;
+        connection.execute(
+            "INSERT INTO weekly_plans(family_id,week_start,revision,status,assignments,created_at) VALUES(?1,?2,?3,'draft',?4,?5)",
+            params![family_id, week_start.to_string(), revision, assignments, now]
+        )?;
+        load_plan(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn plan_belongs_to_family(&self, plan_id: i64, family_id: &str) -> Result<bool, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        Ok(connection.query_row("SELECT EXISTS(SELECT 1 FROM weekly_plans WHERE id=?1 AND family_id=?2)", params![plan_id, family_id], |row| row.get(0))?)
+    }
+
     /// Create a draft using the current household participation rules.
     /// Resolved participants are snapshotted into the draft and are not
     /// silently recalculated when household rules later change.
@@ -208,6 +309,33 @@ impl MealPlannerStore {
     }
 }
 
+fn ensure_family_references(connection: &rusqlite::Connection, family_id: &str, draft: &WeeklyPlanDraft) -> Result<(), MealPlannerError> {
+    for assignment in &draft.assignments {
+        for participant in &assignment.participants {
+            let exists: bool = connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM family_members WHERE id=?1 AND family_id=?2 AND active=1)",
+                params![participant.member_id, family_id], |row| row.get(0)
+            )?;
+            if !exists { return Err(MealPlannerError::NotFound); }
+        }
+        if let Some(recipe_id) = assignment.recipe_id {
+            let exists: bool = connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM recipes WHERE id=?1 AND (family_id IS NULL OR family_id=?2))",
+                params![recipe_id, family_id], |row| row.get(0)
+            )?;
+            if !exists { return Err(MealPlannerError::NotFound); }
+        }
+    }
+    Ok(())
+}
+
+fn latest_plan_id_for_family(connection: &rusqlite::Connection, family_id: &str, week_start: NaiveDate) -> Result<Option<i64>, MealPlannerError> {
+    Ok(connection.query_row(
+        "SELECT id FROM weekly_plans WHERE family_id=?1 AND week_start=?2 ORDER BY revision DESC LIMIT 1",
+        params![family_id, week_start.to_string()], |row| row.get(0)
+    ).optional()?)
+}
+
 fn ensure_references(
     connection: &rusqlite::Connection,
     draft: &WeeklyPlanDraft,
@@ -353,4 +481,18 @@ mod tests {
         assert_eq!(first.id, updated.id);
         assert_eq!(store.list_weekly_plan_revisions(monday()).unwrap().len(), 1);
     }
+
+    #[test]
+    fn weekly_plans_and_revisions_are_isolated_by_family() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let week = monday();
+        let first = store.create_weekly_plan_for_family("family-a", week, WeeklyPlanDraft { assignments: vec![] }).unwrap();
+        let second = store.create_weekly_plan_for_family("family-b", week, WeeklyPlanDraft { assignments: vec![] }).unwrap();
+        assert_eq!(first.revision, 1);
+        assert_eq!(second.revision, 1);
+        assert_eq!(store.list_weekly_plan_revisions_for_family("family-a", week).unwrap().len(), 1);
+        assert_eq!(store.list_weekly_plan_revisions_for_family("family-b", week).unwrap().len(), 1);
+        assert!(!store.plan_belongs_to_family(first.id, "family-b").unwrap());
+    }
+
 }
