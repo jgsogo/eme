@@ -120,7 +120,7 @@ impl MealPlannerStore {
     }
 }
 
-fn load_recipe(
+pub(super) fn load_recipe(
     connection: &rusqlite::Connection,
     id: i64,
 ) -> Result<Option<Recipe>, MealPlannerError> {
