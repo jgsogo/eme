@@ -1,11 +1,34 @@
-//! Runtime model-routing contract and fixed-model adapter.
+//! Runtime model-routing contract, lifecycle events, and fixed-model adapter.
 
 use std::sync::Arc;
 
-use agent_models::{ModelCapability, ModelError};
+use agent_models::{ModelCapability, ModelError, ModelFailureCategory};
 use async_trait::async_trait;
 
 use crate::{AgentModel, CancellationToken, ModelRequest, ModelTurn};
+
+/// Events emitted while a router evaluates compatible model candidates.
+#[derive(Debug, Clone)]
+pub enum ModelRoutingEvent {
+    CandidatesDiscovered { model_ids: Vec<String> },
+    CandidateAttemptStarted { model_id: String },
+    CandidateAttemptFailed {
+        model_id: String,
+        category: ModelFailureCategory,
+    },
+    Fallback {
+        from_model_id: String,
+        to_model_id: String,
+        category: ModelFailureCategory,
+    },
+    ModelSelected { model_id: String },
+    RoutingFailed { attempted_candidates: usize },
+}
+
+/// Receives routing lifecycle events without exposing provider error payloads.
+pub trait ModelRoutingEventSink: Send + Sync {
+    fn emit(&self, event: ModelRoutingEvent);
+}
 
 /// A model response together with the provider-qualified identity that produced it.
 #[derive(Debug, Clone)]
@@ -25,6 +48,7 @@ pub trait ModelRouter: Send + Sync {
         required: &[ModelCapability],
         request: ModelRequest,
         cancellation: CancellationToken,
+        events: Arc<dyn ModelRoutingEventSink>,
     ) -> Result<RoutedModelTurn, ModelError>;
 }
 
@@ -44,11 +68,32 @@ impl ModelRouter for FixedModelRouter {
         _required: &[ModelCapability],
         request: ModelRequest,
         _cancellation: CancellationToken,
+        events: Arc<dyn ModelRoutingEventSink>,
     ) -> Result<RoutedModelTurn, ModelError> {
-        let turn = self.0.complete(request).await?;
-        Ok(RoutedModelTurn {
-            model_id: "fixed".to_owned(),
-            turn,
-        })
+        let model_id = "fixed".to_owned();
+        events.emit(ModelRoutingEvent::CandidatesDiscovered {
+            model_ids: vec![model_id.clone()],
+        });
+        events.emit(ModelRoutingEvent::CandidateAttemptStarted {
+            model_id: model_id.clone(),
+        });
+        match self.0.complete(request).await {
+            Ok(turn) => {
+                events.emit(ModelRoutingEvent::ModelSelected {
+                    model_id: model_id.clone(),
+                });
+                Ok(RoutedModelTurn { model_id, turn })
+            }
+            Err(error) => {
+                events.emit(ModelRoutingEvent::CandidateAttemptFailed {
+                    model_id,
+                    category: error.failure_category(),
+                });
+                events.emit(ModelRoutingEvent::RoutingFailed {
+                    attempted_candidates: 1,
+                });
+                Err(error)
+            }
+        }
     }
 }
