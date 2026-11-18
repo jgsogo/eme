@@ -34,13 +34,13 @@ impl Tool for GoogleCalendarList {
             .map(|family| family.family_id.as_str());
         let calendars = runtime
             .access
-            .list_readable_calendars(user_id, family_id)
+            .list_readable_calendars_with_permissions(user_id, family_id)
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
 
         let calendars = calendars
             .into_iter()
-            .map(|calendar| {
+            .map(|(calendar, can_write)| {
                 let access = if calendar.owner_id.to_string() == user_id {
                     "owner"
                 } else {
@@ -54,7 +54,11 @@ impl Tool for GoogleCalendarList {
                     "calendar_id": calendar.id.to_string(),
                     "name": calendar.display_name,
                     "time_zone": calendar.time_zone,
-                    "access": access
+                    "access": access,
+                    "permissions": {
+                        "read": true,
+                        "write": can_write
+                    }
                 })
             })
             .collect::<Vec<_>>();
