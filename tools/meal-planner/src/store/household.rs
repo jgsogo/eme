@@ -117,6 +117,14 @@ impl MealPlannerStore {
         }
         load_member(&connection, id)?.ok_or(MealPlannerError::NotFound)
     }
+    pub fn list_family_members_for_family(&self, family_id: &str) -> Result<Vec<FamilyMember>, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut statement = connection.prepare("SELECT id,name,active FROM family_members WHERE family_id=?1 ORDER BY id")?;
+        statement.query_map([family_id], |row| Ok(FamilyMember {
+            id: row.get(0)?, name: row.get(1)?, active: row.get::<_, i64>(2)? != 0,
+        }))?.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+    }
+
     pub fn list_family_members(&self) -> Result<Vec<FamilyMember>, MealPlannerError> {
         let connection = self
             .connection
