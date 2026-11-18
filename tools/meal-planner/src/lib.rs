@@ -4,7 +4,6 @@
 //! persistence. HTTP handlers and agent tools remain thin adapters.
 mod application;
 mod config;
-mod tools;
 mod domain;
 mod error;
 mod plans;
