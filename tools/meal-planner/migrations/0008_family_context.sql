@@ -9,8 +9,8 @@ DROP TABLE IF EXISTS school_menus;
 
 CREATE TABLE family_members (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    family_id TEXT NOT NULL,
-    external_id TEXT NOT NULL,
+    family_id TEXT NOT NULL DEFAULT 'legacy',
+    external_id TEXT NOT NULL DEFAULT '',
     name TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
     UNIQUE(family_id, external_id)
