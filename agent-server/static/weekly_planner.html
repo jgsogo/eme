@@ -20,6 +20,21 @@
 <div id="member-list" class="member-list"></div>
 </section>
 <section id="planner-grid" class="planner-grid" aria-live="polite"><p class="hint">Loading weekly plan…</p></section>
+
+<section id="shopping-list-panel" class="panel shopping-list-panel" hidden>
+<div class="shopping-list-heading">
+<div><h2>Shopping list</h2><p id="shopping-list-status" class="hint">Generate a list from this plan's home-prepared meals.</p></div>
+<button id="generate-shopping-list" type="button">Generate list</button>
+</div>
+<form id="shopping-item-form" class="shopping-list-form" hidden>
+<input id="shopping-item-name" required maxlength="160" placeholder="Add an item" aria-label="Shopping list item name">
+<input id="shopping-item-quantity" type="number" min="0.000001" step="any" placeholder="Quantity" aria-label="Quantity">
+<input id="shopping-item-unit" maxlength="40" placeholder="Unit" aria-label="Unit">
+<button type="submit">Add item</button>
+</form>
+<div id="shopping-list-items" class="shopping-list-items" aria-live="polite"></div>
+<p id="shopping-list-message" class="hint" role="status"></p>
+</section>
 <section id="assignment-editor" class="panel assignment-editor" hidden>
 <div class="editor-heading"><h2 id="editor-title">Add meal assignment</h2><button id="close-editor" class="secondary" type="button">Close</button></div>
 <form id="assignment-form" class="recipe-form">
