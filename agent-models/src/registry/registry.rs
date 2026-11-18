@@ -203,6 +203,10 @@ capabilities = ["chat"]
         assert!(!registry.contains_model("test/missing-model"));
         assert!(registry.contains_compatible_model(&[ModelCapability::Chat]));
         assert_eq!(
+            registry.compatible_models(&[ModelCapability::Chat]),
+            vec!["test/test-model"]
+        );
+        assert_eq!(
             registry
                 .first_compatible_model(&[ModelCapability::Chat])
                 .as_deref(),
