@@ -754,7 +754,7 @@ async fn share_calendar_with_family(
         Ok(calendar) => {
             tracing::info!(audit_event = "google_calendar_shared_with_family", user_id = %owner, calendar_id = %calendar.id, family_id = %family_id, access = ?body.access, "Google Calendar family sharing updated");
             HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar))
-        },
+        }
         Err(error) => calendar_storage_error(error),
     }
 }
@@ -792,7 +792,7 @@ async fn unshare_calendar_from_family(
         Ok(calendar) => {
             tracing::info!(audit_event = "google_calendar_unshared_from_family", user_id = %owner, calendar_id = %calendar.id, family_id = ?previous_family_id, "Google Calendar family sharing removed");
             HttpResponse::Ok().json(ConnectedCalendarResponse::from(calendar))
-        },
+        }
         Err(error) => calendar_storage_error(error),
     }
 }
