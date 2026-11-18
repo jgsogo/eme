@@ -83,6 +83,13 @@ pub(super) async fn school_menus_script() -> impl Responder {
         .content_type("text/javascript; charset=utf-8")
         .body(include_str!("../../static/school-menus.js"))
 }
+#[get("/console/meals")]
+pub(super) async fn meals_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/recipes.html"))
+}
+
 #[get("/console/recipes")]
 pub(super) async fn recipes_page() -> impl Responder {
     HttpResponse::Ok()
