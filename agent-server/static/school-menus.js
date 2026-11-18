@@ -130,7 +130,7 @@ function edit(entry, date) {
     '<textarea id="menu-items" rows="7" placeholder="One dish per line: dish | notes | allergens | dietary alternatives&#10;Vegetable soup | contains celery | celery | vegan option"></textarea>' +
     '<p class="hint school-menu-field-help">Enter one dish per line. The optional fields after the dish name are notes, allergens and dietary alternatives, separated by |.</p>' +
     '<label for="menu-notes">Menu notes</label>' +
-    '<textarea id="menu-notes" rows="3" placeholder="Additional information about this day's menu"></textarea>' +
+    '<textarea id="menu-notes" rows="3" placeholder="Additional information about this day’s menu"></textarea>' +
     '<p id="menu-provenance" class="hint"></p>' +
     '<div class="recipe-actions">' +
     '<button type="submit">' + (isNew ? "Add menu" : "Save changes") + '</button>' +
