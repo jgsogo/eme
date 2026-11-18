@@ -98,7 +98,7 @@ fn error_category_name(category: agent_runtime::ErrorCategory) -> &'static str {
 }
 
 
-fn model_failure_category_name(category: agent_models::ModelFailureCategory) -> &'static str {
+fn model_failure_category_name(category: agent_runtime::ModelFailureCategory) -> &'static str {
     match category {
         agent_models::ModelFailureCategory::RateLimited => "rate_limited",
         agent_models::ModelFailureCategory::QuotaExceeded => "quota_exceeded",
