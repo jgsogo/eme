@@ -53,7 +53,7 @@ impl AgentRuntime {
         tools: Arc<dyn ToolDispatcher>,
         policy: Arc<dyn PolicyEngine>,
     ) -> Self {
-        Self::new_with_router(Arc::new(FixedModelRouter(model)), tools, policy)
+        Self::new_with_router(Arc::new(FixedModelRouter::new(model)), tools, policy)
     }
 
     /// Creates a runtime whose model is selected independently for each turn.
