@@ -407,6 +407,11 @@ mod tests {
                 .await,
             Err(GoogleCalendarAccessError::WriteNotAuthorized)
         ));
+        let viewer_permissions = service
+            .list_readable_calendars_with_permissions(&member.to_string(), Some(&family_id))
+            .await
+            .unwrap();
+        assert!(!viewer_permissions[0].1); // Viewer sharing never grants writes.
         calendars
             .share_with_family(
                 owner,
