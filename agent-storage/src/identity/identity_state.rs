@@ -37,6 +37,7 @@ impl IdentityState {
             id: UserId::new(),
             display_name: normalize_display_name(display_name),
             birthday: None,
+            timezone: None,
             created_at: now,
             updated_at: now,
         };
@@ -62,6 +63,7 @@ impl IdentityState {
             id: UserId::new(),
             display_name: Some(display_name),
             birthday,
+            timezone: None,
             created_at: now,
             updated_at: now,
         };
@@ -97,6 +99,30 @@ impl IdentityState {
             .get_mut(&user_id)
             .ok_or(IdentityStoreError::UserNotFound(user_id))?;
         user.display_name = Some(display_name);
+        user.updated_at = Utc::now();
+        Ok(user.clone())
+    }
+
+    pub(super) fn update_timezone(
+        &mut self,
+        user_id: UserId,
+        timezone: Option<&str>,
+    ) -> Result<User, IdentityStoreError> {
+        let timezone = timezone
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        if timezone
+            .as_ref()
+            .is_some_and(|value| value.len() > 64 || !value.contains('/'))
+        {
+            return Err(IdentityStoreError::InvalidTimezone);
+        }
+        let user = self
+            .users
+            .get_mut(&user_id)
+            .ok_or(IdentityStoreError::UserNotFound(user_id))?;
+        user.timezone = timezone;
         user.updated_at = Utc::now();
         Ok(user.clone())
     }

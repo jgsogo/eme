@@ -262,8 +262,21 @@ impl AgentRuntime {
             now.date_naive(),
         );
         let base_prompt = agent.system_prompt.as_deref().unwrap_or_default();
-        let system_prompt = match context.family.as_ref() {
-            Some(family) => {
+        let timezone_context = context.timezone.as_deref().map(|timezone| {
+            format!(
+                "User timezone: {timezone}. This timezone comes from the authenticated user's profile and is authoritative. Use it when interpreting local dates, times, schedules, and relative time expressions; do not infer or override it from conversation content."
+            )
+        });
+        let system_prompt = match (context.family.as_ref(), timezone_context.as_deref()) {
+            (Some(family), Some(timezone_context)) => {
+                let family_json =
+                    serde_json::to_string_pretty(family).expect("family context is serializable");
+                Some(format!(
+                    "{}\n\n{}\n\n{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
+                    base_prompt, date_context, timezone_context, family_json,
+                ))
+            }
+            (Some(family), None) => {
                 let family_json =
                     serde_json::to_string_pretty(family).expect("family context is serializable");
                 Some(format!(
@@ -271,7 +284,11 @@ impl AgentRuntime {
                     base_prompt, date_context, family_json,
                 ))
             }
-            None => Some(format!("{}\n\n{}", base_prompt, date_context)),
+            (None, Some(timezone_context)) => Some(format!(
+                "{}\n\n{}\n\n{}",
+                base_prompt, date_context, timezone_context
+            )),
+            (None, None) => Some(format!("{}\n\n{}", base_prompt, date_context)),
         };
 
         let tools = match agent
@@ -722,5 +739,43 @@ mod family_context_tests {
         assert!(prompt.contains("recipient_id"));
         assert!(prompt.contains("user-1"));
         assert!(!prompt.contains("telegram_id"));
+    }
+    #[tokio::test]
+    async fn user_timezone_is_injected_as_authoritative_system_context() {
+        let model = Arc::new(CapturingModel(Mutex::new(None)));
+        let runtime = AgentRuntime::new(
+            model.clone(),
+            Arc::new(ToolRegistry::new()),
+            Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+        );
+        let agent = Agent {
+            id: "assistant".into(),
+            capabilities: Vec::new(),
+            system_prompt: Some("You are a helpful assistant.".into()),
+            tool_names: Vec::new(),
+            max_iterations: 1,
+        };
+
+        runtime
+            .run(
+                Uuid::new_v4(),
+                &agent,
+                ToolContext {
+                    timezone: Some("Europe/Madrid".into()),
+                    ..ToolContext::default()
+                },
+                Vec::new(),
+                "What time is it?",
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+
+        let request = model.0.lock().unwrap().take().unwrap();
+        let prompt = request.system_prompt.unwrap();
+        assert!(prompt.contains("User timezone: Europe/Madrid"));
+        assert!(
+            prompt.contains("comes from the authenticated user's profile and is authoritative")
+        );
     }
 }

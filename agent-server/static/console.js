@@ -384,15 +384,15 @@ async function deleteTask(){
  catch(e){$("tasks-status").textContent=e.message}
 }
 async function loadProfile(){
- const displayName=$("profile-display-name"),status=$("profile-status");
+ const displayName=$("profile-display-name"),timezone=$("profile-timezone"),status=$("profile-status");
  if(!displayName||!status)return;
- try{const profile=await api("/profile");displayName.value=profile.display_name||"";status.textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
+ try{const profile=await api("/profile");displayName.value=profile.display_name||"";if(timezone)timezone.value=profile.timezone||"";status.textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
  catch(e){status.textContent=e.message}
 }
 async function saveProfile(event){
- event.preventDefault();const name=$("profile-display-name").value.trim();if(!name){$("profile-status").textContent="Display name must not be empty.";return}
+ event.preventDefault();const name=$("profile-display-name").value.trim(),timezone=$("profile-timezone")?.value.trim()||"";if(!name){$("profile-status").textContent="Display name must not be empty.";return}
  $("save-profile").disabled=true;
- try{const profile=await api("/profile",{method:"PUT",body:JSON.stringify({display_name:name})});$("profile-display-name").value=profile.display_name;$("profile-status").textContent="Profile saved."}
+ try{const profile=await api("/profile",{method:"PUT",body:JSON.stringify({display_name:name,timezone})});$("profile-display-name").value=profile.display_name;if($("profile-timezone"))$("profile-timezone").value=profile.timezone||"";$("profile-status").textContent="Profile saved."}
  catch(e){$("profile-status").textContent=e.message}
  finally{$("save-profile").disabled=false}
 }
