@@ -184,7 +184,10 @@ impl ConversationClient for GeminiClient {
 
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            return Err(ModelError::Provider(format!("HTTP {status}: {body}")));
+            return Err(ModelError::ProviderResponse {
+                status: status.as_u16(),
+                body,
+            });
         }
 
         let result: GenerateResponse = response.json().await?;
