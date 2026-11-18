@@ -41,11 +41,23 @@ fn database_with_newer_schema_is_rejected() {
         Ok(_) => panic!("newer schema must not be opened"),
         Err(error) => error,
     };
-    assert!(matches!(error, MealPlannerError::UnsupportedSchemaVersion { current: 99, supported: 2 }));
+    assert!(matches!(
+        error,
+        MealPlannerError::UnsupportedSchemaVersion {
+            current: 99,
+            supported: 2
+        }
+    ));
     let _ = std::fs::remove_file(path);
 }
 
 fn temporary_database_path() -> std::path::PathBuf {
-    let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-    std::env::temp_dir().join(format!("eme-meal-planner-{}-{nonce}.sqlite", std::process::id()))
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "eme-meal-planner-{}-{nonce}.sqlite",
+        std::process::id()
+    ))
 }

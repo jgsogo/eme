@@ -10,6 +10,10 @@ mod error;
 mod store;
 
 pub use config::MealPlannerConfig;
-pub use domain::{resolve_date, resolve_week, FamilyMember, MealArrangement, MealException, MealParticipation, MealType, MealWeekday, ParticipationResolver, ParticipationSource, ParticipationStatus, RecurringParticipationRule};
+pub use domain::{
+    FamilyMember, MealArrangement, MealException, MealParticipation, MealType, MealWeekday,
+    ParticipationResolver, ParticipationSource, ParticipationStatus, RecurringParticipationRule,
+    resolve_date, resolve_week,
+};
 pub use error::MealPlannerError;
 pub use store::MealPlannerStore;
