@@ -13,7 +13,7 @@ use tokio::sync::Notify;
 use super::{
     AgentCatalog, AgentListItem, agents_api, meal_planner_api, runs_api, school_menus_api,
 };
-use meal_planner::{MealPlannerStore, SchoolMenuEntry};
+use meal_planner::MealPlannerStore;
 
 struct ImmediateExecutor;
 
