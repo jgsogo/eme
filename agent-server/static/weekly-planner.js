@@ -74,6 +74,7 @@ async function savePlan(){
 async function loadShoppingList(){
  if(!state.plan){$("shopping-list-panel").hidden=true;return}
  $("shopping-list-panel").hidden=false;
+ $("shopping-list-message").textContent="";
  $("shopping-list-items").innerHTML='<p class="hint">Loading shopping list…</p>';
  try{
   state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list");
@@ -115,7 +116,8 @@ async function generateShoppingList(){
  }catch(e){$("shopping-list-message").textContent=e.message}
  finally{button.disabled=false}
 }
-\nasync function loadWeek(){
+
+async function loadWeek(){
  $("week-date").value=state.weekStart;
  $("planner-grid").innerHTML='<p class="hint">Loading weekly plan…</p>';
  $("assignment-editor").hidden=true;
@@ -165,7 +167,8 @@ $("shopping-list-items").addEventListener("click",async event=>{
   }catch(e){$("shopping-list-message").textContent=e.message}
  }
 });
-\n$("member-form").addEventListener("submit",async event=>{event.preventDefault();const input=$("member-name");const button=event.submitter;button.disabled=true;try{await api("/meal-planner/members",{method:"POST",body:JSON.stringify({name:input.value})});input.value="";state.members=await api("/meal-planner/members");renderMembers()}catch(e){alert(e.message)}finally{button.disabled=false}});
+
+$("member-form").addEventListener("submit",async event=>{event.preventDefault();const input=$("member-name");const button=event.submitter;button.disabled=true;try{await api("/meal-planner/members",{method:"POST",body:JSON.stringify({name:input.value})});input.value="";state.members=await api("/meal-planner/members");renderMembers()}catch(e){alert(e.message)}finally{button.disabled=false}});
 $("planner-grid").addEventListener("click",event=>{
  const add=event.target.closest("[data-add]");if(add){populateEditor({date:add.dataset.add,meal_type:add.dataset.meal,participants:[]});return}
  const edit=event.target.closest("[data-edit]");if(edit){const item=state.plan.assignments.find(a=>a.id===Number(edit.dataset.edit));if(item)populateEditor(item);return}
@@ -190,7 +193,7 @@ $("assignment-arrangement").addEventListener("change",updateRecipeField);
 $("close-editor").addEventListener("click",()=>$("assignment-editor").hidden=true);
 $("remove-assignment").addEventListener("click",()=>{if(state.editingId!==null){state.plan.assignments=state.plan.assignments.filter(a=>a.id!==state.editingId);savePlan()}});
 $("confirm-plan").addEventListener("click",async()=>{if(!confirm("Confirm this week's plan? Confirmed plans are immutable; later changes require a new revision."))return;try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"/confirm",{method:"POST"});renderGrid()}catch(e){alert(e.message)}});
-$("revise-plan").addEventListener("click",async()=>{try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"/revise",{method:"POST"});renderGrid()}catch(e){alert(e.message)}});
+$("revise-plan").addEventListener("click",async()=>{try{state.plan=await api("/meal-planner/plans/"+state.weekStart+"/revise",{method:"POST"});renderGrid();await loadShoppingList()}catch(e){alert(e.message)}});
 $("previous-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),-7));loadWeek()});
 $("next-week").addEventListener("click",()=>{state.weekStart=localDate(addDays(parseDate(state.weekStart),7));loadWeek()});
 $("week-date").addEventListener("change",()=>{if($("week-date").value){state.weekStart=localDate(mondayOf(parseDate($("week-date").value)));loadWeek()}});
