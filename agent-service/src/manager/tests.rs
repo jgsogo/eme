@@ -463,7 +463,10 @@ async fn model_routing_events_preserve_candidates_failures_and_fallback_metadata
     tokio::time::timeout(Duration::from_secs(1), async {
         loop {
             let events = manager.events(run_id).await.unwrap();
-            if events.last().is_some_and(|event| event.kind == RunEventKind::Completed) {
+            if events
+                .last()
+                .is_some_and(|event| event.kind == RunEventKind::Completed)
+            {
                 let candidates = events
                     .iter()
                     .find(|event| event.kind == RunEventKind::ModelCandidatesDiscovered)
