@@ -110,6 +110,18 @@ pub(crate) fn validate_family(id: Option<&str>, available: &[String]) -> Result<
     Ok(())
 }
 
+async fn selected_family(
+    request: &HttpRequest, auth: &crate::auth::TelegramAuth,
+    identities: &FileUserIdentityStore, families: &FamilyService,
+    requested: Option<&str>,
+) -> Result<String, HttpResponse> {
+    let user = authenticated_user(request, auth, identities)?;
+    let available = family_ids(user, families).await?;
+    let id = requested.ok_or_else(|| HttpResponse::BadRequest().body("family_id is required"))?;
+    validate_family(Some(id), &available)?;
+    Ok(id.to_owned())
+}
+
 #[get("/recipes")]
 async fn list_recipes(
     request: HttpRequest,
@@ -244,129 +256,64 @@ async fn delete_recipe(
 }
 
 #[get("/plans/{week_start}")]
-async fn get_weekly_plan(
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-) -> impl Responder {
-    match store.get_weekly_plan(week_start.into_inner()) {
-        Ok(Some(plan)) => HttpResponse::Ok().json(plan),
-        Ok(None) => HttpResponse::NotFound().finish(),
-        Err(error) => error_response(error),
-    }
+async fn get_weekly_plan(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, week_start: Path<NaiveDate>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    match store.get_weekly_plan_for_family(&family_id, week_start.into_inner()) { Ok(Some(plan)) => HttpResponse::Ok().json(plan), Ok(None) => HttpResponse::NotFound().finish(), Err(error) => error_response(error) }
 }
-
 #[get("/plans/{week_start}/revisions")]
-async fn list_weekly_plan_revisions(
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-) -> impl Responder {
-    match store.list_weekly_plan_revisions(week_start.into_inner()) {
-        Ok(plans) => HttpResponse::Ok().json(plans),
-        Err(error) => error_response(error),
-    }
+async fn list_weekly_plan_revisions(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, week_start: Path<NaiveDate>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    match store.list_weekly_plan_revisions_for_family(&family_id, week_start.into_inner()) { Ok(plans) => HttpResponse::Ok().json(plans), Err(error) => error_response(error) }
 }
-
 #[post("/plans/{week_start}")]
-async fn create_weekly_plan(
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-) -> impl Responder {
-    let week_start = week_start.into_inner();
-    match store.create_weekly_plan_from_rules(week_start) {
-        Ok(plan) => HttpResponse::Created().json(plan),
-        Err(error) => error_response(error),
-    }
+async fn create_weekly_plan(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, week_start: Path<NaiveDate>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    match store.create_weekly_plan_from_rules_for_family(&family_id, week_start.into_inner()) { Ok(plan) => HttpResponse::Created().json(plan), Err(error) => error_response(error) }
 }
-
 #[put("/plans/{week_start}")]
-async fn update_weekly_plan(
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-    body: Json<WeeklyPlanDraft>,
-) -> impl Responder {
-    match store.update_weekly_plan(week_start.into_inner(), body.into_inner()) {
-        Ok(plan) => HttpResponse::Ok().json(plan),
-        Err(error) => error_response(error),
-    }
+async fn update_weekly_plan(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, week_start: Path<NaiveDate>, query: Query<SearchQuery>, body: Json<WeeklyPlanDraft>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    match store.update_weekly_plan_for_family(&family_id, week_start.into_inner(), body.into_inner()) { Ok(plan) => HttpResponse::Ok().json(plan), Err(error) => error_response(error) }
 }
-
 #[post("/plans/{week_start}/confirm")]
-async fn confirm_weekly_plan(
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-) -> impl Responder {
-    match store.confirm_weekly_plan(week_start.into_inner()) {
-        Ok(plan) => HttpResponse::Ok().json(plan),
-        Err(error) => error_response(error),
-    }
+async fn confirm_weekly_plan(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, week_start: Path<NaiveDate>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    match store.confirm_weekly_plan_for_family(&family_id, week_start.into_inner()) { Ok(plan) => HttpResponse::Ok().json(plan), Err(error) => error_response(error) }
 }
-
 #[post("/plans/{week_start}/revise")]
-async fn revise_weekly_plan(
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-) -> impl Responder {
-    match store.revise_weekly_plan(week_start.into_inner()) {
-        Ok(plan) => HttpResponse::Created().json(plan),
-        Err(error) => error_response(error),
-    }
+async fn revise_weekly_plan(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, week_start: Path<NaiveDate>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    match store.revise_weekly_plan_for_family(&family_id, week_start.into_inner()) { Ok(plan) => HttpResponse::Created().json(plan), Err(error) => error_response(error) }
 }
-
 #[get("/plans/{plan_id}/shopping-list")]
-async fn get_shopping_list(store: Data<MealPlannerStore>, plan_id: Path<i64>) -> impl Responder {
-    match store.get_shopping_list(plan_id.into_inner()) {
-        Ok(Some(list)) => HttpResponse::Ok().json(list),
-        Ok(None) => HttpResponse::NotFound().finish(),
-        Err(error) => error_response(error),
-    }
+async fn get_shopping_list(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, plan_id: Path<i64>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    let id = plan_id.into_inner(); if !store.plan_belongs_to_family(id, &family_id).unwrap_or(false) { return HttpResponse::NotFound().finish(); }
+    match store.get_shopping_list(id) { Ok(Some(list)) => HttpResponse::Ok().json(list), Ok(None) => HttpResponse::NotFound().finish(), Err(error) => error_response(error) }
 }
-
 #[post("/plans/{plan_id}/shopping-list/generate")]
-async fn generate_shopping_list(
-    store: Data<MealPlannerStore>,
-    plan_id: Path<i64>,
-) -> impl Responder {
-    match store.generate_shopping_list(plan_id.into_inner()) {
-        Ok(list) => HttpResponse::Ok().json(list),
-        Err(error) => error_response(error),
-    }
+async fn generate_shopping_list(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, plan_id: Path<i64>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    let id = plan_id.into_inner(); if !store.plan_belongs_to_family(id, &family_id).unwrap_or(false) { return HttpResponse::NotFound().finish(); }
+    match store.generate_shopping_list(id) { Ok(list) => HttpResponse::Ok().json(list), Err(error) => error_response(error) }
 }
-
 #[post("/plans/{plan_id}/shopping-list/items")]
-async fn add_shopping_list_item(
-    store: Data<MealPlannerStore>,
-    plan_id: Path<i64>,
-    body: Json<NewShoppingListItem>,
-) -> impl Responder {
-    match store.add_shopping_list_item(plan_id.into_inner(), body.into_inner()) {
-        Ok(list) => HttpResponse::Created().json(list),
-        Err(error) => error_response(error),
-    }
+async fn add_shopping_list_item(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, plan_id: Path<i64>, query: Query<SearchQuery>, body: Json<NewShoppingListItem>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    let id = plan_id.into_inner(); if !store.plan_belongs_to_family(id, &family_id).unwrap_or(false) { return HttpResponse::NotFound().finish(); }
+    match store.add_shopping_list_item(id, body.into_inner()) { Ok(list) => HttpResponse::Created().json(list), Err(error) => error_response(error) }
 }
-
 #[put("/plans/{plan_id}/shopping-list/items/{item_id}")]
-async fn update_shopping_list_item(
-    store: Data<MealPlannerStore>,
-    path: Path<(i64, i64)>,
-    body: Json<ShoppingListItemUpdate>,
-) -> impl Responder {
-    let (plan_id, item_id) = path.into_inner();
-    match store.update_shopping_list_item(plan_id, item_id, body.into_inner()) {
-        Ok(list) => HttpResponse::Ok().json(list),
-        Err(error) => error_response(error),
-    }
+async fn update_shopping_list_item(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, path: Path<(i64, i64)>, query: Query<SearchQuery>, body: Json<ShoppingListItemUpdate>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    let (plan_id, item_id) = path.into_inner(); if !store.plan_belongs_to_family(plan_id, &family_id).unwrap_or(false) { return HttpResponse::NotFound().finish(); }
+    match store.update_shopping_list_item(plan_id, item_id, body.into_inner()) { Ok(list) => HttpResponse::Ok().json(list), Err(error) => error_response(error) }
 }
-
 #[delete("/plans/{plan_id}/shopping-list/items/{item_id}")]
-async fn remove_shopping_list_item(
-    store: Data<MealPlannerStore>,
-    path: Path<(i64, i64)>,
-) -> impl Responder {
-    let (plan_id, item_id) = path.into_inner();
-    match store.remove_shopping_list_item(plan_id, item_id) {
-        Ok(list) => HttpResponse::Ok().json(list),
-        Err(error) => error_response(error),
-    }
+async fn remove_shopping_list_item(request: HttpRequest, auth: Data<crate::auth::TelegramAuth>, identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>, store: Data<MealPlannerStore>, path: Path<(i64, i64)>, query: Query<SearchQuery>) -> impl Responder {
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await { Ok(id) => id, Err(response) => return response };
+    let (plan_id, item_id) = path.into_inner(); if !store.plan_belongs_to_family(plan_id, &family_id).unwrap_or(false) { return HttpResponse::NotFound().finish(); }
+    match store.remove_shopping_list_item(plan_id, item_id) { Ok(list) => HttpResponse::Ok().json(list), Err(error) => error_response(error) }
 }
 
 pub fn meal_planner_api() -> Scope {
