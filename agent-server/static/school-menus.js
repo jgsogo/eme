@@ -50,6 +50,17 @@ function formatDay(date, options) {
   return new Date(date + "T12:00:00").toLocaleDateString("en-GB", options);
 }
 
+
+function appendMenuLog(message) {
+  const log = $("menu-status-log");
+  if (!log) return;
+  const item = document.createElement("p");
+  item.className = "hint";
+  item.setAttribute("role", "status");
+  item.textContent = message;
+  log.append(item);
+}
+
 function renderMenuPlaceholder(entry) {
   const status = entry ? statusLabel(entry.status) : "Unknown / not imported";
   return '<p class="school-menu-placeholder">' + esc(status) + '</p>';
@@ -195,8 +206,7 @@ async function save(event) {
     });
     state.selected = null;
     await loadMonth();
-    $("menu-content").insertAdjacentHTML("afterbegin",
-      '<p class="hint" role="status">Menu saved for ' + esc(formatDay(date, { weekday: "long", day: "numeric", month: "long" })) + '.</p>');
+    appendMenuLog("Menu saved for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
     const message = $("menu-status-message");
     if (message) message.textContent = error.message;
@@ -214,8 +224,7 @@ async function remove() {
     await api("/meal-planner/school-menus/" + date, { method: "DELETE" });
     state.selected = null;
     await loadMonth();
-    $("menu-content").insertAdjacentHTML("afterbegin",
-      '<p class="hint" role="status">Menu deleted for ' + esc(formatDay(date, { weekday: "long", day: "numeric", month: "long" })) + '.</p>');
+    appendMenuLog("Menu deleted for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
     const message = $("menu-status-message");
     if (message) message.textContent = error.message;
@@ -239,11 +248,10 @@ async function loadMonth() {
     state.entries = entries;
     const count = new Set(entries.filter(entry => entry.status === "known").map(entry => entry.date)).size;
     $("menu-content").innerHTML =
-      '<p class="hint" role="status">' +
-      (count
-        ? "Month loaded. Published menus are available for " + count + " of " + end.getDate() + " days."
-        : "Month loaded successfully, but no published menus are available for this month.") +
-      '</p><div id="menu-month-view"></div><div id="menu-editor"></div>';
+      '<div id="menu-month-view"></div><div id="menu-editor"></div><div id="menu-status-log" class="school-menu-status-log" aria-live="polite"></div>';
+    appendMenuLog(count
+      ? "Month loaded. Published menus are available for " + count + " of " + end.getDate() + " days."
+      : "Month loaded successfully, but no published menus are available for this month.");
     renderMonthView();
   } catch (error) {
     if (request === state.loadRequest) {
