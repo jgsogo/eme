@@ -10,7 +10,7 @@ use agent_storage::{
 };
 use uuid::Uuid;
 
-use crate::{FamilyService, GoogleCalendarAccessError, GoogleCalendarAccessService};
+use agent_service::{FamilyService, GoogleCalendarAccessError, GoogleCalendarAccessService};
 
 const READ_SCOPE: &str = "https://www.googleapis.com/auth/calendar.events.readonly";
 const WRITE_SCOPE: &str = "https://www.googleapis.com/auth/calendar.events";
