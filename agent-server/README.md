@@ -64,7 +64,7 @@ Authenticated endpoints:
 
 OAuth state and PKCE verifiers are persisted with a ten-minute expiry. State is hashed at rest, the verifier is encrypted, and callbacks are single-use and bound to the initiating EME user. Google account identity is resolved through the OpenID Connect user-info endpoint and an unverified email is rejected.
 
-The current API supports account connections plus calendar discovery, selection, and per-calendar EME read/write settings. Family sharing configuration is now available. Delegated event access and user-context calendar tool execution remain subsequent implementation steps.
+The current API supports account connections plus calendar discovery, selection, and per-calendar EME read/write settings. Family sharing and read-only agent access are also available. The server composes the Google tools with the same connection stores and authorization service used by the HTTP API.
 
 Family sharing configuration is available for selected calendars:
 
@@ -74,7 +74,7 @@ Family sharing configuration is available for selected calendars:
 
 A viewer grant allows read operations; a contributor grant requests read/write capability but cannot exceed the owner's calendar access mode or Google's granted scopes. Contributor sharing is rejected unless the owner has configured read/write access. Changing the owner mode to read-only downgrades an existing contributor grant to viewer. Deselecting a calendar removes its family share. These are EME permissions only; no Google Calendar ACLs or credentials are shared.
 
-This PR adds the sharing configuration and membership validation. Delegated event access is not enabled until the subsequent runtime authorization/tool integration resolves the executing user's active family membership and applies the effective permission intersection on each invocation.
+The agent-facing tools apply these settings at execution time. `google_list_calendars` lists the caller's selected calendars and currently shared family calendars. `google_calendar_events` accepts the internal EME calendar ID returned by the list tool, then verifies the caller's identity, selected-family membership, owner's current membership, selected-calendar state, active connection, and Google event-read scope before decrypting the owner's refresh token. Google provider calendar IDs and credentials are not model inputs or tool output metadata. The current tool integration is read-only; contributor write operations will be added separately.
 
 
 Calendar management endpoints (also authenticated with the current EME browser session):
@@ -96,5 +96,5 @@ Content-Type: application/json
 {"selected":true,"access_mode":"read_only"}
 ```
 
-The API does not delete calendars or events from Google. Deselecting a calendar only removes it from EME's future allowlist. Family sharing and agent execution authorization are not part of this slice.
+The API does not delete calendars or events from Google. Deselecting a calendar only removes it from EME's future allowlist. Agent tools can access only selected calendars and re-check authorization on every invocation.
 

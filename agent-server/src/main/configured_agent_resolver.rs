@@ -10,6 +10,7 @@ use agent_runtime::{
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
 use anyhow::{Context, Result};
+use google_tool::GoogleCalendarRuntimeConfig;
 use async_trait::async_trait;
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
@@ -42,6 +43,7 @@ impl ConfiguredAgentResolver {
         telegram_gateway: Option<Arc<TelegramGateway>>,
         task_registry: TaskRegistry,
         family_store: Arc<dyn FamilyStore>,
+        google_runtime: Option<GoogleCalendarRuntimeConfig>,
     ) -> Result<Self> {
         let models = Arc::new(ModelRegistry::load(data_dir).context("loading model providers")?);
 
@@ -50,7 +52,7 @@ impl ConfiguredAgentResolver {
         telegram_tool::register_tools(&mut tools, telegram_gateway)
             .context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
-        google_tool::register_tools(&mut tools).context("registering Google tools")?;
+        google_tool::register_tools(&mut tools, google_runtime).context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         common_tools::register_tools(&mut tools).context("registering common tools")?;
         mercadona_tool::register_tools(&mut tools).context("registering Mercadona tools")?;

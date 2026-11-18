@@ -1401,6 +1401,8 @@ version = "0.1.0"
 dependencies = [
  "agent-config",
  "agent-runtime",
+ "agent-storage",
+ "agent-service",
  "async-trait",
  "chrono",
  "chrono-tz",

@@ -5,7 +5,9 @@
 
 mod calendar;
 mod calendar_list;
+mod google_calendar_list_tool;
 pub mod oauth;
+mod runtime;
 
 pub use calendar_list::{GoogleCalendarSummary, list_calendars};
 pub use oauth::{
@@ -13,6 +15,7 @@ pub use oauth::{
     PendingAuthorization, authorization_request, exchange_code, fetch_user_info,
     refresh_access_token, revoke_token,
 };
+pub use runtime::GoogleCalendarRuntimeConfig;
 
 use std::path::PathBuf;
 
@@ -20,11 +23,18 @@ use agent_config::ConfigError;
 use agent_runtime::ToolRegistry;
 
 /// Register all Google tools.
-pub fn register_tools(registry: &mut ToolRegistry) -> Result<(), ConfigError> {
+pub fn register_tools(
+    registry: &mut ToolRegistry,
+    runtime: Option<GoogleCalendarRuntimeConfig>,
+) -> Result<(), ConfigError> {
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
     registry.register_from_file(
+        data_dir.join("calendar_list.toml"),
+        google_calendar_list_tool::GoogleCalendarList::new(runtime.clone()),
+    )?;
+    registry.register_from_file(
         data_dir.join("calendar_events.toml"),
-        calendar::GoogleCalendarEvents,
+        calendar::GoogleCalendarEvents::new(runtime),
     )?;
 
     Ok(())

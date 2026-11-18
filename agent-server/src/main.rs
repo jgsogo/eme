@@ -78,6 +78,7 @@ async fn main() -> Result<()> {
         SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
             .context("opening family and invitation storage")?,
     );
+    let google_runtime = google_oauth_state.calendar_runtime(Arc::clone(&family_service));
 
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(
@@ -85,6 +86,7 @@ async fn main() -> Result<()> {
             gateway_for_tools,
             task_registry.clone(),
             Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+            google_runtime,
         )
         .with_context(|| {
             format!(
