@@ -97,3 +97,76 @@ impl ModelRouter for FixedModelRouter {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use agent_models::ModelError;
+    use async_trait::async_trait;
+
+    use super::{
+        FixedModelRouter, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink,
+    };
+    use crate::{AgentModel, CancellationToken, ModelRequest, ModelTurn};
+
+    struct CompletedModel;
+
+    #[async_trait]
+    impl AgentModel for CompletedModel {
+        async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, ModelError> {
+            Ok(ModelTurn {
+                content: Some("done".into()),
+                tool_calls: Vec::new(),
+            })
+        }
+    }
+
+    #[derive(Default)]
+    struct RecordingSink(Mutex<Vec<ModelRoutingEvent>>);
+
+    impl ModelRoutingEventSink for RecordingSink {
+        fn emit(&self, event: ModelRoutingEvent) {
+            self.0.lock().unwrap().push(event);
+        }
+    }
+
+    #[tokio::test]
+    async fn fixed_router_emits_candidate_attempt_and_selection_events() {
+        let sink = Arc::new(RecordingSink::default());
+        let router = FixedModelRouter::new(Arc::new(CompletedModel));
+
+        let routed = router
+            .complete(
+                &[],
+                ModelRequest {
+                    system_prompt: None,
+                    messages: Vec::new(),
+                    tools: Vec::new(),
+                },
+                CancellationToken::new(),
+                sink.clone(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(routed.model_id, "fixed");
+        let events = sink.0.lock().unwrap();
+        assert!(matches!(
+            events.first(),
+            Some(ModelRoutingEvent::CandidatesDiscovered { model_ids })
+                if model_ids == &vec!["fixed".to_owned()]
+        ));
+        assert!(matches!(
+            events.get(1),
+            Some(ModelRoutingEvent::CandidateAttemptStarted { model_id })
+                if model_id == "fixed"
+        ));
+        assert!(matches!(
+            events.get(2),
+            Some(ModelRoutingEvent::ModelSelected { model_id })
+                if model_id == "fixed"
+        ));
+    }
+}
