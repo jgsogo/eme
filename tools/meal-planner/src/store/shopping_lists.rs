@@ -37,7 +37,7 @@ impl MealPlannerStore {
         let existing = match current {
             Some(list) => Some(list),
             None => {
-                load_latest_shopping_list_for_week(&connection, plan.week_start, plan.revision)?
+                load_latest_shopping_list_for_week(&connection, &plan_family_id(&connection, plan_id)?, plan.week_start, plan.revision)?
             }
         };
         let now = timestamp();
@@ -180,14 +180,19 @@ fn load_shopping_list(
     }
 }
 
+fn plan_family_id(connection: &rusqlite::Connection, plan_id: i64) -> Result<String, MealPlannerError> {
+    Ok(connection.query_row("SELECT family_id FROM weekly_plans WHERE id = ?1", [plan_id], |row| row.get(0))?)
+}
+
 fn load_latest_shopping_list_for_week(
     connection: &rusqlite::Connection,
+    family_id: &str,
     week_start: chrono::NaiveDate,
     before_revision: i64,
 ) -> Result<Option<ShoppingList>, MealPlannerError> {
     let id = connection.query_row(
-        "SELECT id FROM shopping_lists WHERE week_start = ?1 AND plan_revision < ?2 ORDER BY plan_revision DESC, id DESC LIMIT 1",
-        params![week_start.to_string(), before_revision],
+        "SELECT sl.id FROM shopping_lists sl JOIN weekly_plans p ON p.id = sl.plan_id WHERE p.family_id = ?1 AND sl.week_start = ?2 AND sl.plan_revision < ?3 ORDER BY sl.plan_revision DESC, sl.id DESC LIMIT 1",
+        params![family_id, week_start.to_string(), before_revision],
         |row| row.get::<_, i64>(0),
     ).optional()?;
     match id {
