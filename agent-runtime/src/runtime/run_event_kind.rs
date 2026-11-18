@@ -44,6 +44,5 @@ pub enum RunEventKind {
     TimedOut,
     ModelFailed {
         category: ErrorCategory,
-        error: String,
     },
 }
