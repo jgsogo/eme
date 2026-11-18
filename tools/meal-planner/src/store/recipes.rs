@@ -130,6 +130,13 @@ impl MealPlannerStore {
         self.update_recipe(id, owner_id, draft)
     }
 
+    pub fn delete_recipe_for_family(
+        &self, id: i64, owner_id: &str, family_id: &str,
+    ) -> Result<(), MealPlannerError> {
+        self.get_recipe(id, owner_id, &[family_id.to_owned()])?;
+        self.delete_recipe(id, owner_id)
+    }
+
     pub fn delete_recipe(&self, id: i64, owner_id: &str) -> Result<(), MealPlannerError> {
         let connection = self
             .connection
