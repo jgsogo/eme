@@ -21,8 +21,6 @@ fn error_response(error: MealPlannerError) -> HttpResponse {
     }
 }
 
-
-
 #[derive(Deserialize)]
 struct CreateMemberRequest {
     name: String,
@@ -90,7 +88,6 @@ async fn delete_recipe(store: Data<MealPlannerStore>, id: Path<i64>) -> impl Res
         Err(error) => error_response(error),
     }
 }
-
 
 #[get("/plans/{week_start}")]
 async fn get_weekly_plan(
