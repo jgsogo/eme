@@ -10,7 +10,8 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 use tokio::sync::Notify;
 
-use super::{AgentCatalog, AgentListItem, agents_api, runs_api};
+use super::{AgentCatalog, AgentListItem, agents_api, meal_planner_api, runs_api, school_menus_api};
+use meal_planner::{MealPlannerStore, SchoolMenuEntry};
 
 struct ImmediateExecutor;
 
@@ -74,6 +75,27 @@ impl RunExecutor for WaitingExecutor {
 
 fn manager() -> RunManager {
     RunManager::new(Arc::new(ImmediateExecutor), 1, 8).expect("valid run manager configuration")
+}
+
+#[actix_web::test]
+async fn school_menu_scope_is_not_shadowed_by_meal_planner_scope() {
+    let store = MealPlannerStore::open_in_memory().unwrap();
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(store))
+            // Keep this order aligned with the server's route registration.
+            .service(school_menus_api())
+            .service(meal_planner_api()),
+    )
+    .await;
+
+    let request = test::TestRequest::get()
+        .uri("/meal-planner/school-menus/?from=2026-11-16&to=2026-11-22")
+        .to_request();
+    let response = test::call_service(&app, request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let entries: Vec<SchoolMenuEntry> = test::read_body_json(response).await;
+    assert!(entries.is_empty());
 }
 
 #[actix_web::test]
