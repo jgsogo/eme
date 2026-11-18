@@ -286,6 +286,7 @@ try {
 } catch {
   // Keep the default seven-day view when storage is unavailable.
 }
+$("show-weekends").checked = state.showWeekends;
 
 (async () => {
   try {
