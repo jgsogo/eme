@@ -10,12 +10,26 @@ use super::{
 };
 use crate::{
     Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelError,
-    ModelRequest, ModelRouter, PolicyEngine, RuntimeError, ToolContext, ToolDispatcher, ToolError,
+    ModelRequest, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink, PolicyEngine,
+    RoutedModelTurn, RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
+use tokio::sync::mpsc;
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
 const DEFAULT_MAX_TOOL_OUTPUT_BYTES: usize = 16 * 1024;
 const TOOL_OUTPUT_TRUNCATED: &str = "\n[tool output truncated]";
+struct ModelRoutingEventChannel(mpsc::UnboundedSender<ModelRoutingEvent>);
+
+impl ModelRoutingEventSink for ModelRoutingEventChannel {
+    fn emit(&self, event: ModelRoutingEvent) {
+        let _ = self.0.send(event);
+    }
+}
+
+enum ModelTurnError {
+    Model(ModelError),
+    TimedOut,
+}
 
 fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
     if output.len() <= max_bytes {
@@ -98,6 +112,57 @@ impl AgentRuntime {
         self
     }
 
+    async fn complete_model_turn(
+        &self,
+        run_id: Uuid,
+        iteration: usize,
+        required: &[agent_models::ModelCapability],
+        request: ModelRequest,
+        cancellation: CancellationToken,
+        deadline: Option<tokio::time::Instant>,
+        events: &mut Vec<RunEvent>,
+    ) -> Result<RoutedModelTurn, ModelTurnError> {
+        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let event_sink = Arc::new(ModelRoutingEventChannel(sender));
+        let completion = self.model_router.complete(required, request, cancellation, event_sink);
+        let result = match deadline {
+            Some(deadline) => match tokio::time::timeout_at(deadline, completion).await {
+                Ok(result) => Ok(result),
+                Err(_) => Err(ModelTurnError::TimedOut),
+            },
+            None => Ok(completion.await),
+        };
+
+        while let Ok(event) = receiver.try_recv() {
+            let kind = match event {
+                ModelRoutingEvent::CandidatesDiscovered { model_ids } => {
+                    RunEventKind::ModelCandidatesDiscovered { model_ids }
+                }
+                ModelRoutingEvent::CandidateAttemptStarted { model_id } => {
+                    RunEventKind::ModelCandidateAttemptStarted { model_id }
+                }
+                ModelRoutingEvent::CandidateAttemptFailed { model_id, category } => {
+                    RunEventKind::ModelCandidateAttemptFailed { model_id, category }
+                }
+                ModelRoutingEvent::Fallback { from_model_id, to_model_id, category } => {
+                    RunEventKind::ModelFallback { from_model_id, to_model_id, category }
+                }
+                ModelRoutingEvent::ModelSelected { model_id } => {
+                    RunEventKind::ModelSelected { model_id }
+                }
+                ModelRoutingEvent::RoutingFailed { attempted_candidates } => {
+                    RunEventKind::ModelRoutingFailed { attempted_candidates }
+                }
+            };
+            self.emit_event(events, RunEvent { run_id, iteration, kind });
+        }
+
+        match result {
+            Ok(Ok(routed)) => Ok(routed),
+            Ok(Err(error)) => Err(ModelTurnError::Model(error)),
+            Err(error) => Err(error),
+        }
+    }
     fn emit_event(&self, events: &mut Vec<RunEvent>, event: RunEvent) {
         self.event_sink.emit(&event);
         events.push(event);
@@ -240,109 +305,56 @@ impl AgentRuntime {
                 },
             );
 
-            let turn = match deadline {
-                Some(deadline) => {
-                    match tokio::time::timeout_at(
-                        deadline,
-                        self.model_router.complete(
-                            &agent.capabilities,
-                            request,
-                            cancellation.clone(),
-                        ),
-                    )
-                    .await
-                    {
-                        Ok(Ok(routed)) => routed.turn,
-                        Ok(Err(ModelError::Cancelled)) => {
-                            return Ok(self.stopped_result(
-                                run_id,
-                                iteration - 1,
-                                StopReason::Cancelled,
-                                messages,
-                                &mut events,
-                            ));
-                        }
-                        Ok(Err(error)) => {
-                            let error = RuntimeError::Model(error);
-
-                            self.emit_event(
-                                &mut events,
-                                RunEvent {
-                                    run_id,
-                                    iteration,
-                                    kind: RunEventKind::ModelFailed {
-                                        category: ErrorCategory::Model,
-                                        error: error.to_string(),
-                                    },
-                                },
-                            );
-
-                            return Err(RunFailure {
-                                run_id,
-                                error,
-                                messages,
-                                events,
-                                iterations: iteration - 1,
-                            });
-                        }
-                        Err(_) => {
-                            return Ok(self.stopped_result(
-                                run_id,
-                                iteration - 1,
-                                StopReason::TimedOut,
-                                messages,
-                                &mut events,
-                            ));
-                        }
-                    }
+            let routed = match self
+                .complete_model_turn(
+                    run_id,
+                    iteration,
+                    &agent.capabilities,
+                    request,
+                    cancellation.clone(),
+                    deadline,
+                    &mut events,
+                )
+                .await
+            {
+                Ok(routed) => routed,
+                Err(ModelTurnError::TimedOut) => {
+                    return Ok(self.stopped_result(run_id, iteration - 1, StopReason::TimedOut, messages, &mut events));
                 }
-                None => match self
-                    .model_router
-                    .complete(&agent.capabilities, request, cancellation.clone())
-                    .await
-                {
-                    Ok(routed) => routed.turn,
-                    Err(ModelError::Cancelled) => {
-                        return Ok(self.stopped_result(
+                Err(ModelTurnError::Model(ModelError::Cancelled)) => {
+                    return Ok(self.stopped_result(run_id, iteration - 1, StopReason::Cancelled, messages, &mut events));
+                }
+                Err(ModelTurnError::Model(error)) => {
+                    let error = RuntimeError::Model(error);
+                    self.emit_event(
+                        &mut events,
+                        RunEvent {
                             run_id,
-                            iteration - 1,
-                            StopReason::Cancelled,
-                            messages,
-                            &mut events,
-                        ));
-                    }
-                    Err(error) => {
-                        let error = RuntimeError::Model(error);
-
-                        self.emit_event(
-                            &mut events,
-                            RunEvent {
-                                run_id,
-                                iteration,
-                                kind: RunEventKind::ModelFailed {
-                                    category: ErrorCategory::Model,
-                                    error: error.to_string(),
-                                },
+                            iteration,
+                            kind: RunEventKind::ModelFailed {
+                                category: ErrorCategory::Model,
+                                error: error.to_string(),
                             },
-                        );
-
-                        return Err(RunFailure {
-                            run_id,
-                            error,
-                            messages,
-                            events,
-                            iterations: iteration - 1,
-                        });
-                    }
-                },
+                        },
+                    );
+                    return Err(RunFailure {
+                        run_id,
+                        error,
+                        messages,
+                        events,
+                        iterations: iteration - 1,
+                    });
+                }
             };
-
+            let model_id = routed.model_id;
+            let turn = routed.turn;
             self.emit_event(
                 &mut events,
                 RunEvent {
                     run_id,
                     iteration,
                     kind: RunEventKind::ModelResponded {
+                        model_id,
                         tool_calls: turn.tool_calls.len(),
                     },
                 },
