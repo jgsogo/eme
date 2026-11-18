@@ -428,7 +428,7 @@ async function connectGoogle(){
   const deadline=Date.now()+auth.expires_in_seconds*1000;
   while(Date.now()<deadline){
    await new Promise(resolve=>setTimeout(resolve,1500));
-   const connections=await api("/integrations/google/connections"),after=connections.map(c=>c.id+":"+c.status+":"+(c.scopes||[]).join(",")).join("|");
+   const connections=await api("/integrations/google/connections"),after=connections.map(c=>c.id+":"+c.status+":"+c.updated_at+":"+(c.scopes||[]).join(",")).join("|");
    if(after!==before){await loadGoogleConnections();status.textContent="Google account connected.";if(!popup.closed)popup.close();return}
    if(popup.closed)break;
   }
