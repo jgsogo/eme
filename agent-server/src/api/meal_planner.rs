@@ -28,26 +28,42 @@ fn error_response(error: MealPlannerError) -> HttpResponse {
     }
 }
 
-#[derive(Deserialize)]
-struct CreateMemberRequest {
-    name: String,
-}
-
-#[post("/members")]
-async fn create_member(
-    store: Data<MealPlannerStore>,
-    body: Json<CreateMemberRequest>,
-) -> impl Responder {
-    match store.create_family_member(&body.name) {
-        Ok(member) => HttpResponse::Created().json(member),
-        Err(error) => error_response(error),
-    }
-}
-
 #[get("/members")]
-async fn list_members(store: Data<MealPlannerStore>) -> impl Responder {
-    match store.list_family_members() {
-        Ok(members) => HttpResponse::Ok().json(members),
+async fn list_members(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    query: Query<SearchQuery>,
+) -> impl Responder {
+    let user = match authenticated_user(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let family_id = match query.family_id.as_deref() {
+        Some(value) => match FamilyId::from_str(value) {
+            Ok(id) => id,
+            Err(_) => return HttpResponse::BadRequest().body("invalid family id"),
+        },
+        None => return HttpResponse::BadRequest().body("family_id is required"),
+    };
+    let (_, memberships) = match families.get_family(user, family_id).await {
+        Ok(value) => value,
+        Err(_) => return HttpResponse::NotFound().finish(),
+    };
+    let mut members = Vec::with_capacity(memberships.len());
+    for member in memberships {
+        let profile = match identities.get_user(member.user_id.clone()) {
+            Ok(profile) => profile,
+            Err(_) => return HttpResponse::InternalServerError().finish(),
+        };
+        let name = profile.and_then(|user| user.display_name)
+            .unwrap_or_else(|| member.user_id.to_string());
+        members.push((member.user_id.to_string(), name));
+    }
+    match store.sync_family_members(&family_id.to_string(), &members) {
+        Ok(members) => HttpResponse::Ok().json(members.into_iter().filter(|member| member.active).collect::<Vec<_>>()),
         Err(error) => error_response(error),
     }
 }
@@ -356,7 +372,6 @@ async fn remove_shopping_list_item(
 pub fn meal_planner_api() -> Scope {
     web::scope("/meal-planner")
         .service(list_members)
-        .service(create_member)
         .service(list_recipes)
         .service(create_recipe)
         .service(get_recipe)
