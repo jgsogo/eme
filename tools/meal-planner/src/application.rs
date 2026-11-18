@@ -86,6 +86,8 @@ impl MealPlannerApplication {
 
     pub fn planning_context(
         &self,
+        owner_id: &str,
+        families: &[String],
         week_start: NaiveDate,
     ) -> Result<PlanningContext, MealPlannerError> {
         if week_start.weekday() != Weekday::Mon {
@@ -129,7 +131,7 @@ impl MealPlannerApplication {
             week_end,
             members: self.store.list_family_members()?,
             participation,
-            recipes: self.store.list_recipes(None)?,
+            recipes: self.store.list_recipes(owner_id, families, None)?,
             school_menus: self.store.list_school_menus(week_start, week_end)?,
             current_plan: self.store.get_weekly_plan(week_start)?,
         })
@@ -138,10 +140,12 @@ impl MealPlannerApplication {
     /// Build a candidate and deterministic feedback without writing to storage.
     pub fn propose(
         &self,
+        owner_id: &str,
+        families: &[String],
         week_start: NaiveDate,
         draft: WeeklyPlanDraft,
     ) -> Result<PlanProposal, MealPlannerError> {
-        let validation = self.validate(week_start, &draft)?;
+        let validation = self.validate(owner_id, families, week_start, &draft)?;
         Ok(PlanProposal {
             week_start,
             draft,
@@ -151,11 +155,13 @@ impl MealPlannerApplication {
 
     pub fn validate(
         &self,
+        owner_id: &str,
+        families: &[String],
         week_start: NaiveDate,
         draft: &WeeklyPlanDraft,
     ) -> Result<PlanValidation, MealPlannerError> {
         let members = self.store.list_family_members()?;
-        let recipes = self.store.list_recipes(None)?;
+        let recipes = self.store.list_recipes(owner_id, families, None)?;
         let menus = match week_start.checked_add_days(Days::new(6)) {
             Some(end) => self.store.list_school_menus(week_start, end)?,
             None => Vec::new(),
@@ -350,10 +356,12 @@ impl MealPlannerApplication {
     /// Persist a validated proposal as a draft. This operation never confirms it.
     pub fn save_draft(
         &self,
+        owner_id: &str,
+        families: &[String],
         week_start: NaiveDate,
         draft: WeeklyPlanDraft,
     ) -> Result<WeeklyPlan, MealPlannerError> {
-        let validation = self.validate(week_start, &draft)?;
+        let validation = self.validate(owner_id, families, week_start, &draft)?;
         if !validation.valid {
             return Err(MealPlannerError::InvalidInput(
                 "the proposal has validation errors; correct it before saving".into(),
@@ -374,6 +382,8 @@ impl MealPlannerApplication {
     /// Confirm only the already-saved latest draft after revalidating it.
     pub fn confirm_saved_draft(
         &self,
+        owner_id: &str,
+        families: &[String],
         week_start: NaiveDate,
     ) -> Result<WeeklyPlan, MealPlannerError> {
         let plan = self
@@ -388,7 +398,7 @@ impl MealPlannerApplication {
         let draft = WeeklyPlanDraft {
             assignments: plan.assignments.clone(),
         };
-        if !self.validate(week_start, &draft)?.valid {
+        if !self.validate(owner_id, families, week_start, &draft)?.valid {
             return Err(MealPlannerError::InvalidInput(
                 "the saved draft has validation errors; correct it before confirming".into(),
             ));
@@ -451,7 +461,7 @@ mod tests {
         let member = store.create_family_member("Alex").unwrap();
         let app = MealPlannerApplication::new(store.clone());
         assert!(
-            app.propose(monday(), draft(member.id))
+            app.propose("user-1", &[], monday(), draft(member.id))
                 .unwrap()
                 .validation
                 .valid
@@ -466,7 +476,7 @@ mod tests {
         let mut proposal = draft(999);
         proposal.assignments[0].arrangement = MealArrangement::School;
         proposal.assignments[0].recipe_id = Some(123);
-        let result = app.validate(monday(), &proposal).unwrap();
+        let result = app.validate("user-1", &[], monday(), &proposal).unwrap();
         assert!(!result.valid);
         assert!(
             result
@@ -502,7 +512,7 @@ mod tests {
         let member = store.create_family_member("Alex").unwrap();
         let app = MealPlannerApplication::new(store.clone());
         assert_eq!(
-            app.save_draft(monday(), draft(member.id)).unwrap().status,
+            app.save_draft("user-1", &[], monday(), draft(member.id)).unwrap().status,
             WeeklyPlanStatus::Draft
         );
         assert_eq!(
@@ -510,7 +520,7 @@ mod tests {
             WeeklyPlanStatus::Draft
         );
         assert_eq!(
-            app.confirm_saved_draft(monday()).unwrap().status,
+            app.confirm_saved_draft("user-1", &[], monday()).unwrap().status,
             WeeklyPlanStatus::Confirmed
         );
         assert!(app.confirm_saved_draft(monday()).is_err());
@@ -526,7 +536,7 @@ mod tests {
         assert_eq!(confirmed.revision, first.revision);
         let mut revised = draft(member.id);
         revised.assignments[0].notes = Some("Updated after approval".into());
-        let saved = app.save_draft(monday(), revised).unwrap();
+        let saved = app.save_draft("user-1", &[], monday(), revised).unwrap();
         assert_eq!(saved.revision, first.revision + 1);
         assert_eq!(saved.status, WeeklyPlanStatus::Draft);
         assert_eq!(
@@ -543,7 +553,7 @@ mod tests {
         let store = MealPlannerStore::open_in_memory().unwrap();
         store.create_family_member("Alex").unwrap();
         let context = MealPlannerApplication::new(store)
-            .planning_context(monday())
+            .planning_context("user-1", &[], monday())
             .unwrap();
         assert_eq!(context.members.len(), 1);
         assert!(context.current_plan.is_none());
