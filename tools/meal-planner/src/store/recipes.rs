@@ -66,15 +66,11 @@ impl MealPlannerStore {
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
         let recipe = load_recipe(&connection, id)?.ok_or(MealPlannerError::NotFound)?;
-        if recipe.owner_id != owner_id
-            && !recipe
-                .draft
-                .family_id
-                .as_ref()
-                .is_some_and(|family| families.iter().any(|available| available == family))
-        {
-            return Err(MealPlannerError::NotFound);
-        }
+        let visible = match recipe.draft.family_id.as_deref() {
+            None => recipe.owner_id == owner_id,
+            Some(family) => families.iter().any(|available| available == family),
+        };
+        if !visible { return Err(MealPlannerError::NotFound); }
         Ok(recipe)
     }
 
@@ -102,12 +98,10 @@ impl MealPlannerStore {
         Ok(rows
             .into_iter()
             .filter(|recipe| {
-                (recipe.owner_id == owner_id
-                    || recipe
-                        .draft
-                        .family_id
-                        .as_ref()
-                        .is_some_and(|family| families.iter().any(|available| available == family)))
+                (match recipe.draft.family_id.as_deref() {
+                    None => recipe.owner_id == owner_id,
+                    Some(family) => families.iter().any(|available| available == family),
+                })
                     && needle.as_ref().is_none_or(|needle| {
                         let draft = &recipe.draft;
                         draft.title.to_lowercase().contains(needle)
@@ -223,7 +217,7 @@ mod tests {
             .create_recipe("b", draft("Other", "z", Some("f2")))
             .unwrap();
 
-        assert_eq!(store.list_recipes("a", &[], None).unwrap().len(), 2);
+        assert_eq!(store.list_recipes("a", &["f1".into()], None).unwrap().len(), 2);
         assert!(store.get_recipe(private.id, "b", &[]).is_err());
         assert!(store.get_recipe(shared.id, "b", &["f1".into()]).is_ok());
     }
