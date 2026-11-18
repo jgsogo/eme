@@ -64,7 +64,10 @@ impl MealPlannerStore {
         let draft = draft
             .validate(week_start)
             .map_err(MealPlannerError::InvalidInput)?;
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         ensure_references(&connection, &draft)?;
         let revision: i64 = connection.query_row(
             "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE week_start = ?1",
@@ -85,11 +88,13 @@ impl MealPlannerStore {
         week_start: NaiveDate,
     ) -> Result<Option<WeeklyPlan>, MealPlannerError> {
         let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
-        let id = connection.query_row(
-            "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
-            [week_start.to_string()],
-            |row| row.get::<_, i64>(0),
-        ).optional()?;
+        let id = connection
+            .query_row(
+                "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
+                [week_start.to_string()],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
         match id {
             Some(id) => load_plan(&connection, id),
             None => Ok(None),
@@ -101,14 +106,14 @@ impl MealPlannerStore {
         week_start: NaiveDate,
     ) -> Result<Vec<WeeklyPlan>, MealPlannerError> {
         let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
-        let mut statement = connection.prepare(
-            "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC",
-        )?;
-        let ids = statement.query_map([week_start.to_string()], |row| row.get::<_, i64>(0))?
+        let mut statement = connection
+            .prepare("SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC")?;
+        let ids = statement
+            .query_map([week_start.to_string()], |row| row.get::<_, i64>(0))?
             .collect::<Result<Vec<_>, _>>()?;
-        ids.into_iter().map(|id| {
-            load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)
-        }).collect()
+        ids.into_iter()
+            .map(|id| load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound))
+            .collect()
     }
 
     /// Replace the latest draft. Confirmed plans are never updated in place.
@@ -117,12 +122,16 @@ impl MealPlannerStore {
         week_start: NaiveDate,
         draft: WeeklyPlanDraft,
     ) -> Result<WeeklyPlan, MealPlannerError> {
-        let draft = draft.validate(week_start).map_err(MealPlannerError::InvalidInput)?;
+        let draft = draft
+            .validate(week_start)
+            .map_err(MealPlannerError::InvalidInput)?;
         let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
         ensure_references(&connection, &draft)?;
         let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
         let status: String = connection.query_row(
-            "SELECT status FROM weekly_plans WHERE id = ?1", [id], |row| row.get(0)
+            "SELECT status FROM weekly_plans WHERE id = ?1",
+            [id],
+            |row| row.get(0),
         )?;
         if status != "draft" {
             return Err(MealPlannerError::Conflict(
@@ -184,7 +193,6 @@ impl MealPlannerStore {
     }
 }
 
-
 fn ensure_references(
     connection: &rusqlite::Connection,
     draft: &WeeklyPlanDraft,
@@ -218,11 +226,13 @@ fn latest_plan_id(
     connection: &rusqlite::Connection,
     week_start: NaiveDate,
 ) -> Result<Option<i64>, MealPlannerError> {
-    Ok(connection.query_row(
-        "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
-        [week_start.to_string()],
-        |row| row.get(0),
-    ).optional()?)
+    Ok(connection
+        .query_row(
+            "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
+            [week_start.to_string()],
+            |row| row.get(0),
+        )
+        .optional()?)
 }
 
 fn load_plan(
@@ -272,14 +282,16 @@ mod tests {
     fn creation_snapshots_participation_and_confirmation_is_immutable() {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let member = store.create_family_member("Alex").unwrap();
-        store.add_recurring_rule(
-            member.id,
-            MealWeekday::Monday,
-            MealType::Lunch,
-            MealArrangement::Home,
-            None,
-            None,
-        ).unwrap();
+        store
+            .add_recurring_rule(
+                member.id,
+                MealWeekday::Monday,
+                MealType::Lunch,
+                MealArrangement::Home,
+                None,
+                None,
+            )
+            .unwrap();
 
         let draft = store.create_weekly_plan_from_rules(monday()).unwrap();
         assert_eq!(draft.status, WeeklyPlanStatus::Draft);
@@ -290,7 +302,9 @@ mod tests {
         assert_eq!(confirmed.status, WeeklyPlanStatus::Confirmed);
         assert!(confirmed.confirmed_at.is_some());
 
-        let changed = WeeklyPlanDraft { assignments: vec![] };
+        let changed = WeeklyPlanDraft {
+            assignments: vec![],
+        };
         assert!(matches!(
             store.update_weekly_plan(monday(), changed),
             Err(MealPlannerError::Conflict(_))
@@ -305,8 +319,22 @@ mod tests {
     #[test]
     fn revisions_are_ordered_and_latest_draft_can_be_updated() {
         let store = MealPlannerStore::open_in_memory().unwrap();
-        let first = store.create_weekly_plan(monday(), WeeklyPlanDraft { assignments: vec![] }).unwrap();
-        let updated = store.update_weekly_plan(monday(), WeeklyPlanDraft { assignments: vec![] }).unwrap();
+        let first = store
+            .create_weekly_plan(
+                monday(),
+                WeeklyPlanDraft {
+                    assignments: vec![],
+                },
+            )
+            .unwrap();
+        let updated = store
+            .update_weekly_plan(
+                monday(),
+                WeeklyPlanDraft {
+                    assignments: vec![],
+                },
+            )
+            .unwrap();
         assert_eq!(first.id, updated.id);
         assert_eq!(store.list_weekly_plan_revisions(monday()).unwrap().len(), 1);
     }
