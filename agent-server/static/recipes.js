@@ -18,4 +18,4 @@ async function loadRecipes(){state.recipes=await api("/meal-planner/recipes");re
 $("recipe-list").addEventListener("click",event=>{const button=event.target.closest("[data-id]");if(button)selectRecipe(Number(button.dataset.id))});
 $("recipe-search").addEventListener("input",async()=>{try{state.recipes=await api("/meal-planner/recipes?q="+encodeURIComponent($("recipe-search").value));renderList()}catch(e){$("recipe-list").textContent=e.message}});
 $("new-recipe").addEventListener("click",()=>{state.selected=null;renderList();editRecipe(null)});
-(async()=>{try{await api("/auth/session");await loadRecipes();$("connection").textContent="Connected"}catch(e){$("connection").textContent="Sign in required";$("recipe-content").innerHTML='<p class="empty">Sign in to use the recipe catalogue.</p>'}})();
+(async()=>{try{await window.emeConsoleReady;await loadRecipes()}catch(e){$("connection").textContent="Error loading recipes: "+e.message;$("recipe-content").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}})();
