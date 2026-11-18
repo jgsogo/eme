@@ -1,7 +1,6 @@
 //! Loads configured providers, tools, and agents into runtime instances.
 
 use std::sync::Arc;
-use async_trait::async_trait;
 
 use agent_models::{ModelCapability, ModelError, Registry as ModelRegistry};
 use agent_runtime::{
@@ -9,6 +8,7 @@ use agent_runtime::{
     ModelRouter, RoutedModelTurn, ToolDispatcher, ToolRegistry,
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
+use async_trait::async_trait;
 use agent_storage::FamilyStore;
 use anyhow::{Context, Result};
 use notes_tools::NotesStore;
@@ -98,7 +98,6 @@ impl AgentRuntimeResolver for ConfiguredAgentResolver {
     }
 }
 
-
 struct RegistryModelRouter {
     registry: Arc<ModelRegistry>,
 }
@@ -116,10 +115,16 @@ impl ModelRouter for RegistryModelRouter {
         required: &[ModelCapability],
         request: ModelRequest,
     ) -> Result<RoutedModelTurn, ModelError> {
-        let model_id = self.registry.compatible_models(required).into_iter().next()
-            .ok_or_else(|| ModelError::UnsupportedModel(format!(
-                "no configured model satisfies required capabilities {required:?}"
-            )))?;
+        let model_id = self
+            .registry
+            .compatible_models(required)
+            .into_iter()
+            .next()
+            .ok_or_else(|| {
+                ModelError::UnsupportedModel(format!(
+                    "no configured model satisfies required capabilities {required:?}"
+                ))
+            })?;
         let client = self.registry.resolve_model(&model_id)?;
         let turn = ModelAdapter::new(client).complete(request).await?;
         Ok(RoutedModelTurn { model_id, turn })
