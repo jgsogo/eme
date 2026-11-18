@@ -3,12 +3,12 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path, Query},
 };
-use chrono::NaiveDate;
 use agent_service::FamilyService;
 use agent_storage::{FileUserIdentityStore, UserId};
-use std::sync::Arc;
+use chrono::NaiveDate;
 use meal_planner::{MealPlannerError, MealPlannerStore, SchoolMenuDraft};
 use serde::Deserialize;
+use std::sync::Arc;
 #[derive(Deserialize)]
 struct ImportRequest {
     source: String,
@@ -23,7 +23,11 @@ fn error_response(e: MealPlannerError) -> HttpResponse {
     }
 }
 #[derive(Deserialize)]
-struct FamilyQuery { family_id: Option<String>, from: Option<NaiveDate>, to: Option<NaiveDate> }
+struct FamilyQuery {
+    family_id: Option<String>,
+    from: Option<NaiveDate>,
+    to: Option<NaiveDate>,
+}
 
 async fn authorize_family(
     request: &HttpRequest,
@@ -41,78 +45,151 @@ async fn authorize_family(
 
 #[get("/")]
 async fn list(
-    request: HttpRequest, auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>, q: Query<FamilyQuery>,
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    q: Query<FamilyQuery>,
 ) -> impl Responder {
-    let family_id = match authorize_family(&request, &auth, &identities, &families, q.family_id.as_deref()).await {
-        Ok(id) => id, Err(response) => return response,
+    let family_id = match authorize_family(
+        &request,
+        &auth,
+        &identities,
+        &families,
+        q.family_id.as_deref(),
+    )
+    .await
+    {
+        Ok(id) => id,
+        Err(response) => return response,
     };
-    let (Some(from), Some(to)) = (q.from, q.to) else { return HttpResponse::BadRequest().finish(); };
+    let (Some(from), Some(to)) = (q.from, q.to) else {
+        return HttpResponse::BadRequest().finish();
+    };
     match store.list_school_menus_for_family(&family_id, from, to) {
-        Ok(v) => HttpResponse::Ok().json(v), Err(e) => error_response(e),
+        Ok(v) => HttpResponse::Ok().json(v),
+        Err(e) => error_response(e),
     }
 }
 
 #[get("/{date}")]
 async fn get_date(
-    request: HttpRequest, auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>, date: Path<NaiveDate>, q: Query<FamilyQuery>,
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    date: Path<NaiveDate>,
+    q: Query<FamilyQuery>,
 ) -> impl Responder {
-    let family_id = match authorize_family(&request, &auth, &identities, &families, q.family_id.as_deref()).await {
-        Ok(id) => id, Err(response) => return response,
+    let family_id = match authorize_family(
+        &request,
+        &auth,
+        &identities,
+        &families,
+        q.family_id.as_deref(),
+    )
+    .await
+    {
+        Ok(id) => id,
+        Err(response) => return response,
     };
     match store.get_school_menu_for_family(&family_id, date.into_inner()) {
-        Ok(Some(v)) => HttpResponse::Ok().json(v), Ok(None) => HttpResponse::NotFound().finish(),
+        Ok(Some(v)) => HttpResponse::Ok().json(v),
+        Ok(None) => HttpResponse::NotFound().finish(),
         Err(e) => error_response(e),
     }
 }
 
 #[put("/{date}")]
 async fn save(
-    request: HttpRequest, auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>, date: Path<NaiveDate>, q: Query<FamilyQuery>,
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    date: Path<NaiveDate>,
+    q: Query<FamilyQuery>,
     body: Json<SchoolMenuDraft>,
 ) -> impl Responder {
-    let family_id = match authorize_family(&request, &auth, &identities, &families, q.family_id.as_deref()).await {
-        Ok(id) => id, Err(response) => return response,
+    let family_id = match authorize_family(
+        &request,
+        &auth,
+        &identities,
+        &families,
+        q.family_id.as_deref(),
+    )
+    .await
+    {
+        Ok(id) => id,
+        Err(response) => return response,
     };
     let date = date.into_inner();
     let draft = body.into_inner();
-    if draft.date != date { return HttpResponse::BadRequest().body("path date and menu date must match"); }
+    if draft.date != date {
+        return HttpResponse::BadRequest().body("path date and menu date must match");
+    }
     match store.save_school_menu_for_family(&family_id, draft) {
-        Ok(v) => HttpResponse::Ok().json(v), Err(e) => error_response(e),
+        Ok(v) => HttpResponse::Ok().json(v),
+        Err(e) => error_response(e),
     }
 }
 
 #[delete("/{date}")]
 async fn remove(
-    request: HttpRequest, auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>, date: Path<NaiveDate>, q: Query<FamilyQuery>,
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    date: Path<NaiveDate>,
+    q: Query<FamilyQuery>,
 ) -> impl Responder {
-    let family_id = match authorize_family(&request, &auth, &identities, &families, q.family_id.as_deref()).await {
-        Ok(id) => id, Err(response) => return response,
+    let family_id = match authorize_family(
+        &request,
+        &auth,
+        &identities,
+        &families,
+        q.family_id.as_deref(),
+    )
+    .await
+    {
+        Ok(id) => id,
+        Err(response) => return response,
     };
     match store.delete_school_menu_for_family(&family_id, date.into_inner()) {
-        Ok(()) => HttpResponse::NoContent().finish(), Err(e) => error_response(e),
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(e) => error_response(e),
     }
 }
 
 #[post("/import")]
 async fn import(
-    request: HttpRequest, auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>, families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>, q: Query<FamilyQuery>, body: Json<ImportRequest>,
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    q: Query<FamilyQuery>,
+    body: Json<ImportRequest>,
 ) -> impl Responder {
-    let family_id = match authorize_family(&request, &auth, &identities, &families, q.family_id.as_deref()).await {
-        Ok(id) => id, Err(response) => return response,
+    let family_id = match authorize_family(
+        &request,
+        &auth,
+        &identities,
+        &families,
+        q.family_id.as_deref(),
+    )
+    .await
+    {
+        Ok(id) => id,
+        Err(response) => return response,
     };
     let ImportRequest { source, entries } = body.into_inner();
     match store.import_school_menus_for_family(&family_id, &source, entries) {
-        Ok(v) => HttpResponse::Ok().json(v), Err(e) => error_response(e),
+        Ok(v) => HttpResponse::Ok().json(v),
+        Err(e) => error_response(e),
     }
 }
 
@@ -137,13 +214,28 @@ mod tests {
             date,
             status: SchoolMenuStatus::Known,
             items: vec![SchoolMenuItem {
-                name: "Lentils".into(), notes: None, allergens: None,
+                name: "Lentils".into(),
+                notes: None,
+                allergens: None,
                 dietary_alternatives: vec![],
             }],
             notes: None,
         };
-        store.save_school_menu_for_family("family-a", draft.clone()).unwrap();
-        assert_eq!(store.list_school_menus_for_family("family-a", date, date).unwrap().len(), 1);
-        assert!(store.list_school_menus_for_family("family-b", date, date).unwrap().is_empty());
+        store
+            .save_school_menu_for_family("family-a", draft.clone())
+            .unwrap();
+        assert_eq!(
+            store
+                .list_school_menus_for_family("family-a", date, date)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            store
+                .list_school_menus_for_family("family-b", date, date)
+                .unwrap()
+                .is_empty()
+        );
     }
 }
