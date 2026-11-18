@@ -30,7 +30,7 @@ impl MealPlannerStore {
         let same_plan = current.is_some();
         let existing = match current {
             Some(list) => Some(list),
-            None => load_latest_shopping_list_for_week(&connection, plan.week_start)?,
+            None => load_latest_shopping_list_for_week(&connection, plan.week_start, plan.revision)?,
         };
         let now = timestamp();
         let mut list = ShoppingList::reconcile(existing, plan.id, plan.revision, generated, now);
@@ -146,10 +146,11 @@ fn load_shopping_list(
 fn load_latest_shopping_list_for_week(
     connection: &rusqlite::Connection,
     week_start: chrono::NaiveDate,
+    before_revision: i64,
 ) -> Result<Option<ShoppingList>, MealPlannerError> {
     let id = connection.query_row(
-        "SELECT id FROM shopping_lists WHERE week_start = ?1 ORDER BY plan_revision DESC, id DESC LIMIT 1",
-        [week_start.to_string()],
+        "SELECT id FROM shopping_lists WHERE week_start = ?1 AND plan_revision < ?2 ORDER BY plan_revision DESC, id DESC LIMIT 1",
+        params![week_start.to_string(), before_revision],
         |row| row.get::<_, i64>(0),
     ).optional()?;
     match id {
