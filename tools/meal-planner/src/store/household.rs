@@ -224,6 +224,43 @@ impl MealPlannerStore {
         let (members, rules, exceptions) = self.resolution_inputs()?;
         Ok(resolve_week(start, &members, &rules, &exceptions))
     }
+    pub fn resolve_meal_week_for_family(
+        &self,
+        family_id: &str,
+        start: NaiveDate,
+    ) -> Result<Vec<MealParticipation>, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let members = {
+            let mut statement = connection.prepare(
+                "SELECT id, name, active FROM family_members WHERE family_id = ?1 ORDER BY id"
+            )?;
+            statement.query_map([family_id], |row| Ok(FamilyMember {
+                id: row.get(0)?, name: row.get(1)?, active: row.get::<_, i64>(2)? != 0,
+            }))?.collect::<Result<Vec<_>, _>>()?
+        };
+        let rules = {
+            let mut statement = connection.prepare(
+                "SELECT id, member_id, weekday, meal_type, arrangement, effective_from, effective_until
+                 FROM recurring_participation_rules WHERE family_id = ?1 ORDER BY id"
+            )?;
+            statement.query_map([family_id], map_rule)?
+                .map(|row| row.map_err(Into::into).and_then(|value| value.ok_or_else(||
+                    MealPlannerError::InvalidInput("invalid recurring rule in database".into())
+                ))).collect::<Result<Vec<_>, MealPlannerError>>()?
+        };
+        let exceptions = {
+            let mut statement = connection.prepare(
+                "SELECT id, member_id, date, meal_type, arrangement
+                 FROM meal_participation_exceptions WHERE family_id = ?1 ORDER BY id"
+            )?;
+            statement.query_map([family_id], map_exception)?
+                .map(|row| row.map_err(Into::into).and_then(|value| value.ok_or_else(||
+                    MealPlannerError::InvalidInput("invalid exception in database".into())
+                ))).collect::<Result<Vec<_>, MealPlannerError>>()?
+        };
+        Ok(resolve_week(start, &members, &rules, &exceptions))
+    }
+
     fn resolution_inputs(
         &self,
     ) -> Result<
