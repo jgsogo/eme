@@ -64,7 +64,7 @@ A shopping list is generated from a specific weekly-plan revision. Only home-pre
 
 Ingredient aggregation is deterministic and conservative. Ingredient names are matched case-insensitively after whitespace normalization. Supported conversions are kilograms to grams, litres to millilitres, and common piece/unit aliases. Other units are combined only when their normalized unit strings match. Missing quantities remain unknown; if any merged contribution has an unknown quantity, the consolidated quantity remains unknown.
 
-A list is stored separately from the plan and can be edited independently. Manual additions, explicit removals, purchased status and quantity overrides are reconciled when the user explicitly regenerates the list for the same plan. Generated entries no longer present in the plan are retained as stale when they contain user edits or purchase state, so they can be reviewed rather than silently discarded.
+A list is stored separately from the plan and can be edited independently. Manual additions, explicit removals, purchased status and quantity overrides are reconciled when the user explicitly regenerates the list. When a new immutable plan revision is selected, generation creates a separate list snapshot seeded from the latest earlier list for that week; earlier list snapshots remain available against their original plan revisions. Generated entries no longer present in the new plan are retained as stale when they contain user edits or purchase state, so they can be reviewed rather than silently discarded.
 
 The authenticated API exposes:
 - `GET /meal-planner/plans/{plan_id}/shopping-list`
