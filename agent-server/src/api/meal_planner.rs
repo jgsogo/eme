@@ -4,7 +4,7 @@ use actix_web::{
     web::{self, Data, Json, Path, Query},
 };
 use chrono::NaiveDate;
-use meal_planner::{MealPlannerError, MealPlannerStore, RecipeDraft, WeeklyPlanDraft};
+use meal_planner::{\n    MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft,\n    ShoppingListItemUpdate, WeeklyPlanDraft,\n};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -158,7 +158,67 @@ async fn revise_weekly_plan(
     }
 }
 
-pub fn meal_planner_api() -> Scope {
+
+#[get("/plans/{plan_id}/shopping-list")]
+async fn get_shopping_list(
+    store: Data<MealPlannerStore>,
+    plan_id: Path<i64>,
+) -> impl Responder {
+    match store.get_shopping_list(plan_id.into_inner()) {
+        Ok(Some(list)) => HttpResponse::Ok().json(list),
+        Ok(None) => HttpResponse::NotFound().finish(),
+        Err(error) => error_response(error),
+    }
+}
+
+#[post("/plans/{plan_id}/shopping-list/generate")]
+async fn generate_shopping_list(
+    store: Data<MealPlannerStore>,
+    plan_id: Path<i64>,
+) -> impl Responder {
+    match store.generate_shopping_list(plan_id.into_inner()) {
+        Ok(list) => HttpResponse::Ok().json(list),
+        Err(error) => error_response(error),
+    }
+}
+
+#[post("/plans/{plan_id}/shopping-list/items")]
+async fn add_shopping_list_item(
+    store: Data<MealPlannerStore>,
+    plan_id: Path<i64>,
+    body: Json<NewShoppingListItem>,
+) -> impl Responder {
+    match store.add_shopping_list_item(plan_id.into_inner(), body.into_inner()) {
+        Ok(list) => HttpResponse::Created().json(list),
+        Err(error) => error_response(error),
+    }
+}
+
+#[put("/plans/{plan_id}/shopping-list/items/{item_id}")]
+async fn update_shopping_list_item(
+    store: Data<MealPlannerStore>,
+    path: Path<(i64, i64)>,
+    body: Json<ShoppingListItemUpdate>,
+) -> impl Responder {
+    let (plan_id, item_id) = path.into_inner();
+    match store.update_shopping_list_item(plan_id, item_id, body.into_inner()) {
+        Ok(list) => HttpResponse::Ok().json(list),
+        Err(error) => error_response(error),
+    }
+}
+
+#[delete("/plans/{plan_id}/shopping-list/items/{item_id}")]
+async fn remove_shopping_list_item(
+    store: Data<MealPlannerStore>,
+    path: Path<(i64, i64)>,
+) -> impl Responder {
+    let (plan_id, item_id) = path.into_inner();
+    match store.remove_shopping_list_item(plan_id, item_id) {
+        Ok(list) => HttpResponse::Ok().json(list),
+        Err(error) => error_response(error),
+    }
+}
+\npub fn meal_planner_api() -> Scope {
     web::scope("/meal-planner")
         .service(list_members)
         .service(create_member)
@@ -172,5 +232,5 @@ pub fn meal_planner_api() -> Scope {
         .service(create_weekly_plan)
         .service(update_weekly_plan)
         .service(confirm_weekly_plan)
-        .service(revise_weekly_plan)
+        .service(revise_weekly_plan)\n        .service(get_shopping_list)\n        .service(generate_shopping_list)\n        .service(add_shopping_list_item)\n        .service(update_shopping_list_item)\n        .service(remove_shopping_list_item)
 }
