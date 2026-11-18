@@ -20,7 +20,7 @@ CREATE INDEX idx_family_members_family ON family_members(family_id, active);
 CREATE TABLE recurring_participation_rules (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     family_id TEXT NOT NULL,
-    member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE CASCADE,
+    member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE RESTRICT,
     weekday INTEGER NOT NULL CHECK(weekday BETWEEN 0 AND 6),
     meal_type TEXT NOT NULL,
     arrangement TEXT NOT NULL,
@@ -32,7 +32,7 @@ CREATE INDEX idx_participation_rules_family ON recurring_participation_rules(fam
 CREATE TABLE meal_participation_exceptions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     family_id TEXT NOT NULL,
-    member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE CASCADE,
+    member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE RESTRICT,
     date TEXT NOT NULL,
     meal_type TEXT NOT NULL,
     arrangement TEXT NOT NULL,
