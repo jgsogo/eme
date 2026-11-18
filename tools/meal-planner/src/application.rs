@@ -512,7 +512,9 @@ mod tests {
         let member = store.create_family_member("Alex").unwrap();
         let app = MealPlannerApplication::new(store.clone());
         assert_eq!(
-            app.save_draft("user-1", &[], monday(), draft(member.id)).unwrap().status,
+            app.save_draft("user-1", &[], monday(), draft(member.id))
+                .unwrap()
+                .status,
             WeeklyPlanStatus::Draft
         );
         assert_eq!(
@@ -520,7 +522,9 @@ mod tests {
             WeeklyPlanStatus::Draft
         );
         assert_eq!(
-            app.confirm_saved_draft("user-1", &[], monday()).unwrap().status,
+            app.confirm_saved_draft("user-1", &[], monday())
+                .unwrap()
+                .status,
             WeeklyPlanStatus::Confirmed
         );
         assert!(app.confirm_saved_draft("user-1", &[], monday()).is_err());
