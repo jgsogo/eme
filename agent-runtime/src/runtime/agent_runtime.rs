@@ -9,7 +9,8 @@ use super::{
     RunStatus, StopReason,
 };
 use crate::{
-    Agent, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest, ModelRouter,
+    Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest,
+    ModelRouter,
     PolicyEngine,
     RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
