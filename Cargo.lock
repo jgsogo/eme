@@ -2052,6 +2052,8 @@ dependencies = [
 name = "meal-planner"
 version = "0.1.0"
 dependencies = [
+ "agent-runtime",
+ "async-trait",
  "chrono",
  "rusqlite",
  "serde",
