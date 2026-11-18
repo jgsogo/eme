@@ -13,6 +13,8 @@ pub struct RecipeIngredient {
 /// Input accepted when creating or replacing a recipe.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RecipeDraft {
+    #[serde(default)]
+    pub family_id: Option<String>,
     pub title: String,
     pub description: Option<String>,
     pub servings: u32,
@@ -32,6 +34,8 @@ pub struct RecipeDraft {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Recipe {
     pub id: i64,
+    pub owner_id: String,
+    pub family_id: Option<String>,
     #[serde(flatten)]
     pub draft: RecipeDraft,
     pub created_at: i64,
@@ -130,6 +134,7 @@ mod tests {
 
     fn draft() -> RecipeDraft {
         RecipeDraft {
+            family_id: None,
             title: "  Tomato pasta ".into(),
             description: None,
             servings: 2,
