@@ -288,7 +288,7 @@ $("next-week").addEventListener("click", () => {
 
 $("week-date").addEventListener("change", () => loadWeek().catch(() => {}));
 
-window.addEventListener("eme:family-changed", () => { state.selected = null; loadWeek(); });
+window.addEventListener("eme:family-changed", () => { state.familyId = window.emeMealsFamily.currentFamilyId(); state.selected = null; loadWeek(); });
 (async () => {
   try {
     await window.emeConsoleReady;
