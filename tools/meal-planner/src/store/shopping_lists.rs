@@ -255,25 +255,28 @@ mod tests {
         let member_a = store.create_family_member("Alex").unwrap();
         let member_b = store.create_family_member("Sam").unwrap();
         let recipe = store
-            .create_recipe("test-user", RecipeDraft {
-                family_id: None,
-                title: "Tomato pasta".into(),
-                description: None,
-                servings: 2,
-                ingredients: vec![RecipeIngredient {
-                    name: "Tomato".into(),
-                    amount: Some(200.0),
-                    unit: Some("g".into()),
-                    preparation_note: None,
-                }],
-                steps: vec!["Cook".into()],
-                categories: vec![],
-                tags: vec![],
-                source: None,
-                notes: None,
-                dietary_information: vec![],
-                allergens: None,
-            })
+            .create_recipe(
+                "test-user",
+                                RecipeDraft {
+                                family_id: None,
+                                title: "Tomato pasta".into(),
+                                description: None,
+                                servings: 2,
+                                ingredients: vec![RecipeIngredient {
+                                    name: "Tomato".into(),
+                                    amount: Some(200.0),
+                                    unit: Some("g".into()),
+                                    preparation_note: None,
+                                }],
+                                steps: vec!["Cook".into()],
+                                categories: vec![],
+                                tags: vec![],
+                                source: None,
+                                notes: None,
+                                dietary_information: vec![],
+                                allergens: None,
+                            },
+            )
             .unwrap();
         let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         let plan = store
@@ -405,25 +408,28 @@ mod tests {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let member = store.create_family_member("Alex").unwrap();
         let recipe = store
-            .create_recipe("test-user", RecipeDraft {
-                family_id: None,
-                title: "Soup".into(),
-                description: None,
-                servings: 1,
-                ingredients: vec![RecipeIngredient {
-                    name: "Salt".into(),
-                    amount: None,
-                    unit: None,
-                    preparation_note: None,
-                }],
-                steps: vec!["Cook".into()],
-                categories: vec![],
-                tags: vec![],
-                source: None,
-                notes: None,
-                dietary_information: vec![],
-                allergens: None,
-            })
+            .create_recipe(
+                "test-user",
+                                RecipeDraft {
+                                family_id: None,
+                                title: "Soup".into(),
+                                description: None,
+                                servings: 1,
+                                ingredients: vec![RecipeIngredient {
+                                    name: "Salt".into(),
+                                    amount: None,
+                                    unit: None,
+                                    preparation_note: None,
+                                }],
+                                steps: vec!["Cook".into()],
+                                categories: vec![],
+                                tags: vec![],
+                                source: None,
+                                notes: None,
+                                dietary_information: vec![],
+                                allergens: None,
+                            },
+            )
             .unwrap();
         let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         let plan = store
