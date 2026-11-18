@@ -195,7 +195,6 @@ fn error_category_name(category: agent_runtime::ErrorCategory) -> &'static str {
     }
 }
 
-
 fn model_failure_category_name(category: agent_runtime::ModelFailureCategory) -> &'static str {
     match category {
         agent_runtime::ModelFailureCategory::RateLimited => "rate_limited",
