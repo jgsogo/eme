@@ -90,7 +90,10 @@ impl MealPlannerStore {
             [week_start.to_string()],
             |row| row.get::<_, i64>(0),
         ).optional()?;
-        id.map(|id| load_plan(&connection, id)).transpose().map(Option::flatten)
+        match id {
+            Some(id) => load_plan(&connection, id),
+            None => Ok(None),
+        }
     }
 
     pub fn list_weekly_plan_revisions(
