@@ -363,13 +363,23 @@ async fn oauth_callback(
     };
     state.token_manager.invalidate(connection.id).await;
     tracing::info!(audit_event = "google_connection_authorized", action = audit_action, user_id = %user_id, connection_id = %connection.id, granted_scope_count, "Google account connection authorized");
-    HttpResponse::Created().json(ConnectedGoogleAccount {
-        id: connection.id,
-        email: connection.display_email,
-        scopes: connection.granted_scopes,
-        status: connection.status,
-        updated_at: connection.updated_at,
-    })
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(
+            r#"<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Google Calendar connected</title></head>
+<body>
+<p>Google Calendar connected. This window should close automatically.</p>
+<script>
+if (window.opener) {
+  window.opener.postMessage({ type: "eme-google-oauth", status: "success" }, window.location.origin);
+  window.close();
+}
+</script>
+</body>
+</html>"#,
+        )
 }
 
 #[get("/connections")]

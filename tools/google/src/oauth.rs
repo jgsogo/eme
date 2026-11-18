@@ -115,7 +115,7 @@ pub fn authorization_request(
         .authorize_url(CsrfToken::new_random)
         .add_scope(Scope::new(CALENDAR_LIST_READONLY.to_owned()))
         .add_extra_param("access_type", "offline")
-        .add_extra_param("include_granted_scopes", "true")
+        .add_extra_param("include_granted_scopes", "false")
         .add_extra_param("prompt", "consent")
         .add_scope(Scope::new("openid".to_owned()))
         .add_scope(Scope::new("email".to_owned()))
@@ -226,4 +226,64 @@ pub async fn revoke_token(token: &str) -> Result<(), GoogleOAuthError> {
         .error_for_status()
         .map_err(|error| GoogleOAuthError::Request(error.to_string()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn authorization_url(scope: CalendarScope) -> Url {
+        let config = GoogleOAuthConfig {
+            client_id: "test-client".to_owned(),
+            client_secret: "test-secret".to_owned(),
+            redirect_uri: "http://localhost:8080/integrations/google/oauth/callback".to_owned(),
+        };
+        authorization_request(&config, scope)
+            .expect("authorization URL should be constructed")
+            .authorization_url
+    }
+
+    fn query_parameter<'a>(url: &'a Url, name: &str) -> Option<String> {
+        url.query_pairs()
+            .find(|(key, _)| key == name)
+            .map(|(_, value)| value.into_owned())
+    }
+
+    #[test]
+    fn authorization_requests_show_consent_without_inheriting_old_scopes() {
+        let url = authorization_url(CalendarScope::ReadOnly);
+
+        assert_eq!(query_parameter(&url, "prompt").as_deref(), Some("consent"));
+        assert_eq!(
+            query_parameter(&url, "access_type").as_deref(),
+            Some("offline")
+        );
+        assert_eq!(
+            query_parameter(&url, "include_granted_scopes").as_deref(),
+            Some("false")
+        );
+
+        let scopes = query_parameter(&url, "scope").expect("scope parameter");
+        assert!(scopes.contains(CALENDAR_LIST_READONLY));
+        assert!(scopes.contains(CALENDAR_EVENTS_READONLY));
+        assert!(
+            !scopes
+                .split_whitespace()
+                .any(|scope| scope == CALENDAR_EVENTS)
+        );
+    }
+
+    #[test]
+    fn read_write_authorization_requests_write_scope() {
+        let url = authorization_url(CalendarScope::ReadWrite);
+        let scopes = query_parameter(&url, "scope").expect("scope parameter");
+
+        assert!(scopes.contains(CALENDAR_LIST_READONLY));
+        assert!(scopes.contains(CALENDAR_EVENTS));
+        assert!(
+            !scopes
+                .split_whitespace()
+                .any(|scope| scope == CALENDAR_EVENTS_READONLY)
+        );
+    }
 }

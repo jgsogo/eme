@@ -40,6 +40,21 @@ impl GoogleCalendarAccessService {
         user_id: &str,
         family_id: Option<&str>,
     ) -> Result<Vec<agent_storage::ConnectedCalendar>, GoogleCalendarAccessError> {
+        Ok(self
+            .list_readable_calendars_with_permissions(user_id, family_id)
+            .await?
+            .into_iter()
+            .map(|(calendar, _)| calendar)
+            .collect())
+    }
+
+    /// List calendars visible to the caller together with their effective write
+    /// permission, combining EME settings, family sharing and Google OAuth scopes.
+    pub async fn list_readable_calendars_with_permissions(
+        &self,
+        user_id: &str,
+        family_id: Option<&str>,
+    ) -> Result<Vec<(agent_storage::ConnectedCalendar, bool)>, GoogleCalendarAccessError> {
         let user =
             UserId::from_str(user_id).map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
         let (family, owners) = match family_id {
@@ -81,16 +96,28 @@ impl GoogleCalendarAccessService {
                     .list_for_connection(owner, connection.id)
                     .await
                     .map_err(|error| GoogleCalendarAccessError::Storage(error.to_string()))?;
-                calendars.extend(connected.into_iter().filter(|calendar| {
-                    calendar.selected
-                        && (calendar.owner_id == user
-                            || (family.is_some()
-                                && calendar.family_id == family
-                                && calendar.family_access.is_some()))
-                }));
+                calendars.extend(
+                    connected
+                        .into_iter()
+                        .filter(|calendar| {
+                            calendar.selected
+                                && (calendar.owner_id == user
+                                    || (family.is_some()
+                                        && calendar.family_id == family
+                                        && calendar.family_access.is_some()))
+                        })
+                        .map(|calendar| {
+                            let can_write = calendar.access_mode == CalendarAccessMode::ReadWrite
+                                && (calendar.owner_id == user
+                                    || calendar.family_access
+                                        == Some(CalendarFamilyAccess::Contributor))
+                                && has_calendar_write_scope(&connection.granted_scopes);
+                            (calendar, can_write)
+                        }),
+                );
             }
         }
-        calendars.sort_by(|left, right| {
+        calendars.sort_by(|(left, _), (right, _)| {
             left.display_name
                 .as_deref()
                 .unwrap_or("")
@@ -244,6 +271,13 @@ mod tests {
 
     #[tokio::test]
     async fn owner_and_current_family_members_can_read_but_removed_members_cannot() {
+        assert!(!has_calendar_write_scope(&[
+            "https://www.googleapis.com/auth/calendar.events.readonly".into()
+        ]));
+        assert!(has_calendar_write_scope(&[
+            "https://www.googleapis.com/auth/calendar.events".into()
+        ]));
+
         let path =
             std::env::temp_dir().join(format!("eme-google-access-{}.sqlite", uuid::Uuid::new_v4()));
         let owner = UserId::new();
@@ -327,6 +361,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(owner_access.refresh_token, "owner-refresh-token");
+        let owner_permissions = service
+            .list_readable_calendars_with_permissions(&owner.to_string(), None)
+            .await
+            .unwrap();
+        assert_eq!(owner_permissions.len(), 1);
+        assert!(!owner_permissions[0].1); // EME calendar setting is read-only.
         let family_access = service
             .authorize_read(&member.to_string(), &calendar_id, Some(&family_id))
             .await
@@ -356,12 +396,22 @@ mod tests {
                 .await
                 .is_ok()
         );
+        let owner_permissions = service
+            .list_readable_calendars_with_permissions(&owner.to_string(), None)
+            .await
+            .unwrap();
+        assert!(owner_permissions[0].1); // EME and Google both grant writes.
         assert!(matches!(
             service
                 .authorize_write(&member.to_string(), &calendar_id, Some(&family_id))
                 .await,
             Err(GoogleCalendarAccessError::WriteNotAuthorized)
         ));
+        let viewer_permissions = service
+            .list_readable_calendars_with_permissions(&member.to_string(), Some(&family_id))
+            .await
+            .unwrap();
+        assert!(!viewer_permissions[0].1); // Viewer sharing never grants writes.
         calendars
             .share_with_family(
                 owner,
@@ -383,6 +433,11 @@ mod tests {
             .unwrap();
         assert_eq!(visible_to_member.len(), 1);
         assert_eq!(visible_to_member[0].id, discovered.id);
+        let member_permissions = service
+            .list_readable_calendars_with_permissions(&member.to_string(), Some(&family_id))
+            .await
+            .unwrap();
+        assert!(member_permissions[0].1); // Contributor + owner setting + Google scope.
         assert!(
             service
                 .list_readable_calendars(&member.to_string(), None)
