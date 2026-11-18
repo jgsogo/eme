@@ -19,12 +19,12 @@ fn file_database_can_be_reopened_without_reapplying_migrations() {
     let config = MealPlannerConfig::new(path.clone()).unwrap();
     {
         let store = MealPlannerStore::open(&config).unwrap();
-        assert_eq!(store.schema_version().unwrap(), 4);
+        assert_eq!(store.schema_version().unwrap(), 5);
     }
     {
         let store = MealPlannerStore::open(&config).unwrap();
         store.health_check().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 4);
+        assert_eq!(store.schema_version().unwrap(), 5);
     }
     let _ = std::fs::remove_file(path);
 }
