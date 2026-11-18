@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const state={weekStart:null,plan:null,members:[],recipes:[],menus:[],editingId:null,shoppingList:null};
+const state={weekStart:null,plan:null,members:[],recipes:[],menus:[],editingId:null,shoppingList:null,shoppingListNeedsRegeneration:false};
 const meals=[["breakfast","Breakfast"],["lunch","Lunch"],["dinner","Dinner"]];
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const text=await response.text();let value=null;try{value=text?JSON.parse(text):null}catch{value=text}if(!response.ok){const error=new Error(typeof value==="string"?value:value?.error||response.statusText);error.status=response.status;throw error}return value}
 function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -67,7 +67,8 @@ function updateRecipeField(){
 async function savePlan(){
  try{
   state.plan=await api("/meal-planner/plans/"+state.weekStart,{method:"PUT",body:JSON.stringify({assignments:state.plan.assignments})});
-  renderGrid();$("assignment-editor").hidden=true;
+  state.shoppingListNeedsRegeneration=Boolean(state.shoppingList);
+  renderGrid();renderShoppingList();$("assignment-editor").hidden=true;
  }catch(e){$("assignment-error").textContent=e.message}
 }
 
@@ -78,6 +79,7 @@ async function loadShoppingList(){
  $("shopping-list-items").innerHTML='<p class="hint">Loading shopping list…</p>';
  try{
   state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list");
+  state.shoppingListNeedsRegeneration=false;
  }catch(e){
   if(e.status===404)state.shoppingList=null;
   else{$("shopping-list-message").textContent=e.message;state.shoppingList=null}
@@ -91,7 +93,10 @@ function renderShoppingList(){
  $("generate-shopping-list").textContent=list?"Regenerate from this plan":"Generate list";
  $("shopping-list-status").textContent=list
   ?"Snapshot for plan revision "+list.plan_revision+" · edits are independent of plan confirmation"
-  :"Only home-prepared assignments with recipes will contribute ingredients.";
+  : "Only home-prepared assignments with recipes will contribute ingredients.";
+ if(list&&state.shoppingListNeedsRegeneration){
+  $("shopping-list-status").textContent="The plan changed. Regenerate this list to update its ingredients.";
+ }
  const visible=list?.items?.filter(item=>!item.manually_removed)||[];
  $("shopping-list-items").innerHTML=!list
   ?'<p class="hint">No list yet. Generate one to collect ingredients from this weekly plan.</p>'
@@ -111,6 +116,7 @@ async function generateShoppingList(){
  const button=$("generate-shopping-list");button.disabled=true;
  try{
   state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/generate",{method:"POST"});
+  state.shoppingListNeedsRegeneration=false;
   $("shopping-list-message").textContent="Shopping list generated.";
   renderShoppingList();
  }catch(e){$("shopping-list-message").textContent=e.message}
