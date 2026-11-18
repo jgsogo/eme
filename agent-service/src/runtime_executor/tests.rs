@@ -37,6 +37,7 @@ impl AgentRuntimeResolver for FixedResolver {
         Ok(ResolvedAgent {
             agent: Agent {
                 id: agent_name.to_owned(),
+                capabilities: Vec::new(),
                 system_prompt: Some("Be helpful.".into()),
                 tool_names: Vec::new(),
                 max_iterations: 3,

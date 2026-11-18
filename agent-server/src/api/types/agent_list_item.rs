@@ -6,6 +6,6 @@ use serde::Serialize;
 pub struct AgentListItem {
     pub name: String,
     pub description: String,
-    pub model: String,
+    pub capabilities: Vec<agent_models::ModelCapability>,
     pub tools: Vec<String>,
 }

@@ -123,8 +123,8 @@ The executable service will compose the platform components and expose them to e
 
 The `basic_agent` example demonstrates an end-to-end agent workflow:
 
-1. Load a provider registry and resolve a model.
-2. Configure an agent and its available tools.
+1. Load provider and agent configuration; the agent declares required model capabilities.
+2. Select a configured model that satisfies those capabilities and configure the agent's tools.
 3. Receive a user request.
 4. Ask the model to determine whether a tool is needed.
 5. Validate and authorize the requested tool call.
@@ -163,7 +163,7 @@ base_url = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
 
 [[models]]
 name = "@cf/zai-org/glm-4.7-flash"
-capabilities = ["chat", "tool_calling"]
+capabilities = ["chat", "reasoning", "tool_calling"]
 ```
 
 Set the corresponding environment variables:
@@ -179,8 +179,7 @@ From the repository root:
 
 ```bash
 cargo run -p agent-runtime --example basic_agent -- \
-  cloudflare/@cf/zai-org/glm-4.7-flash \
-  ./data
+  "Ask Alexa to say Hello"
 ```
 
 ## Design principles

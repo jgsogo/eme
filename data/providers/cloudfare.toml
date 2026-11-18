@@ -11,4 +11,4 @@ base_url = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
 
 [[models]]
 name = "@cf/zai-org/glm-4.7-flash"
-capabilities = ["chat", "tool_calling"]
+capabilities = ["chat", "reasoning", "tool_calling"]
