@@ -226,7 +226,7 @@ async function remove() {
   const button = $("delete-menu");
   button.disabled = true;
   try {
-    await api("/meal-planner/school-menus/" + date, { method: "DELETE" });
+    await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), { method: "DELETE" });
     state.selected = null;
     await loadWeek();
     $("menu-content").insertAdjacentHTML("afterbegin",
