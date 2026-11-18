@@ -8,6 +8,10 @@ pub struct RunEventResponse {
     pub kind: &'static str,
     pub iteration: Option<usize>,
     pub tool_name: Option<String>,
+    pub model_id: Option<String>,
+    pub next_model_id: Option<String>,
+    pub model_candidates: Option<Vec<String>>,
+    pub attempted_candidates: Option<usize>,
     pub error_category: Option<&'static str>,
     pub occurred_at_unix_ms: u128,
 }
