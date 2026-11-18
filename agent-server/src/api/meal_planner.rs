@@ -21,6 +21,15 @@ fn error_response(error: MealPlannerError) -> HttpResponse {
     }
 }
 
+
+#[get("/members")]
+async fn list_members(store: Data<MealPlannerStore>) -> impl Responder {
+    match store.list_family_members() {
+        Ok(members) => HttpResponse::Ok().json(members),
+        Err(error) => error_response(error),
+    }
+}
+
 #[get("/recipes")]
 async fn list_recipes(store: Data<MealPlannerStore>, query: Query<SearchQuery>) -> impl Responder {
     match store.list_recipes(query.q.as_deref()) {
@@ -137,6 +146,7 @@ async fn revise_weekly_plan(
 
 pub fn meal_planner_api() -> Scope {
     web::scope("/meal-planner")
+        .service(list_members)
         .service(list_recipes)
         .service(create_recipe)
         .service(get_recipe)
