@@ -223,3 +223,56 @@ fn load_plan(
         })
     }).transpose()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{MealType, MealWeekday};
+
+    fn monday() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()
+    }
+
+    #[test]
+    fn creation_snapshots_participation_and_confirmation_is_immutable() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let member = store.create_family_member("Alex").unwrap();
+        store.add_recurring_rule(
+            member.id,
+            MealWeekday::Monday,
+            MealType::Lunch,
+            MealArrangement::Home,
+            None,
+            None,
+        ).unwrap();
+
+        let draft = store.create_weekly_plan_from_rules(monday()).unwrap();
+        assert_eq!(draft.status, WeeklyPlanStatus::Draft);
+        assert_eq!(draft.assignments.len(), 1);
+        assert_eq!(draft.assignments[0].participants[0].name, "Alex");
+
+        let confirmed = store.confirm_weekly_plan(monday()).unwrap();
+        assert_eq!(confirmed.status, WeeklyPlanStatus::Confirmed);
+        assert!(confirmed.confirmed_at.is_some());
+
+        let changed = WeeklyPlanDraft { assignments: vec![] };
+        assert!(matches!(
+            store.update_weekly_plan(monday(), changed),
+            Err(MealPlannerError::Conflict(_))
+        ));
+
+        let revision = store.revise_weekly_plan(monday()).unwrap();
+        assert_eq!(revision.revision, 2);
+        assert_eq!(revision.status, WeeklyPlanStatus::Draft);
+        assert_eq!(revision.assignments, confirmed.assignments);
+    }
+
+    #[test]
+    fn revisions_are_ordered_and_latest_draft_can_be_updated() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let first = store.create_weekly_plan(monday(), WeeklyPlanDraft { assignments: vec![] }).unwrap();
+        let updated = store.update_weekly_plan(monday(), WeeklyPlanDraft { assignments: vec![] }).unwrap();
+        assert_eq!(first.id, updated.id);
+        assert_eq!(store.list_weekly_plan_revisions(monday()).unwrap().len(), 1);
+    }
+}
