@@ -23,7 +23,7 @@ pub use agent::AgentDefinition;
 pub use agent_models::ModelError;
 pub use agent_registry::AgentRegistry;
 pub use error::{ErrorCategory, RuntimeError};
-pub use model::{AgentModel, ModelAdapter};
+pub use model::{AgentModel, ModelAdapter, ModelRouter, RoutedModelTurn};
 pub use policy::{AllowListPolicy, Authorization, AuthorizationError, PolicyEngine};
 pub use runtime::{
     AgentRuntime, CancellationToken, EventSink, RunEvent, RunEventKind, RunFailure, RunResult,
