@@ -12,8 +12,35 @@ impl EventSink for ConsoleEventSink {
             RunEventKind::ModelRequested => {
                 debug!(run_id = %event.run_id, iteration = event.iteration, "model request started")
             }
-            RunEventKind::ModelResponded { tool_calls } => {
-                debug!(run_id = %event.run_id, iteration = event.iteration, tool_calls, "model response received")
+            RunEventKind::ModelCandidatesDiscovered { model_ids } => {
+                info!(run_id = %event.run_id, iteration = event.iteration, candidates = ?model_ids, "compatible model candidates discovered")
+            }
+            RunEventKind::ModelCandidateAttemptStarted { model_id } => {
+                info!(run_id = %event.run_id, iteration = event.iteration, model = %model_id, "model candidate attempt started")
+            }
+            RunEventKind::ModelCandidateAttemptFailed { model_id, category } => {
+                warn!(run_id = %event.run_id, iteration = event.iteration, model = %model_id, failure_category = ?category, "model candidate attempt failed")
+            }
+            RunEventKind::ModelFallback {
+                from_model_id,
+                to_model_id,
+                category,
+            } => {
+                info!(run_id = %event.run_id, iteration = event.iteration, from_model = %from_model_id, to_model = %to_model_id, failure_category = ?category, "falling back to next model candidate")
+            }
+            RunEventKind::ModelSelected { model_id } => {
+                info!(run_id = %event.run_id, iteration = event.iteration, model = %model_id, "model selected")
+            }
+            RunEventKind::ModelRoutingFailed {
+                attempted_candidates,
+            } => {
+                warn!(run_id = %event.run_id, iteration = event.iteration, attempted_candidates, "model routing failed")
+            }
+            RunEventKind::ModelResponded {
+                model_id,
+                tool_calls,
+            } => {
+                debug!(run_id = %event.run_id, iteration = event.iteration, model = %model_id, tool_calls, "model response received")
             }
             RunEventKind::ToolExecutionStarted { name, .. } => {
                 info!(run_id = %event.run_id, iteration = event.iteration, tool = %name, "tool execution started")
@@ -29,8 +56,8 @@ impl EventSink for ConsoleEventSink {
                     info!(run_id = %event.run_id, iteration = event.iteration, tool = %name, "tool execution finished");
                 }
             }
-            RunEventKind::ModelFailed { category, error } => {
-                warn!(run_id = %event.run_id, iteration = event.iteration, error_category = ?category, %error, "model request failed")
+            RunEventKind::ModelFailed { category } => {
+                warn!(run_id = %event.run_id, iteration = event.iteration, error_category = ?category, "model request failed")
             }
             RunEventKind::Cancelled => {
                 info!(run_id = %event.run_id, iteration = event.iteration, "runtime cancellation observed")

@@ -5,7 +5,8 @@ use std::sync::Arc;
 use agent_models::{ModelCapability, ModelError, ModelFailureCategory, Registry as ModelRegistry};
 use agent_runtime::{
     Agent, AgentModel, AgentRegistry, AgentRuntime, AllowListPolicy, CancellationToken,
-    ModelAdapter, ModelRequest, ModelRouter, RoutedModelTurn, ToolDispatcher, ToolRegistry,
+    ModelAdapter, ModelRequest, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink,
+    RoutedModelTurn, ToolDispatcher, ToolRegistry,
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
@@ -118,9 +119,16 @@ impl ModelRouter for RegistryModelRouter {
         required: &[ModelCapability],
         request: ModelRequest,
         cancellation: CancellationToken,
+        events: Arc<dyn ModelRoutingEventSink>,
     ) -> Result<RoutedModelTurn, ModelError> {
         let candidates = self.registry.compatible_models(required);
+        events.emit(ModelRoutingEvent::CandidatesDiscovered {
+            model_ids: candidates.clone(),
+        });
         if candidates.is_empty() {
+            events.emit(ModelRoutingEvent::RoutingFailed {
+                attempted_candidates: 0,
+            });
             return Err(ModelError::UnsupportedModel(format!(
                 "no configured model satisfies required capabilities {required:?}"
             )));
@@ -128,25 +136,48 @@ impl ModelRouter for RegistryModelRouter {
 
         let mut failures = Vec::new();
 
-        for model_id in candidates {
+        for (index, model_id) in candidates.iter().enumerate() {
             if cancellation.is_cancelled() {
                 return Err(ModelError::Cancelled);
             }
 
+            let model_id = model_id.clone();
+            events.emit(ModelRoutingEvent::CandidateAttemptStarted {
+                model_id: model_id.clone(),
+            });
             let attempt = match self.registry.resolve_model(&model_id) {
                 Ok(client) => ModelAdapter::new(client).complete(request.clone()).await,
                 Err(error) => Err(error),
             };
 
             match attempt {
-                Ok(turn) => return Ok(RoutedModelTurn { model_id, turn }),
+                Ok(turn) => {
+                    events.emit(ModelRoutingEvent::ModelSelected {
+                        model_id: model_id.clone(),
+                    });
+                    return Ok(RoutedModelTurn { model_id, turn });
+                }
                 Err(error) => {
                     let category = error.failure_category();
+                    events.emit(ModelRoutingEvent::CandidateAttemptFailed {
+                        model_id: model_id.clone(),
+                        category,
+                    });
                     if category == ModelFailureCategory::Permanent {
+                        events.emit(ModelRoutingEvent::RoutingFailed {
+                            attempted_candidates: index + 1,
+                        });
                         return Err(error);
                     }
 
                     failures.push(format!("{model_id} [{category:?}]: {error}"));
+                    if let Some(next_model_id) = candidates.get(index + 1) {
+                        events.emit(ModelRoutingEvent::Fallback {
+                            from_model_id: model_id,
+                            to_model_id: next_model_id.clone(),
+                            category,
+                        });
+                    }
                 }
             }
         }
@@ -155,6 +186,9 @@ impl ModelRouter for RegistryModelRouter {
             return Err(ModelError::Cancelled);
         }
 
+        events.emit(ModelRoutingEvent::RoutingFailed {
+            attempted_candidates: candidates.len(),
+        });
         Err(ModelError::AllCandidatesFailed(failures.join("; ")))
     }
 }

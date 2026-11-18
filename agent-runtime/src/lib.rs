@@ -20,11 +20,14 @@ mod tool;
 mod types;
 
 pub use agent::AgentDefinition;
-pub use agent_models::ModelError;
+pub use agent_models::{ModelError, ModelFailureCategory};
 pub use agent_registry::AgentRegistry;
 pub use error::{ErrorCategory, RuntimeError};
 pub(crate) use model::FixedModelRouter;
-pub use model::{AgentModel, ModelAdapter, ModelRouter, RoutedModelTurn};
+pub use model::{
+    AgentModel, ModelAdapter, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink,
+    RoutedModelTurn,
+};
 pub use policy::{AllowListPolicy, Authorization, AuthorizationError, PolicyEngine};
 pub use runtime::{
     AgentRuntime, CancellationToken, CollectingEventSink, EventSink, RunEvent, RunEventKind,

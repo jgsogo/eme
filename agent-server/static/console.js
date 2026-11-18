@@ -54,7 +54,20 @@ function renderMessages(messages=[]){
  $("messages").innerHTML=html||'<div class="empty">Send the first message to begin this conversation.</div>';
  $("messages").scrollTop=$("messages").scrollHeight
 }
-function renderRunEvents(events=[]){$("run-events").innerHTML=events.length?events.map(event=>"<li>"+escapeHtml(event.kind)+(event.tool_name?" · "+escapeHtml(event.tool_name):"")+"</li>").join(""):"<li>No events yet.</li>"}
+function renderRunEvents(events=[]){
+ const labels={queued:"Queued",started:"Run started",model_requested:"Model request",model_candidates_discovered:"Compatible models",model_candidate_attempt_started:"Trying model",model_candidate_attempt_failed:"Candidate failed",model_fallback:"Fallback",model_selected:"Model selected",model_responded:"Model response",tool_execution_started:"Tool started",tool_execution_finished:"Tool finished",model_failed:"Model request failed",runtime_cancelled:"Cancelled",runtime_timed_out:"Timed out",completed:"Completed",failed:"Run failed",cancelled:"Cancelled",timed_out:"Timed out",max_iterations_reached:"Maximum iterations reached"};
+ $("run-events").innerHTML=events.length?events.map(event=>{
+  const details=[];
+  if(event.model_candidates?.length)details.push(event.model_candidates.join(" → "));
+  if(event.model_id)details.push(event.model_id);
+  if(event.next_model_id)details.push("→ "+event.next_model_id);
+  if(event.tool_name)details.push(event.tool_name);
+  if(event.error_category)details.push(event.error_category.replaceAll("_"," "));
+  if(Number.isInteger(event.attempted_candidates))details.push(event.attempted_candidates+" attempted");
+  const iteration=Number.isInteger(event.iteration)?"Iteration "+event.iteration+" · ":"";
+  return '<li class="run-event run-event-'+escapeHtml(event.kind)+'"><strong>'+escapeHtml(labels[event.kind]||event.kind)+'</strong><span>'+escapeHtml(iteration+details.join(" · "))+'</span></li>';
+ }).join(""):"<li>No events yet.</li>"
+}
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId}
 async function loadConversations(){state.conversations=await api("/conversations");renderConversations()}
 async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies()}
