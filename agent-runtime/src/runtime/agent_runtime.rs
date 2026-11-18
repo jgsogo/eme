@@ -124,7 +124,9 @@ impl AgentRuntime {
     ) -> Result<RoutedModelTurn, ModelTurnError> {
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let event_sink = Arc::new(ModelRoutingEventChannel(sender));
-        let completion = self.model_router.complete(required, request, cancellation, event_sink);
+        let completion = self
+            .model_router
+            .complete(required, request, cancellation, event_sink);
         let result = match deadline {
             Some(deadline) => match tokio::time::timeout_at(deadline, completion).await {
                 Ok(result) => Ok(result),
@@ -144,17 +146,32 @@ impl AgentRuntime {
                 ModelRoutingEvent::CandidateAttemptFailed { model_id, category } => {
                     RunEventKind::ModelCandidateAttemptFailed { model_id, category }
                 }
-                ModelRoutingEvent::Fallback { from_model_id, to_model_id, category } => {
-                    RunEventKind::ModelFallback { from_model_id, to_model_id, category }
-                }
+                ModelRoutingEvent::Fallback {
+                    from_model_id,
+                    to_model_id,
+                    category,
+                } => RunEventKind::ModelFallback {
+                    from_model_id,
+                    to_model_id,
+                    category,
+                },
                 ModelRoutingEvent::ModelSelected { model_id } => {
                     RunEventKind::ModelSelected { model_id }
                 }
-                ModelRoutingEvent::RoutingFailed { attempted_candidates } => {
-                    RunEventKind::ModelRoutingFailed { attempted_candidates }
-                }
+                ModelRoutingEvent::RoutingFailed {
+                    attempted_candidates,
+                } => RunEventKind::ModelRoutingFailed {
+                    attempted_candidates,
+                },
             };
-            self.emit_event(events, RunEvent { run_id, iteration, kind });
+            self.emit_event(
+                events,
+                RunEvent {
+                    run_id,
+                    iteration,
+                    kind,
+                },
+            );
         }
 
         match result {
@@ -319,10 +336,22 @@ impl AgentRuntime {
             {
                 Ok(routed) => routed,
                 Err(ModelTurnError::TimedOut) => {
-                    return Ok(self.stopped_result(run_id, iteration - 1, StopReason::TimedOut, messages, &mut events));
+                    return Ok(self.stopped_result(
+                        run_id,
+                        iteration - 1,
+                        StopReason::TimedOut,
+                        messages,
+                        &mut events,
+                    ));
                 }
                 Err(ModelTurnError::Model(ModelError::Cancelled)) => {
-                    return Ok(self.stopped_result(run_id, iteration - 1, StopReason::Cancelled, messages, &mut events));
+                    return Ok(self.stopped_result(
+                        run_id,
+                        iteration - 1,
+                        StopReason::Cancelled,
+                        messages,
+                        &mut events,
+                    ));
                 }
                 Err(ModelTurnError::Model(error)) => {
                     let error = RuntimeError::Model(error);
