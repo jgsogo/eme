@@ -5,8 +5,8 @@ use actix_web::{
 };
 use chrono::NaiveDate;
 use meal_planner::{
-    MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft,
-    ShoppingListItemUpdate, WeeklyPlanDraft,
+    MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft, ShoppingListItemUpdate,
+    WeeklyPlanDraft,
 };
 use serde::Deserialize;
 
@@ -163,10 +163,7 @@ async fn revise_weekly_plan(
 
 
 #[get("/plans/{plan_id}/shopping-list")]
-async fn get_shopping_list(
-    store: Data<MealPlannerStore>,
-    plan_id: Path<i64>,
-) -> impl Responder {
+async fn get_shopping_list(store: Data<MealPlannerStore>, plan_id: Path<i64>) -> impl Responder {
     match store.get_shopping_list(plan_id.into_inner()) {
         Ok(Some(list)) => HttpResponse::Ok().json(list),
         Ok(None) => HttpResponse::NotFound().finish(),
