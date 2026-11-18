@@ -62,23 +62,34 @@ impl Registry {
         self.first_compatible_model(required).is_some()
     }
 
-    /// Finds the first configured model that provides every requested capability.
+    /// Returns every configured model that provides all requested capabilities.
     ///
-    /// The returned identity is provider-qualified. This single-model selection
-    /// is used until runtime routing is introduced; it never constructs a client.
-    pub fn first_compatible_model(&self, required: &[ModelCapability]) -> Option<String> {
+    /// Provider names are traversed in `BTreeMap` order and models in their TOML
+    /// declaration order. The result is therefore deterministic and provider-qualified.
+    /// This metadata-only query does not read credentials or contact providers.
+    pub fn compatible_models(&self, required: &[ModelCapability]) -> Vec<String> {
         if required.is_empty() {
-            return None;
+            return Vec::new();
         }
 
-        self.providers.iter().find_map(|(provider_name, provider)| {
-            provider.models.iter().find_map(|model| {
-                required
-                    .iter()
-                    .all(|capability| model.capabilities.contains(capability))
-                    .then(|| format!("{provider_name}/{}", model.name))
+        self.providers
+            .iter()
+            .flat_map(|(provider_name, provider)| {
+                provider.models.iter().filter_map(move |model| {
+                    required
+                        .iter()
+                        .all(|capability| model.capabilities.contains(capability))
+                        .then(|| format!("{provider_name}/{}", model.name))
+                })
             })
-        })
+            .collect()
+    }
+
+    /// Finds the first configured model that provides every requested capability.
+    ///
+    /// This is a convenience wrapper around deterministic candidate enumeration.
+    pub fn first_compatible_model(&self, required: &[ModelCapability]) -> Option<String> {
+        self.compatible_models(required).into_iter().next()
     }
 
     pub fn resolve_model(
