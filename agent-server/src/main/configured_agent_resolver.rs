@@ -10,8 +10,8 @@ use agent_runtime::{
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
 use anyhow::{Context, Result};
-use google_tool::GoogleCalendarRuntimeConfig;
 use async_trait::async_trait;
+use google_tool::GoogleCalendarRuntimeConfig;
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
@@ -52,7 +52,8 @@ impl ConfiguredAgentResolver {
         telegram_tool::register_tools(&mut tools, telegram_gateway)
             .context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
-        google_tool::register_tools(&mut tools, google_runtime).context("registering Google tools")?;
+        google_tool::register_tools(&mut tools, google_runtime)
+            .context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
         common_tools::register_tools(&mut tools).context("registering common tools")?;
         mercadona_tool::register_tools(&mut tools).context("registering Mercadona tools")?;

@@ -16,8 +16,8 @@ use agent_storage::{
 };
 use chrono::{Duration, Utc};
 use google_tool::{
-    CalendarScope, GoogleCalendarRuntimeConfig, GoogleOAuthConfig, authorization_request, exchange_code, fetch_user_info,
-    list_calendars,
+    CalendarScope, GoogleCalendarRuntimeConfig, GoogleOAuthConfig, authorization_request,
+    exchange_code, fetch_user_info, list_calendars,
 };
 use serde::{Deserialize, Serialize};
 
