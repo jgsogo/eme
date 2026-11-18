@@ -3,6 +3,7 @@ mod household;
 #[cfg(test)]
 mod household_tests;
 mod migrations;
+mod plans;
 mod recipes;
 mod school_menus;
 #[cfg(test)]
