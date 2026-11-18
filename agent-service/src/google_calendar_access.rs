@@ -271,6 +271,13 @@ mod tests {
 
     #[tokio::test]
     async fn owner_and_current_family_members_can_read_but_removed_members_cannot() {
+        assert!(!has_calendar_write_scope(&[
+            "https://www.googleapis.com/auth/calendar.events.readonly".into()
+        ]));
+        assert!(has_calendar_write_scope(&[
+            "https://www.googleapis.com/auth/calendar.events".into()
+        ]));
+
         let path =
             std::env::temp_dir().join(format!("eme-google-access-{}.sqlite", uuid::Uuid::new_v4()));
         let owner = UserId::new();
