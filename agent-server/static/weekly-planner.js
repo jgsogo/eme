@@ -174,7 +174,6 @@ $("shopping-list-items").addEventListener("click",async event=>{
  }
 });
 
-$("member-form").addEventListener("submit",async event=>{event.preventDefault();const input=$("member-name");const button=event.submitter;button.disabled=true;try{await api("/meal-planner/members",{method:"POST",body:JSON.stringify({name:input.value})});input.value="";state.members=await api("/meal-planner/members");renderMembers()}catch(e){alert(e.message)}finally{button.disabled=false}});
 $("planner-grid").addEventListener("click",event=>{
  const add=event.target.closest("[data-add]");if(add){populateEditor({date:add.dataset.add,meal_type:add.dataset.meal,participants:[]});return}
  const edit=event.target.closest("[data-edit]");if(edit){const item=state.plan.assignments.find(a=>a.id===Number(edit.dataset.edit));if(item)populateEditor(item);return}
