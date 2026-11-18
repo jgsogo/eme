@@ -19,3 +19,13 @@ The server opens the SQLite database at startup and shares the store through Act
 ## Development
 
 Run cargo test -p meal-planner and cargo check -p agent-server. The household tests also cover recurring-rule precedence and date-specific overrides.
+
+## Recipe catalogue and cooking
+
+Recipes are provider-independent domain records. A recipe has a title, optional description/source/notes, serving count, structured ingredients, ordered preparation steps, categories/tags, dietary information and allergen information.
+
+Ingredient amounts and units are optional and remain unknown when not supplied. No unit conversion or quantity inference is performed. Allergen information distinguishes an unknown value (`None`) from an explicitly checked empty list.
+
+The SQLite recipe table stores a validated, versioned-by-migration JSON payload alongside searchable title and timestamps. The application boundary exposes create, replace, retrieve, list/search and delete operations through `MealPlannerStore`. Search is case-insensitive across title, description, ingredient names, categories and tags.
+
+The authenticated server exposes the catalogue at `/meal-planner/recipes` and serves a responsive recipe page at `/console/recipes`. The cooking view keeps ingredients and preparation steps in their original order and lets the cook check them off locally; those checklist states are not persisted as recipe data.
