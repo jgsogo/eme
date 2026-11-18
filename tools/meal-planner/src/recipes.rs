@@ -35,7 +35,6 @@ pub struct RecipeDraft {
 pub struct Recipe {
     pub id: i64,
     pub owner_id: String,
-    pub family_id: Option<String>,
     #[serde(flatten)]
     pub draft: RecipeDraft,
     pub created_at: i64,
