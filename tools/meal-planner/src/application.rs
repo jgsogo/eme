@@ -3,7 +3,7 @@
 //! Proposals are untrusted values, not persisted records. The application
 //! validates them against current household and calendar data. Saving a draft
 //! and confirming it are separate, explicit operations.
-use chrono::{Days, Datelike, NaiveDate, Weekday};
+use chrono::{Datelike, Days, NaiveDate, Weekday};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
@@ -14,7 +14,10 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ValidationSeverity { Error, Warning }
+pub enum ValidationSeverity {
+    Error,
+    Warning,
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PlanValidationIssue {
@@ -29,11 +32,16 @@ pub struct PlanValidationIssue {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct PlanValidation { pub valid: bool, pub issues: Vec<PlanValidationIssue> }
+pub struct PlanValidation {
+    pub valid: bool,
+    pub issues: Vec<PlanValidationIssue>,
+}
 
 impl PlanValidation {
     fn new(issues: Vec<PlanValidationIssue>) -> Self {
-        let valid = !issues.iter().any(|item| matches!(item.severity, ValidationSeverity::Error));
+        let valid = !issues
+            .iter()
+            .any(|item| matches!(item.severity, ValidationSeverity::Error));
         Self { valid, issues }
     }
 }
@@ -125,7 +133,16 @@ impl MealPlannerApplication {
         let mut slot_participants = HashSet::new();
 
         if week_start.weekday() != Weekday::Mon {
-            issues.push(issue("week_start_monday", ValidationSeverity::Error, "The plan week must start on a Monday.", None, None, None, None, None));
+            issues.push(issue(
+                "week_start_monday",
+                ValidationSeverity::Error,
+                "The plan week must start on a Monday.",
+                None,
+                None,
+                None,
+                None,
+                None,
+            ));
         }
         let week_end = week_start.checked_add_days(Days::new(6));
 
@@ -154,15 +171,42 @@ impl MealPlannerApplication {
                     issues.push(issue("participant_single_assignment_per_slot", ValidationSeverity::Error, "A participant cannot have multiple assignments for the same date and meal.", date, meal, id, Some(participant.member_id), None));
                 }
                 match member_by_id.get(&participant.member_id) {
-                    None => issues.push(issue("participant_exists", ValidationSeverity::Error, "The referenced household member does not exist.", date, meal, id, Some(participant.member_id), None)),
-                    Some(member) if !member.active => issues.push(issue("participant_active", ValidationSeverity::Error, "The referenced household member is inactive.", date, meal, id, Some(participant.member_id), None)),
+                    None => issues.push(issue(
+                        "participant_exists",
+                        ValidationSeverity::Error,
+                        "The referenced household member does not exist.",
+                        date,
+                        meal,
+                        id,
+                        Some(participant.member_id),
+                        None,
+                    )),
+                    Some(member) if !member.active => issues.push(issue(
+                        "participant_active",
+                        ValidationSeverity::Error,
+                        "The referenced household member is inactive.",
+                        date,
+                        meal,
+                        id,
+                        Some(participant.member_id),
+                        None,
+                    )),
                     _ => {}
                 }
             }
             match assignment.arrangement {
                 MealArrangement::Home => {
                     if assignment.school_menu_date.is_some() {
-                        issues.push(issue("home_without_school_menu", ValidationSeverity::Error, "Home-prepared assignments cannot reference a school menu.", date, meal, id, None, None));
+                        issues.push(issue(
+                            "home_without_school_menu",
+                            ValidationSeverity::Error,
+                            "Home-prepared assignments cannot reference a school menu.",
+                            date,
+                            meal,
+                            id,
+                            None,
+                            None,
+                        ));
                     }
                 }
                 MealArrangement::School => {
@@ -188,7 +232,16 @@ impl MealPlannerApplication {
             }
             if let Some(recipe_id) = assignment.recipe_id {
                 if recipe_id <= 0 || !recipe_ids.contains(&recipe_id) {
-                    issues.push(issue("recipe_exists", ValidationSeverity::Error, "The referenced recipe does not exist.", date, meal, id, None, Some(recipe_id)));
+                    issues.push(issue(
+                        "recipe_exists",
+                        ValidationSeverity::Error,
+                        "The referenced recipe does not exist.",
+                        date,
+                        meal,
+                        id,
+                        None,
+                        Some(recipe_id),
+                    ));
                 }
             }
         }
@@ -203,8 +256,12 @@ impl MealPlannerApplication {
         }
         match self.store.get_weekly_plan(week_start)? {
             None => self.store.create_weekly_plan(week_start, draft),
-            Some(plan) if plan.status == WeeklyPlanStatus::Draft => self.store.update_weekly_plan(week_start, draft),
-            Some(_) => Err(MealPlannerError::Conflict("the latest plan is confirmed; create a new revision before saving a draft".into())),
+            Some(plan) if plan.status == WeeklyPlanStatus::Draft => {
+                self.store.update_weekly_plan(week_start, draft)
+            }
+            Some(_) => Err(MealPlannerError::Conflict(
+                "the latest plan is confirmed; create a new revision before saving a draft".into(),
+            )),
         }
     }
 
@@ -222,8 +279,26 @@ impl MealPlannerApplication {
     }
 }
 
-fn issue(constraint: &str, severity: ValidationSeverity, message: &str, date: Option<NaiveDate>, meal_type: Option<MealType>, assignment_id: Option<i64>, member_id: Option<i64>, recipe_id: Option<i64>) -> PlanValidationIssue {
-    PlanValidationIssue { constraint: constraint.into(), severity, message: message.into(), date, meal_type, assignment_id, member_id, recipe_id }
+fn issue(
+    constraint: &str,
+    severity: ValidationSeverity,
+    message: &str,
+    date: Option<NaiveDate>,
+    meal_type: Option<MealType>,
+    assignment_id: Option<i64>,
+    member_id: Option<i64>,
+    recipe_id: Option<i64>,
+) -> PlanValidationIssue {
+    PlanValidationIssue {
+        constraint: constraint.into(),
+        severity,
+        message: message.into(),
+        date,
+        meal_type,
+        assignment_id,
+        member_id,
+        recipe_id,
+    }
 }
 
 #[cfg(test)]
@@ -245,7 +320,12 @@ mod tests {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let member = store.create_family_member("Alex").unwrap();
         let app = MealPlannerApplication::new(store.clone());
-        assert!(app.propose(monday(), draft(member.id)).unwrap().validation.valid);
+        assert!(
+            app.propose(monday(), draft(member.id))
+                .unwrap()
+                .validation
+                .valid
+        );
         assert!(store.get_weekly_plan(monday()).unwrap().is_none());
     }
 
@@ -258,10 +338,32 @@ mod tests {
         proposal.assignments[0].recipe_id = Some(123);
         let result = app.validate(monday(), &proposal).unwrap();
         assert!(!result.valid);
-        assert!(result.issues.iter().any(|item| item.constraint == "participant_exists" && item.assignment_id == Some(1) && item.date == Some(monday())));
-        assert!(result.issues.iter().any(|item| item.constraint == "school_without_recipe"));
-        assert!(result.issues.iter().any(|item| item.constraint == "school_menu_matches_date"));
-        assert!(result.issues.iter().any(|item| item.constraint == "recipe_exists"));
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|item| item.constraint == "participant_exists"
+                    && item.assignment_id == Some(1)
+                    && item.date == Some(monday()))
+        );
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|item| item.constraint == "school_without_recipe")
+        );
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|item| item.constraint == "school_menu_matches_date")
+        );
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|item| item.constraint == "recipe_exists")
+        );
     }
 
     #[test]
@@ -269,9 +371,18 @@ mod tests {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let member = store.create_family_member("Alex").unwrap();
         let app = MealPlannerApplication::new(store.clone());
-        assert_eq!(app.save_draft(monday(), draft(member.id)).unwrap().status, WeeklyPlanStatus::Draft);
-        assert_eq!(store.get_weekly_plan(monday()).unwrap().unwrap().status, WeeklyPlanStatus::Draft);
-        assert_eq!(app.confirm_saved_draft(monday()).unwrap().status, WeeklyPlanStatus::Confirmed);
+        assert_eq!(
+            app.save_draft(monday(), draft(member.id)).unwrap().status,
+            WeeklyPlanStatus::Draft
+        );
+        assert_eq!(
+            store.get_weekly_plan(monday()).unwrap().unwrap().status,
+            WeeklyPlanStatus::Draft
+        );
+        assert_eq!(
+            app.confirm_saved_draft(monday()).unwrap().status,
+            WeeklyPlanStatus::Confirmed
+        );
         assert!(app.confirm_saved_draft(monday()).is_err());
     }
 
