@@ -39,7 +39,7 @@ pub struct Recipe {
 }
 
 impl RecipeDraft {
-    pub(crate) fn validate(self) -> Result<Self, String> {
+    pub(crate) fn validate(mut self) -> Result<Self, String> {
         let title = self.title.trim();
         if title.is_empty() {
             return Err("recipe title must not be empty".into());
@@ -64,24 +64,22 @@ impl RecipeDraft {
                 return Err(format!("ingredient '{}' has an empty unit", ingredient.name));
             }
         }
-        Ok(Self {
-            title: title.to_owned(),
-            ingredients: self.ingredients.into_iter().map(|mut item| {
-                item.name = item.name.trim().to_owned();
-                item.unit = item.unit.map(|v| v.trim().to_owned());
-                item.preparation_note = item.preparation_note.map(|v| v.trim().to_owned()).filter(|v| !v.is_empty());
-                item
-            }).collect(),
-            steps: self.steps.into_iter().map(|step| step.trim().to_owned()).collect(),
-            categories: normalize_labels(self.categories),
-            tags: normalize_labels(self.tags),
-            dietary_information: normalize_labels(self.dietary_information),
-            description: clean_optional(self.description),
-            source: clean_optional(self.source),
-            notes: clean_optional(self.notes),
-            allergens: self.allergens.map(normalize_labels),
-            ..self
-        })
+        self.title = title.to_owned();
+        for ingredient in &mut self.ingredients {
+            ingredient.name = ingredient.name.trim().to_owned();
+            ingredient.unit = ingredient.unit.take().map(|value| value.trim().to_owned());
+            ingredient.preparation_note = ingredient.preparation_note.take()
+                .map(|value| value.trim().to_owned()).filter(|value| !value.is_empty());
+        }
+        self.steps = self.steps.into_iter().map(|step| step.trim().to_owned()).collect();
+        self.categories = normalize_labels(std::mem::take(&mut self.categories));
+        self.tags = normalize_labels(std::mem::take(&mut self.tags));
+        self.dietary_information = normalize_labels(std::mem::take(&mut self.dietary_information));
+        self.description = clean_optional(self.description.take());
+        self.source = clean_optional(self.source.take());
+        self.notes = clean_optional(self.notes.take());
+        self.allergens = self.allergens.take().map(normalize_labels);
+        Ok(self)
     }
 }
 
@@ -90,7 +88,7 @@ fn clean_optional(value: Option<String>) -> Option<String> {
 }
 
 fn normalize_labels(values: Vec<String>) -> Vec<String> {
-    let mut result = Vec::new();
+    let mut result: Vec<String> = Vec::new();
     for value in values {
         let value = value.trim();
         if !value.is_empty() && !result.iter().any(|existing| existing.eq_ignore_ascii_case(value)) {
@@ -106,19 +104,13 @@ mod tests {
 
     fn draft() -> RecipeDraft {
         RecipeDraft {
-            title: "  Tomato pasta ".into(),
-            description: None,
-            servings: 2,
+            title: "  Tomato pasta ".into(), description: None, servings: 2,
             ingredients: vec![RecipeIngredient {
                 name: " Pasta ".into(), amount: None, unit: None, preparation_note: None,
             }],
             steps: vec!["  Boil water ".into()],
-            categories: vec![" Dinner ".into(), "dinner".into()],
-            tags: vec![],
-            source: None,
-            notes: None,
-            dietary_information: vec![],
-            allergens: None,
+            categories: vec![" Dinner ".into(), "dinner".into()], tags: vec![],
+            source: None, notes: None, dietary_information: vec![], allergens: None,
         }
     }
 

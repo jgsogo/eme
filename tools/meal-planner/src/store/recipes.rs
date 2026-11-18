@@ -20,7 +20,7 @@ impl MealPlannerStore {
         Ok(Recipe { id, draft, created_at: now, updated_at: now })
     }
 
-    /// Replace the editable content of a recipe without changing its creation timestamp.
+    /// Replace editable content while retaining the original creation timestamp.
     pub fn update_recipe(&self, id: i64, draft: RecipeDraft) -> Result<Recipe, MealPlannerError> {
         let draft = draft.validate().map_err(MealPlannerError::InvalidInput)?;
         let payload = serde_json::to_string(&draft)?;
@@ -41,7 +41,7 @@ impl MealPlannerStore {
         load_recipe(&connection, id)?.ok_or(MealPlannerError::NotFound)
     }
 
-    /// List recipes, optionally filtering by a case-insensitive title/ingredient/tag query.
+    /// List recipes, optionally filtering by title, description, ingredient, category or tag.
     pub fn list_recipes(&self, query: Option<&str>) -> Result<Vec<Recipe>, MealPlannerError> {
         let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
         let mut statement = connection.prepare(
@@ -101,7 +101,7 @@ fn timestamp() -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MealPlannerConfig, RecipeIngredient};
+    use crate::RecipeIngredient;
 
     fn store() -> MealPlannerStore {
         MealPlannerStore::open_in_memory().unwrap()
@@ -110,7 +110,10 @@ mod tests {
     fn draft(title: &str, ingredient: &str) -> RecipeDraft {
         RecipeDraft {
             title: title.into(), description: Some("A simple meal".into()), servings: 2,
-            ingredients: vec![RecipeIngredient { name: ingredient.into(), amount: Some(200.0), unit: Some("g".into()), preparation_note: None }],
+            ingredients: vec![RecipeIngredient {
+                name: ingredient.into(), amount: Some(200.0), unit: Some("g".into()),
+                preparation_note: None,
+            }],
             steps: vec!["Prepare ingredients".into(), "Cook until ready".into()],
             categories: vec!["Dinner".into()], tags: vec!["quick".into()],
             source: None, notes: None, dietary_information: vec![], allergens: None,
@@ -118,7 +121,7 @@ mod tests {
     }
 
     #[test]
-    fn recipes_survive_store_reopen_and_can_be_searched_updated_and_deleted() {
+    fn recipes_can_be_searched_updated_and_deleted() {
         let store = store();
         let recipe = store.create_recipe(draft("Tomato pasta", "tomato")).unwrap();
         assert_eq!(store.get_recipe(recipe.id).unwrap(), recipe);
