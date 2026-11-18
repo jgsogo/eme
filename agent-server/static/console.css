@@ -245,3 +245,8 @@ body:has(#shopping-list-panel) main{overflow:auto}
 .school-menu-editor{margin-top:14px;padding:16px;border:1px solid var(--border);border-radius:10px;background:var(--panel)}
 .school-menu-editor h2{margin-bottom:12px}
 @media(max-width:900px){.school-menu-week{grid-template-columns:1fr}}
+
+.school-menu-empty-structure{margin:10px 0 12px;display:grid;gap:7px}
+.school-menu-empty-structure>div{display:grid;grid-template-columns:minmax(90px,auto) minmax(24px,1fr);align-items:center;gap:10px}
+.school-menu-empty-structure dt{font-size:12px;color:var(--muted)}
+.school-menu-empty-structure dd{height:22px;margin:0;border-bottom:1px dashed var(--border)}
