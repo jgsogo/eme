@@ -271,6 +271,27 @@ mod tests {
         assert!(tomato.purchased == false);
         assert!(regenerated.items.iter().any(|item| item.id == bread_id && item.manually_added));
         assert_eq!(regenerated.plan_revision, plan.revision);
+
+        // A new immutable plan revision receives a separate list snapshot,
+        // carrying manual additions, removals and quantity overrides forward.
+        store.confirm_weekly_plan(date).unwrap();
+        let revision = store.revise_weekly_plan(date).unwrap();
+        let mut revised_assignment = revision.assignments[0].clone();
+        revised_assignment.id = 2;
+        revised_assignment.meal_type = MealType::Dinner;
+        revised_assignment.participants.truncate(1);
+        store.update_weekly_plan(date, WeeklyPlanDraft {
+            assignments: vec![revision.assignments[0].clone(), revised_assignment],
+        }).unwrap();
+        let next_list = store.generate_shopping_list(revision.id).unwrap();
+        assert_ne!(next_list.id, regenerated.id);
+        assert_eq!(next_list.plan_id, revision.id);
+        let next_tomato = next_list.items.iter().find(|item| item.name == "Tomato").unwrap();
+        assert!(next_tomato.manually_removed);
+        assert!(next_tomato.quantity_overridden);
+        assert_eq!(next_tomato.quantity, Some(3.0));
+        assert!(next_list.items.iter().any(|item| item.id == bread_id && item.manually_added));
+        assert_eq!(store.get_shopping_list(plan.id).unwrap().unwrap().id, regenerated.id);
     }
 
     #[test]
