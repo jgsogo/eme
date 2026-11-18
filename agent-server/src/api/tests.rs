@@ -10,7 +10,9 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 use tokio::sync::Notify;
 
-use super::{AgentCatalog, AgentListItem, agents_api, meal_planner_api, runs_api, school_menus_api};
+use super::{
+    AgentCatalog, AgentListItem, agents_api, meal_planner_api, runs_api, school_menus_api,
+};
 use meal_planner::{MealPlannerStore, SchoolMenuEntry};
 
 struct ImmediateExecutor;
