@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,runId:null,pollTimer:null};
+const state={googleConnections:[],googleCalendars:{},agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -382,6 +382,79 @@ async function saveProfile(event){
  finally{$("save-profile").disabled=false}
 }
 on("profile-form","submit",saveProfile);
+function googleHasWriteScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
+function googleHasReadScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events.readonly"||scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
+function renderGoogleConnections(){
+ const target=$("google-connections");if(!target)return;
+ if(!state.googleConnections.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No Google accounts connected yet.</div></div>';return}
+ target.innerHTML=state.googleConnections.map(connection=>{
+  const calendars=state.googleCalendars[connection.id]||[],writeScope=googleHasWriteScope(connection),status=connection.status==="active"?"Active":"Disconnected";
+  return '<section class="panel google-account" data-connection-id="'+escapeHtml(connection.id)+'"><div class="google-account-heading"><div><h3>'+escapeHtml(connection.email||"Google account")+'</h3><p class="hint">'+status+' · '+(googleHasReadScope(connection)?"Calendar read access":"No calendar read scope")+' · '+(writeScope?"Google write scope granted":"Read-only Google scope")+'</p></div><button type="button" class="danger" data-google-action="disconnect" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Disconnect</button></div><div class="calendar-toolbar"><div><h4>Calendars</h4><p class="hint">New calendars are not selected automatically.</p></div><button type="button" class="secondary" data-google-action="sync" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Sync calendars</button></div>'+(connection.status!=="active"?'<p class="hint">Reconnect this Google account to restore access.</p>':calendars.length?calendars.map(calendar=>renderGoogleCalendar(connection,calendar,writeScope)).join(""):'<p class="hint">No calendars discovered yet. Select “Sync calendars” to load them from Google.</p>')+'</section>'
+ }).join("");
+}
+function renderGoogleCalendar(connection,calendar,writeScope){
+ const familyOptions=state.families.map(f=>'<option value="'+escapeHtml(f.id)+'" '+(calendar.family_id===f.id?"selected":"")+'>'+escapeHtml(f.name)+'</option>').join(""),familyEnabled=calendar.selected&&state.families.length>0,familyAccess=calendar.family_access||"viewer";
+ const accessOptions='<option value="read_only" '+(calendar.access_mode==="read_only"?"selected":"")+'>Read only</option><option value="read_write" '+(calendar.access_mode==="read_write"?"selected":"")+' '+(!writeScope?"disabled":"")+'>Read and write</option>';
+ return '<article class="calendar-item" data-calendar-id="'+escapeHtml(calendar.id)+'" data-connection-id="'+escapeHtml(connection.id)+'"><div class="calendar-main"><label class="calendar-select"><input type="checkbox" data-calendar-field="selected" '+(calendar.selected?"checked":"")+'> <span><strong>'+escapeHtml(calendar.display_name||"Untitled calendar")+'</strong><small>'+escapeHtml(calendar.time_zone||"Timezone not provided")+(calendar.provider_access_role?" · Google role: "+escapeHtml(calendar.provider_access_role):"")+'</small></span></label><label class="calendar-access">EME access<select data-calendar-field="access_mode" '+(!calendar.selected?"disabled":"")+'>'+accessOptions+'</select></label></div><div class="calendar-sharing"><div class="calendar-sharing-current">'+(calendar.family_id?'<span class="hint">Shared with '+escapeHtml(state.families.find(f=>f.id===calendar.family_id)?.name||"a family")+' as '+escapeHtml(calendar.family_access||"viewer")+'</span>':'<span class="hint">Not shared with a family</span>')+'</div><div class="calendar-sharing-controls"><label>Family<select data-family-id '+(!familyEnabled?"disabled":"")+'><option value="">Choose a family</option>'+familyOptions+'</select></label><label>Permission<select data-family-access '+(!familyEnabled?"disabled":"")+'><option value="viewer" '+(familyAccess==="viewer"?"selected":"")+'>Viewer</option><option value="contributor" '+(familyAccess==="contributor"?"selected":"")+' '+(calendar.access_mode!=="read_write"?"disabled":"")+'>Contributor</option></select></label><button type="button" class="secondary" data-google-action="share" '+(!familyEnabled?"disabled":"")+'>'+(calendar.family_id?"Update sharing":"Share")+'</button>'+(calendar.family_id?'<button type="button" class="danger" data-google-action="unshare">Stop sharing</button>':"")+'</div>'+(calendar.access_mode!=="read_write"&&calendar.family_access==="contributor"?'<p class="hint">Contributor access requires owner read/write permission.</p>':"")+'</div></article>';
+}
+async function loadGoogleConnections(){
+ state.googleConnections=await api("/integrations/google/connections");
+ await Promise.all(state.googleConnections.filter(c=>c.status==="active").map(async c=>{try{state.googleCalendars[c.id]=await api("/integrations/google/connections/"+encodeURIComponent(c.id)+"/calendars")}catch(e){state.googleCalendars[c.id]=[]}}));
+ renderGoogleConnections();
+}
+async function loadIntegrations(){
+ const status=$("integrations-status");
+ try{await loadFamilies();await loadGoogleConnections();status.textContent="Google account settings loaded."}
+ catch(e){status.textContent=e.message.includes("Google OAuth is not configured")?"Google Calendar integration is not configured on this server.":e.message;$("google-connections").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(status.textContent)+'</div></div>'}
+}
+async function connectGoogle(){
+ const button=$("google-connect"),status=$("integrations-status"),access=$("google-connect-access").value,popup=window.open("about:blank","eme-google-oauth","popup,width=620,height=760");
+ if(!popup){status.textContent="Allow pop-ups for this site to connect a Google account.";return}
+ button.disabled=true;status.textContent="Preparing Google authorization…";
+ try{
+  const before=state.googleConnections.map(c=>c.id+":"+c.status+":"+c.updated_at+":"+(c.scopes||[]).join(",")).join("|"),auth=await api("/integrations/google/oauth/start",{method:"POST",body:JSON.stringify({access})});
+  popup.location.href=auth.authorization_url;status.textContent="Complete authorization in the Google window. This page will update automatically.";
+  const deadline=Date.now()+auth.expires_in_seconds*1000;
+  while(Date.now()<deadline){
+   await new Promise(resolve=>setTimeout(resolve,1500));
+   const connections=await api("/integrations/google/connections"),after=connections.map(c=>c.id+":"+c.status+":"+c.updated_at+":"+(c.scopes||[]).join(",")).join("|");
+   if(after!==before){await loadGoogleConnections();status.textContent="Google account connected.";if(!popup.closed)popup.close();return}
+   if(popup.closed)break;
+  }
+  status.textContent="Authorization was not completed. You can try again.";
+ }catch(e){status.textContent=e.message}
+ finally{if(!popup.closed)popup.close();button.disabled=false}
+}
+async function handleGoogleIntegrationAction(event){
+ const button=event.target.closest("[data-google-action]");if(!button)return;
+ const action=button.dataset.googleAction,account=button.dataset.connectionId,item=button.closest("[data-calendar-id]"),calendar=item?.dataset.calendarId,status=$("integrations-status");button.disabled=true;
+ try{
+  if(action==="disconnect"){
+   const connection=state.googleConnections.find(c=>c.id===account);
+   if(!window.confirm("Disconnect "+(connection?.email||"this Google account")+"? Agents will immediately lose access to its calendars."))return;
+   await api("/integrations/google/connections/"+encodeURIComponent(account),{method:"DELETE"});delete state.googleCalendars[account];await loadGoogleConnections();status.textContent="Google account disconnected.";
+  }else if(action==="sync"){
+   state.googleCalendars[account]=await api("/integrations/google/connections/"+encodeURIComponent(account)+"/calendars/sync",{method:"POST"});renderGoogleConnections();status.textContent="Calendars synchronized.";
+  }else if(action==="share"){
+   const familyId=item.querySelector("[data-family-id]").value,access=item.querySelector("[data-family-access]").value;if(!familyId)throw new Error("Choose a family before sharing this calendar.");
+   await api("/integrations/google/calendars/"+encodeURIComponent(calendar)+"/family-sharing",{method:"PUT",body:JSON.stringify({family_id:familyId,access})});await loadGoogleConnections();status.textContent="Family sharing saved.";
+  }else if(action==="unshare"){
+   await api("/integrations/google/calendars/"+encodeURIComponent(calendar)+"/family-sharing",{method:"DELETE"});await loadGoogleConnections();status.textContent="Family sharing removed.";
+  }
+ }catch(e){status.textContent=e.message}
+ finally{button.disabled=false}
+}
+async function handleGoogleCalendarChange(event){
+ const field=event.target.dataset.calendarField;if(!field)return;const item=event.target.closest("[data-calendar-id]");if(!item)return;
+ const status=$("integrations-status"),body=field==="selected"?{selected:event.target.checked}:{access_mode:event.target.value};event.target.disabled=true;
+ try{await api("/integrations/google/calendars/"+encodeURIComponent(item.dataset.calendarId),{method:"PATCH",body:JSON.stringify(body)});await loadGoogleConnections();status.textContent="Calendar settings saved."}
+ catch(e){status.textContent=e.message;await loadGoogleConnections()}
+}
+on("google-connect","click",connectGoogle);
+on("refresh-integrations","click",loadIntegrations);
+on("google-connections","click",handleGoogleIntegrationAction);
+on("google-connections","change",handleGoogleCalendarChange);
+
 async function showConsole(){
  document.body.classList.remove("login-active");
  $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
@@ -397,6 +470,8 @@ async function showConsole(){
   state.agents=await api("/agents");renderTaskAgents();await loadTasks();resetTaskEditor();
  }else if(page==="profile"){
   await loadProfile();
+ }else if(page==="integrations"){
+  await loadIntegrations();
  }else{
   await loadFamilies();await loadNotes();resetNoteEditor();
  }
