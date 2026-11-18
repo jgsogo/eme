@@ -4,7 +4,7 @@ use crate::{
     domain::{MealArrangement, ParticipationStatus},
     plans::{MealAssignment, PlanParticipant, WeeklyPlan, WeeklyPlanDraft, WeeklyPlanStatus},
 };
-use chrono::{NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc, Weekday};
 use rusqlite::{OptionalExtension, params};
 
 impl MealPlannerStore {
