@@ -188,7 +188,12 @@ fn timezone_can_be_updated_and_survives_reopening_store() {
 
     let reopened = FileUserIdentityStore::open(&path).unwrap();
     assert_eq!(
-        reopened.get_user(user.id).unwrap().unwrap().timezone.as_deref(),
+        reopened
+            .get_user(user.id)
+            .unwrap()
+            .unwrap()
+            .timezone
+            .as_deref(),
         Some("Europe/Madrid")
     );
     fs::remove_file(path).unwrap();
@@ -197,7 +202,10 @@ fn timezone_can_be_updated_and_survives_reopening_store() {
 #[test]
 fn timezone_rejects_non_iana_identifiers() {
     let store = InMemoryUserIdentityStore::default();
-    let user = store.resolve_or_create("telegram", "invalid-timezone-user", None).unwrap().0;
+    let user = store
+        .resolve_or_create("telegram", "invalid-timezone-user", None)
+        .unwrap()
+        .0;
     assert!(matches!(
         store.update_timezone(user.id, Some("Madrid")),
         Err(IdentityStoreError::InvalidTimezone)

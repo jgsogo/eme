@@ -112,7 +112,10 @@ impl IdentityState {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(str::to_owned);
-        if timezone.as_ref().is_some_and(|value| value.len() > 64 || !value.contains('/')) {
+        if timezone
+            .as_ref()
+            .is_some_and(|value| value.len() > 64 || !value.contains('/'))
+        {
             return Err(IdentityStoreError::InvalidTimezone);
         }
         let user = self

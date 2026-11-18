@@ -774,7 +774,8 @@ mod family_context_tests {
         let request = model.0.lock().unwrap().take().unwrap();
         let prompt = request.system_prompt.unwrap();
         assert!(prompt.contains("User timezone: Europe/Madrid"));
-        assert!(prompt.contains("comes from the authenticated user's profile and is authoritative"));
+        assert!(
+            prompt.contains("comes from the authenticated user's profile and is authoritative")
+        );
     }
-
 }
