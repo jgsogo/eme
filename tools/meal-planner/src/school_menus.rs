@@ -50,12 +50,6 @@ pub enum SchoolMenuOrigin {
     Import,
 }
 impl SchoolMenuOrigin {
-    pub(crate) fn as_str(self) -> &'static str {
-        match self {
-            Self::Manual => "manual",
-            Self::Import => "import",
-        }
-    }
     pub(crate) fn parse(s: &str) -> Option<Self> {
         match s {
             "manual" => Some(Self::Manual),
