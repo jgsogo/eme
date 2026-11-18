@@ -284,6 +284,41 @@ instructions = "Test"
         ));
         fs::remove_file(agents_dir.join("invalid.toml")).unwrap();
 
+        // Empty and duplicate capability declarations are invalid.
+        let empty_capabilities = agents_dir.join("empty-capabilities.toml");
+        fs::write(
+            &empty_capabilities,
+            r#"
+name = "empty-capabilities"
+description = "Invalid agent"
+capabilities = []
+instructions = "Test"
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            AgentRegistry::load(&agents_dir),
+            Err(agent_config::ConfigError::Invalid { .. })
+        ));
+        fs::remove_file(empty_capabilities).unwrap();
+
+        let duplicate_capabilities = agents_dir.join("duplicate-capabilities.toml");
+        fs::write(
+            &duplicate_capabilities,
+            r#"
+name = "duplicate-capabilities"
+description = "Invalid agent"
+capabilities = ["chat", "chat"]
+instructions = "Test"
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            AgentRegistry::load(&agents_dir),
+            Err(agent_config::ConfigError::Invalid { .. })
+        ));
+        fs::remove_file(duplicate_capabilities).unwrap();
+
         let definition = r#"
 name = "duplicate"
 description = "Test agent"

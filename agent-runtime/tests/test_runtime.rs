@@ -9,7 +9,7 @@ use std::{
 
 use tokio::sync::Notify;
 
-use agent_models::ModelError;
+use agent_models::{ModelCapability, ModelError};
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
     ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolContext, ToolDefinition, ToolDispatcher,
@@ -127,6 +127,7 @@ async fn executes_tool_and_returns_final_response() {
 
     let agent = Agent {
         id: "calculator-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
         system_prompt: Some("You are a helpful calculator.".into()),
         tool_names: vec!["calculator".into()],
         max_iterations: 5,
@@ -201,6 +202,7 @@ async fn denies_unauthorized_tool_execution() {
 
     let agent = Agent {
         id: "restricted-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
         system_prompt: None,
         tool_names: vec![],
         max_iterations: 5,
@@ -283,6 +285,7 @@ async fn stops_after_max_iterations() {
 
     let agent = Agent {
         id: "calculator-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
         system_prompt: None,
         tool_names: vec!["calculator".into()],
         max_iterations: 2,
@@ -348,6 +351,7 @@ async fn cancellation_waits_for_in_flight_model_request_and_keeps_its_result() {
     let run_cancellation = cancellation.clone();
     let agent = Agent {
         id: "test-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
         system_prompt: None,
         tool_names: Vec::new(),
         max_iterations: 2,
@@ -441,6 +445,7 @@ async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
     let run_cancellation = cancellation.clone();
     let agent = Agent {
         id: "test-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
         system_prompt: None,
         tool_names: vec!["calculator".into()],
         max_iterations: 2,
@@ -506,6 +511,7 @@ impl ToolDispatcher for LimitedTools {
 fn test_agent() -> Agent {
     Agent {
         id: "test-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
         system_prompt: None,
         tool_names: vec!["test".into()],
         max_iterations: 2,

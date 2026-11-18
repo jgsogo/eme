@@ -3,6 +3,7 @@
 use std::{sync::Arc, time::Duration};
 
 use actix_web::{App, http::StatusCode, test, web};
+use agent_models::ModelCapability;
 use agent_runtime::{CancellationToken, Message, ToolContext};
 use agent_service::{ExecutionOutcome, ExecutionReport, RunExecutor, RunId, RunManager};
 use async_trait::async_trait;
@@ -157,7 +158,7 @@ async fn lists_configured_agents() {
     let catalog = AgentCatalog::new([AgentListItem {
         name: "assistant".into(),
         description: "General assistant".into(),
-        model: "test/model".into(),
+        capabilities: vec![ModelCapability::Chat, ModelCapability::Reasoning],
         tools: vec!["tg_notify_user".into()],
     }]);
     let app = test::init_service(
@@ -172,7 +173,7 @@ async fn lists_configured_agents() {
     assert_eq!(response.status(), StatusCode::OK);
     let body: Value = test::read_body_json(response).await;
     assert_eq!(body[0]["name"], "assistant");
-    assert_eq!(body[0]["model"], "test/model");
+    assert_eq!(body[0]["capabilities"], json!(["chat", "reasoning"]));
     assert_eq!(body[0]["tools"][0], "tg_notify_user");
 }
 

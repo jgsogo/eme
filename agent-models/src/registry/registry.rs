@@ -1,6 +1,7 @@
 use crate::{
     client::ConversationClient,
     error::ModelError,
+    models::ModelCapability,
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use agent_config::{ConfigError, read_toml_dir};
@@ -50,6 +51,34 @@ impl Registry {
         self.providers
             .get(provider_name)
             .is_some_and(|provider| provider.models.iter().any(|model| model.name == model_name))
+    }
+
+    /// Returns whether one configured model provides every requested capability.
+    ///
+    /// Provider names are traversed in `BTreeMap` order and models in their TOML
+    /// declaration order, so the first compatible model is deterministic. This
+    /// metadata-only query does not read credentials or contact providers.
+    pub fn contains_compatible_model(&self, required: &[ModelCapability]) -> bool {
+        self.first_compatible_model(required).is_some()
+    }
+
+    /// Finds the first configured model that provides every requested capability.
+    ///
+    /// The returned identity is provider-qualified. This single-model selection
+    /// is used until runtime routing is introduced; it never constructs a client.
+    pub fn first_compatible_model(&self, required: &[ModelCapability]) -> Option<String> {
+        if required.is_empty() {
+            return None;
+        }
+
+        self.providers.iter().find_map(|(provider_name, provider)| {
+            provider.models.iter().find_map(|model| {
+                required
+                    .iter()
+                    .all(|capability| model.capabilities.contains(capability))
+                    .then(|| format!("{provider_name}/{}", model.name))
+            })
+        })
     }
 
     pub fn resolve_model(
@@ -161,6 +190,13 @@ capabilities = ["chat"]
         let registry = Registry::load(&valid).unwrap();
         assert!(registry.contains_model("test/test-model"));
         assert!(!registry.contains_model("test/missing-model"));
+        assert!(registry.contains_compatible_model(&[ModelCapability::Chat]));
+        assert_eq!(
+            registry.first_compatible_model(&[ModelCapability::Chat]).as_deref(),
+            Some("test/test-model")
+        );
+        assert!(!registry.contains_compatible_model(&[ModelCapability::Reasoning]));
+        assert_eq!(registry.first_compatible_model(&[]), None);
 
         // Duplicate provider identifiers are rejected across files.
         let duplicate = directory.case("duplicate");

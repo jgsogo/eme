@@ -10,7 +10,7 @@ It will remain the core execution component used by higher-level services, witho
 
 The crate will implement:
 
-- **Agent definition and configuration:** the data structures and loading mechanisms that will describe an agent's instructions, model reference, available tools, and execution limits.
+- **Agent definition and configuration:** the data structures and loading mechanisms that describe an agent's instructions, required model capabilities, available tools, and execution limits.
 - **Model adaptation:** the boundary that will adapt the provider-independent client interface from `agent-models` to the runtime's model request and response types.
 - **Conversation loop:** the multi-turn execution process that will send conversation context to a model, interpret its response, dispatch requested tools, append tool results, and continue until a terminal condition is reached.
 - **Tool contracts and dispatch:** interfaces for executable tools and dispatchers, together with registration and lookup of tool implementations. Tool integrations load metadata and bind implementations through `ToolRegistry::register_from_file`; direct registration remains available for programmatically constructed definitions.
