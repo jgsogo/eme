@@ -1,6 +1,6 @@
 //! Weekly plan snapshots and deterministic validation.
 use crate::{MealArrangement, MealType};
-use chrono::{Days, Datelike, NaiveDate, Weekday};
+use chrono::{Datelike, Days, NaiveDate, Weekday};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,7 +52,8 @@ impl WeeklyPlanDraft {
         if week_start.weekday() != Weekday::Mon {
             return Err("week_start must be a Monday".into());
         }
-        let week_end = week_start.checked_add_days(Days::new(6))
+        let week_end = week_start
+            .checked_add_days(Days::new(6))
             .ok_or_else(|| "week_start is outside the supported date range".to_owned())?;
         let mut assignment_ids = Vec::new();
         let mut slot_participants = Vec::new();
@@ -78,14 +79,19 @@ impl WeeklyPlanDraft {
                 seen.push(participant.member_id);
                 let slot_key = (assignment.date, assignment.meal_type, participant.member_id);
                 if slot_participants.contains(&slot_key) {
-                    return Err("a participant cannot have multiple assignments for the same meal slot".into());
+                    return Err(
+                        "a participant cannot have multiple assignments for the same meal slot"
+                            .into(),
+                    );
                 }
                 slot_participants.push(slot_key);
             }
             match assignment.arrangement {
                 MealArrangement::Home => {
                     if assignment.school_menu_date.is_some() {
-                        return Err("home-prepared assignments cannot reference a school menu".into());
+                        return Err(
+                            "home-prepared assignments cannot reference a school menu".into()
+                        );
                     }
                 }
                 MealArrangement::School => {
@@ -93,7 +99,9 @@ impl WeeklyPlanDraft {
                         return Err("school assignments cannot reference a family recipe".into());
                     }
                     if assignment.school_menu_date != Some(assignment.date) {
-                        return Err("school assignments must reference the menu for their date".into());
+                        return Err(
+                            "school assignments must reference the menu for their date".into()
+                        );
                     }
                 }
                 MealArrangement::Away | MealArrangement::NotParticipating => {
@@ -119,7 +127,10 @@ mod tests {
             id: 1,
             date: NaiveDate::from_ymd_opt(2026, 11, 16).unwrap(),
             meal_type: MealType::Lunch,
-            participants: vec![PlanParticipant { member_id: 1, name: "Alex".into() }],
+            participants: vec![PlanParticipant {
+                member_id: 1,
+                name: "Alex".into(),
+            }],
             arrangement,
             recipe_id: None,
             school_menu_date: (arrangement == MealArrangement::School)
@@ -131,10 +142,20 @@ mod tests {
     #[test]
     fn validates_week_boundary_and_monday_start() {
         let monday = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
-        assert!(WeeklyPlanDraft { assignments: vec![assignment(MealArrangement::Home)] }
-            .validate(monday).is_ok());
-        assert!(WeeklyPlanDraft { assignments: vec![] }
-            .validate(monday.succ_opt().unwrap()).is_err());
+        assert!(
+            WeeklyPlanDraft {
+                assignments: vec![assignment(MealArrangement::Home)]
+            }
+            .validate(monday)
+            .is_ok()
+        );
+        assert!(
+            WeeklyPlanDraft {
+                assignments: vec![]
+            }
+            .validate(monday.succ_opt().unwrap())
+            .is_err()
+        );
     }
 
     #[test]
@@ -142,7 +163,13 @@ mod tests {
         let monday = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         let mut value = assignment(MealArrangement::School);
         value.recipe_id = Some(4);
-        assert!(WeeklyPlanDraft { assignments: vec![value] }.validate(monday).is_err());
+        assert!(
+            WeeklyPlanDraft {
+                assignments: vec![value]
+            }
+            .validate(monday)
+            .is_err()
+        );
     }
 
     #[test]
