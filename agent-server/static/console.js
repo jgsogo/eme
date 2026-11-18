@@ -422,6 +422,15 @@ async function connectGoogle(){
  const button=$("google-connect"),status=$("integrations-status"),access=$("google-connect-access").value,popup=window.open("about:blank","eme-google-oauth","popup,width=620,height=760");
  if(!popup){status.textContent="Allow pop-ups for this site to connect a Google account.";return}
  button.disabled=true;status.textContent="Preparing Google authorization…";
+ let callbackCompleted=false;
+ const onOAuthMessage=async event=>{
+  if(event.origin!==window.location.origin||event.source!==popup||event.data?.type!=="eme-google-oauth"||event.data?.status!=="success")return;
+  callbackCompleted=true;
+  try{await loadGoogleConnections();status.textContent="Google account connected."}
+  catch(error){status.textContent="Google authorization succeeded, but refreshing account details failed: "+error.message}
+  if(!popup.closed)popup.close();
+ };
+ window.addEventListener("message",onOAuthMessage);
  try{
   const before=state.googleConnections.map(c=>c.id+":"+c.status+":"+c.updated_at+":"+(c.scopes||[]).join(",")).join("|"),auth=await api("/integrations/google/oauth/start",{method:"POST",body:JSON.stringify({access})});
   popup.location.href=auth.authorization_url;status.textContent="Complete authorization in the Google window. This page will update automatically.";
@@ -429,12 +438,12 @@ async function connectGoogle(){
   while(Date.now()<deadline){
    await new Promise(resolve=>setTimeout(resolve,1500));
    const connections=await api("/integrations/google/connections"),after=connections.map(c=>c.id+":"+c.status+":"+c.updated_at+":"+(c.scopes||[]).join(",")).join("|");
-   if(after!==before){await loadGoogleConnections();status.textContent="Google account connected.";if(!popup.closed)popup.close();return}
+   if(after!==before){callbackCompleted=true;await loadGoogleConnections();status.textContent="Google account connected.";if(!popup.closed)popup.close();return}
    if(popup.closed)break;
   }
-  status.textContent="Authorization was not completed. You can try again.";
+  if(!callbackCompleted)status.textContent="Authorization was not completed. You can try again.";
  }catch(e){status.textContent=e.message}
- finally{if(!popup.closed)popup.close();button.disabled=false}
+ finally{window.removeEventListener("message",onOAuthMessage);if(!popup.closed)popup.close();button.disabled=false}
 }
 async function handleGoogleIntegrationAction(event){
  const button=event.target.closest("[data-google-action]");if(!button)return;
