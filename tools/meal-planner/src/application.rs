@@ -519,7 +519,9 @@ mod tests {
     fn context_includes_members_and_existing_plan_state() {
         let store = MealPlannerStore::open_in_memory().unwrap();
         store.create_family_member("Alex").unwrap();
-        let context = MealPlannerApplication::new(store).planning_context(monday()).unwrap();
+        let context = MealPlannerApplication::new(store)
+            .planning_context(monday())
+            .unwrap();
         assert_eq!(context.members.len(), 1);
         assert!(context.current_plan.is_none());
     }
