@@ -1,0 +1,34 @@
+name = "google_calendar_update_event"
+description = "Update an existing event in a connected Google Calendar when the authenticated EME user has write access."
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["calendar_id", "event_id"]
+[parameters.properties.calendar_id]
+type = "string"
+minLength = 1
+description = "Internal EME connected-calendar ID returned by google_list_calendars."
+[parameters.properties.event_id]
+type = "string"
+minLength = 1
+description = "Google event ID returned by google_calendar_events."
+[parameters.properties.summary]
+type = "string"
+maxLength = 1024
+description = "Optional replacement event title."
+[parameters.properties.description]
+type = "string"
+maxLength = 8192
+description = "Optional replacement event description."
+[parameters.properties.location]
+type = "string"
+maxLength = 1024
+description = "Optional replacement event location."
+[parameters.properties.start]
+type = "string"
+format = "date-time"
+description = "Optional new start as an RFC 3339 timestamp with timezone; provide together with end."
+[parameters.properties.end]
+type = "string"
+format = "date-time"
+description = "Optional new end as an RFC 3339 timestamp with timezone; provide together with start."

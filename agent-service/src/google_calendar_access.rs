@@ -3,8 +3,8 @@
 use std::{str::FromStr, sync::Arc};
 
 use agent_storage::{
-    CalendarFamilyAccess, ConnectedCalendarId, ConnectedCalendarStore, ExternalConnectionStatus,
-    ExternalConnectionStore, FamilyId, UserId,
+    CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendarId, ConnectedCalendarStore,
+    ExternalConnectionStatus, ExternalConnectionStore, FamilyId, UserId,
 };
 
 use crate::{FamilyService, FamilyServiceError};
@@ -101,21 +101,37 @@ impl GoogleCalendarAccessService {
     }
 
     /// Authorize a read using trusted caller and selected-family context.
-    ///
-    /// The user and family identifiers must come from ToolContext, never from
-    /// tool arguments. The model supplies only the opaque EME calendar ID.
-    /// Family membership is revalidated on every invocation.
     pub async fn authorize_read(
         &self,
         user_id: &str,
         calendar_id: &str,
         family_id: Option<&str>,
     ) -> Result<AuthorizedGoogleCalendar, GoogleCalendarAccessError> {
+        self.authorize(user_id, calendar_id, family_id, false).await
+    }
+
+    /// Authorize a write. EME permissions and Google's granted write scope are
+    /// checked before the owner's refresh token is decrypted.
+    pub async fn authorize_write(
+        &self,
+        user_id: &str,
+        calendar_id: &str,
+        family_id: Option<&str>,
+    ) -> Result<AuthorizedGoogleCalendar, GoogleCalendarAccessError> {
+        self.authorize(user_id, calendar_id, family_id, true).await
+    }
+
+    async fn authorize(
+        &self,
+        user_id: &str,
+        calendar_id: &str,
+        family_id: Option<&str>,
+        write: bool,
+    ) -> Result<AuthorizedGoogleCalendar, GoogleCalendarAccessError> {
         let user =
             UserId::from_str(user_id).map_err(|_| GoogleCalendarAccessError::InvalidIdentity)?;
         let calendar_id = ConnectedCalendarId::from_str(calendar_id)
             .map_err(|_| GoogleCalendarAccessError::NotFound)?;
-
         let calendar = self
             .calendars
             .get_selected(calendar_id)
@@ -135,9 +151,6 @@ impl GoogleCalendarAccessService {
             {
                 return Err(GoogleCalendarAccessError::NotAuthorized);
             }
-
-            // Both sides of the share must still belong to this family. This
-            // prevents stale shares from surviving either member's departure.
             self.families
                 .context_for_member(user, family_id)
                 .await
@@ -146,6 +159,12 @@ impl GoogleCalendarAccessService {
                 .context_for_member(calendar.owner_id, family_id)
                 .await
                 .map_err(map_family_error)?;
+            if write && calendar.family_access != Some(CalendarFamilyAccess::Contributor) {
+                return Err(GoogleCalendarAccessError::WriteNotAuthorized);
+            }
+        }
+        if write && calendar.access_mode != CalendarAccessMode::ReadWrite {
+            return Err(GoogleCalendarAccessError::WriteNotAuthorized);
         }
 
         let connection = self
@@ -158,9 +177,17 @@ impl GoogleCalendarAccessService {
                     && connection.status == ExternalConnectionStatus::Active
             })
             .ok_or(GoogleCalendarAccessError::NotFound)?;
-
-        if !has_calendar_read_scope(&connection.granted_scopes) {
-            return Err(GoogleCalendarAccessError::InsufficientScopes);
+        let scope_granted = if write {
+            has_calendar_write_scope(&connection.granted_scopes)
+        } else {
+            has_calendar_read_scope(&connection.granted_scopes)
+        };
+        if !scope_granted {
+            return Err(if write {
+                GoogleCalendarAccessError::InsufficientWriteScopes
+            } else {
+                GoogleCalendarAccessError::InsufficientScopes
+            });
         }
 
         let refresh_token = self
@@ -168,7 +195,6 @@ impl GoogleCalendarAccessService {
             .refresh_token(calendar.owner_id, calendar.connection_id)
             .await
             .map_err(|error| GoogleCalendarAccessError::Storage(error.to_string()))?;
-
         Ok(AuthorizedGoogleCalendar {
             calendar,
             refresh_token,
@@ -182,6 +208,16 @@ fn has_calendar_read_scope(scopes: &[String]) -> bool {
             scope.as_str(),
             "https://www.googleapis.com/auth/calendar.events.readonly"
                 | "https://www.googleapis.com/auth/calendar.events"
+                | "https://www.googleapis.com/auth/calendar"
+        )
+    })
+}
+
+fn has_calendar_write_scope(scopes: &[String]) -> bool {
+    scopes.iter().any(|scope| {
+        matches!(
+            scope.as_str(),
+            "https://www.googleapis.com/auth/calendar.events"
                 | "https://www.googleapis.com/auth/calendar"
         )
     })
@@ -221,9 +257,7 @@ mod tests {
                 provider_subject: "google-subject".into(),
                 display_email: None,
                 refresh_token: "owner-refresh-token".into(),
-                granted_scopes: vec![
-                    "https://www.googleapis.com/auth/calendar.events.readonly".into(),
-                ],
+                granted_scopes: vec!["https://www.googleapis.com/auth/calendar.events".into()],
             })
             .await
             .unwrap();
@@ -282,6 +316,12 @@ mod tests {
         );
         let calendar_id = discovered.id.to_string();
         let family_id = family.id.to_string();
+        assert!(matches!(
+            service
+                .authorize_write(&owner.to_string(), &calendar_id, None)
+                .await,
+            Err(GoogleCalendarAccessError::WriteNotAuthorized)
+        ));
         let owner_access = service
             .authorize_read(&owner.to_string(), &calendar_id, None)
             .await
@@ -294,6 +334,48 @@ mod tests {
         assert_eq!(
             family_access.calendar.family_access,
             Some(CalendarFamilyAccess::Viewer)
+        );
+        assert!(matches!(
+            service
+                .authorize_write(&member.to_string(), &calendar_id, Some(&family_id))
+                .await,
+            Err(GoogleCalendarAccessError::WriteNotAuthorized)
+        ));
+        calendars
+            .update(
+                owner,
+                discovered.id,
+                None,
+                Some(CalendarAccessMode::ReadWrite),
+            )
+            .await
+            .unwrap();
+        assert!(
+            service
+                .authorize_write(&owner.to_string(), &calendar_id, None)
+                .await
+                .is_ok()
+        );
+        assert!(matches!(
+            service
+                .authorize_write(&member.to_string(), &calendar_id, Some(&family_id))
+                .await,
+            Err(GoogleCalendarAccessError::WriteNotAuthorized)
+        ));
+        calendars
+            .share_with_family(
+                owner,
+                discovered.id,
+                family.id,
+                CalendarFamilyAccess::Contributor,
+            )
+            .await
+            .unwrap();
+        assert!(
+            service
+                .authorize_write(&member.to_string(), &calendar_id, Some(&family_id))
+                .await
+                .is_ok()
         );
         let visible_to_member = service
             .list_readable_calendars(&member.to_string(), Some(&family_id))
