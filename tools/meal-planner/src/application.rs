@@ -515,6 +515,7 @@ mod tests {
         );
         assert!(app.confirm_saved_draft(monday()).is_err());
     }
+
     #[test]
     fn saving_after_confirmation_creates_a_new_draft_revision() {
         let store = MealPlannerStore::open_in_memory().unwrap();
