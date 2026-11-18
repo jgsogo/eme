@@ -27,8 +27,8 @@ pub(crate) use model::FixedModelRouter;
 pub use model::{AgentModel, ModelAdapter, ModelRouter, RoutedModelTurn};
 pub use policy::{AllowListPolicy, Authorization, AuthorizationError, PolicyEngine};
 pub use runtime::{
-    AgentRuntime, CancellationToken, CollectingEventSink, EventSink, RunEvent, RunEventKind, RunFailure, RunResult,
-    RunStatus,
+    AgentRuntime, CancellationToken, CollectingEventSink, EventSink, RunEvent, RunEventKind,
+    RunFailure, RunResult, RunStatus,
 };
 pub use tool::{
     FamilyContext, FamilyMemberContext, Tool, ToolContext, ToolDispatcher, ToolError, ToolRegistry,
