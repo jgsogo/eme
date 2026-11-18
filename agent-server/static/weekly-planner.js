@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const state={weekStart:null,plan:null,members:[],recipes:[],menus:[],editingId:null};
+const state={weekStart:null,plan:null,members:[],recipes:[],menus:[],editingId:null,shoppingList:null};
 const meals=[["breakfast","Breakfast"],["lunch","Lunch"],["dinner","Dinner"]];
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const text=await response.text();let value=null;try{value=text?JSON.parse(text):null}catch{value=text}if(!response.ok){const error=new Error(typeof value==="string"?value:value?.error||response.statusText);error.status=response.status;throw error}return value}
 function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
@@ -70,7 +70,52 @@ async function savePlan(){
   renderGrid();$("assignment-editor").hidden=true;
  }catch(e){$("assignment-error").textContent=e.message}
 }
-async function loadWeek(){
+
+async function loadShoppingList(){
+ if(!state.plan){$("shopping-list-panel").hidden=true;return}
+ $("shopping-list-panel").hidden=false;
+ $("shopping-list-items").innerHTML='<p class="hint">Loading shopping list…</p>';
+ try{
+  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list");
+ }catch(e){
+  if(e.status===404)state.shoppingList=null;
+  else{$("shopping-list-message").textContent=e.message;state.shoppingList=null}
+ }
+ renderShoppingList();
+}
+function renderShoppingList(){
+ const list=state.shoppingList;
+ $("shopping-list-panel").hidden=!state.plan;
+ $("shopping-item-form").hidden=!list;
+ $("generate-shopping-list").textContent=list?"Regenerate from this plan":"Generate list";
+ $("shopping-list-status").textContent=list
+  ?"Snapshot for plan revision "+list.plan_revision+" · edits are independent of plan confirmation"
+  :"Only home-prepared assignments with recipes will contribute ingredients.";
+ const visible=list?.items?.filter(item=>!item.manually_removed)||[];
+ $("shopping-list-items").innerHTML=!list
+  ?'<p class="hint">No list yet. Generate one to collect ingredients from this weekly plan.</p>'
+  :visible.length?visible.map(item=>'<div class="shopping-item" data-shopping-item="'+item.id+'">'+
+   '<input class="shopping-item-name" data-shopping-name aria-label="Item name" value="'+esc(item.name)+'">'+
+   '<input type="number" min="0.000001" step="any" data-shopping-quantity aria-label="Quantity" placeholder="Unknown" value="'+(item.quantity??"")+'">'+
+   '<input data-shopping-unit aria-label="Unit" placeholder="Unit" value="'+esc(item.unit??"")+'">'+
+   '<label class="shopping-purchased"><input type="checkbox" data-shopping-purchased '+(item.purchased?"checked":"")+'> Purchased</label>'+
+   (item.stale?'<span class="shopping-stale">Review</span>':'')+
+   '<div class="shopping-item-actions"><button type="button" class="secondary" data-save-shopping>Save</button><button type="button" class="danger" data-remove-shopping>Remove</button></div>'+
+   '</div>').join("")
+  :'<p class="hint">No items in this shopping list.</p>';
+}
+async function generateShoppingList(){
+ if(!state.plan)return;
+ if(state.shoppingList&&!confirm("Regenerate this list from the selected plan revision? Manual additions, removals, purchases and quantity overrides will be reconciled."))return;
+ const button=$("generate-shopping-list");button.disabled=true;
+ try{
+  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/generate",{method:"POST"});
+  $("shopping-list-message").textContent="Shopping list generated.";
+  renderShoppingList();
+ }catch(e){$("shopping-list-message").textContent=e.message}
+ finally{button.disabled=false}
+}
+\nasync function loadWeek(){
  $("week-date").value=state.weekStart;
  $("planner-grid").innerHTML='<p class="hint">Loading weekly plan…</p>';
  $("assignment-editor").hidden=true;
@@ -81,10 +126,46 @@ async function loadWeek(){
   state.menus=await api("/meal-planner/school-menus?from="+dates[0]+"&to="+dates[6]);
   try{state.plan=await api("/meal-planner/plans/"+state.weekStart)}
   catch(e){if(e.status!==404)throw e;state.plan=await api("/meal-planner/plans/"+state.weekStart,{method:"POST"})}
-  renderMembers();renderGrid();$("connection").textContent="Connected";
+  renderMembers();renderGrid();await loadShoppingList();$("connection").textContent="Connected";
  }catch(e){$("connection").textContent="Connection error";$("planner-grid").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}
 }
-$("member-form").addEventListener("submit",async event=>{event.preventDefault();const input=$("member-name");const button=event.submitter;button.disabled=true;try{await api("/meal-planner/members",{method:"POST",body:JSON.stringify({name:input.value})});input.value="";state.members=await api("/meal-planner/members");renderMembers()}catch(e){alert(e.message)}finally{button.disabled=false}});
+
+$("generate-shopping-list").addEventListener("click",generateShoppingList);
+$("shopping-item-form").addEventListener("submit",async event=>{
+ event.preventDefault();
+ if(!state.plan||!state.shoppingList)return;
+ const name=$("shopping-item-name").value.trim();
+ const raw=$("shopping-item-quantity").value.trim();
+ const quantity=raw===""?null:Number(raw);
+ if(raw!==""&&(!Number.isFinite(quantity)||quantity<=0)){$("shopping-list-message").textContent="Enter a positive quantity or leave it blank.";return}
+ const button=event.submitter;button.disabled=true;
+ try{
+  state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items",{method:"POST",body:JSON.stringify({name,quantity,unit:$("shopping-item-unit").value.trim()||null})});
+  $("shopping-item-name").value="";$("shopping-item-quantity").value="";$("shopping-item-unit").value="";
+  $("shopping-list-message").textContent="Item added.";renderShoppingList();
+ }catch(e){$("shopping-list-message").textContent=e.message}
+ finally{button.disabled=false}
+});
+$("shopping-list-items").addEventListener("click",async event=>{
+ const row=event.target.closest("[data-shopping-item]");if(!row||!state.plan)return;
+ const itemId=Number(row.dataset.shoppingItem);
+ if(event.target.closest("[data-remove-shopping]")){
+  try{state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items/"+itemId,{method:"DELETE"});$("shopping-list-message").textContent="Item removed.";renderShoppingList()}catch(e){$("shopping-list-message").textContent=e.message}
+  return;
+ }
+ if(event.target.closest("[data-save-shopping]")){
+  const name=row.querySelector("[data-shopping-name]").value.trim();
+  const raw=row.querySelector("[data-shopping-quantity]").value.trim();
+  const quantity=raw===""?null:Number(raw);
+  if(!name){$("shopping-list-message").textContent="Item name cannot be empty.";return}
+  if(raw!==""&&(!Number.isFinite(quantity)||quantity<=0)){$("shopping-list-message").textContent="Enter a positive quantity or leave it blank.";return}
+  try{
+   state.shoppingList=await api("/meal-planner/plans/"+state.plan.id+"/shopping-list/items/"+itemId,{method:"PUT",body:JSON.stringify({name,quantity,unit:row.querySelector("[data-shopping-unit]").value.trim()||null,purchased:row.querySelector("[data-shopping-purchased]").checked})});
+   $("shopping-list-message").textContent="Item updated.";renderShoppingList();
+  }catch(e){$("shopping-list-message").textContent=e.message}
+ }
+});
+\n$("member-form").addEventListener("submit",async event=>{event.preventDefault();const input=$("member-name");const button=event.submitter;button.disabled=true;try{await api("/meal-planner/members",{method:"POST",body:JSON.stringify({name:input.value})});input.value="";state.members=await api("/meal-planner/members");renderMembers()}catch(e){alert(e.message)}finally{button.disabled=false}});
 $("planner-grid").addEventListener("click",event=>{
  const add=event.target.closest("[data-add]");if(add){populateEditor({date:add.dataset.add,meal_type:add.dataset.meal,participants:[]});return}
  const edit=event.target.closest("[data-edit]");if(edit){const item=state.plan.assignments.find(a=>a.id===Number(edit.dataset.edit));if(item)populateEditor(item);return}
