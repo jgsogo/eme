@@ -1,10 +1,10 @@
 name: Rust
 
 on:
-  push:
-    branches: [main, 'feat/**']
+  # push:
+  #   branches: [main]
   pull_request:
-    branches: [main, 'feat/**']
+    branches: [main]
 
 permissions:
   contents: read
