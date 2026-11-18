@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use agent_models::{ModelCapability, ModelError, Registry as ModelRegistry};
+use agent_models::{ModelCapability, ModelError, ModelFailureCategory, Registry as ModelRegistry};
 use agent_runtime::{
-    Agent, AgentModel, AgentRegistry, AgentRuntime, AllowListPolicy, ModelAdapter, ModelRequest,
-    ModelRouter, RoutedModelTurn, ToolDispatcher, ToolRegistry,
+    Agent, AgentModel, AgentRegistry, AgentRuntime, AllowListPolicy, CancellationToken,
+    ModelAdapter, ModelRequest, ModelRouter, RoutedModelTurn, ToolDispatcher, ToolRegistry,
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
@@ -114,19 +114,44 @@ impl ModelRouter for RegistryModelRouter {
         &self,
         required: &[ModelCapability],
         request: ModelRequest,
+        cancellation: CancellationToken,
     ) -> Result<RoutedModelTurn, ModelError> {
-        let model_id = self
-            .registry
-            .compatible_models(required)
-            .into_iter()
-            .next()
-            .ok_or_else(|| {
-                ModelError::UnsupportedModel(format!(
-                    "no configured model satisfies required capabilities {required:?}"
-                ))
-            })?;
-        let client = self.registry.resolve_model(&model_id)?;
-        let turn = ModelAdapter::new(client).complete(request).await?;
-        Ok(RoutedModelTurn { model_id, turn })
+        let candidates = self.registry.compatible_models(required);
+        if candidates.is_empty() {
+            return Err(ModelError::UnsupportedModel(format!(
+                "no configured model satisfies required capabilities {required:?}"
+            )));
+        }
+
+        let mut failures = Vec::new();
+
+        for model_id in candidates {
+            if cancellation.is_cancelled() {
+                return Err(ModelError::Cancelled);
+            }
+
+            let attempt = match self.registry.resolve_model(&model_id) {
+                Ok(client) => ModelAdapter::new(client).complete(request.clone()).await,
+                Err(error) => Err(error),
+            };
+
+            match attempt {
+                Ok(turn) => return Ok(RoutedModelTurn { model_id, turn }),
+                Err(error) => {
+                    let category = error.failure_category();
+                    if category == ModelFailureCategory::Permanent {
+                        return Err(error);
+                    }
+
+                    failures.push(format!("{model_id} [{category:?}]: {error}"));
+                }
+            }
+        }
+
+        if cancellation.is_cancelled() {
+            return Err(ModelError::Cancelled);
+        }
+
+        Err(ModelError::AllCandidatesFailed(failures.join("; ")))
     }
 }
