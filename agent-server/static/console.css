@@ -293,3 +293,14 @@ body:has(#shopping-list-panel) main{overflow:auto}
  .school-menu-day>button{font-size:9px;padding:3px 2px}
  .school-menu-calendar-empty{min-height:80px}
 }
+
+
+/* Make school-menu status immediately scannable in the monthly calendar. */
+.school-menu-day.status-closed{opacity:.58;background:rgba(139,155,180,.045);border-style:dashed}
+.school-menu-day.status-closed>header strong,.school-menu-day.status-closed .school-menu-placeholder{color:var(--muted)}
+.school-menu-day.status-unknown{border-color:#b58a45;background:rgba(181,138,69,.09);box-shadow:inset 0 0 0 1px rgba(181,138,69,.16)}
+.school-menu-day.status-unknown .school-menu-placeholder{color:#e2bd7c;border-color:rgba(181,138,69,.38)}
+.school-menu-day.status-unknown>header strong{color:#e2bd7c}
+@media(prefers-reduced-transparency:reduce){
+ .school-menu-day.status-closed{opacity:.78}
+}
