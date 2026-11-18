@@ -184,7 +184,10 @@ mod tests {
         }
     }
 
-    fn fixture(capabilities: &[&str], tool_names: &[&str]) -> (TestDirectory, ModelRegistry, AgentRegistry) {
+    fn fixture(
+        capabilities: &[&str],
+        tool_names: &[&str],
+    ) -> (TestDirectory, ModelRegistry, AgentRegistry) {
         let directory = TestDirectory::new();
         fs::write(
             directory.path().join("providers/test.toml"),
