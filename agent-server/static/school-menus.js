@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { entries: [], selected: null, loadRequest: 0 };
+const state = { entries: [], selected: null, loadRequest: 0, showWeekends: true };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -67,10 +67,14 @@ function renderMonthView() {
   const month = first.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const offset = (first.getDay() + 6) % 7;
+  const visibleOffset = state.showWeekends ? offset : Math.min(offset, 5);
   const cells = [];
-  for (let i = 0; i < offset; i++) cells.push('<div class="school-menu-calendar-empty" aria-hidden="true"></div>');
+  for (let i = 0; i < visibleOffset; i++) cells.push('<div class="school-menu-calendar-empty" aria-hidden="true"></div>');
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = dateString(new Date(year, month, day, 12));
+    const dateObject = new Date(year, month, day, 12);
+    const weekday = dateObject.getDay();
+    if (!state.showWeekends && (weekday === 0 || weekday === 6)) continue;
+    const date = dateString(dateObject);
     const entry = state.entries.find(item => item.date === date);
     const hasMenu = Boolean(entry);
     const content = entry?.status === "known"
@@ -89,9 +93,11 @@ function renderMonthView() {
       (hasMenu ? "Edit" : "Add") + '</button></article>'
     );
   }
-  $("menu-month-view").innerHTML =
+  const calendar = $("menu-month-view");
+  calendar.classList.toggle("weekdays-only", !state.showWeekends);
+  calendar.innerHTML =
     '<div class="school-menu-calendar-weekdays">' +
-    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => '<span>' + day + '</span>').join("") +
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].slice(0, state.showWeekends ? 7 : 5).map(day => '<span>' + day + '</span>').join("") +
     '</div><div class="school-menu-month">' + cells.join("") + '</div>';
 
   $("menu-month-view").querySelectorAll("[data-edit-date]").forEach(button => {
@@ -264,6 +270,22 @@ $("next-month").addEventListener("click", () => {
 });
 
 $("month-date").addEventListener("change", () => loadMonth().catch(() => {}));
+
+$("show-weekends").addEventListener("change", event => {
+  state.showWeekends = event.target.checked;
+  try {
+    localStorage.setItem("eme-school-menus-show-weekends", String(state.showWeekends));
+  } catch {
+    // The preference still applies for this page session when storage is unavailable.
+  }
+  if ($("menu-month-view")) renderMonthView();
+});
+
+try {
+  state.showWeekends = localStorage.getItem("eme-school-menus-show-weekends") !== "false";
+} catch {
+  // Keep the default seven-day view when storage is unavailable.
+}
 
 (async () => {
   try {
