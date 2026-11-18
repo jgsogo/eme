@@ -9,7 +9,8 @@ use super::{
     RunStatus, StopReason,
 };
 use crate::{
-    Agent, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest, ModelRouter, PolicyEngine,
+    Agent, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest, ModelRouter,
+    PolicyEngine,
     RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
 
@@ -236,7 +237,12 @@ impl AgentRuntime {
 
             let turn = match deadline {
                 Some(deadline) => {
-                    match tokio::time::timeout_at(deadline, self.model_router.complete(&agent.capabilities, request)).await {
+                    match tokio::time::timeout_at(
+                        deadline,
+                        self.model_router.complete(&agent.capabilities, request),
+                    )
+                    .await
+                    {
                         Ok(Ok(routed)) => routed.turn,
                         Ok(Err(error)) => {
                             let error = RuntimeError::Model(error);
@@ -272,7 +278,11 @@ impl AgentRuntime {
                         }
                     }
                 }
-                None => match self.model_router.complete(&agent.capabilities, request).await {
+                None => match self
+                    .model_router
+                    .complete(&agent.capabilities, request)
+                    .await
+                {
                     Ok(routed) => routed.turn,
                     Err(error) => {
                         let error = RuntimeError::Model(error);
