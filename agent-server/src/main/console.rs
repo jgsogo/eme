@@ -71,6 +71,18 @@ pub(super) async fn profile_page() -> impl Responder {
         .body(include_str!("../../static/profile.html"))
 }
 
+#[get("/console/school-menus")]
+pub(super) async fn school_menus_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/school_menus.html"))
+}
+#[get("/assets/school-menus.js")]
+pub(super) async fn school_menus_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/school-menus.js"))
+}
 #[get("/console/recipes")]
 pub(super) async fn recipes_page() -> impl Responder {
     HttpResponse::Ok()

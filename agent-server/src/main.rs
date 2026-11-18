@@ -34,7 +34,8 @@ use console::{
     console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
     integrations_page, invitation_page, mobile_conversations_page, mobile_families_page,
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
-    mobile_tasks_page, notes_page, profile_page, recipes_page, recipes_script, tasks_page,
+    mobile_tasks_page, notes_page, profile_page, recipes_page, recipes_script, school_menus_page,
+    school_menus_script, tasks_page,
 };
 
 #[actix_web::main]
@@ -215,6 +216,8 @@ async fn main() -> Result<()> {
             .service(tasks_page)
             .service(recipes_page)
             .service(recipes_script)
+            .service(school_menus_page)
+            .service(school_menus_script)
             .service(console_stylesheet)
             .service(console_script)
             .service(mobile_stylesheet)
@@ -227,6 +230,7 @@ async fn main() -> Result<()> {
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
             .service(agent_server::meal_planner_api())
+            .service(agent_server::school_menus_api())
             .service(agent_server::profile_api())
             .service(agent_server::tasks_api())
             .service(agent_server::invitations_api())

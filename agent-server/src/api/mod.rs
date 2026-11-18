@@ -8,6 +8,7 @@ mod meal_planner;
 mod notes;
 mod profile;
 mod runs;
+mod school_menus;
 mod tasks;
 mod types;
 
@@ -25,6 +26,7 @@ pub use meal_planner::meal_planner_api;
 pub use notes::notes_api;
 pub use profile::profile_api;
 pub use runs::runs_api;
+pub use school_menus::school_menus_api;
 pub use tasks::tasks_api;
 pub use types::{
     AgentCatalog, AgentListItem, CancelRunResponse, GetRunResponse, RunEventResponse,

@@ -10,7 +10,7 @@ use crate::{MealPlannerConfig, MealPlannerError, MealPlannerStore};
 fn in_memory_database_is_initialized_and_healthy() {
     let store = MealPlannerStore::open_in_memory().unwrap();
     store.health_check().unwrap();
-    assert_eq!(store.schema_version().unwrap(), 3);
+    assert_eq!(store.schema_version().unwrap(), 4);
 }
 
 #[test]
@@ -19,12 +19,12 @@ fn file_database_can_be_reopened_without_reapplying_migrations() {
     let config = MealPlannerConfig::new(path.clone()).unwrap();
     {
         let store = MealPlannerStore::open(&config).unwrap();
-        assert_eq!(store.schema_version().unwrap(), 3);
+        assert_eq!(store.schema_version().unwrap(), 4);
     }
     {
         let store = MealPlannerStore::open(&config).unwrap();
         store.health_check().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 3);
+        assert_eq!(store.schema_version().unwrap(), 4);
     }
     let _ = std::fs::remove_file(path);
 }
@@ -45,7 +45,7 @@ fn database_with_newer_schema_is_rejected() {
         error,
         MealPlannerError::UnsupportedSchemaVersion {
             current: 99,
-            supported: 3
+            supported: 4
         }
     ));
     let _ = std::fs::remove_file(path);

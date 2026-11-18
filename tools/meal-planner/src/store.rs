@@ -4,6 +4,7 @@ mod household;
 mod household_tests;
 mod migrations;
 mod recipes;
+mod school_menus;
 #[cfg(test)]
 mod tests;
 
