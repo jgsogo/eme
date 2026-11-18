@@ -80,7 +80,7 @@ The application boundary is exposed as `MealPlannerApplication`. It provides:
 - `planning_context(week_start)`: household members, resolved participation rules and exceptions, recipes, recorded school menus, and the latest plan.
 - `propose(week_start, draft)`: a non-persistent candidate plus deterministic validation feedback.
 - `validate(week_start, draft)`: structured constraint issues tied to the affected date, meal, assignment and/or member/recipe. Errors make a proposal invalid; warnings preserve uncertainty such as a missing or unpublished school menu.
-- `save_draft(week_start, draft)`: creates or updates only a draft after validation. It refuses to overwrite a confirmed plan.
+- `save_draft(week_start, draft)`: creates or updates only a draft after validation. If the latest revision is confirmed, an explicit save creates a new draft revision rather than modifying the confirmed snapshot.
 - `confirm_saved_draft(week_start)`: revalidates and confirms the already-persisted draft. This is a separate explicit operation.
 
 The application layer owns these use cases; agent adapters do not implement business rules. Proposals are values passed between tool calls and are not stored as a side effect.
