@@ -18,4 +18,4 @@ The server opens the SQLite database at startup and shares the store through Act
 
 ## Development
 
-Run cargo test -p meal-planner and cargo check -p agent-server.
+Run cargo test -p meal-planner and cargo check -p agent-server. The household tests also cover recurring-rule precedence and date-specific overrides.
