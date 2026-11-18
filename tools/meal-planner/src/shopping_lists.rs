@@ -222,10 +222,17 @@ impl NewShoppingListItem {
         if self.name.trim().is_empty() {
             return Err("shopping-list item name must not be empty".into());
         }
-        if self.quantity.is_some_and(|value| !value.is_finite() || value <= 0.0) {
+        if self
+            .quantity
+            .is_some_and(|value| !value.is_finite() || value <= 0.0)
+        {
             return Err("shopping-list quantity must be a positive finite number".into());
         }
-        if self.unit.as_ref().is_some_and(|unit| unit.trim().is_empty()) {
+        if self
+            .unit
+            .as_ref()
+            .is_some_and(|unit| unit.trim().is_empty())
+        {
             return Err("shopping-list unit must not be empty".into());
         }
         Ok(Self {
@@ -268,24 +275,62 @@ mod tests {
         crate::Recipe {
             id,
             draft: RecipeDraft {
-                title: format!("Recipe {id}"), description: None, servings,
-                ingredients: vec![RecipeIngredient { name: "Tomato".into(), amount, unit: unit.map(str::to_owned), preparation_note: None }],
-                steps: vec!["Cook".into()], categories: vec![], tags: vec![], source: None,
-                notes: None, dietary_information: vec![], allergens: None,
+                title: format!("Recipe {id}"),
+                description: None,
+                servings,
+                ingredients: vec![RecipeIngredient {
+                    name: "Tomato".into(),
+                    amount,
+                    unit: unit.map(str::to_owned),
+                    preparation_note: None,
+                }],
+                steps: vec!["Cook".into()],
+                categories: vec![],
+                tags: vec![],
+                source: None,
+                notes: None,
+                dietary_information: vec![],
+                allergens: None,
             },
-            created_at: 0, updated_at: 0,
+            created_at: 0,
+            updated_at: 0,
         }
     }
 
     fn plan(assignments: Vec<MealAssignment>) -> WeeklyPlan {
-        WeeklyPlan { id: 7, week_start: NaiveDate::from_ymd_opt(2026, 11, 16).unwrap(), revision: 2,
-            status: WeeklyPlanStatus::Draft, assignments, created_at: 0, confirmed_at: None }
+        WeeklyPlan {
+            id: 7,
+            week_start: NaiveDate::from_ymd_opt(2026, 11, 16).unwrap(),
+            revision: 2,
+            status: WeeklyPlanStatus::Draft,
+            assignments,
+            created_at: 0,
+            confirmed_at: None,
+        }
     }
 
-    fn assignment(id: i64, arrangement: MealArrangement, recipe_id: Option<i64>, participants: usize) -> MealAssignment {
-        MealAssignment { id, date: NaiveDate::from_ymd_opt(2026, 11, 16).unwrap(), meal_type: MealType::Lunch,
-            participants: (1..=participants).map(|member_id| PlanParticipant { member_id: member_id as i64, name: format!("Member {member_id}") }).collect(),
-            arrangement, recipe_id, school_menu_date: (arrangement == MealArrangement::School).then(|| NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()), notes: None }
+    fn assignment(
+        id: i64,
+        arrangement: MealArrangement,
+        recipe_id: Option<i64>,
+        participants: usize,
+    ) -> MealAssignment {
+        MealAssignment {
+            id,
+            date: NaiveDate::from_ymd_opt(2026, 11, 16).unwrap(),
+            meal_type: MealType::Lunch,
+            participants: (1..=participants)
+                .map(|member_id| PlanParticipant {
+                    member_id: member_id as i64,
+                    name: format!("Member {member_id}"),
+                })
+                .collect(),
+            arrangement,
+            recipe_id,
+            school_menu_date: (arrangement == MealArrangement::School)
+                .then(|| NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()),
+            notes: None,
+        }
     }
 
     #[test]
@@ -323,11 +368,51 @@ mod tests {
     #[test]
     fn reconciliation_preserves_manual_additions_removals_purchased_and_overrides() {
         let old = ShoppingList {
-            id: 9, plan_id: 7, plan_revision: 1, created_at: 1, updated_at: 2,
+            id: 9,
+            plan_id: 7,
+            plan_revision: 1,
+            created_at: 1,
+            updated_at: 2,
             items: vec![
-                ShoppingListItem { id: 1, name: "Tomato".into(), quantity: Some(2.0), unit: Some("piece".into()), purchased: true, source_assignment_ids: vec![1], source_recipe_ids: vec![1], manually_added: false, manually_removed: false, quantity_overridden: true, stale: false },
-                ShoppingListItem { id: 2, name: "Bread".into(), quantity: None, unit: None, purchased: false, source_assignment_ids: vec![], source_recipe_ids: vec![], manually_added: true, manually_removed: false, quantity_overridden: false, stale: false },
-                ShoppingListItem { id: 3, name: "Milk".into(), quantity: None, unit: None, purchased: false, source_assignment_ids: vec![], source_recipe_ids: vec![], manually_added: false, manually_removed: true, quantity_overridden: false, stale: false },
+                ShoppingListItem {
+                    id: 1,
+                    name: "Tomato".into(),
+                    quantity: Some(2.0),
+                    unit: Some("piece".into()),
+                    purchased: true,
+                    source_assignment_ids: vec![1],
+                    source_recipe_ids: vec![1],
+                    manually_added: false,
+                    manually_removed: false,
+                    quantity_overridden: true,
+                    stale: false,
+                },
+                ShoppingListItem {
+                    id: 2,
+                    name: "Bread".into(),
+                    quantity: None,
+                    unit: None,
+                    purchased: false,
+                    source_assignment_ids: vec![],
+                    source_recipe_ids: vec![],
+                    manually_added: true,
+                    manually_removed: false,
+                    quantity_overridden: false,
+                    stale: false,
+                },
+                ShoppingListItem {
+                    id: 3,
+                    name: "Milk".into(),
+                    quantity: None,
+                    unit: None,
+                    purchased: false,
+                    source_assignment_ids: vec![],
+                    source_recipe_ids: vec![],
+                    manually_added: false,
+                    manually_removed: true,
+                    quantity_overridden: false,
+                    stale: false,
+                },
             ],
         };
         let generated = vec![
@@ -349,12 +434,24 @@ mod tests {
         let result = ShoppingList::reconcile(Some(old), 7, 2, generated, 3);
         assert_eq!(result.id, 9);
         assert_eq!(result.plan_revision, 2);
-        let tomato = result.items.iter().find(|item| item.name == "Tomato").unwrap();
+        let tomato = result
+            .items
+            .iter()
+            .find(|item| item.name == "Tomato")
+            .unwrap();
         assert_eq!(tomato.quantity, Some(2.0));
         assert!(tomato.purchased);
-        let bread = result.items.iter().find(|item| item.name == "Bread").unwrap();
+        let bread = result
+            .items
+            .iter()
+            .find(|item| item.name == "Bread")
+            .unwrap();
         assert!(bread.manually_added);
-        let milk = result.items.iter().find(|item| item.name == "Milk").unwrap();
+        let milk = result
+            .items
+            .iter()
+            .find(|item| item.name == "Milk")
+            .unwrap();
         assert!(milk.manually_removed);
     }
 }
