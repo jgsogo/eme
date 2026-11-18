@@ -35,8 +35,14 @@ fn parse_tweet_url(value: &str) -> Result<TweetReference, String> {
 
     if !matches!(
         host.as_str(),
-        "x.com" | "www.x.com" | "twitter.com" | "www.twitter.com"
-            | "fixupx.com" | "www.fixupx.com" | "fxtwitter.com" | "www.fxtwitter.com"
+        "x.com"
+            | "www.x.com"
+            | "twitter.com"
+            | "www.twitter.com"
+            | "fixupx.com"
+            | "www.fixupx.com"
+            | "fxtwitter.com"
+            | "www.fxtwitter.com"
     ) {
         return Err(format!("unsupported tweet URL host '{host}'"));
     }
@@ -72,11 +78,7 @@ fn client() -> Result<Client, ToolError> {
 }
 
 async fn fetch_tweet(client: &Client, api_base_url: &str, id: &str) -> Result<Value, ToolError> {
-    let endpoint = format!(
-        "{}/2/status/{}",
-        api_base_url.trim_end_matches('/'),
-        id
-    );
+    let endpoint = format!("{}/2/status/{}", api_base_url.trim_end_matches('/'), id);
     let response = client
         .get(endpoint)
         .header(reqwest::header::ACCEPT, "application/json")
@@ -96,9 +98,8 @@ async fn fetch_tweet(client: &Client, api_base_url: &str, id: &str) -> Result<Va
         )));
     }
 
-    serde_json::from_str(&body).map_err(|error| {
-        ToolError::Execution(format!("invalid FxEmbed API response: {error}"))
-    })
+    serde_json::from_str(&body)
+        .map_err(|error| ToolError::Execution(format!("invalid FxEmbed API response: {error}")))
 }
 
 fn error_detail(body: &str) -> String {
@@ -123,11 +124,7 @@ fn error_detail(body: &str) -> String {
 
 #[async_trait]
 impl Tool for GetTweet {
-    async fn execute(
-        &self,
-        _context: &ToolContext,
-        arguments: Value,
-    ) -> Result<String, ToolError> {
+    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let url = arguments
             .get("url")
             .and_then(Value::as_str)
@@ -170,11 +167,15 @@ mod tests {
     #[test]
     fn accepts_twitter_and_fixupx_urls() {
         assert_eq!(
-            parse_tweet_url("https://twitter.com/user/status/123").unwrap().id,
+            parse_tweet_url("https://twitter.com/user/status/123")
+                .unwrap()
+                .id,
             "123"
         );
         assert_eq!(
-            parse_tweet_url("https://fixupx.com/user/status/123").unwrap().id,
+            parse_tweet_url("https://fixupx.com/user/status/123")
+                .unwrap()
+                .id,
             "123"
         );
     }
