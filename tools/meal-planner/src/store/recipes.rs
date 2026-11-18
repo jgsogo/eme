@@ -148,7 +148,11 @@ impl MealPlannerStore {
 fn row_recipe(row: &rusqlite::Row<'_>) -> rusqlite::Result<Recipe> {
     let payload: String = row.get(1)?;
     let draft = serde_json::from_str(&payload).map_err(|error| {
-        rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(error))
+        rusqlite::Error::FromSqlConversionFailure(
+            1,
+            rusqlite::types::Type::Text,
+            Box::new(error),
+        )
     })?;
     Ok(Recipe {
         id: row.get(0)?,
@@ -225,7 +229,11 @@ mod tests {
 
         assert_eq!(store.list_recipes("a", &[], None).unwrap().len(), 2);
         assert!(store.get_recipe(private.id, "b", &[]).is_err());
-        assert!(store.get_recipe(shared.id, "b", &["f1".into()]).is_ok());
+        assert!(
+            store
+                .get_recipe(shared.id, "b", &["f1".into()])
+                .is_ok()
+        );
     }
 
     #[test]
@@ -235,11 +243,9 @@ mod tests {
             .create_recipe("a", draft("Soup", "x", Some("f1")))
             .unwrap();
 
-        assert!(
-            store
-                .update_recipe(recipe.id, "b", draft("No", "x", None))
-                .is_err()
-        );
+        assert!(store
+            .update_recipe(recipe.id, "b", draft("No", "x", None))
+            .is_err());
         assert_eq!(
             store
                 .update_recipe(recipe.id, "a", draft("Soup", "x", None))
