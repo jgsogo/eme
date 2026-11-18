@@ -1,6 +1,7 @@
 //! Tests for file-backed conversation persistence.
 
-use std::{env, fs, time::SystemTime};
+use std::{env, fs};
+use uuid::Uuid;
 
 use agent_runtime::{Message, ToolCall};
 use serde_json::json;
@@ -9,11 +10,7 @@ use super::{ConversationStore, ConversationStoreError};
 use crate::FamilyId;
 
 fn temporary_directory() -> std::path::PathBuf {
-    let unique = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    env::temp_dir().join(format!("agent-storage-test-{unique}"))
+    env::temp_dir().join(format!("agent-storage-test-{}", Uuid::new_v4()))
 }
 
 #[test]

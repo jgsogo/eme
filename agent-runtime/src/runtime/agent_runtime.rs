@@ -9,8 +9,8 @@ use super::{
     RunStatus, StopReason,
 };
 use crate::{
-    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
-    RuntimeError, ToolContext, ToolDispatcher, ToolError,
+    Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest,
+    ModelRouter, PolicyEngine, RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -37,7 +37,7 @@ fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
 }
 
 pub struct AgentRuntime {
-    model: Arc<dyn AgentModel>,
+    model_router: Arc<dyn ModelRouter>,
     tools: Arc<dyn ToolDispatcher>,
     policy: Arc<dyn PolicyEngine>,
     event_sink: Arc<dyn EventSink>,
@@ -47,13 +47,23 @@ pub struct AgentRuntime {
 }
 
 impl AgentRuntime {
+    /// Creates a runtime using a fixed model (useful for tests and embedding).
     pub fn new(
         model: Arc<dyn AgentModel>,
         tools: Arc<dyn ToolDispatcher>,
         policy: Arc<dyn PolicyEngine>,
     ) -> Self {
+        Self::new_with_router(Arc::new(FixedModelRouter::new(model)), tools, policy)
+    }
+
+    /// Creates a runtime whose model is selected independently for each turn.
+    pub fn new_with_router(
+        model_router: Arc<dyn ModelRouter>,
+        tools: Arc<dyn ToolDispatcher>,
+        policy: Arc<dyn PolicyEngine>,
+    ) -> Self {
         Self {
-            model,
+            model_router,
             tools,
             policy,
             event_sink: Arc::new(NoopEventSink),
@@ -232,8 +242,13 @@ impl AgentRuntime {
 
             let turn = match deadline {
                 Some(deadline) => {
-                    match tokio::time::timeout_at(deadline, self.model.complete(request)).await {
-                        Ok(Ok(turn)) => turn,
+                    match tokio::time::timeout_at(
+                        deadline,
+                        self.model_router.complete(&agent.capabilities, request),
+                    )
+                    .await
+                    {
+                        Ok(Ok(routed)) => routed.turn,
                         Ok(Err(error)) => {
                             let error = RuntimeError::Model(error);
 
@@ -268,8 +283,12 @@ impl AgentRuntime {
                         }
                     }
                 }
-                None => match self.model.complete(request).await {
-                    Ok(turn) => turn,
+                None => match self
+                    .model_router
+                    .complete(&agent.capabilities, request)
+                    .await
+                {
+                    Ok(routed) => routed.turn,
                     Err(error) => {
                         let error = RuntimeError::Model(error);
 
