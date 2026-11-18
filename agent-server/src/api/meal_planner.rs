@@ -1,10 +1,10 @@
 //! Authenticated HTTP API for the household recipe catalogue.
 use actix_web::{
-    HttpResponse, HttpRequest, Responder, Scope, delete, get, post, put,
+    HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path, Query},
 };
 use agent_service::FamilyService;
-use agent_storage::{FamilyId, FileUserIdentityStore, UserIdentityStore, UserId};
+use agent_storage::{FamilyId, FileUserIdentityStore, UserId, UserIdentityStore};
 use chrono::NaiveDate;
 use meal_planner::{
     MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft, ShoppingListItemUpdate,
@@ -70,21 +70,22 @@ fn authenticated_user(
         .ok_or_else(|| HttpResponse::Unauthorized().finish())
 }
 
-async fn family_ids(
-    user: UserId,
-    families: &FamilyService,
-) -> Result<Vec<String>, HttpResponse> {
+async fn family_ids(user: UserId, families: &FamilyService) -> Result<Vec<String>, HttpResponse> {
     families
         .list_families(user)
         .await
-        .map(|families| families.into_iter().map(|family| family.id.to_string()).collect())
+        .map(|families| {
+            families
+                .into_iter()
+                .map(|family| family.id.to_string())
+                .collect()
+        })
         .map_err(|_| HttpResponse::InternalServerError().finish())
 }
 
 fn validate_family(id: Option<&str>, available: &[String]) -> Result<(), HttpResponse> {
     if let Some(id) = id {
-        FamilyId::from_str(id)
-            .map_err(|_| HttpResponse::BadRequest().body("invalid family id"))?;
+        FamilyId::from_str(id).map_err(|_| HttpResponse::BadRequest().body("invalid family id"))?;
         if !available.iter().any(|family| family == id) {
             return Err(HttpResponse::NotFound().finish());
         }
