@@ -22,6 +22,23 @@ fn error_response(error: MealPlannerError) -> HttpResponse {
 }
 
 
+
+#[derive(Deserialize)]
+struct CreateMemberRequest {
+    name: String,
+}
+
+#[post("/members")]
+async fn create_member(
+    store: Data<MealPlannerStore>,
+    body: Json<CreateMemberRequest>,
+) -> impl Responder {
+    match store.create_family_member(&body.name) {
+        Ok(member) => HttpResponse::Created().json(member),
+        Err(error) => error_response(error),
+    }
+}
+
 #[get("/members")]
 async fn list_members(store: Data<MealPlannerStore>) -> impl Responder {
     match store.list_family_members() {
@@ -147,6 +164,7 @@ async fn revise_weekly_plan(
 pub fn meal_planner_api() -> Scope {
     web::scope("/meal-planner")
         .service(list_members)
+        .service(create_member)
         .service(list_recipes)
         .service(create_recipe)
         .service(get_recipe)
