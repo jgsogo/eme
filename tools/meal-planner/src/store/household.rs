@@ -52,7 +52,7 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        connection.execute("INSERT INTO family_members(name) VALUES (?1)", [name])?;
+        connection.execute("INSERT INTO family_members(family_id, external_id, name) VALUES ('legacy', ?1, ?1)", [name])?;
         Ok(FamilyMember {
             id: connection.last_insert_rowid(),
             name: name.into(),
