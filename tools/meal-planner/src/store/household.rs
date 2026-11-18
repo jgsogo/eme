@@ -11,6 +11,36 @@ use chrono::NaiveDate;
 use rusqlite::{OptionalExtension, params};
 
 impl MealPlannerStore {
+    /// Refresh the local numeric member keys from the authoritative family
+    /// membership list. External IDs are stable UserIds; names are snapshots.
+    pub fn sync_family_members(
+        &self,
+        family_id: &str,
+        members: &[(String, String)],
+    ) -> Result<Vec<FamilyMember>, MealPlannerError> {
+        let mut connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let transaction = connection.transaction()?;
+        transaction.execute("UPDATE family_members SET active = 0 WHERE family_id = ?1", [family_id])?;
+        for (external_id, name) in members {
+            let name = name.trim();
+            if name.is_empty() { continue; }
+            transaction.execute(
+                "INSERT INTO family_members(family_id, external_id, name, active) VALUES (?1, ?2, ?3, 1)
+                 ON CONFLICT(family_id, external_id) DO UPDATE SET name = excluded.name, active = 1",
+                params![family_id, external_id, name],
+            )?;
+        }
+        let mut statement = transaction.prepare(
+            "SELECT id, name, active FROM family_members WHERE family_id = ?1 ORDER BY id"
+        )?;
+        let result = statement.query_map([family_id], |row| Ok(FamilyMember {
+            id: row.get(0)?, name: row.get(1)?, active: row.get::<_, i64>(2)? != 0,
+        }))?.collect::<Result<Vec<_>, _>>()?;
+        drop(statement);
+        transaction.commit()?;
+        Ok(result)
+    }
+
     pub fn create_family_member(&self, name: &str) -> Result<FamilyMember, MealPlannerError> {
         let name = name.trim();
         if name.is_empty() {
