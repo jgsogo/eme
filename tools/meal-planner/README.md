@@ -77,3 +77,26 @@ The authenticated API exposes:
 ## AI-assisted planning
 
 Agent proposals are untrusted, non-persistent values. The Meal Planner application validates each proposal against the selected week, household members, recipes and school-menu records. Saving a proposal creates or updates a draft; confirming a saved draft is a separate explicit operation. Agent tools are thin adapters over these application use cases, and the assistant must explicitly allow-list each tool.
+
+
+## AI-assisted planning and EME agent tools
+
+The application boundary is exposed as `MealPlannerApplication`. It provides:
+- `planning_context(week_start)`: household members, resolved participation rules and exceptions, recipes, recorded school menus, and the latest plan.
+- `propose(week_start, draft)`: a non-persistent candidate plus deterministic validation feedback.
+- `validate(week_start, draft)`: structured constraint issues tied to the affected date, meal, assignment and/or member/recipe. Errors make a proposal invalid; warnings preserve uncertainty such as a missing or unpublished school menu.
+- `save_draft(week_start, draft)`: creates or updates only a draft after validation. It refuses to overwrite a confirmed plan.
+- `confirm_saved_draft(week_start)`: revalidates and confirms the already-persisted draft. This is a separate explicit operation.
+
+The application layer owns these use cases; agent adapters do not implement business rules. Proposals are values passed between tool calls and are not stored as a side effect.
+
+The EME server registers five TOML-defined tools from this crate:
+- `meal_planner_context` — retrieve the planning context for a Monday.
+- `meal_planner_propose` — return a non-persistent candidate and validation feedback.
+- `meal_planner_validate` — revalidate a candidate and return structured issues.
+- `meal_planner_save_draft` — persist a valid candidate as a draft, never confirm it.
+- `meal_planner_confirm` — explicitly confirm the latest saved draft after revalidation.
+
+Each tool requires an authenticated EME user context. The runtime's existing per-agent allow-list remains the authorization boundary: the tools are registered by the server, but an agent can call only names explicitly listed in its configuration. The `assistant` agent allow-lists these five tools in `data/agents/assistant.toml`.
+
+A typical interaction is: read context, prepare a candidate, validate it, save the corrected proposal as a draft, then ask the user for approval before calling `meal_planner_confirm`. Neither proposing nor validating writes to SQLite, and saving a draft does not confirm it.
