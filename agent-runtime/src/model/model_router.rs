@@ -5,7 +5,7 @@ use std::sync::Arc;
 use agent_models::{ModelCapability, ModelError};
 use async_trait::async_trait;
 
-use crate::{AgentModel, ModelRequest, ModelTurn};
+use crate::{AgentModel, CancellationToken, ModelRequest, ModelTurn};
 
 /// A model response together with the provider-qualified identity that produced it.
 #[derive(Debug, Clone)]
@@ -24,6 +24,7 @@ pub trait ModelRouter: Send + Sync {
         &self,
         required: &[ModelCapability],
         request: ModelRequest,
+        cancellation: CancellationToken,
     ) -> Result<RoutedModelTurn, ModelError>;
 }
 
@@ -42,6 +43,7 @@ impl ModelRouter for FixedModelRouter {
         &self,
         _required: &[ModelCapability],
         request: ModelRequest,
+        _cancellation: CancellationToken,
     ) -> Result<RoutedModelTurn, ModelError> {
         let turn = self.0.complete(request).await?;
         Ok(RoutedModelTurn {

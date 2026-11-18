@@ -142,7 +142,10 @@ impl ConversationClient for OpenAICompatibleClient {
 
         if !status.is_success() {
             let body = response.text().await.unwrap_or_default();
-            return Err(ModelError::Provider(format!("HTTP {status}: {body}")));
+            return Err(ModelError::ProviderResponse {
+                status: status.as_u16(),
+                body,
+            });
         }
 
         let result: ApiResponse = response.json().await?;
@@ -496,9 +499,9 @@ mod tests {
             .unwrap_err();
 
         match error {
-            ModelError::Provider(message) => {
-                assert!(message.contains("401"));
-                assert!(message.contains("Invalid API key"));
+            ModelError::ProviderResponse { status, body } => {
+                assert_eq!(status, 401);
+                assert!(body.contains("Invalid API key"));
             }
             other => panic!("Expected provider error, got: {other:?}"),
         }

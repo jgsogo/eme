@@ -9,8 +9,8 @@ use super::{
     RunStatus, StopReason,
 };
 use crate::{
-    Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest,
-    ModelRouter, PolicyEngine, RuntimeError, ToolContext, ToolDispatcher, ToolError,
+    Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelError,
+    ModelRequest, ModelRouter, PolicyEngine, RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -244,11 +244,24 @@ impl AgentRuntime {
                 Some(deadline) => {
                     match tokio::time::timeout_at(
                         deadline,
-                        self.model_router.complete(&agent.capabilities, request),
+                        self.model_router.complete(
+                            &agent.capabilities,
+                            request,
+                            cancellation.clone(),
+                        ),
                     )
                     .await
                     {
                         Ok(Ok(routed)) => routed.turn,
+                        Ok(Err(ModelError::Cancelled)) => {
+                            return Ok(self.stopped_result(
+                                run_id,
+                                iteration - 1,
+                                StopReason::Cancelled,
+                                messages,
+                                &mut events,
+                            ));
+                        }
                         Ok(Err(error)) => {
                             let error = RuntimeError::Model(error);
 
@@ -285,10 +298,19 @@ impl AgentRuntime {
                 }
                 None => match self
                     .model_router
-                    .complete(&agent.capabilities, request)
+                    .complete(&agent.capabilities, request, cancellation.clone())
                     .await
                 {
                     Ok(routed) => routed.turn,
+                    Err(ModelError::Cancelled) => {
+                        return Ok(self.stopped_result(
+                            run_id,
+                            iteration - 1,
+                            StopReason::Cancelled,
+                            messages,
+                            &mut events,
+                        ));
+                    }
                     Err(error) => {
                         let error = RuntimeError::Model(error);
 
