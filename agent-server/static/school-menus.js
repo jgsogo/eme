@@ -140,7 +140,9 @@ function edit(entry, date) {
     '<p id="menu-status-message" class="hint" aria-live="polite"></p>' +
     '</form></section>';
 
-  $("menu-status").value = entry?.status || "unknown";
+  // A newly added menu is expected to contain published dishes. Existing records
+  // keep their current status when opened for editing.
+  $("menu-status").value = entry?.status || "known";
   $("menu-items").value = (entry?.items || []).map(item => [
     item.name,
     item.notes || "",
