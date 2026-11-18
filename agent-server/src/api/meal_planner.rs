@@ -230,7 +230,7 @@ async fn update_recipe(
         return HttpResponse::BadRequest().body("recipes can only be shared with the selected family");
     }
 
-    match store.update_recipe(id.into_inner(), &user.to_string(), body.into_inner()) {
+    match store.update_recipe_for_family(id.into_inner(), &user.to_string(), &family_id, body.into_inner()) {
         Ok(recipe) => HttpResponse::Ok().json(recipe),
         Err(error) => error_response(error),
     }
