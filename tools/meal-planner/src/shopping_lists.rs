@@ -248,10 +248,17 @@ impl ShoppingListItemUpdate {
         if self.name.trim().is_empty() {
             return Err("shopping-list item name must not be empty".into());
         }
-        if self.quantity.is_some_and(|value| !value.is_finite() || value <= 0.0) {
+        if self
+            .quantity
+            .is_some_and(|value| !value.is_finite() || value <= 0.0)
+        {
             return Err("shopping-list quantity must be a positive finite number".into());
         }
-        if self.unit.as_ref().is_some_and(|unit| unit.trim().is_empty()) {
+        if self
+            .unit
+            .as_ref()
+            .is_some_and(|unit| unit.trim().is_empty())
+        {
             return Err("shopping-list unit must not be empty".into());
         }
         Ok(Self {
