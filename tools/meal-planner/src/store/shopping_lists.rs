@@ -26,14 +26,25 @@ impl MealPlannerStore {
         }
         let generated = generate_items(&plan, |id| recipes.get(&id).cloned())
             .map_err(MealPlannerError::InvalidInput)?;
-        let existing = load_shopping_list(&connection, plan_id)?;
+        let current = load_shopping_list(&connection, plan_id)?;
+        let same_plan = current.is_some();
+        let existing = match current {
+            Some(list) => Some(list),
+            None => load_latest_shopping_list_for_week(&connection, plan.week_start)?,
+        };
         let now = timestamp();
-        let list = ShoppingList::reconcile(existing, plan.id, plan.revision, generated, now);
+        let mut list = ShoppingList::reconcile(existing, plan.id, plan.revision, generated, now);
+        if !same_plan {
+            // A new plan revision gets its own snapshot, seeded from the
+            // previous revision's edits and purchase state.
+            list.id = 0;
+            list.created_at = now;
+        }
         let payload = serde_json::to_string(&list.items)?;
         if list.id == 0 {
             connection.execute(
-                "INSERT INTO shopping_lists(plan_id, plan_revision, items, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
-                params![plan.id, plan.revision, payload, now],
+                "INSERT INTO shopping_lists(plan_id, week_start, plan_revision, items, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+                params![plan.id, plan.week_start.to_string(), plan.revision, payload, now],
             )?;
         } else {
             connection.execute(
@@ -121,21 +132,51 @@ fn load_shopping_list(
     connection: &rusqlite::Connection,
     plan_id: i64,
 ) -> Result<Option<ShoppingList>, MealPlannerError> {
-    Ok(connection.query_row(
-        "SELECT id, plan_revision, items, created_at, updated_at FROM shopping_lists WHERE plan_id = ?1",
+    let id = connection.query_row(
+        "SELECT id FROM shopping_lists WHERE plan_id = ?1",
         [plan_id],
+        |row| row.get::<_, i64>(0),
+    ).optional()?;
+    match id {
+        Some(id) => load_shopping_list_by_id(connection, id),
+        None => Ok(None),
+    }
+}
+
+fn load_latest_shopping_list_for_week(
+    connection: &rusqlite::Connection,
+    week_start: chrono::NaiveDate,
+) -> Result<Option<ShoppingList>, MealPlannerError> {
+    let id = connection.query_row(
+        "SELECT id FROM shopping_lists WHERE week_start = ?1 ORDER BY plan_revision DESC, id DESC LIMIT 1",
+        [week_start.to_string()],
+        |row| row.get::<_, i64>(0),
+    ).optional()?;
+    match id {
+        Some(id) => load_shopping_list_by_id(connection, id),
+        None => Ok(None),
+    }
+}
+
+fn load_shopping_list_by_id(
+    connection: &rusqlite::Connection,
+    id: i64,
+) -> Result<Option<ShoppingList>, MealPlannerError> {
+    Ok(connection.query_row(
+        "SELECT id, plan_id, plan_revision, items, created_at, updated_at FROM shopping_lists WHERE id = ?1",
+        [id],
         |row| {
-            let payload: String = row.get(2)?;
+            let payload: String = row.get(3)?;
             let items = serde_json::from_str(&payload).map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(error))
+                rusqlite::Error::FromSqlConversionFailure(3, rusqlite::types::Type::Text, Box::new(error))
             })?;
             Ok(ShoppingList {
                 id: row.get(0)?,
-                plan_id,
-                plan_revision: row.get(1)?,
+                plan_id: row.get(1)?,
+                plan_revision: row.get(2)?,
                 items,
-                created_at: row.get(3)?,
-                updated_at: row.get(4)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
             })
         },
     ).optional()?)
