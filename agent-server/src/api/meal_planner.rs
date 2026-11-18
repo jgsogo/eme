@@ -158,18 +158,18 @@ async fn create_recipe(
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
     store: Data<MealPlannerStore>,
+    query: Query<SearchQuery>,
     body: Json<RecipeDraft>,
 ) -> impl Responder {
     let user = match authenticated_user(&request, &auth, &identities) {
         Ok(user) => user,
         Err(response) => return response,
     };
-    let ids = match family_ids(user, &families).await {
-        Ok(ids) => ids,
-        Err(response) => return response,
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await {
+        Ok(id) => id, Err(response) => return response,
     };
-    if let Err(response) = validate_family(body.family_id.as_deref(), &ids) {
-        return response;
+    if body.family_id.as_deref().is_some_and(|shared| shared != family_id) {
+        return HttpResponse::BadRequest().body("recipes can only be shared with the selected family");
     }
 
     match store.create_recipe(&user.to_string(), body.into_inner()) {
@@ -216,18 +216,18 @@ async fn update_recipe(
     families: Data<Arc<FamilyService>>,
     store: Data<MealPlannerStore>,
     id: Path<i64>,
+    query: Query<SearchQuery>,
     body: Json<RecipeDraft>,
 ) -> impl Responder {
     let user = match authenticated_user(&request, &auth, &identities) {
         Ok(user) => user,
         Err(response) => return response,
     };
-    let ids = match family_ids(user, &families).await {
-        Ok(ids) => ids,
-        Err(response) => return response,
+    let family_id = match selected_family(&request, &auth, &identities, &families, query.family_id.as_deref()).await {
+        Ok(id) => id, Err(response) => return response,
     };
-    if let Err(response) = validate_family(body.family_id.as_deref(), &ids) {
-        return response;
+    if body.family_id.as_deref().is_some_and(|shared| shared != family_id) {
+        return HttpResponse::BadRequest().body("recipes can only be shared with the selected family");
     }
 
     match store.update_recipe(id.into_inner(), &user.to_string(), body.into_inner()) {
