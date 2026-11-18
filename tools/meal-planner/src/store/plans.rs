@@ -481,4 +481,18 @@ mod tests {
         assert_eq!(first.id, updated.id);
         assert_eq!(store.list_weekly_plan_revisions(monday()).unwrap().len(), 1);
     }
+
+    #[test]
+    fn weekly_plans_and_revisions_are_isolated_by_family() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let week = monday();
+        let first = store.create_weekly_plan_for_family("family-a", week, WeeklyPlanDraft { assignments: vec![] }).unwrap();
+        let second = store.create_weekly_plan_for_family("family-b", week, WeeklyPlanDraft { assignments: vec![] }).unwrap();
+        assert_eq!(first.revision, 1);
+        assert_eq!(second.revision, 1);
+        assert_eq!(store.list_weekly_plan_revisions_for_family("family-a", week).unwrap().len(), 1);
+        assert_eq!(store.list_weekly_plan_revisions_for_family("family-b", week).unwrap().len(), 1);
+        assert!(!store.plan_belongs_to_family(first.id, "family-b").unwrap());
+    }
+
 }
