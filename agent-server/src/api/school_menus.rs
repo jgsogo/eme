@@ -10,11 +10,6 @@ use std::sync::Arc;
 use meal_planner::{MealPlannerError, MealPlannerStore, SchoolMenuDraft};
 use serde::Deserialize;
 #[derive(Deserialize)]
-struct RangeQuery {
-    from: NaiveDate,
-    to: NaiveDate,
-}
-#[derive(Deserialize)]
 struct ImportRequest {
     source: String,
     entries: Vec<SchoolMenuDraft>,
