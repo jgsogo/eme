@@ -111,19 +111,28 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        if c.execute("DELETE FROM school_menus WHERE family_id='legacy' AND date=?1", [date.to_string()])? == 0 {
+        if c.execute(
+            "DELETE FROM school_menus WHERE family_id='legacy' AND date=?1",
+            [date.to_string()],
+        )? == 0
+        {
             return Err(MealPlannerError::NotFound);
         }
         Ok(())
     }
 
     pub fn save_school_menu_for_family(
-        &self, family_id: &str, draft: SchoolMenuDraft,
+        &self,
+        family_id: &str,
+        draft: SchoolMenuDraft,
     ) -> Result<SchoolMenuEntry, MealPlannerError> {
         let draft = draft.validate().map_err(MealPlannerError::InvalidInput)?;
         let payload = serde_json::to_string(&draft)?;
         let now = timestamp();
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         connection.execute(
             "INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at)
              VALUES(?1,?2,?3,?4,NULL,NULL,'manual',?5,?5)
@@ -135,56 +144,110 @@ impl MealPlannerStore {
     }
 
     pub fn get_school_menu_for_family(
-        &self, family_id: &str, date: NaiveDate,
+        &self,
+        family_id: &str,
+        date: NaiveDate,
     ) -> Result<Option<SchoolMenuEntry>, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         load_for_family(&connection, family_id, date)
     }
 
     pub fn list_school_menus_for_family(
-        &self, family_id: &str, from: NaiveDate, to: NaiveDate,
+        &self,
+        family_id: &str,
+        from: NaiveDate,
+        to: NaiveDate,
     ) -> Result<Vec<SchoolMenuEntry>, MealPlannerError> {
-        if to < from { return Err(MealPlannerError::InvalidInput("school menu range ends before it starts".into())); }
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        if to < from {
+            return Err(MealPlannerError::InvalidInput(
+                "school menu range ends before it starts".into(),
+            ));
+        }
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         let mut statement = connection.prepare(
             "SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at
-             FROM school_menus WHERE family_id=?1 AND date>=?2 AND date<=?3 ORDER BY date"
+             FROM school_menus WHERE family_id=?1 AND date>=?2 AND date<=?3 ORDER BY date",
         )?;
-        statement.query_map(params![family_id, from.to_string(), to.to_string()], map_entry)?
-            .collect::<Result<Vec<_>, _>>().map_err(Into::into)
+        statement
+            .query_map(
+                params![family_id, from.to_string(), to.to_string()],
+                map_entry,
+            )?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
     }
 
     pub fn delete_school_menu_for_family(
-        &self, family_id: &str, date: NaiveDate,
+        &self,
+        family_id: &str,
+        date: NaiveDate,
     ) -> Result<(), MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
-        if connection.execute("DELETE FROM school_menus WHERE family_id=?1 AND date=?2",
-            params![family_id, date.to_string()])? == 0 { return Err(MealPlannerError::NotFound); }
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        if connection.execute(
+            "DELETE FROM school_menus WHERE family_id=?1 AND date=?2",
+            params![family_id, date.to_string()],
+        )? == 0
+        {
+            return Err(MealPlannerError::NotFound);
+        }
         Ok(())
     }
 
     pub fn import_school_menus_for_family(
-        &self, family_id: &str, source: &str, drafts: Vec<SchoolMenuDraft>,
+        &self,
+        family_id: &str,
+        source: &str,
+        drafts: Vec<SchoolMenuDraft>,
     ) -> Result<SchoolMenuImportReport, MealPlannerError> {
         let source = source.trim();
-        if source.is_empty() { return Err(MealPlannerError::InvalidInput("import source must not be empty".into())); }
+        if source.is_empty() {
+            return Err(MealPlannerError::InvalidInput(
+                "import source must not be empty".into(),
+            ));
+        }
         let mut valid = Vec::new();
         let mut dates = std::collections::HashSet::new();
         for draft in drafts {
             let draft = draft.validate().map_err(MealPlannerError::InvalidInput)?;
-            if !dates.insert(draft.date) { return Err(MealPlannerError::InvalidInput("an import batch contains duplicate dates".into())); }
+            if !dates.insert(draft.date) {
+                return Err(MealPlannerError::InvalidInput(
+                    "an import batch contains duplicate dates".into(),
+                ));
+            }
             valid.push(draft);
         }
         let now = timestamp();
-        let mut connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         let transaction = connection.transaction()?;
-        let mut report = SchoolMenuImportReport { inserted: 0, updated: 0, skipped_manual: 0 };
+        let mut report = SchoolMenuImportReport {
+            inserted: 0,
+            updated: 0,
+            skipped_manual: 0,
+        };
         for draft in valid {
-            let old: Option<String> = transaction.query_row(
-                "SELECT origin FROM school_menus WHERE family_id=?1 AND date=?2",
-                params![family_id, draft.date.to_string()], |row| row.get(0)
-            ).optional()?;
-            if old.as_deref() == Some("manual") { report.skipped_manual += 1; continue; }
+            let old: Option<String> = transaction
+                .query_row(
+                    "SELECT origin FROM school_menus WHERE family_id=?1 AND date=?2",
+                    params![family_id, draft.date.to_string()],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if old.as_deref() == Some("manual") {
+                report.skipped_manual += 1;
+                continue;
+            }
             let payload = serde_json::to_string(&draft)?;
             transaction.execute(
                 "INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at)
@@ -193,20 +256,29 @@ impl MealPlannerStore {
                  source=excluded.source,imported_at=excluded.imported_at,origin='import',updated_at=excluded.updated_at",
                 params![family_id, draft.date.to_string(), draft.status.as_str(), payload, source, now],
             )?;
-            if old.is_some() { report.updated += 1 } else { report.inserted += 1 }
+            if old.is_some() {
+                report.updated += 1
+            } else {
+                report.inserted += 1
+            }
         }
         transaction.commit()?;
         Ok(report)
     }
 }
 fn load_for_family(
-    connection: &rusqlite::Connection, family_id: &str, date: NaiveDate,
+    connection: &rusqlite::Connection,
+    family_id: &str,
+    date: NaiveDate,
 ) -> Result<Option<SchoolMenuEntry>, MealPlannerError> {
-    Ok(connection.query_row(
-        "SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at
+    Ok(connection
+        .query_row(
+            "SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at
          FROM school_menus WHERE family_id=?1 AND date=?2",
-        params![family_id, date.to_string()], map_entry
-    ).optional()?)
+            params![family_id, date.to_string()],
+            map_entry,
+        )
+        .optional()?)
 }
 fn load(
     c: &rusqlite::Connection,
