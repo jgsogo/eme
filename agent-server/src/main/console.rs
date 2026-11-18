@@ -45,9 +45,9 @@ pub(super) async fn conversations_page() -> impl Responder {
 
 #[get("/console/families")]
 pub(super) async fn families_page() -> impl Responder {
-    HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(include_str!("../../static/families.html"))
+    HttpResponse::Found()
+        .append_header((header::LOCATION, "/console/profile#families"))
+        .finish()
 }
 
 #[get("/console/notes")]
@@ -139,9 +139,9 @@ pub(super) async fn mobile_conversations_page() -> impl Responder {
 
 #[get("/mobile/families")]
 pub(super) async fn mobile_families_page() -> impl Responder {
-    HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(include_str!("../../static/mobile_families.html"))
+    HttpResponse::Found()
+        .append_header((header::LOCATION, "/mobile/profile#families"))
+        .finish()
 }
 
 #[get("/mobile/notes")]
