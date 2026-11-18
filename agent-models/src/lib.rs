@@ -19,7 +19,7 @@ mod registry;
 mod types;
 
 pub use client::ConversationClient;
-pub use error::ModelError;
+pub use error::{ModelError, ModelFailureCategory};
 pub use models::{ModelCapability, ModelConfig};
 pub use registry::Registry;
 pub use types::{

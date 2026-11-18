@@ -25,6 +25,13 @@ fn telegram_identity_resolves_to_the_same_user_after_reopening_store() {
     assert_eq!(first_user.id, second_user.id);
     assert_eq!(first_identity, second_identity);
     assert_eq!(second_user.display_name.as_deref(), Some("Javier"));
+    assert_eq!(
+        reopened
+            .find_identity_for_user("telegram", second_user.id)
+            .unwrap()
+            .unwrap(),
+        second_identity
+    );
     fs::remove_file(path).unwrap();
 }
 
@@ -110,6 +117,41 @@ fn display_name_update_rejects_empty_or_too_long_names() {
         store.update_display_name(UserId::new(), "Javier"),
         Err(IdentityStoreError::UserNotFound(_))
     ));
+}
+
+#[test]
+fn external_identity_can_be_resolved_from_its_eme_user() {
+    let store = InMemoryUserIdentityStore::default();
+    let (user, telegram_identity) = store
+        .resolve_or_create("telegram", "123456789", Some("Javier"))
+        .unwrap();
+
+    let resolved = store
+        .find_identity_for_user("telegram", user.id)
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(resolved, telegram_identity);
+    assert_eq!(resolved.subject, "123456789");
+    assert!(
+        store
+            .find_identity_for_user("google", user.id)
+            .unwrap()
+            .is_none()
+    );
+}
+
+#[test]
+fn managed_user_has_no_telegram_identity() {
+    let store = InMemoryUserIdentityStore::default();
+    let user = store.create_user("Alex", None).unwrap();
+
+    assert!(
+        store
+            .find_identity_for_user("telegram", user.id)
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

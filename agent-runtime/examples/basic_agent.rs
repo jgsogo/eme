@@ -27,7 +27,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get("assistant")
         .ok_or("Agent 'assistant' not found")?;
 
-    let model = model_registry.resolve_model(&agent_definition.model)?;
+    let model_name = model_registry
+        .first_compatible_model(&agent_definition.capabilities)
+        .ok_or("No configured model satisfies the assistant's capabilities")?;
+    let model = model_registry.resolve_model(&model_name)?;
     let model = Arc::new(ModelAdapter::new(model));
 
     let agent = Agent::from(agent_definition);

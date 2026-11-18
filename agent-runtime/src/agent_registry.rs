@@ -1,4 +1,4 @@
-//! Loads agent definitions and validates their model and executable-tool references.
+//! Loads agent definitions and validates their capability and executable-tool references.
 
 use std::{collections::BTreeMap, path::Path};
 
@@ -30,6 +30,31 @@ impl AgentRegistry {
                     Some(path),
                     "agent name cannot be empty",
                 ));
+            }
+
+            if definition.capabilities.is_empty() {
+                return Err(ConfigError::invalid(
+                    "agent",
+                    Some(path),
+                    format!(
+                        "agent '{}' must declare at least one model capability",
+                        definition.name
+                    ),
+                ));
+            }
+
+            let mut seen_capabilities = std::collections::HashSet::new();
+            for capability in &definition.capabilities {
+                if !seen_capabilities.insert(*capability) {
+                    return Err(ConfigError::invalid(
+                        "agent",
+                        Some(path),
+                        format!(
+                            "agent '{}' declares capability '{capability:?}' more than once",
+                            definition.name
+                        ),
+                    ));
+                }
             }
 
             if registry.agents.contains_key(&definition.name) {
@@ -66,10 +91,10 @@ impl AgentRegistry {
         let mut issues = Vec::new();
 
         for agent in self.agents.values() {
-            if !models.contains_model(&agent.model) {
+            if !models.contains_compatible_model(&agent.capabilities) {
                 issues.push(format!(
-                    "Agent '{}' references unknown model '{}'; use a configured provider/model from data/providers/*.toml",
-                    agent.name, agent.model
+                    "Agent '{}' requires capabilities {:?}, but no configured model satisfies all of them",
+                    agent.name, agent.capabilities
                 ));
             }
 
@@ -159,7 +184,10 @@ mod tests {
         }
     }
 
-    fn fixture(model: &str, tool_names: &[&str]) -> (TestDirectory, ModelRegistry, AgentRegistry) {
+    fn fixture(
+        capabilities: &[&str],
+        tool_names: &[&str],
+    ) -> (TestDirectory, ModelRegistry, AgentRegistry) {
         let directory = TestDirectory::new();
         fs::write(
             directory.path().join("providers/test.toml"),
@@ -175,6 +203,10 @@ capabilities = ["chat"]
         )
         .unwrap();
 
+        let capabilities = capabilities
+            .iter()
+            .map(|capability| format!("    \"{capability}\",\n"))
+            .collect::<String>();
         let tools = tool_names
             .iter()
             .map(|name| format!("    \"{name}\",\n"))
@@ -185,7 +217,8 @@ capabilities = ["chat"]
                 r#"
 name = "test-agent"
 description = "Test agent"
-model = "{model}"
+capabilities = [
+{capabilities}]
 instructions = "Test instructions"
 tools = [
 {tools}]
@@ -216,7 +249,7 @@ tools = [
 
     #[test]
     fn validates_existing_model_and_registered_tool() {
-        let (directory, models, agents) = fixture("test/test-model", &["test_tool"]);
+        let (directory, models, agents) = fixture(&["chat"], &["test_tool"]);
         let tools = registered_tool();
 
         assert!(agents.validate_references(&models, &tools).is_ok());
@@ -227,18 +260,19 @@ tools = [
 
     #[test]
     fn reports_all_missing_references_together() {
-        let (_directory, models, agents) = fixture("missing/model", &["missing_tool"]);
+        let (_directory, models, agents) = fixture(&["reasoning"], &["missing_tool"]);
         let tools = ToolRegistry::new();
         let error = agents.validate_references(&models, &tools).unwrap_err();
 
         let message = error.to_string();
-        assert!(message.contains("unknown model 'missing/model'"));
+        assert!(message.contains("requires capabilities [Reasoning]"));
+        assert!(message.contains("no configured model satisfies all of them"));
         assert!(message.contains("tool 'missing_tool'"));
     }
 
     #[test]
     fn reports_duplicate_tool_references() {
-        let (_directory, models, agents) = fixture("test/test-model", &["test_tool", "test_tool"]);
+        let (_directory, models, agents) = fixture(&["chat"], &["test_tool", "test_tool"]);
         let tools = registered_tool();
         let error = agents.validate_references(&models, &tools).unwrap_err();
 
@@ -273,7 +307,7 @@ tools = [
             r#"
 name = ""
 description = "Invalid agent"
-model = "test/model"
+capabilities = ["chat"]
 instructions = "Test"
 "#,
         )
@@ -284,10 +318,45 @@ instructions = "Test"
         ));
         fs::remove_file(agents_dir.join("invalid.toml")).unwrap();
 
+        // Empty and duplicate capability declarations are invalid.
+        let empty_capabilities = agents_dir.join("empty-capabilities.toml");
+        fs::write(
+            &empty_capabilities,
+            r#"
+name = "empty-capabilities"
+description = "Invalid agent"
+capabilities = []
+instructions = "Test"
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            AgentRegistry::load(&agents_dir),
+            Err(agent_config::ConfigError::Invalid { .. })
+        ));
+        fs::remove_file(empty_capabilities).unwrap();
+
+        let duplicate_capabilities = agents_dir.join("duplicate-capabilities.toml");
+        fs::write(
+            &duplicate_capabilities,
+            r#"
+name = "duplicate-capabilities"
+description = "Invalid agent"
+capabilities = ["chat", "chat"]
+instructions = "Test"
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            AgentRegistry::load(&agents_dir),
+            Err(agent_config::ConfigError::Invalid { .. })
+        ));
+        fs::remove_file(duplicate_capabilities).unwrap();
+
         let definition = r#"
 name = "duplicate"
 description = "Test agent"
-model = "test/model"
+capabilities = ["chat"]
 instructions = "Test"
 "#;
         fs::write(agents_dir.join("a.toml"), definition).unwrap();

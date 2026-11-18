@@ -9,8 +9,8 @@ use super::{
     RunStatus, StopReason,
 };
 use crate::{
-    Agent, AgentModel, Authorization, ErrorCategory, Message, ModelRequest, PolicyEngine,
-    RuntimeError, ToolContext, ToolDispatcher, ToolError,
+    Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelError,
+    ModelRequest, ModelRouter, PolicyEngine, RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
@@ -37,7 +37,7 @@ fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
 }
 
 pub struct AgentRuntime {
-    model: Arc<dyn AgentModel>,
+    model_router: Arc<dyn ModelRouter>,
     tools: Arc<dyn ToolDispatcher>,
     policy: Arc<dyn PolicyEngine>,
     event_sink: Arc<dyn EventSink>,
@@ -47,13 +47,23 @@ pub struct AgentRuntime {
 }
 
 impl AgentRuntime {
+    /// Creates a runtime using a fixed model (useful for tests and embedding).
     pub fn new(
         model: Arc<dyn AgentModel>,
         tools: Arc<dyn ToolDispatcher>,
         policy: Arc<dyn PolicyEngine>,
     ) -> Self {
+        Self::new_with_router(Arc::new(FixedModelRouter::new(model)), tools, policy)
+    }
+
+    /// Creates a runtime whose model is selected independently for each turn.
+    pub fn new_with_router(
+        model_router: Arc<dyn ModelRouter>,
+        tools: Arc<dyn ToolDispatcher>,
+        policy: Arc<dyn PolicyEngine>,
+    ) -> Self {
         Self {
-            model,
+            model_router,
             tools,
             policy,
             event_sink: Arc::new(NoopEventSink),
@@ -161,19 +171,25 @@ impl AgentRuntime {
             content: input.into(),
         });
 
-        // Family data is trusted host context, not model-authored conversation
-        // content. Add it to the system instructions for every model turn.
+        // Time is trusted host context, not model-authored conversation content.
+        // Compute it for every run so every model turn receives the current date.
+        let now = chrono::Utc::now();
+        let date_context = format!(
+            "Current date and time: {} (UTC). Current date: {} (UTC). Treat this as the authoritative current date and time; do not guess or infer it from conversation history.",
+            now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            now.date_naive(),
+        );
+        let base_prompt = agent.system_prompt.as_deref().unwrap_or_default();
         let system_prompt = match context.family.as_ref() {
             Some(family) => {
                 let family_json =
                     serde_json::to_string_pretty(family).expect("family context is serializable");
                 Some(format!(
-                    "{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
-                    agent.system_prompt.as_deref().unwrap_or_default(),
-                    family_json,
+                    "{}\n\n{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
+                    base_prompt, date_context, family_json,
                 ))
             }
-            None => agent.system_prompt.clone(),
+            None => Some(format!("{}\n\n{}", base_prompt, date_context)),
         };
 
         let tools = match agent
@@ -226,8 +242,26 @@ impl AgentRuntime {
 
             let turn = match deadline {
                 Some(deadline) => {
-                    match tokio::time::timeout_at(deadline, self.model.complete(request)).await {
-                        Ok(Ok(turn)) => turn,
+                    match tokio::time::timeout_at(
+                        deadline,
+                        self.model_router.complete(
+                            &agent.capabilities,
+                            request,
+                            cancellation.clone(),
+                        ),
+                    )
+                    .await
+                    {
+                        Ok(Ok(routed)) => routed.turn,
+                        Ok(Err(ModelError::Cancelled)) => {
+                            return Ok(self.stopped_result(
+                                run_id,
+                                iteration - 1,
+                                StopReason::Cancelled,
+                                messages,
+                                &mut events,
+                            ));
+                        }
                         Ok(Err(error)) => {
                             let error = RuntimeError::Model(error);
 
@@ -262,8 +296,21 @@ impl AgentRuntime {
                         }
                     }
                 }
-                None => match self.model.complete(request).await {
-                    Ok(turn) => turn,
+                None => match self
+                    .model_router
+                    .complete(&agent.capabilities, request, cancellation.clone())
+                    .await
+                {
+                    Ok(routed) => routed.turn,
+                    Err(ModelError::Cancelled) => {
+                        return Ok(self.stopped_result(
+                            run_id,
+                            iteration - 1,
+                            StopReason::Cancelled,
+                            messages,
+                            &mut events,
+                        ));
+                    }
                     Err(error) => {
                         let error = RuntimeError::Model(error);
 
@@ -472,6 +519,7 @@ mod external_run_id_tests {
         );
         let agent = Agent {
             id: "test-agent".into(),
+            capabilities: Vec::new(),
             system_prompt: None,
             tool_names: Vec::new(),
             max_iterations: 2,
@@ -515,6 +563,7 @@ mod external_run_id_tests {
         );
         let agent = Agent {
             id: "test-agent".into(),
+            capabilities: Vec::new(),
             system_prompt: None,
             tool_names: Vec::new(),
             max_iterations: 2,
@@ -575,6 +624,7 @@ mod family_context_tests {
         );
         let agent = Agent {
             id: "assistant".into(),
+            capabilities: Vec::new(),
             system_prompt: Some("You are a helpful assistant.".into()),
             tool_names: Vec::new(),
             max_iterations: 1,
@@ -590,6 +640,7 @@ mod family_context_tests {
                         user_id: "user-1".into(),
                         name: Some("Javier".into()),
                         birthday: None,
+                        telegram_id: None,
                         role: "owner".into(),
                         relationship: "father".into(),
                     },
@@ -597,6 +648,7 @@ mod family_context_tests {
                         user_id: "user-2".into(),
                         name: Some("Lucas".into()),
                         birthday: None,
+                        telegram_id: None,
                         role: "member".into(),
                         relationship: "son".into(),
                     },
@@ -625,6 +677,8 @@ mod family_context_tests {
         assert!(prompt.contains("father"));
         assert!(prompt.contains("son"));
         assert!(prompt.contains("Do not infer additional family members"));
+        assert!(prompt.contains("Current date and time:"));
+        assert!(prompt.contains(&chrono::Utc::now().date_naive().to_string()));
         assert!(!prompt.contains("user-1"));
     }
 }

@@ -1,6 +1,7 @@
 use crate::{
     client::ConversationClient,
     error::ModelError,
+    models::ModelCapability,
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use agent_config::{ConfigError, read_toml_dir};
@@ -50,6 +51,45 @@ impl Registry {
         self.providers
             .get(provider_name)
             .is_some_and(|provider| provider.models.iter().any(|model| model.name == model_name))
+    }
+
+    /// Returns whether one configured model provides every requested capability.
+    ///
+    /// Provider names are traversed in `BTreeMap` order and models in their TOML
+    /// declaration order, so the first compatible model is deterministic. This
+    /// metadata-only query does not read credentials or contact providers.
+    pub fn contains_compatible_model(&self, required: &[ModelCapability]) -> bool {
+        self.first_compatible_model(required).is_some()
+    }
+
+    /// Returns every configured model that provides all requested capabilities.
+    ///
+    /// Provider names are traversed in `BTreeMap` order and models in their TOML
+    /// declaration order. The result is therefore deterministic and provider-qualified.
+    /// This metadata-only query does not read credentials or contact providers.
+    pub fn compatible_models(&self, required: &[ModelCapability]) -> Vec<String> {
+        if required.is_empty() {
+            return Vec::new();
+        }
+
+        self.providers
+            .iter()
+            .flat_map(|(provider_name, provider)| {
+                provider.models.iter().filter_map(move |model| {
+                    required
+                        .iter()
+                        .all(|capability| model.capabilities.contains(capability))
+                        .then(|| format!("{provider_name}/{}", model.name))
+                })
+            })
+            .collect()
+    }
+
+    /// Finds the first configured model that provides every requested capability.
+    ///
+    /// This is a convenience wrapper around deterministic candidate enumeration.
+    pub fn first_compatible_model(&self, required: &[ModelCapability]) -> Option<String> {
+        self.compatible_models(required).into_iter().next()
     }
 
     pub fn resolve_model(
@@ -103,7 +143,7 @@ mod tests {
     };
 
     use super::Registry;
-    use crate::error::ModelError;
+    use crate::{error::ModelError, models::ModelCapability};
     use agent_config::ConfigError;
 
     struct TestDirectory(PathBuf);
@@ -161,6 +201,30 @@ capabilities = ["chat"]
         let registry = Registry::load(&valid).unwrap();
         assert!(registry.contains_model("test/test-model"));
         assert!(!registry.contains_model("test/missing-model"));
+        assert!(registry.contains_compatible_model(&[ModelCapability::Chat]));
+        assert_eq!(
+            registry.compatible_models(&[ModelCapability::Chat]),
+            vec!["test/test-model"]
+        );
+        assert_eq!(
+            registry
+                .first_compatible_model(&[ModelCapability::Chat])
+                .as_deref(),
+            Some("test/test-model")
+        );
+        assert!(!registry.contains_compatible_model(&[ModelCapability::Reasoning]));
+        assert_eq!(registry.first_compatible_model(&[]), None);
+
+        // Candidate ordering is stable across provider files and independent
+        // of the order in which those files are discovered.
+        let ordered = directory.case("ordered");
+        write_provider(&ordered, "z.toml", "zeta", "gemini");
+        write_provider(&ordered, "a.toml", "alpha", "gemini");
+        let ordered_registry = Registry::load(&ordered).unwrap();
+        assert_eq!(
+            ordered_registry.compatible_models(&[ModelCapability::Chat]),
+            vec!["alpha/test-model", "zeta/test-model"]
+        );
 
         // Duplicate provider identifiers are rejected across files.
         let duplicate = directory.case("duplicate");
