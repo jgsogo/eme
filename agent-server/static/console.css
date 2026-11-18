@@ -310,3 +310,9 @@ body:has(#shopping-list-panel) main{overflow:auto}
 .school-menu-weekends-toggle input{margin:0;accent-color:var(--accent)}
 #menu-month-view.weekdays-only .school-menu-calendar-weekdays,
 #menu-month-view.weekdays-only .school-menu-month{grid-template-columns:repeat(5,minmax(0,1fr))}
+
+
+/* Keep school-menu load and save messages below the calendar and editor. */
+.school-menu-status-log{margin-top:14px;padding:8px 0 0;border-top:1px solid var(--border)}
+.school-menu-status-log:empty{display:none}
+.school-menu-status-log p{margin:0 0 4px}
