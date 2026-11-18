@@ -95,12 +95,13 @@ impl MealPlannerApplication {
                 "week_start must be a Monday".into(),
             ));
         }
+        let family_id = families.first().map(String::as_str).unwrap_or("legacy");
         let week_end = week_start.checked_add_days(Days::new(6)).ok_or_else(|| {
             MealPlannerError::InvalidInput("week_start is outside the supported date range".into())
         })?;
         let participation = self
             .store
-            .resolve_meal_week(week_start)?
+            .resolve_meal_week_for_family(family_id, week_start)?
             .into_iter()
             .map(|entry| {
                 let (arrangement, source) = match entry.status {
@@ -129,11 +130,11 @@ impl MealPlannerApplication {
         Ok(PlanningContext {
             week_start,
             week_end,
-            members: self.store.list_family_members()?,
+            members: self.store.list_family_members_for_family(family_id)?,
             participation,
             recipes: self.store.list_recipes(owner_id, families, None)?,
-            school_menus: self.store.list_school_menus(week_start, week_end)?,
-            current_plan: self.store.get_weekly_plan(week_start)?,
+            school_menus: self.store.list_school_menus_for_family(family_id, week_start, week_end)?,
+            current_plan: self.store.get_weekly_plan_for_family(family_id, week_start)?,
         })
     }
 
@@ -160,10 +161,11 @@ impl MealPlannerApplication {
         week_start: NaiveDate,
         draft: &WeeklyPlanDraft,
     ) -> Result<PlanValidation, MealPlannerError> {
-        let members = self.store.list_family_members()?;
+        let family_id = families.first().map(String::as_str).unwrap_or("legacy");
+        let members = self.store.list_family_members_for_family(family_id)?;
         let recipes = self.store.list_recipes(owner_id, families, None)?;
         let menus = match week_start.checked_add_days(Days::new(6)) {
-            Some(end) => self.store.list_school_menus(week_start, end)?,
+            Some(end) => self.store.list_school_menus_for_family(family_id, week_start, end)?,
             None => Vec::new(),
         };
         let member_by_id = members
@@ -367,13 +369,14 @@ impl MealPlannerApplication {
                 "the proposal has validation errors; correct it before saving".into(),
             ));
         }
-        match self.store.get_weekly_plan(week_start)? {
-            None => self.store.create_weekly_plan(week_start, draft),
+        let family_id = families.first().map(String::as_str).unwrap_or("legacy");
+        match self.store.get_weekly_plan_for_family(family_id, week_start)? {
+            None => self.store.create_weekly_plan_for_family(family_id, week_start, draft),
             Some(plan) => match plan.status {
-                WeeklyPlanStatus::Draft => self.store.update_weekly_plan(week_start, draft),
+                WeeklyPlanStatus::Draft => self.store.update_weekly_plan_for_family(family_id, week_start, draft),
                 WeeklyPlanStatus::Confirmed => {
-                    self.store.revise_weekly_plan(week_start)?;
-                    self.store.update_weekly_plan(week_start, draft)
+                    self.store.revise_weekly_plan_for_family(family_id, week_start)?;
+                    self.store.update_weekly_plan_for_family(family_id, week_start, draft)
                 }
             },
         }
@@ -386,9 +389,10 @@ impl MealPlannerApplication {
         families: &[String],
         week_start: NaiveDate,
     ) -> Result<WeeklyPlan, MealPlannerError> {
+        let family_id = families.first().map(String::as_str).unwrap_or("legacy");
         let plan = self
             .store
-            .get_weekly_plan(week_start)?
+            .get_weekly_plan_for_family(family_id, week_start)?
             .ok_or(MealPlannerError::NotFound)?;
         if plan.status != WeeklyPlanStatus::Draft {
             return Err(MealPlannerError::Conflict(
@@ -403,7 +407,7 @@ impl MealPlannerApplication {
                 "the saved draft has validation errors; correct it before confirming".into(),
             ));
         }
-        self.store.confirm_weekly_plan(week_start)
+        self.store.confirm_weekly_plan_for_family(family_id, week_start)
     }
 }
 
