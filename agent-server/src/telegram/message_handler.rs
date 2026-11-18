@@ -351,6 +351,7 @@ pub(super) async fn handle_message(
             ToolContext {
                 user_id: Some(user.id.to_string()),
                 telegram_id: Some(telegram_user_id.to_string()),
+                timezone: user.timezone.clone(),
                 family,
                 conversation_id: Some(conversation.id.to_string()),
                 run_id: None,

@@ -86,6 +86,13 @@ impl UserIdentityStore for FileUserIdentityStore {
     ) -> Result<User, IdentityStoreError> {
         self.update(|state| state.update_display_name(user_id, display_name))
     }
+    fn update_timezone(
+        &self,
+        user_id: UserId,
+        timezone: Option<&str>,
+    ) -> Result<User, IdentityStoreError> {
+        self.update(|state| state.update_timezone(user_id, timezone))
+    }
     fn find_identity(
         &self,
         provider: &str,

@@ -18,4 +18,6 @@ pub enum IdentityStoreError {
     EmptyIdentity,
     #[error("display name must contain between 1 and 80 characters")]
     InvalidDisplayName,
+    #[error("timezone must be a valid IANA-style timezone identifier")]
+    InvalidTimezone,
 }

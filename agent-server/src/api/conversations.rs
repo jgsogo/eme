@@ -286,6 +286,11 @@ async fn continue_conversation(
         Ok(None) => return HttpResponse::Unauthorized().finish(),
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
+    let user = match identities.get_user(identity.user_id) {
+        Ok(Some(user)) => user,
+        Ok(None) => return HttpResponse::Unauthorized().finish(),
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
     let family = match conversation.selected_family_id {
         Some(family_id) => match families
             .context_for_member(identity.user_id, family_id)
@@ -329,6 +334,7 @@ async fn continue_conversation(
             conversation.messages,
             ToolContext {
                 user_id: Some(identity.user_id.to_string()),
+                timezone: user.timezone,
                 telegram_id: Some(identity.subject.clone()),
                 family,
                 conversation_id: Some(id.to_string()),
