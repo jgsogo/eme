@@ -18,7 +18,7 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        c.execute("INSERT INTO school_menus(date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES(?1,?2,?3,NULL,NULL,'manual',?4,?4) ON CONFLICT(date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=NULL,imported_at=NULL,origin='manual',updated_at=excluded.updated_at",params![draft.date.to_string(),draft.status.as_str(),payload,now])?;
+        c.execute("INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES('legacy',?1,?2,?3,NULL,NULL,'manual',?4,?4) ON CONFLICT(family_id,date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=NULL,imported_at=NULL,origin='manual',updated_at=excluded.updated_at",params![draft.date.to_string(),draft.status.as_str(),payload,now])?;
         load(&c, draft.date)?.ok_or(MealPlannerError::NotFound)
     }
     pub fn import_school_menus(
@@ -57,7 +57,7 @@ impl MealPlannerStore {
         for d in valid {
             let old: Option<String> = tx
                 .query_row(
-                    "SELECT origin FROM school_menus WHERE date=?1",
+                    "SELECT origin FROM school_menus WHERE family_id='legacy' AND date=?1",
                     [d.date.to_string()],
                     |r| r.get(0),
                 )
@@ -67,7 +67,7 @@ impl MealPlannerStore {
                 continue;
             }
             let payload = serde_json::to_string(&d)?;
-            tx.execute("INSERT INTO school_menus(date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,'import',?5,?5) ON CONFLICT(date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=excluded.source,imported_at=excluded.imported_at,origin='import',updated_at=excluded.updated_at",params![d.date.to_string(),d.status.as_str(),payload,source,now])?;
+            tx.execute("INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES('legacy',?1,?2,?3,?4,?5,'import',?5,?5) ON CONFLICT(family_id,date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=excluded.source,imported_at=excluded.imported_at,origin='import',updated_at=excluded.updated_at",params![d.date.to_string(),d.status.as_str(),payload,source,now])?;
             if old.is_some() {
                 report.updated += 1
             } else {
@@ -101,7 +101,7 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        let mut s=c.prepare("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE date>=?1 AND date<=?2 ORDER BY date")?;
+        let mut s=c.prepare("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE family_id='legacy' AND date>=?1 AND date<=?2 ORDER BY date")?;
         s.query_map(params![from.to_string(), to.to_string()], map_entry)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
@@ -111,7 +111,7 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        if c.execute("DELETE FROM school_menus WHERE date=?1", [date.to_string()])? == 0 {
+        if c.execute("DELETE FROM school_menus WHERE family_id='legacy' AND date=?1", [date.to_string()])? == 0 {
             return Err(MealPlannerError::NotFound);
         }
         Ok(())
@@ -212,7 +212,7 @@ fn load(
     c: &rusqlite::Connection,
     date: NaiveDate,
 ) -> Result<Option<SchoolMenuEntry>, MealPlannerError> {
-    Ok(c.query_row("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE date=?1",[date.to_string()],map_entry).optional()?)
+    Ok(c.query_row("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE family_id='legacy' AND date=?1",[date.to_string()],map_entry).optional()?)
 }
 fn map_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<SchoolMenuEntry> {
     let date = NaiveDate::parse_from_str(&r.get::<_, String>(1)?, "%Y-%m-%d").map_err(|e| {
