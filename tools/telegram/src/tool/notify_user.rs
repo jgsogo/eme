@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::{gateway_or_error, map_error};
 
-/// `tg_notify_user` — send a one-way notification to the configured chat.
+/// `tg_notify_user` — send a one-way notification to a trusted conversation recipient.
 pub struct TgNotifyUser {
     gateway: Option<Arc<TelegramGateway>>,
 }
@@ -20,7 +20,7 @@ impl TgNotifyUser {
 
 #[async_trait]
 impl Tool for TgNotifyUser {
-    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let message = arguments
             .get("message")
             .and_then(Value::as_str)
@@ -31,8 +31,11 @@ impl Tool for TgNotifyUser {
                 errors: vec!["Missing or invalid 'message' argument".into()],
             })?;
 
+        let recipient = arguments.get("recipient").and_then(Value::as_str);
+        let chat_id = super::resolve_chat_id(context, recipient)?;
+
         gateway_or_error(&self.gateway)?
-            .notify_configured_chat(message)
+            .notify_user(chat_id, message)
             .await
             .map_err(map_error)?;
 

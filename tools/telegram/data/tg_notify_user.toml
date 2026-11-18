@@ -1,10 +1,14 @@
 name = "tg_notify_user"
-description = "Send a one-way notification message to the configured Telegram user. Does not wait for a reply."
+description = "Send a one-way Telegram notification to the conversation owner or a selected family member. Does not wait for a reply."
 
 [parameters]
 type = "object"
 required = ["message"]
 additionalProperties = false
+
+[parameters.properties.recipient]
+type = "string"
+description = "Optional recipient_id from the trusted family context. Omit to notify the conversation owner."
 
 [parameters.properties.message]
 type = "string"

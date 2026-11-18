@@ -80,8 +80,7 @@ impl TelegramGateway {
         Ok(())
     }
 
-    pub async fn notify_configured_chat(&self, text: &str) -> Result<(), TelegramError> {
-        let chat_id = configured_chat_id()?;
+    pub async fn notify_user(&self, chat_id: i64, text: &str) -> Result<(), TelegramError> {
         self.send_message(chat_id, &format_notification(text)).await
     }
 
@@ -330,13 +329,6 @@ fn dispatch_callback(
         },
         _ => false,
     }
-}
-
-pub fn configured_chat_id() -> Result<i64, TelegramError> {
-    std::env::var("TELEGRAM_CHAT_ID")
-        .ok()
-        .and_then(|value| value.parse::<i64>().ok())
-        .ok_or(TelegramError::MissingChatId)
 }
 
 pub fn default_timeout() -> Duration {
