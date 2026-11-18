@@ -55,7 +55,7 @@ The authenticated API exposes:
 - `POST /meal-planner/plans/{week_start}/confirm` and `POST /meal-planner/plans/{week_start}/revise`
 - `GET /meal-planner/members` and `POST /meal-planner/members` for planner participant selection
 
-The responsive planner is available at `/console/meal-planner`. It supports week navigation, member creation, multiple assignments per slot, recipe selection for home-prepared meals, school-menu context, draft editing and explicit confirmation/revision.
+The responsive planner is available at `/console/meal-planner`. It supports week navigation, member creation, multiple assignments per slot, recipe selection for home-prepared meals, school-menu context, draft editing and explicit confirmation/revision. Its shopping-list panel generates or explicitly regenerates the selected plan's list, and supports manual additions, inline name/quantity/unit edits, purchase tracking and removal.
 
 
 ## Shopping lists
