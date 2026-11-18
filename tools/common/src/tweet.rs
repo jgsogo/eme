@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
-use reqwest::{Client, StatusCode};
+use reqwest::Client;
 use serde_json::Value;
 use url::Url;
 
@@ -220,7 +220,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/2/status/123"))
             .respond_with(
-                ResponseTemplate::new(StatusCode::NOT_FOUND.as_u16())
+                ResponseTemplate::new(reqwest::StatusCode::NOT_FOUND.as_u16())
                     .set_body_json(json!({ "message": "Post not found" })),
             )
             .mount(&server)
