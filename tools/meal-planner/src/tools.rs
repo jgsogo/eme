@@ -35,8 +35,19 @@ pub fn register_tools(
 }
 
 fn user_scope(context: &ToolContext) -> Result<(String, Vec<String>), ToolError> {
-    let owner_id = context.user_id.as_deref().filter(|id| !id.trim().is_empty()).ok_or_else(|| ToolError::Execution("Meal Planner tools require an authenticated user context".into()))?.to_owned();
-    let families = context.family.as_ref().map(|family| vec![family.family_id.clone()]).unwrap_or_default();
+    let owner_id = context
+        .user_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| {
+            ToolError::Execution("Meal Planner tools require an authenticated user context".into())
+        })?
+        .to_owned();
+    let families = context
+        .family
+        .as_ref()
+        .map(|family| vec![family.family_id.clone()])
+        .unwrap_or_default();
     Ok((owner_id, families))
 }
 
