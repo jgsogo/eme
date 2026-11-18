@@ -76,8 +76,13 @@ function renderMonthView() {
     const content = entry?.status === "known"
       ? renderMenuItems(entry.items || [])
       : renderMenuPlaceholder(entry);
+    const statusClass = entry?.status === "closed"
+      ? " status-closed"
+      : entry && entry.status !== "known"
+        ? " status-unknown"
+        : "";
     cells.push(
-      '<article class="school-menu-day' + (hasMenu ? ' has-entry' : '') + '">' +
+      '<article class="school-menu-day' + (hasMenu ? ' has-entry' : '') + statusClass + '">' +
       '<header><strong>' + day + '</strong><span>' + esc(formatDay(date, { weekday: "short" })) + '</span></header>' +
       '<div class="school-menu-day-content">' + content + '</div>' +
       '<button type="button" class="secondary" data-edit-date="' + date + '">' +
