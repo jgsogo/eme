@@ -87,7 +87,10 @@ impl MealPlannerStore {
         &self,
         week_start: NaiveDate,
     ) -> Result<Option<WeeklyPlan>, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         let id = connection
             .query_row(
                 "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
@@ -105,7 +108,10 @@ impl MealPlannerStore {
         &self,
         week_start: NaiveDate,
     ) -> Result<Vec<WeeklyPlan>, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         let mut statement = connection
             .prepare("SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC")?;
         let ids = statement
@@ -125,7 +131,10 @@ impl MealPlannerStore {
         let draft = draft
             .validate(week_start)
             .map_err(MealPlannerError::InvalidInput)?;
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         ensure_references(&connection, &draft)?;
         let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
         let status: String = connection.query_row(
@@ -150,7 +159,10 @@ impl MealPlannerStore {
         &self,
         week_start: NaiveDate,
     ) -> Result<WeeklyPlan, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
         let now = Utc::now().timestamp();
         let changed = connection.execute(
@@ -170,7 +182,10 @@ impl MealPlannerStore {
         &self,
         week_start: NaiveDate,
     ) -> Result<WeeklyPlan, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
         let source = load_plan(&connection, id)?.ok_or(MealPlannerError::NotFound)?;
         if source.status != WeeklyPlanStatus::Confirmed {
