@@ -78,6 +78,14 @@ async fn main() -> Result<()> {
         SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
             .context("opening family and invitation storage")?,
     );
+    let family_service = Arc::new(FamilyService::new(
+        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+        Arc::clone(&family_store) as Arc<dyn FamilyInvitationStore>,
+    ));
+    let google_oauth_state = agent_server::GoogleOAuthState::from_env(&args.data_dir)
+        .map_err(anyhow::Error::msg)
+        .context("configuring Google OAuth integration")?;
+    let google_runtime = google_oauth_state.calendar_runtime(Arc::clone(&family_service));
 
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(
@@ -85,6 +93,7 @@ async fn main() -> Result<()> {
             gateway_for_tools,
             task_registry.clone(),
             Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+            google_runtime,
         )
         .with_context(|| {
             format!(
@@ -118,18 +127,10 @@ async fn main() -> Result<()> {
         FileUserIdentityStore::open(args.data_dir.join("users.json"))
             .context("opening persistent user identity storage")?,
     );
-    let google_oauth_state = agent_server::GoogleOAuthState::from_env(&args.data_dir)
-        .map_err(anyhow::Error::msg)
-        .context("configuring Google OAuth integration")?;
     let conversation_store = Arc::new(
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
     );
-    let family_service = Arc::new(FamilyService::new(
-        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
-        Arc::clone(&family_store) as Arc<dyn FamilyInvitationStore>,
-    ));
-
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
         let updates = gateway.subscribe();
