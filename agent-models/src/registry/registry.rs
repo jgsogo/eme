@@ -132,7 +132,7 @@ mod tests {
     };
 
     use super::Registry;
-    use crate::error::ModelError;
+    use crate::{error::ModelError, models::ModelCapability};
     use agent_config::ConfigError;
 
     struct TestDirectory(PathBuf);
