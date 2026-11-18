@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { entries: [], selected: null, loadRequest: 0 };
+const state = { entries: [], selected: null, loadRequest: 0, familyId: "" };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -204,7 +204,7 @@ async function save(event) {
 
   button.disabled = true;
   try {
-    await api("/meal-planner/school-menus/" + date, {
+    await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), {
       method: "PUT",
       body: JSON.stringify({ date, status, items }),
     });
@@ -288,9 +288,12 @@ $("next-week").addEventListener("click", () => {
 
 $("week-date").addEventListener("change", () => loadWeek().catch(() => {}));
 
+window.addEventListener("eme:family-changed", () => { state.selected = null; loadWeek(); });
 (async () => {
   try {
     await window.emeConsoleReady;
+    await window.emeMealsFamily.init();
+    state.familyId = window.emeMealsFamily.currentFamilyId();
     $("week-date").value = dateString(monday(dateString(new Date())));
     await loadWeek();
   } catch (error) {
