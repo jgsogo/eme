@@ -161,7 +161,6 @@ async fn revise_weekly_plan(
     }
 }
 
-
 #[get("/plans/{plan_id}/shopping-list")]
 async fn get_shopping_list(store: Data<MealPlannerStore>, plan_id: Path<i64>) -> impl Responder {
     match store.get_shopping_list(plan_id.into_inner()) {
