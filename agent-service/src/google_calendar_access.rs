@@ -354,6 +354,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(owner_access.refresh_token, "owner-refresh-token");
+        let owner_permissions = service
+            .list_readable_calendars_with_permissions(&owner.to_string(), None)
+            .await
+            .unwrap();
+        assert_eq!(owner_permissions.len(), 1);
+        assert!(!owner_permissions[0].1); // EME calendar setting is read-only.
         let family_access = service
             .authorize_read(&member.to_string(), &calendar_id, Some(&family_id))
             .await
@@ -383,6 +389,11 @@ mod tests {
                 .await
                 .is_ok()
         );
+        let owner_permissions = service
+            .list_readable_calendars_with_permissions(&owner.to_string(), None)
+            .await
+            .unwrap();
+        assert!(owner_permissions[0].1); // EME and Google both grant writes.
         assert!(matches!(
             service
                 .authorize_write(&member.to_string(), &calendar_id, Some(&family_id))
@@ -410,6 +421,11 @@ mod tests {
             .unwrap();
         assert_eq!(visible_to_member.len(), 1);
         assert_eq!(visible_to_member[0].id, discovered.id);
+        let member_permissions = service
+            .list_readable_calendars_with_permissions(&member.to_string(), Some(&family_id))
+            .await
+            .unwrap();
+        assert!(member_permissions[0].1); // Contributor + owner setting + Google scope.
         assert!(
             service
                 .list_readable_calendars(&member.to_string(), None)
