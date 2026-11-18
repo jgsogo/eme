@@ -176,9 +176,7 @@ impl AgentRuntime {
                     serde_json::to_string_pretty(family).expect("family context is serializable");
                 Some(format!(
                     "{}\n\n{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
-                    base_prompt,
-                    date_context,
-                    family_json,
+                    base_prompt, date_context, family_json,
                 ))
             }
             None => Some(format!("{}\n\n{}", base_prompt, date_context)),
