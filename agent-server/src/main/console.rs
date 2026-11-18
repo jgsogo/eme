@@ -97,7 +97,6 @@ pub(super) async fn recipes_script() -> impl Responder {
         .body(include_str!("../../static/recipes.js"))
 }
 
-
 #[get("/console/meal-planner")]
 pub(super) async fn weekly_planner_page() -> impl Responder {
     HttpResponse::Ok()
