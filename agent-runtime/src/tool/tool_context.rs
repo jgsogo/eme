@@ -9,7 +9,7 @@ use super::FamilyContext;
 pub struct ToolContext {
     /// Persistent EME user identifier resolved from the authenticated platform identity.
     pub user_id: Option<String>,
-    /// Telegram account linked to the authenticated conversation owner, when available.
+    /// Host-resolved Telegram user ID linked to the authenticated conversation owner; never model-controlled.
     pub telegram_id: Option<String>,
     /// Family selected for the conversation and verified for this user.
     pub family: Option<FamilyContext>,
