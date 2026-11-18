@@ -31,7 +31,9 @@ use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
-    invitation_page, notes_page, profile_page, tasks_page,
+    invitation_page, mobile_conversations_page, mobile_families_page, mobile_notes_page,
+    mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet, mobile_tasks_page,
+    notes_page, profile_page, tasks_page,
 };
 
 #[actix_web::main]
@@ -179,6 +181,12 @@ async fn main() -> Result<()> {
             app = app.app_data(web::Data::new(config));
         }
         app.service(console_root)
+            .service(mobile_root)
+            .service(mobile_conversations_page)
+            .service(mobile_families_page)
+            .service(mobile_notes_page)
+            .service(mobile_profile_page)
+            .service(mobile_tasks_page)
             .service(conversations_page)
             .service(families_page)
             .service(notes_page)
@@ -186,6 +194,8 @@ async fn main() -> Result<()> {
             .service(tasks_page)
             .service(console_stylesheet)
             .service(console_script)
+            .service(mobile_stylesheet)
+            .service(mobile_script)
             .service(favicon)
             .service(invitation_page)
             .service(agent_server::auth::auth_api())

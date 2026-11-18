@@ -18,10 +18,13 @@ where
 {
     let path = request.path();
     if path == "/"
+        || path == "/mobile"
+        || path.starts_with("/mobile/")
         || path == "/console/conversations"
         || path == "/console/families"
         || path == "/console/notes"
         || path == "/console/profile"
+        || path == "/console/tasks"
         || path.starts_with("/assets/")
         || path == "/favicon.ico"
         || path.starts_with("/auth/")
