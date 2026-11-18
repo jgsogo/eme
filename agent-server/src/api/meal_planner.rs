@@ -68,7 +68,7 @@ async fn list_members(
     }
 }
 
-fn authenticated_user(
+pub(crate) fn authenticated_user(
     request: &HttpRequest,
     auth: &crate::auth::TelegramAuth,
     identities: &FileUserIdentityStore,
@@ -87,7 +87,7 @@ fn authenticated_user(
         .ok_or_else(|| HttpResponse::Unauthorized().finish())
 }
 
-async fn family_ids(user: UserId, families: &FamilyService) -> Result<Vec<String>, HttpResponse> {
+pub(crate) async fn family_ids(user: UserId, families: &FamilyService) -> Result<Vec<String>, HttpResponse> {
     families
         .list_families(user)
         .await
@@ -100,7 +100,7 @@ async fn family_ids(user: UserId, families: &FamilyService) -> Result<Vec<String
         .map_err(|_| HttpResponse::InternalServerError().finish())
 }
 
-fn validate_family(id: Option<&str>, available: &[String]) -> Result<(), HttpResponse> {
+pub(crate) fn validate_family(id: Option<&str>, available: &[String]) -> Result<(), HttpResponse> {
     if let Some(id) = id {
         FamilyId::from_str(id).map_err(|_| HttpResponse::BadRequest().body("invalid family id"))?;
         if !available.iter().any(|family| family == id) {
