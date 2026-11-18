@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { entries: [], selected: null, loadRequest: 0 };
+const state = { entries: [], selected: null, loadRequest: 0, showWeekends: true };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -26,24 +26,21 @@ function esc(value) {
 }
 
 function dateString(date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
 }
 
-function monday(value) {
-  const date = new Date(value + "T12:00:00");
-  date.setDate(date.getDate() - (date.getDay() + 6) % 7);
-  return date;
+function monthString(date) {
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0");
+}
+
+function monthStart(value) {
+  return new Date(value + "-01T12:00:00");
 }
 
 function statusLabel(status) {
   return ({
     known: "Menu published",
     not_published: "Unknown / not imported",
-
     closed: "School closed",
     unknown: "Unknown / not imported",
   })[status] || status;
@@ -53,55 +50,68 @@ function formatDay(date, options) {
   return new Date(date + "T12:00:00").toLocaleDateString("en-GB", options);
 }
 
+
+function appendMenuLog(message) {
+  const log = $("menu-status-log");
+  if (!log) return;
+  const item = document.createElement("p");
+  item.className = "hint";
+  item.setAttribute("role", "status");
+  item.textContent = message;
+  log.append(item);
+}
+
 function renderMenuPlaceholder(entry) {
-  const status = entry ? statusLabel(entry.status) : "No menu added yet";
-  return '<div class="school-menu-placeholder"><span>' + esc(status) + '</span></div>' +
-    '<dl class="school-menu-empty-structure">' +
-    '<div><dt>First course</dt><dd></dd></div>' +
-    '<div><dt>Second course</dt><dd></dd></div>' +
-    '<div><dt>Dessert</dt><dd></dd></div></dl>';
+  const status = entry ? statusLabel(entry.status) : "Unknown / not imported";
+  return '<p class="school-menu-placeholder">' + esc(status) + '</p>';
 }
 
 function renderMenuItems(items) {
-  if (!items.length) {
-    return '<p class="school-menu-placeholder">Menu published; no dishes recorded.</p>';
-  }
-  return '<ul class="school-menu-items">' + items.map(item =>
-    '<li><strong>' + esc(item.name) + '</strong>' +
-    (item.notes ? '<p>' + esc(item.notes) + '</p>' : '') +
-    (item.allergens?.length ? '<small>Allergens: ' + esc(item.allergens.join(", ")) + '</small>' : '') +
-    (item.dietary_alternatives?.length ? '<small>Alternatives: ' + esc(item.dietary_alternatives.join(", ")) + '</small>' : '') +
-    '</li>'
-  ).join("") + '</ul>';
+  const names = items.map(item => item.name).filter(Boolean);
+  if (!names.length) return '<p class="school-menu-placeholder">No dishes recorded</p>';
+  return '<ul class="school-menu-items">' + names.map(name => '<li>' + esc(name) + '</li>').join("") + '</ul>';
 }
 
-function renderWeekView() {
-  const start = monday($("week-date").value);
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(start);
-    date.setDate(date.getDate() + index);
-    const key = dateString(date);
-    return { date: key, entry: state.entries.find(item => item.date === key) };
-  });
-
-  $("menu-week-view").innerHTML = '<div class="school-menu-week">' + days.map(({ date, entry }) => {
+function renderMonthView() {
+  const first = monthStart($("month-date").value);
+  const year = first.getFullYear();
+  const month = first.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const offset = (first.getDay() + 6) % 7;
+  const visibleOffset = state.showWeekends ? offset : Math.min(offset, 5);
+  const cells = [];
+  for (let i = 0; i < visibleOffset; i++) cells.push('<div class="school-menu-calendar-empty" aria-hidden="true"></div>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateObject = new Date(year, month, day, 12);
+    const weekday = dateObject.getDay();
+    if (!state.showWeekends && (weekday === 0 || weekday === 6)) continue;
+    const date = dateString(dateObject);
+    const entry = state.entries.find(item => item.date === date);
     const hasMenu = Boolean(entry);
     const content = entry?.status === "known"
       ? renderMenuItems(entry.items || [])
       : renderMenuPlaceholder(entry);
-    const action = hasMenu ? "Edit menu" : "Add menu";
+    const statusClass = entry?.status === "closed"
+      ? " status-closed"
+      : entry?.status !== "known"
+        ? " status-unknown"
+        : "";
+    cells.push(
+      '<article class="school-menu-day' + (hasMenu ? ' has-entry' : '') + statusClass + '">' +
+      '<header><strong>' + day + '</strong><span>' + esc(formatDay(date, { weekday: "short" })) + '</span></header>' +
+      '<div class="school-menu-day-content">' + content + '</div>' +
+      '<button type="button" class="secondary" data-edit-date="' + date + '">' +
+      (hasMenu ? "Edit" : "Add") + '</button></article>'
+    );
+  }
+  const calendar = $("menu-month-view");
+  calendar.classList.toggle("weekdays-only", !state.showWeekends);
+  calendar.innerHTML =
+    '<div class="school-menu-calendar-weekdays">' +
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].slice(0, state.showWeekends ? 7 : 5).map(day => '<span>' + day + '</span>').join("") +
+    '</div><div class="school-menu-month">' + cells.join("") + '</div>';
 
-    return '<article class="school-menu-day">' +
-      '<header><strong>' + esc(formatDay(date, { weekday: "long" })) + '</strong>' +
-      '<span>' + esc(formatDay(date, { day: "2-digit", month: "2-digit" })) + '</span></header>' +
-      content +
-      '<button type="button" class="secondary" data-edit-date="' + date + '">' + action + '</button>' +
-      '</article>';
-  }).join("") + '</div>';
-
-  // Bind directly to the newly rendered day buttons. This keeps the action
-  // reliable when the week view is replaced after loading or saving.
-  $("menu-week-view").querySelectorAll("[data-edit-date]").forEach(button => {
+  $("menu-month-view").querySelectorAll("[data-edit-date]").forEach(button => {
     button.addEventListener("click", () => {
       const date = button.dataset.editDate;
       edit(state.entries.find(item => item.date === date), date);
@@ -109,8 +119,7 @@ function renderWeekView() {
   });
 
   if (state.selected) {
-    const entry = state.entries.find(item => item.date === state.selected);
-    edit(entry, state.selected);
+    edit(state.entries.find(item => item.date === state.selected), state.selected);
   } else {
     $("menu-editor").innerHTML = "";
   }
@@ -136,8 +145,8 @@ function edit(entry, date) {
     '<option value="unknown">Unknown / not imported</option>' +
     '</select>' +
     '<label for="menu-items">Dishes</label>' +
-    '<textarea id="menu-items" rows="7" placeholder="One dish per line: dish | notes | allergens | dietary alternatives&#10;Vegetable soup | contains celery | celery | vegan option"></textarea>' +
-    '<p class="hint school-menu-field-help">Enter one dish per line. The optional fields after the dish name are notes, allergens and dietary alternatives, separated by |.</p>' +
+    '<textarea id="menu-items" rows="5" placeholder="One dish per line&#10;Vegetable soup&#10;Baked fish with potatoes"></textarea>' +
+    '<p class="hint school-menu-field-help">Enter one dish name per line.</p>' +
     '<p id="menu-provenance" class="hint"></p>' +
     '<div class="recipe-actions">' +
     '<button type="submit">' + (isNew ? "Add menu" : "Save changes") + '</button>' +
@@ -147,44 +156,31 @@ function edit(entry, date) {
     '<p id="menu-status-message" class="hint" aria-live="polite"></p>' +
     '</form></section>';
 
-  // A newly added menu is expected to contain published dishes. Existing records
-  // keep their current status when opened for editing.
   $("menu-status").value = entry?.status === "not_published" ? "unknown" : (entry?.status || "known");
-  $("menu-items").value = (entry?.items || []).map(item => [
-    item.name,
-    item.notes || "",
-    item.allergens?.join(", ") || "",
-    item.dietary_alternatives?.join(", ") || "",
-  ].join(" | ")).join("\n");
+  $("menu-items").value = (entry?.items || []).map(item => item.name).join("\n");
   $("menu-provenance").textContent = entry
     ? (entry.origin === "import"
       ? "Imported from " + (entry.source || "unspecified source") +
         (entry.imported_at ? " · " + new Date(entry.imported_at * 1000).toLocaleString() : "")
       : "Manually entered or corrected")
-    : "No menu record exists for this date. Add the dishes and save to create it.";
-
-  // The editor sits after the full week overview, so bring it into view;
-  // otherwise the click can appear to have done nothing on shorter screens.
+    : "No menu record exists for this date.";
   editor.scrollIntoView({ behavior: "smooth", block: "start" });
 
   $("menu-form").addEventListener("submit", save);
   $("cancel-menu").addEventListener("click", () => {
     state.selected = null;
-    renderWeekView();
+    renderMonthView();
   });
   $("delete-menu")?.addEventListener("click", remove);
 }
 
 function parseItems() {
-  return $("menu-items").value.split("\n").map(line => line.trim()).filter(Boolean).map(line => {
-    const parts = line.split("|").map(part => part.trim());
-    return {
-      name: parts[0],
-      notes: parts[1] || null,
-      allergens: parts[2] ? parts[2].split(",").map(value => value.trim()).filter(Boolean) : null,
-      dietary_alternatives: parts[3] ? parts[3].split(",").map(value => value.trim()).filter(Boolean) : [],
-    };
-  });
+  return $("menu-items").value.split("\n").map(line => line.trim()).filter(Boolean).map(name => ({
+    name,
+    notes: null,
+    allergens: null,
+    dietary_alternatives: [],
+  }));
 }
 
 async function save(event) {
@@ -209,9 +205,8 @@ async function save(event) {
       body: JSON.stringify({ date, status, items }),
     });
     state.selected = null;
-    await loadWeek();
-    $("menu-content").insertAdjacentHTML("afterbegin",
-      '<p class="hint" role="status">Menu saved for ' + esc(formatDay(date, { weekday: "long", day: "numeric", month: "long" })) + '.</p>');
+    await loadMonth();
+    appendMenuLog("Menu saved for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
     const message = $("menu-status-message");
     if (message) message.textContent = error.message;
@@ -228,9 +223,8 @@ async function remove() {
   try {
     await api("/meal-planner/school-menus/" + date, { method: "DELETE" });
     state.selected = null;
-    await loadWeek();
-    $("menu-content").insertAdjacentHTML("afterbegin",
-      '<p class="hint" role="status">Menu deleted for ' + esc(formatDay(date, { weekday: "long", day: "numeric", month: "long" })) + '.</p>');
+    await loadMonth();
+    appendMenuLog("Menu deleted for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
     const message = $("menu-status-message");
     if (message) message.textContent = error.message;
@@ -238,14 +232,12 @@ async function remove() {
   }
 }
 
-async function loadWeek() {
-  const value = $("week-date").value;
+async function loadMonth() {
+  const value = $("month-date").value;
   if (!value) return;
   const request = ++state.loadRequest;
-  const start = monday(value);
-  $("week-date").value = dateString(start);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
+  const start = monthStart(value);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 12);
   state.selected = null;
   $("menu-content").innerHTML = '<p class="empty">Loading school menus…</p>';
 
@@ -254,45 +246,61 @@ async function loadWeek() {
       dateString(start) + "&to=" + dateString(end));
     if (request !== state.loadRequest) return;
     state.entries = entries;
-    const count = new Set(entries.map(entry => entry.date)).size;
+    const count = new Set(entries.filter(entry => entry.status === "known").map(entry => entry.date)).size;
     $("menu-content").innerHTML =
-      '<p class="hint" role="status">' +
-      (count
-        ? "Week loaded. Menu data is available for " + count + " of 7 days."
-        : "Week loaded successfully, but no menu data is available for this week.") +
-      '</p><div id="menu-week-view"></div><div id="menu-editor"></div>';
-    renderWeekView();
+      '<div id="menu-month-view"></div><div id="menu-editor"></div><div id="menu-status-log" class="school-menu-status-log" aria-live="polite"></div>';
+    appendMenuLog(count
+      ? "Month loaded. Published menus are available for " + count + " of " + end.getDate() + " days."
+      : "Month loaded successfully, but no published menus are available for this month.");
+    renderMonthView();
   } catch (error) {
     if (request === state.loadRequest) {
       $("menu-content").innerHTML =
-        '<p class="empty" role="alert">Could not load school menus for this week: ' +
+        '<p class="empty" role="alert">Could not load school menus for this month: ' +
         esc(error.message) + '</p>';
     }
     throw error;
   }
 }
 
-$("previous-week").addEventListener("click", () => {
-  const start = monday($("week-date").value);
-  start.setDate(start.getDate() - 7);
-  $("week-date").value = dateString(start);
-  loadWeek().catch(() => {});
+$("previous-month").addEventListener("click", () => {
+  const date = monthStart($("month-date").value);
+  date.setMonth(date.getMonth() - 1);
+  $("month-date").value = monthString(date);
+  loadMonth().catch(() => {});
 });
 
-$("next-week").addEventListener("click", () => {
-  const start = monday($("week-date").value);
-  start.setDate(start.getDate() + 7);
-  $("week-date").value = dateString(start);
-  loadWeek().catch(() => {});
+$("next-month").addEventListener("click", () => {
+  const date = monthStart($("month-date").value);
+  date.setMonth(date.getMonth() + 1);
+  $("month-date").value = monthString(date);
+  loadMonth().catch(() => {});
 });
 
-$("week-date").addEventListener("change", () => loadWeek().catch(() => {}));
+$("month-date").addEventListener("change", () => loadMonth().catch(() => {}));
+
+$("show-weekends").addEventListener("change", event => {
+  state.showWeekends = event.target.checked;
+  try {
+    localStorage.setItem("eme-school-menus-show-weekends", String(state.showWeekends));
+  } catch {
+    // The preference still applies for this page session when storage is unavailable.
+  }
+  if ($("menu-month-view")) renderMonthView();
+});
+
+try {
+  state.showWeekends = localStorage.getItem("eme-school-menus-show-weekends") !== "false";
+} catch {
+  // Keep the default seven-day view when storage is unavailable.
+}
+$("show-weekends").checked = state.showWeekends;
 
 (async () => {
   try {
     await window.emeConsoleReady;
-    $("week-date").value = dateString(monday(dateString(new Date())));
-    await loadWeek();
+    $("month-date").value = monthString(new Date());
+    await loadMonth();
   } catch (error) {
     $("connection").textContent = "Connection error";
     console.error("Failed to load school menus", error);
