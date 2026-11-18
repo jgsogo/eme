@@ -384,8 +384,10 @@ async function deleteTask(){
  catch(e){$("tasks-status").textContent=e.message}
 }
 async function loadProfile(){
- try{const profile=await api("/profile");$("profile-display-name").value=profile.display_name||"";$("profile-status").textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
- catch(e){$("profile-status").textContent=e.message}
+ const displayName=$("profile-display-name"),status=$("profile-status");
+ if(!displayName||!status)return;
+ try{const profile=await api("/profile");displayName.value=profile.display_name||"";status.textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
+ catch(e){status.textContent=e.message}
 }
 async function saveProfile(event){
  event.preventDefault();const name=$("profile-display-name").value.trim();if(!name){$("profile-status").textContent="Display name must not be empty.";return}
