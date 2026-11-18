@@ -1,7 +1,9 @@
 //! SQLite persistence and user edits for generated shopping lists.
 use crate::{
     MealPlannerError, MealPlannerStore,
-    shopping_lists::{NewShoppingListItem, ShoppingList, ShoppingListItem, ShoppingListItemUpdate, generate_items},
+    shopping_lists::{
+        NewShoppingListItem, ShoppingList, ShoppingListItem, ShoppingListItemUpdate, generate_items,
+    },
 };
 use rusqlite::{OptionalExtension, params};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -10,8 +12,12 @@ impl MealPlannerStore {
     /// Generate or explicitly regenerate the list for one immutable plan revision.
     /// Existing user edits are reconciled rather than silently discarded.
     pub fn generate_shopping_list(&self, plan_id: i64) -> Result<ShoppingList, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
-        let plan = super::plans::load_plan(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        let plan =
+            super::plans::load_plan(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
         let mut recipes = std::collections::HashMap::new();
         for assignment in &plan.assignments {
             if assignment.arrangement == crate::MealArrangement::Home {
@@ -30,7 +36,9 @@ impl MealPlannerStore {
         let same_plan = current.is_some();
         let existing = match current {
             Some(list) => Some(list),
-            None => load_latest_shopping_list_for_week(&connection, plan.week_start, plan.revision)?,
+            None => {
+                load_latest_shopping_list_for_week(&connection, plan.week_start, plan.revision)?
+            }
         };
         let now = timestamp();
         let mut list = ShoppingList::reconcile(existing, plan.id, plan.revision, generated, now);
@@ -55,8 +63,14 @@ impl MealPlannerStore {
         load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)
     }
 
-    pub fn get_shopping_list(&self, plan_id: i64) -> Result<Option<ShoppingList>, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+    pub fn get_shopping_list(
+        &self,
+        plan_id: i64,
+    ) -> Result<Option<ShoppingList>, MealPlannerError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
         load_shopping_list(&connection, plan_id)
     }
 
@@ -66,8 +80,12 @@ impl MealPlannerStore {
         item: NewShoppingListItem,
     ) -> Result<ShoppingList, MealPlannerError> {
         let item = item.validate().map_err(MealPlannerError::InvalidInput)?;
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
-        let mut list = load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut list =
+            load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
         let id = list.items.iter().map(|item| item.id).max().unwrap_or(0) + 1;
         list.items.push(ShoppingListItem {
             id,
@@ -93,10 +111,19 @@ impl MealPlannerStore {
         update: ShoppingListItemUpdate,
     ) -> Result<ShoppingList, MealPlannerError> {
         let update = update.validate().map_err(MealPlannerError::InvalidInput)?;
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
-        let mut list = load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
-        let item = list.items.iter_mut().find(|item| item.id == item_id).ok_or(MealPlannerError::NotFound)?;
-        if item.name != update.name || item.quantity != update.quantity || item.unit != update.unit {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut list =
+            load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
+        let item = list
+            .items
+            .iter_mut()
+            .find(|item| item.id == item_id)
+            .ok_or(MealPlannerError::NotFound)?;
+        if item.name != update.name || item.quantity != update.quantity || item.unit != update.unit
+        {
             item.quantity_overridden = true;
         }
         item.name = update.name;
@@ -114,9 +141,17 @@ impl MealPlannerStore {
         plan_id: i64,
         item_id: i64,
     ) -> Result<ShoppingList, MealPlannerError> {
-        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
-        let mut list = load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
-        let index = list.items.iter().position(|item| item.id == item_id).ok_or(MealPlannerError::NotFound)?;
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut list =
+            load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
+        let index = list
+            .items
+            .iter()
+            .position(|item| item.id == item_id)
+            .ok_or(MealPlannerError::NotFound)?;
         if list.items[index].manually_added {
             list.items.remove(index);
         } else {
@@ -132,11 +167,13 @@ fn load_shopping_list(
     connection: &rusqlite::Connection,
     plan_id: i64,
 ) -> Result<Option<ShoppingList>, MealPlannerError> {
-    let id = connection.query_row(
-        "SELECT id FROM shopping_lists WHERE plan_id = ?1",
-        [plan_id],
-        |row| row.get::<_, i64>(0),
-    ).optional()?;
+    let id = connection
+        .query_row(
+            "SELECT id FROM shopping_lists WHERE plan_id = ?1",
+            [plan_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?;
     match id {
         Some(id) => load_shopping_list_by_id(connection, id),
         None => Ok(None),
@@ -254,23 +291,58 @@ mod tests {
         assert_eq!(generated.items.len(), 1);
         assert_eq!(generated.items[0].quantity, Some(200.0));
 
-        let manual = store.add_shopping_list_item(plan.id, NewShoppingListItem {
-            name: "Bread".into(), quantity: None, unit: None,
-        }).unwrap();
-        let tomato_id = manual.items.iter().find(|item| item.name == "Tomato").unwrap().id;
-        let bread_id = manual.items.iter().find(|item| item.name == "Bread").unwrap().id;
-        store.update_shopping_list_item(plan.id, tomato_id, ShoppingListItemUpdate {
-            name: "Tomato".into(), quantity: Some(3.0), unit: Some("kg".into()), purchased: true,
-        }).unwrap();
+        let manual = store
+            .add_shopping_list_item(
+                plan.id,
+                NewShoppingListItem {
+                    name: "Bread".into(),
+                    quantity: None,
+                    unit: None,
+                },
+            )
+            .unwrap();
+        let tomato_id = manual
+            .items
+            .iter()
+            .find(|item| item.name == "Tomato")
+            .unwrap()
+            .id;
+        let bread_id = manual
+            .items
+            .iter()
+            .find(|item| item.name == "Bread")
+            .unwrap()
+            .id;
+        store
+            .update_shopping_list_item(
+                plan.id,
+                tomato_id,
+                ShoppingListItemUpdate {
+                    name: "Tomato".into(),
+                    quantity: Some(3.0),
+                    unit: Some("kg".into()),
+                    purchased: true,
+                },
+            )
+            .unwrap();
         store.remove_shopping_list_item(plan.id, tomato_id).unwrap();
 
         let regenerated = store.generate_shopping_list(plan.id).unwrap();
-        let tomato = regenerated.items.iter().find(|item| item.id == tomato_id).unwrap();
+        let tomato = regenerated
+            .items
+            .iter()
+            .find(|item| item.id == tomato_id)
+            .unwrap();
         assert!(tomato.manually_removed);
         assert!(tomato.quantity_overridden);
         assert_eq!(tomato.quantity, Some(3.0));
         assert!(tomato.purchased == false);
-        assert!(regenerated.items.iter().any(|item| item.id == bread_id && item.manually_added));
+        assert!(
+            regenerated
+                .items
+                .iter()
+                .any(|item| item.id == bread_id && item.manually_added)
+        );
         assert_eq!(regenerated.plan_revision, plan.revision);
 
         // A new immutable plan revision receives a separate list snapshot,
@@ -281,18 +353,35 @@ mod tests {
         revised_assignment.id = 2;
         revised_assignment.meal_type = MealType::Dinner;
         revised_assignment.participants.truncate(1);
-        store.update_weekly_plan(date, WeeklyPlanDraft {
-            assignments: vec![revision.assignments[0].clone(), revised_assignment],
-        }).unwrap();
+        store
+            .update_weekly_plan(
+                date,
+                WeeklyPlanDraft {
+                    assignments: vec![revision.assignments[0].clone(), revised_assignment],
+                },
+            )
+            .unwrap();
         let next_list = store.generate_shopping_list(revision.id).unwrap();
         assert_ne!(next_list.id, regenerated.id);
         assert_eq!(next_list.plan_id, revision.id);
-        let next_tomato = next_list.items.iter().find(|item| item.name == "Tomato").unwrap();
+        let next_tomato = next_list
+            .items
+            .iter()
+            .find(|item| item.name == "Tomato")
+            .unwrap();
         assert!(next_tomato.manually_removed);
         assert!(next_tomato.quantity_overridden);
         assert_eq!(next_tomato.quantity, Some(3.0));
-        assert!(next_list.items.iter().any(|item| item.id == bread_id && item.manually_added));
-        assert_eq!(store.get_shopping_list(plan.id).unwrap().unwrap().id, regenerated.id);
+        assert!(
+            next_list
+                .items
+                .iter()
+                .any(|item| item.id == bread_id && item.manually_added)
+        );
+        assert_eq!(
+            store.get_shopping_list(plan.id).unwrap().unwrap().id,
+            regenerated.id
+        );
     }
 
     #[test]
@@ -319,6 +408,9 @@ mod tests {
         let list = store.generate_shopping_list(plan.id).unwrap();
         assert_eq!(list.items[0].quantity, None);
         assert_eq!(store.get_weekly_plan(date).unwrap().unwrap().id, plan.id);
-        assert_eq!(store.get_shopping_list(plan.id).unwrap().unwrap().id, list.id);
+        assert_eq!(
+            store.get_shopping_list(plan.id).unwrap().unwrap().id,
+            list.id
+        );
     }
 }
