@@ -234,9 +234,11 @@ fn save_items(
 }
 
 fn timestamp() -> i64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -252,40 +254,53 @@ mod tests {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let member_a = store.create_family_member("Alex").unwrap();
         let member_b = store.create_family_member("Sam").unwrap();
-        let recipe = store.create_recipe(RecipeDraft {
-            title: "Tomato pasta".into(),
-            description: None,
-            servings: 2,
-            ingredients: vec![RecipeIngredient {
-                name: "Tomato".into(),
-                amount: Some(200.0),
-                unit: Some("g".into()),
-                preparation_note: None,
-            }],
-            steps: vec!["Cook".into()],
-            categories: vec![],
-            tags: vec![],
-            source: None,
-            notes: None,
-            dietary_information: vec![],
-            allergens: None,
-        }).unwrap();
-        let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
-        let plan = store.create_weekly_plan(date, WeeklyPlanDraft {
-            assignments: vec![crate::MealAssignment {
-                id: 1,
-                date,
-                meal_type: MealType::Lunch,
-                participants: vec![
-                    PlanParticipant { member_id: member_a.id, name: member_a.name },
-                    PlanParticipant { member_id: member_b.id, name: member_b.name },
-                ],
-                arrangement: MealArrangement::Home,
-                recipe_id: Some(recipe.id),
-                school_menu_date: None,
+        let recipe = store
+            .create_recipe(RecipeDraft {
+                title: "Tomato pasta".into(),
+                description: None,
+                servings: 2,
+                ingredients: vec![RecipeIngredient {
+                    name: "Tomato".into(),
+                    amount: Some(200.0),
+                    unit: Some("g".into()),
+                    preparation_note: None,
+                }],
+                steps: vec!["Cook".into()],
+                categories: vec![],
+                tags: vec![],
+                source: None,
                 notes: None,
-            }],
-        }).unwrap();
+                dietary_information: vec![],
+                allergens: None,
+            })
+            .unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
+        let plan = store
+            .create_weekly_plan(
+                date,
+                WeeklyPlanDraft {
+                    assignments: vec![crate::MealAssignment {
+                        id: 1,
+                        date,
+                        meal_type: MealType::Lunch,
+                        participants: vec![
+                            PlanParticipant {
+                                member_id: member_a.id,
+                                name: member_a.name,
+                            },
+                            PlanParticipant {
+                                member_id: member_b.id,
+                                name: member_b.name,
+                            },
+                        ],
+                        arrangement: MealArrangement::Home,
+                        recipe_id: Some(recipe.id),
+                        school_menu_date: None,
+                        notes: None,
+                    }],
+                },
+            )
+            .unwrap();
 
         let generated = store.generate_shopping_list(plan.id).unwrap();
         assert_eq!(generated.items.len(), 1);
@@ -336,7 +351,7 @@ mod tests {
         assert!(tomato.manually_removed);
         assert!(tomato.quantity_overridden);
         assert_eq!(tomato.quantity, Some(3.0));
-        assert!(tomato.purchased == false);
+        assert!(!tomato.purchased);
         assert!(
             regenerated
                 .items
@@ -388,23 +403,47 @@ mod tests {
     fn lists_are_separate_from_plans_and_unknown_quantities_are_retained() {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let member = store.create_family_member("Alex").unwrap();
-        let recipe = store.create_recipe(RecipeDraft {
-            title: "Soup".into(), description: None, servings: 1,
-            ingredients: vec![RecipeIngredient {
-                name: "Salt".into(), amount: None, unit: None, preparation_note: None,
-            }],
-            steps: vec!["Cook".into()], categories: vec![], tags: vec![], source: None,
-            notes: None, dietary_information: vec![], allergens: None,
-        }).unwrap();
+        let recipe = store
+            .create_recipe(RecipeDraft {
+                title: "Soup".into(),
+                description: None,
+                servings: 1,
+                ingredients: vec![RecipeIngredient {
+                    name: "Salt".into(),
+                    amount: None,
+                    unit: None,
+                    preparation_note: None,
+                }],
+                steps: vec!["Cook".into()],
+                categories: vec![],
+                tags: vec![],
+                source: None,
+                notes: None,
+                dietary_information: vec![],
+                allergens: None,
+            })
+            .unwrap();
         let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
-        let plan = store.create_weekly_plan(date, WeeklyPlanDraft {
-            assignments: vec![crate::MealAssignment {
-                id: 1, date, meal_type: MealType::Lunch,
-                participants: vec![PlanParticipant { member_id: member.id, name: member.name }],
-                arrangement: MealArrangement::Home, recipe_id: Some(recipe.id),
-                school_menu_date: None, notes: None,
-            }],
-        }).unwrap();
+        let plan = store
+            .create_weekly_plan(
+                date,
+                WeeklyPlanDraft {
+                    assignments: vec![crate::MealAssignment {
+                        id: 1,
+                        date,
+                        meal_type: MealType::Lunch,
+                        participants: vec![PlanParticipant {
+                            member_id: member.id,
+                            name: member.name,
+                        }],
+                        arrangement: MealArrangement::Home,
+                        recipe_id: Some(recipe.id),
+                        school_menu_date: None,
+                        notes: None,
+                    }],
+                },
+            )
+            .unwrap();
         let list = store.generate_shopping_list(plan.id).unwrap();
         assert_eq!(list.items[0].quantity, None);
         assert_eq!(store.get_weekly_plan(date).unwrap().unwrap().id, plan.id);
