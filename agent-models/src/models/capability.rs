@@ -1,9 +1,9 @@
-/// Capabilities supported by an LLM model.
+/// Declarative compatibility capabilities supported by a model.
 ///
-/// These describe the kinds of input, output, and interactions a model
-/// supports. They can be used to filter or select models based on the
-/// requirements of a task.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize)]
+/// Capabilities describe supported inputs, outputs, and interactions. They are
+/// provider/model classifications used to match an agent's requirements; they
+/// are not standardized guarantees or measurements of model quality.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModelCapability {
     /// Conversational text generation and understanding.
@@ -43,4 +43,10 @@ pub enum ModelCapability {
     /// Producing outputs constrained to a structured format, such as JSON
     /// or a JSON Schema.
     StructuredOutput,
+
+    /// Classified as supporting multi-step reasoning capabilities.
+    ///
+    /// This is a provider/model classification and does not imply a uniform
+    /// reasoning level or quality guarantee.
+    Reasoning,
 }

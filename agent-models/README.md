@@ -15,7 +15,7 @@ The crate will implement:
 - **Provider adapters:** implementations that will translate between the common conversation interface and individual provider APIs.
 - **Provider configuration:** loading and validating provider definitions, credentials configuration, endpoint information, and supported models from data files.
 - **Model registry and resolution:** resolving a provider/model identifier into a configured conversation client.
-- **Model capabilities:** metadata describing features such as chat, tool calling, vision, structured output, and other supported modalities, so callers can select models according to task requirements.
+- **Model capabilities:** declarative provider/model classifications describing features such as chat, reasoning, coding, image and video input, audio, tool calling, structured output, and other supported modalities. Capabilities are compatibility requirements, not standardized guarantees or measurements of model quality; in particular, `reasoning` does not imply a uniform reasoning level.
 - **Provider error handling:** a common error model for configuration, transport, provider responses, and unsupported models.
 
 ## Boundaries

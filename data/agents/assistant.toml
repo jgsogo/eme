@@ -1,6 +1,6 @@
 name = "assistant"
 description = "A general-purpose personal assistant."
-model = "gemini/gemini-3.5-flash-lite"
+capabilities = ["chat", "reasoning", "tool_calling"]
 
 instructions = """
 You are a helpful personal assistant.
