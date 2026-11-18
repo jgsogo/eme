@@ -1,7 +1,7 @@
 //! Variants describing model routing, tool, timeout, and cancellation lifecycle events.
 
-use agent_models::ModelFailureCategory;
 use crate::ErrorCategory;
+use agent_models::ModelFailureCategory;
 
 #[derive(Debug, Clone)]
 pub enum RunEventKind {
