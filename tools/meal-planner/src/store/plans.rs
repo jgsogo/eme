@@ -277,14 +277,14 @@ impl MealPlannerStore {
             .map_err(|_| MealPlannerError::LockPoisoned)?;
         ensure_references(&connection, &draft)?;
         let revision: i64 = connection.query_row(
-            "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE week_start = ?1",
+            "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE family_id = 'legacy' AND week_start = ?1",
             [week_start.to_string()],
             |row| row.get(0),
         )?;
         let now = Utc::now().timestamp();
         let assignments = serde_json::to_string(&draft.assignments)?;
         connection.execute(
-            "INSERT INTO weekly_plans(week_start, revision, status, assignments, created_at) VALUES (?1, ?2, 'draft', ?3, ?4)",
+            "INSERT INTO weekly_plans(family_id, week_start, revision, status, assignments, created_at) VALUES ('legacy', ?1, ?2, 'draft', ?3, ?4)",
             params![week_start.to_string(), revision, assignments, now],
         )?;
         load_plan(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
@@ -300,7 +300,7 @@ impl MealPlannerStore {
             .map_err(|_| MealPlannerError::LockPoisoned)?;
         let id = connection
             .query_row(
-                "SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC LIMIT 1",
+                "SELECT id FROM weekly_plans WHERE family_id = 'legacy' AND week_start = ?1 ORDER BY revision DESC LIMIT 1",
                 [week_start.to_string()],
                 |row| row.get::<_, i64>(0),
             )
@@ -320,7 +320,7 @@ impl MealPlannerStore {
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
         let mut statement = connection
-            .prepare("SELECT id FROM weekly_plans WHERE week_start = ?1 ORDER BY revision DESC")?;
+            .prepare("SELECT id FROM weekly_plans WHERE family_id = 'legacy' AND week_start = ?1 ORDER BY revision DESC")?;
         let ids = statement
             .query_map([week_start.to_string()], |row| row.get::<_, i64>(0))?
             .collect::<Result<Vec<_>, _>>()?;
@@ -408,7 +408,7 @@ impl MealPlannerStore {
         let now = Utc::now().timestamp();
         let assignments = serde_json::to_string(&source.assignments)?;
         connection.execute(
-            "INSERT INTO weekly_plans(week_start, revision, status, assignments, created_at) VALUES (?1, ?2, 'draft', ?3, ?4)",
+            "INSERT INTO weekly_plans(family_id, week_start, revision, status, assignments, created_at) VALUES ('legacy', ?1, ?2, 'draft', ?3, ?4)",
             params![week_start.to_string(), revision, assignments, now],
         )?;
         load_plan(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
