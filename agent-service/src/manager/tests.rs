@@ -126,6 +126,7 @@ async fn trusted_context_survives_queue_and_reaches_executor() {
     .unwrap();
     let context = ToolContext {
         user_id: Some("user-42".into()),
+        telegram_id: None,
         family: Some(FamilyContext {
             family_id: "family-1".into(),
             family_name: "Home".into(),

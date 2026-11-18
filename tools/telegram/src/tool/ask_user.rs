@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
-use crate::client::{TelegramGateway, configured_chat_id, default_timeout};
+use crate::client::{TelegramGateway, default_timeout};
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
 use super::{gateway_or_error, map_error};
 
-/// `tg_ask_user` — ask the configured user and wait for the gateway to route the reply.
+/// `tg_ask_user` — ask a trusted conversation recipient and wait for their reply.
 pub struct TgAskUser {
     gateway: Option<Arc<TelegramGateway>>,
 }
@@ -20,7 +20,7 @@ impl TgAskUser {
 
 #[async_trait]
 impl Tool for TgAskUser {
-    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
+    async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         let question = arguments
             .get("question")
             .and_then(Value::as_str)
@@ -34,7 +34,8 @@ impl Tool for TgAskUser {
             .get("kind")
             .and_then(Value::as_str)
             .unwrap_or("text");
-        let chat_id = configured_chat_id().map_err(map_error)?;
+        let recipient = arguments.get("recipient").and_then(Value::as_str);
+        let chat_id = super::resolve_chat_id(context, recipient)?;
         let gateway = gateway_or_error(&self.gateway)?;
         let timeout = default_timeout();
 

@@ -719,6 +719,8 @@ mod family_context_tests {
         assert!(prompt.contains("Do not infer additional family members"));
         assert!(prompt.contains("Current date and time:"));
         assert!(prompt.contains(&chrono::Utc::now().date_naive().to_string()));
-        assert!(!prompt.contains("user-1"));
+        assert!(prompt.contains("recipient_id"));
+        assert!(prompt.contains("user-1"));
+        assert!(!prompt.contains("telegram_id"));
     }
 }

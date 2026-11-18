@@ -292,6 +292,21 @@ pub(super) async fn handle_message(
                             return;
                         }
                     };
+                    member.telegram_id =
+                        match identities.find_identity_for_user("telegram", member_id) {
+                            Ok(identity) => identity.map(|identity| identity.subject),
+                            Err(error) => {
+                                active_conversations.lock().await.remove(&conversation.id);
+                                send_error(
+                                    gateway,
+                                    message.chat_id,
+                                    "load a family member Telegram identity",
+                                    error,
+                                )
+                                .await;
+                                return;
+                            }
+                        };
                     let user = match identities.get_user(member_id) {
                         Ok(user) => user,
                         Err(error) => {
@@ -335,6 +350,7 @@ pub(super) async fn handle_message(
             conversation.messages.clone(),
             ToolContext {
                 user_id: Some(user.id.to_string()),
+                telegram_id: Some(telegram_user_id.to_string()),
                 family,
                 conversation_id: Some(conversation.id.to_string()),
                 run_id: None,

@@ -329,6 +329,7 @@ async fn continue_conversation(
             conversation.messages,
             ToolContext {
                 user_id: Some(identity.user_id.to_string()),
+                telegram_id: Some(identity.subject.clone()),
                 family,
                 conversation_id: Some(id.to_string()),
                 run_id: None,

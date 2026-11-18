@@ -12,6 +12,6 @@ use pending_reply::PendingReply;
 #[path = "client/telegram_error.rs"]
 mod telegram_error;
 
-pub use gateway::{TelegramGateway, configured_chat_id, default_timeout};
+pub use gateway::{TelegramGateway, default_timeout};
 pub use incoming_message::IncomingMessage;
 pub use telegram_error::TelegramError;

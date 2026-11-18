@@ -92,7 +92,11 @@ async fn submit_run(
                 .ok()
                 .flatten()
         })
-        .map(|identity| ToolContext::new(identity.user_id.to_string()))
+        .map(|identity| ToolContext {
+            user_id: Some(identity.user_id.to_string()),
+            telegram_id: Some(identity.subject),
+            ..ToolContext::default()
+        })
         .unwrap_or_default();
 
     match manager
