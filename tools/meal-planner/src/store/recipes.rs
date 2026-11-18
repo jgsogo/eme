@@ -70,7 +70,9 @@ impl MealPlannerStore {
             None => recipe.owner_id == owner_id,
             Some(family) => families.iter().any(|available| available == family),
         };
-        if !visible { return Err(MealPlannerError::NotFound); }
+        if !visible {
+            return Err(MealPlannerError::NotFound);
+        }
         Ok(recipe)
     }
 
@@ -101,37 +103,43 @@ impl MealPlannerStore {
                 (match recipe.draft.family_id.as_deref() {
                     None => recipe.owner_id == owner_id,
                     Some(family) => families.iter().any(|available| available == family),
+                }) && needle.as_ref().is_none_or(|needle| {
+                    let draft = &recipe.draft;
+                    draft.title.to_lowercase().contains(needle)
+                        || draft
+                            .description
+                            .as_deref()
+                            .is_some_and(|value| value.to_lowercase().contains(needle))
+                        || draft
+                            .ingredients
+                            .iter()
+                            .any(|ingredient| ingredient.name.to_lowercase().contains(needle))
+                        || draft
+                            .tags
+                            .iter()
+                            .chain(&draft.categories)
+                            .any(|value| value.to_lowercase().contains(needle))
                 })
-                    && needle.as_ref().is_none_or(|needle| {
-                        let draft = &recipe.draft;
-                        draft.title.to_lowercase().contains(needle)
-                            || draft
-                                .description
-                                .as_deref()
-                                .is_some_and(|value| value.to_lowercase().contains(needle))
-                            || draft
-                                .ingredients
-                                .iter()
-                                .any(|ingredient| ingredient.name.to_lowercase().contains(needle))
-                            || draft
-                                .tags
-                                .iter()
-                                .chain(&draft.categories)
-                                .any(|value| value.to_lowercase().contains(needle))
-                    })
             })
             .collect())
     }
 
     pub fn update_recipe_for_family(
-        &self, id: i64, owner_id: &str, family_id: &str, draft: RecipeDraft,
+        &self,
+        id: i64,
+        owner_id: &str,
+        family_id: &str,
+        draft: RecipeDraft,
     ) -> Result<Recipe, MealPlannerError> {
         self.get_recipe(id, owner_id, &[family_id.to_owned()])?;
         self.update_recipe(id, owner_id, draft)
     }
 
     pub fn delete_recipe_for_family(
-        &self, id: i64, owner_id: &str, family_id: &str,
+        &self,
+        id: i64,
+        owner_id: &str,
+        family_id: &str,
     ) -> Result<(), MealPlannerError> {
         self.get_recipe(id, owner_id, &[family_id.to_owned()])?;
         self.delete_recipe(id, owner_id)
@@ -231,7 +239,10 @@ mod tests {
             .create_recipe("b", draft("Other", "z", Some("f2")))
             .unwrap();
 
-        assert_eq!(store.list_recipes("a", &["f1".into()], None).unwrap().len(), 2);
+        assert_eq!(
+            store.list_recipes("a", &["f1".into()], None).unwrap().len(),
+            2
+        );
         assert!(store.get_recipe(private.id, "b", &[]).is_err());
         assert!(store.get_recipe(shared.id, "b", &["f1".into()]).is_ok());
     }
