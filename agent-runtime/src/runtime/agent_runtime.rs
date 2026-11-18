@@ -161,19 +161,27 @@ impl AgentRuntime {
             content: input.into(),
         });
 
-        // Family data is trusted host context, not model-authored conversation
-        // content. Add it to the system instructions for every model turn.
+        // Time is trusted host context, not model-authored conversation content.
+        // Compute it for every run so every model turn receives the current date.
+        let now = chrono::Utc::now();
+        let date_context = format!(
+            "Current date and time: {} (UTC). Current date: {} (UTC). Treat this as the authoritative current date and time; do not guess or infer it from conversation history.",
+            now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            now.date_naive(),
+        );
+        let base_prompt = agent.system_prompt.as_deref().unwrap_or_default();
         let system_prompt = match context.family.as_ref() {
             Some(family) => {
                 let family_json =
                     serde_json::to_string_pretty(family).expect("family context is serializable");
                 Some(format!(
-                    "{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
-                    agent.system_prompt.as_deref().unwrap_or_default(),
+                    "{}\n\n{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
+                    base_prompt,
+                    date_context,
                     family_json,
                 ))
             }
-            None => agent.system_prompt.clone(),
+            None => Some(format!("{}\n\n{}", base_prompt, date_context)),
         };
 
         let tools = match agent
