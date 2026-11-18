@@ -111,8 +111,9 @@ impl Tool for ProposePlan {
 impl Tool for ValidatePlan {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         require_user(context)?;
-        let args: ProposalArgs = serde_json::from_value(arguments)
-            .map_err(|error| ToolError::Execution(format!("invalid plan validation request: {error}")))?;
+        let args: ProposalArgs = serde_json::from_value(arguments).map_err(|error| {
+            ToolError::Execution(format!("invalid plan validation request: {error}"))
+        })?;
         let (week_start, draft) = args.into_draft();
         let validation = self
             .0
@@ -129,7 +130,9 @@ impl Tool for SavePlanDraft {
         let args: ProposalArgs = serde_json::from_value(arguments)
             .map_err(|error| ToolError::Execution(format!("invalid plan draft: {error}")))?;
         let (week_start, draft) = args.into_draft();
-        let validation = self.0.validate(week_start, &draft)
+        let validation = self
+            .0
+            .validate(week_start, &draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         if !validation.valid {
             return output(&json!({"saved": false, "confirmed": false, "validation": validation}));
@@ -205,13 +208,25 @@ mod tests {
             }]
         });
         let context = ToolContext::new("user-1");
-        let proposal = ProposePlan(app.clone()).execute(&context, arguments.clone()).await.unwrap();
+        let proposal = ProposePlan(app.clone())
+            .execute(&context, arguments.clone())
+            .await
+            .unwrap();
         assert!(proposal.contains("\"valid\": true"));
         assert!(store.get_weekly_plan(monday()).unwrap().is_none());
-        let saved = SavePlanDraft(app.clone()).execute(&context, arguments).await.unwrap();
+        let saved = SavePlanDraft(app.clone())
+            .execute(&context, arguments)
+            .await
+            .unwrap();
         assert!(saved.contains("\"saved\": true"));
-        assert_eq!(store.get_weekly_plan(monday()).unwrap().unwrap().status, crate::WeeklyPlanStatus::Draft);
-        let confirmed = ConfirmPlan(app).execute(&context, json!({"week_start":"2026-11-16"})).await.unwrap();
+        assert_eq!(
+            store.get_weekly_plan(monday()).unwrap().unwrap().status,
+            crate::WeeklyPlanStatus::Draft
+        );
+        let confirmed = ConfirmPlan(app)
+            .execute(&context, json!({"week_start":"2026-11-16"}))
+            .await
+            .unwrap();
         assert!(confirmed.contains("\"confirmed\": true"));
     }
 
