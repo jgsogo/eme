@@ -166,7 +166,11 @@ function edit(entry, date) {
       : "Manually entered or corrected")
     : "No menu record exists for this date. Add the dishes and save to create it.";
 
-  // The editor sits after the full week overview, so bring it into view;\n  // otherwise the click can appear to have done nothing on shorter screens.\n  editor.scrollIntoView({ behavior: "smooth", block: "start" });\n\n  $("menu-form").addEventListener("submit", save);
+  // The editor sits after the full week overview, so bring it into view;
+  // otherwise the click can appear to have done nothing on shorter screens.
+  editor.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  $("menu-form").addEventListener("submit", save);
   $("cancel-menu").addEventListener("click", () => {
     state.selected = null;
     renderWeekView();
