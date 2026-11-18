@@ -34,15 +34,21 @@ pub fn register_tools(
     Ok(())
 }
 
-fn require_user(context: &ToolContext) -> Result<(), ToolError> {
-    context
+fn user_scope(context: &ToolContext) -> Result<(String, Vec<String>), ToolError> {
+    let owner_id = context
         .user_id
         .as_deref()
         .filter(|id| !id.trim().is_empty())
-        .map(|_| ())
         .ok_or_else(|| {
             ToolError::Execution("Meal Planner tools require an authenticated user context".into())
-        })
+        })?
+        .to_owned();
+    let families = context
+        .family
+        .as_ref()
+        .map(|family| vec![family.family_id.clone()])
+        .unwrap_or_default();
+    Ok((owner_id, families))
 }
 
 fn output(value: &impl serde::Serialize) -> Result<String, ToolError> {
@@ -80,13 +86,13 @@ struct ConfirmPlan(MealPlannerApplication);
 #[async_trait]
 impl Tool for GetPlanningContext {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        require_user(context)?;
+        let (owner_id, families) = user_scope(context)?;
         let args: WeekArgs = serde_json::from_value(arguments).map_err(|error| {
             ToolError::Execution(format!("invalid planning-context arguments: {error}"))
         })?;
         let value = self
             .0
-            .planning_context(args.week_start)
+            .planning_context(&owner_id, &families, args.week_start)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&value)
     }
@@ -95,13 +101,13 @@ impl Tool for GetPlanningContext {
 #[async_trait]
 impl Tool for ProposePlan {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        require_user(context)?;
+        let (owner_id, families) = user_scope(context)?;
         let args: ProposalArgs = serde_json::from_value(arguments)
             .map_err(|error| ToolError::Execution(format!("invalid plan proposal: {error}")))?;
         let (week_start, draft) = args.into_draft();
         let proposal = self
             .0
-            .propose(week_start, draft)
+            .propose(&owner_id, &families, week_start, draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&proposal)
     }
@@ -110,14 +116,14 @@ impl Tool for ProposePlan {
 #[async_trait]
 impl Tool for ValidatePlan {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        require_user(context)?;
+        let (owner_id, families) = user_scope(context)?;
         let args: ProposalArgs = serde_json::from_value(arguments).map_err(|error| {
             ToolError::Execution(format!("invalid plan validation request: {error}"))
         })?;
         let (week_start, draft) = args.into_draft();
         let validation = self
             .0
-            .validate(week_start, &draft)
+            .validate(&owner_id, &families, week_start, &draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&validation)
     }
@@ -126,20 +132,20 @@ impl Tool for ValidatePlan {
 #[async_trait]
 impl Tool for SavePlanDraft {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        require_user(context)?;
+        let (owner_id, families) = user_scope(context)?;
         let args: ProposalArgs = serde_json::from_value(arguments)
             .map_err(|error| ToolError::Execution(format!("invalid plan draft: {error}")))?;
         let (week_start, draft) = args.into_draft();
         let validation = self
             .0
-            .validate(week_start, &draft)
+            .validate(&owner_id, &families, week_start, &draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         if !validation.valid {
             return output(&json!({"saved": false, "confirmed": false, "validation": validation}));
         }
         let plan = self
             .0
-            .save_draft(week_start, draft)
+            .save_draft(&owner_id, &families, week_start, draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&json!({"saved": true, "confirmed": false, "plan": plan}))
     }
@@ -148,12 +154,12 @@ impl Tool for SavePlanDraft {
 #[async_trait]
 impl Tool for ConfirmPlan {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        require_user(context)?;
+        let (owner_id, families) = user_scope(context)?;
         let args: WeekArgs = serde_json::from_value(arguments)
             .map_err(|error| ToolError::Execution(format!("invalid plan confirmation: {error}")))?;
         let plan = self
             .0
-            .confirm_saved_draft(args.week_start)
+            .confirm_saved_draft(&owner_id, &families, args.week_start)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&json!({"confirmed": true, "plan": plan}))
     }
