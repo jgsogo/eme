@@ -472,6 +472,7 @@ mod external_run_id_tests {
         );
         let agent = Agent {
             id: "test-agent".into(),
+            capabilities: Vec::new(),
             system_prompt: None,
             tool_names: Vec::new(),
             max_iterations: 2,
@@ -515,6 +516,7 @@ mod external_run_id_tests {
         );
         let agent = Agent {
             id: "test-agent".into(),
+            capabilities: Vec::new(),
             system_prompt: None,
             tool_names: Vec::new(),
             max_iterations: 2,
@@ -575,6 +577,7 @@ mod family_context_tests {
         );
         let agent = Agent {
             id: "assistant".into(),
+            capabilities: Vec::new(),
             system_prompt: Some("You are a helpful assistant.".into()),
             tool_names: Vec::new(),
             max_iterations: 1,
