@@ -54,7 +54,13 @@ impl WeeklyPlanDraft {
         }
         let week_end = week_start.checked_add_days(Days::new(6))
             .ok_or_else(|| "week_start is outside the supported date range".to_owned())?;
+        let mut assignment_ids = Vec::new();
+        let mut slot_participants = Vec::new();
         for assignment in &self.assignments {
+            if assignment.id <= 0 || assignment_ids.contains(&assignment.id) {
+                return Err("assignment IDs must be positive and unique within a plan".into());
+            }
+            assignment_ids.push(assignment.id);
             if assignment.date < week_start || assignment.date > week_end {
                 return Err("every assignment date must belong to the plan week".into());
             }
@@ -70,6 +76,11 @@ impl WeeklyPlanDraft {
                     return Err("an assignment cannot contain a participant more than once".into());
                 }
                 seen.push(participant.member_id);
+                let slot_key = (assignment.date, assignment.meal_type, participant.member_id);
+                if slot_participants.contains(&slot_key) {
+                    return Err("a participant cannot have multiple assignments for the same meal slot".into());
+                }
+                slot_participants.push(slot_key);
             }
             match assignment.arrangement {
                 MealArrangement::Home => {
