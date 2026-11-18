@@ -47,7 +47,7 @@ pub struct ShoppingListItemUpdate {
 }
 
 #[derive(Debug, Clone)]
-struct GeneratedItem {
+pub(super) struct GeneratedItem {
     name: String,
     quantity: Option<f64>,
     unit: Option<String>,
@@ -57,7 +57,7 @@ struct GeneratedItem {
 
 /// Build the generated portion of a list. Participant count is the planned
 /// serving count for an assignment; recipe servings are its base serving count.
-pub(crate) fn generate_items(
+pub(super) fn generate_items(
     plan: &WeeklyPlan,
     mut recipe_for: impl FnMut(i64) -> Option<crate::Recipe>,
 ) -> Result<Vec<GeneratedItem>, String> {
@@ -130,7 +130,7 @@ fn push_unique(values: &mut Vec<i64>, value: i64) {
 }
 
 impl ShoppingList {
-    pub(crate) fn reconcile(
+    pub(super) fn reconcile(
         existing: Option<Self>,
         plan_id: i64,
         plan_revision: i64,
@@ -150,7 +150,6 @@ impl ShoppingList {
                     && normalize_name(&item.name) == normalize_name(&generated_item.name)
                     && normalize_unit(item.unit.as_deref()).0
                         == normalize_unit(generated_item.unit.as_deref()).0
-                    && !item.stale
             });
             if let Some(index) = match_index {
                 let mut previous = old_items.remove(index);
