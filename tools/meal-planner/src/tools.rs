@@ -132,10 +132,25 @@ impl Tool for ConfirmPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MealArrangement, MealType, PlanParticipant};
     use agent_runtime::Tool;
 
     fn monday() -> NaiveDate { NaiveDate::from_ymd_opt(2026, 11, 16).unwrap() }
+
+
+    #[test]
+    fn registers_every_tool_from_its_toml_definition() {
+        let mut registry = ToolRegistry::new();
+        register_tools(&mut registry, MealPlannerStore::open_in_memory().unwrap()).unwrap();
+        for name in [
+            "meal_planner_context",
+            "meal_planner_propose",
+            "meal_planner_validate",
+            "meal_planner_save_draft",
+            "meal_planner_confirm",
+        ] {
+            assert!(registry.contains(name), "missing registered tool: {name}");
+        }
+    }
 
     #[tokio::test]
     async fn tools_require_authenticated_context() {
