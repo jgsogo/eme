@@ -10,9 +10,7 @@ use super::{
 };
 use crate::{
     Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelRequest,
-    ModelRouter,
-    PolicyEngine,
-    RuntimeError, ToolContext, ToolDispatcher, ToolError,
+    ModelRouter, PolicyEngine, RuntimeError, ToolContext, ToolDispatcher, ToolError,
 };
 
 const DEFAULT_TOOL_TIMEOUT: Duration = Duration::from_secs(30);
