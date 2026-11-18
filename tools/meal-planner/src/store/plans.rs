@@ -65,6 +65,7 @@ impl MealPlannerStore {
             .validate(week_start)
             .map_err(MealPlannerError::InvalidInput)?;
         let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_references(&connection, &draft)?;
         let revision: i64 = connection.query_row(
             "SELECT COALESCE(MAX(revision), 0) + 1 FROM weekly_plans WHERE week_start = ?1",
             [week_start.to_string()],
@@ -115,6 +116,7 @@ impl MealPlannerStore {
     ) -> Result<WeeklyPlan, MealPlannerError> {
         let draft = draft.validate(week_start).map_err(MealPlannerError::InvalidInput)?;
         let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_references(&connection, &draft)?;
         let id = latest_plan_id(&connection, week_start)?.ok_or(MealPlannerError::NotFound)?;
         let status: String = connection.query_row(
             "SELECT status FROM weekly_plans WHERE id = ?1", [id], |row| row.get(0)
@@ -177,6 +179,36 @@ impl MealPlannerStore {
         )?;
         load_plan(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
     }
+}
+
+
+fn ensure_references(
+    connection: &rusqlite::Connection,
+    draft: &WeeklyPlanDraft,
+) -> Result<(), MealPlannerError> {
+    for assignment in &draft.assignments {
+        for participant in &assignment.participants {
+            let exists: bool = connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM family_members WHERE id = ?1)",
+                [participant.member_id],
+                |row| row.get(0),
+            )?;
+            if !exists {
+                return Err(MealPlannerError::NotFound);
+            }
+        }
+        if let Some(recipe_id) = assignment.recipe_id {
+            let exists: bool = connection.query_row(
+                "SELECT EXISTS(SELECT 1 FROM recipes WHERE id = ?1)",
+                [recipe_id],
+                |row| row.get(0),
+            )?;
+            if !exists {
+                return Err(MealPlannerError::NotFound);
+            }
+        }
+    }
+    Ok(())
 }
 
 fn latest_plan_id(
