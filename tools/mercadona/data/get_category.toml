@@ -1,0 +1,15 @@
+name = "mercadona_get_category"
+description = "Retrieve a Mercadona category by identifier, including its products and subcategories when provided by the API."
+[parameters]
+type = "object"
+required = ["category_id"]
+additionalProperties = false
+
+[parameters.properties.category_id]
+type = "string"
+minLength = 1
+description = "Category identifier returned by mercadona_list_categories."
+
+[parameters.properties.warehouse]
+type = "string"
+description = "Optional Mercadona warehouse code. Defaults to MERCADONA_WAREHOUSE or mad1."

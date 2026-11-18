@@ -32,4 +32,9 @@ tools = [
     "task_remove",
     "list_notes",
     "get_note",
+    "mercadona_search_products",
+    "mercadona_get_product",
+    "mercadona_list_categories",
+    "mercadona_get_category",
+    "mercadona_resolve_postal_code",
 ]

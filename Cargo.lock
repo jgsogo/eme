@@ -231,6 +231,7 @@ dependencies = [
  "alexa-tool",
  "anyhow",
  "async-trait",
+ "chrono",
  "google-tool",
  "jsonschema",
  "meteosource-tool",
@@ -262,6 +263,7 @@ dependencies = [
  "clap",
  "common-tools",
  "google-tool",
+ "mercadona-tool",
  "meteosource-tool",
  "notes-tools",
  "serde",
@@ -275,22 +277,6 @@ dependencies = [
  "uuid",
 ]
 
-
-[[package]]
-name = "notes-tools"
-version = "0.1.0"
-dependencies = [
- "agent-runtime",
- "agent-storage",
- "async-trait",
- "chrono",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "uuid",
-]
 [[package]]
 name = "agent-service"
 version = "0.1.0"
@@ -790,6 +776,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "chrono-tz",
+ "reqwest 0.12.28",
  "serde_json",
  "tokio",
 ]
@@ -2061,6 +2048,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "mercadona-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
+ "reqwest 0.12.28",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "meteosource-tool"
 version = "0.1.0"
 dependencies = [
@@ -2147,6 +2146,22 @@ name = "normalize-line-endings"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61807f77802ff30975e01f4f071c8ba10c022052f98b3294119f3e615d13e5be"
+
+[[package]]
+name = "notes-tools"
+version = "0.1.0"
+dependencies = [
+ "agent-runtime",
+ "agent-storage",
+ "async-trait",
+ "chrono",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
 
 [[package]]
 name = "nu-ansi-term"
