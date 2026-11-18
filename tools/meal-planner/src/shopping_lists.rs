@@ -76,10 +76,12 @@ pub(super) fn generate_items(
             let (unit, multiplier) = normalize_unit(ingredient.unit.as_deref());
             let quantity = ingredient.amount.map(|amount| amount * factor * multiplier);
             let key = (normalize_name(&ingredient.name), unit.clone());
-            if let Some(existing) = items
-                .iter_mut()
-                .find(|item| (normalize_name(&item.name), item.unit.clone()) == key)
-            {
+            let existing = unit.as_ref().and_then(|_| {
+                items
+                    .iter_mut()
+                    .find(|item| (normalize_name(&item.name), item.unit.clone()) == key)
+            });
+            if let Some(existing) = existing {
                 existing.quantity = match (existing.quantity, quantity) {
                     (Some(left), Some(right)) => Some(left + right),
                     _ => None,
@@ -356,6 +358,31 @@ mod tests {
         assert_eq!(generated[0].quantity, Some(750.0));
         assert_eq!(generated[0].unit.as_deref(), Some("g"));
         assert_eq!(generated[0].source_assignment_ids, [1, 2]);
+    }
+
+    #[test]
+    fn incompatible_or_missing_units_are_not_aggregated() {
+        let p = plan(vec![
+            assignment(1, MealArrangement::Home, Some(1), 1),
+            assignment(2, MealArrangement::Home, Some(2), 1),
+            assignment(3, MealArrangement::Home, Some(3), 1),
+            assignment(4, MealArrangement::Home, Some(4), 1),
+        ]);
+        let generated = generate_items(&p, |id| match id {
+            1 => Some(recipe(1, 1, Some(100.0), Some("g"))),
+            2 => Some(recipe(2, 1, Some(100.0), Some("ml"))),
+            3 => Some(recipe(3, 1, Some(2.0), None)),
+            4 => Some(recipe(4, 1, Some(3.0), None)),
+            _ => None,
+        })
+        .unwrap();
+        assert_eq!(generated.len(), 4);
+        assert_eq!(generated[0].unit.as_deref(), Some("g"));
+        assert_eq!(generated[1].unit.as_deref(), Some("ml"));
+        assert_eq!(generated[2].quantity, Some(2.0));
+        assert_eq!(generated[3].quantity, Some(3.0));
+        assert!(generated[2].unit.is_none());
+        assert!(generated[3].unit.is_none());
     }
 
     #[test]
