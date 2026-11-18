@@ -41,6 +41,40 @@ impl MealPlannerStore {
         Ok(result)
     }
 
+    pub fn add_recurring_rule_for_family(
+        &self, family_id: &str, member_id: i64, weekday: MealWeekday,
+        meal_type: MealType, arrangement: MealArrangement,
+        effective_from: Option<NaiveDate>, effective_until: Option<NaiveDate>,
+    ) -> Result<RecurringParticipationRule, MealPlannerError> {
+        if effective_from.zip(effective_until).is_some_and(|(a,b)| b < a) {
+            return Err(MealPlannerError::InvalidInput("recurring rule ends before it starts".into()));
+        }
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_member_in_family(&connection, family_id, member_id)?;
+        connection.execute(
+            "INSERT INTO recurring_participation_rules(family_id,member_id,weekday,meal_type,arrangement,effective_from,effective_until)
+             VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![family_id, member_id, weekday as u8, meal_type.as_str(), arrangement.as_str(),
+                effective_from.map(|d| d.to_string()), effective_until.map(|d| d.to_string())],
+        )?;
+        load_rule(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn set_meal_exception_for_family(
+        &self, family_id: &str, member_id: i64, date: NaiveDate,
+        meal_type: MealType, arrangement: MealArrangement,
+    ) -> Result<MealException, MealPlannerError> {
+        let connection = self.connection.lock().map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_member_in_family(&connection, family_id, member_id)?;
+        connection.execute(
+            "INSERT INTO meal_participation_exceptions(family_id,member_id,date,meal_type,arrangement)
+             VALUES(?1,?2,?3,?4,?5)
+             ON CONFLICT(family_id,member_id,date,meal_type) DO UPDATE SET arrangement=excluded.arrangement",
+            params![family_id, member_id, date.to_string(), meal_type.as_str(), arrangement.as_str()],
+        )?;
+        load_exception(&connection, member_id, date, meal_type)?.ok_or(MealPlannerError::NotFound)
+    }
+
     pub fn create_family_member(&self, name: &str) -> Result<FamilyMember, MealPlannerError> {
         let name = name.trim();
         if name.is_empty() {
@@ -320,6 +354,14 @@ impl MealPlannerStore {
     }
 }
 
+
+fn ensure_member_in_family(connection: &rusqlite::Connection, family_id: &str, id: i64) -> Result<(), MealPlannerError> {
+    let exists: bool = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM family_members WHERE id=?1 AND family_id=?2 AND active=1)",
+        params![id, family_id], |row| row.get(0)
+    )?;
+    if exists { Ok(()) } else { Err(MealPlannerError::NotFound) }
+}
 fn ensure_member(connection: &rusqlite::Connection, id: i64) -> Result<(), MealPlannerError> {
     let exists: bool = connection.query_row(
         "SELECT EXISTS(SELECT 1 FROM family_members WHERE id = ?1)",
