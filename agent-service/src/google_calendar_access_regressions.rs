@@ -407,29 +407,25 @@ async fn supports_multiple_google_accounts_and_independent_calendar_permissions(
         .await
         .unwrap();
     assert_eq!(visible.len(), 3);
-    assert!(visible.iter().any(|calendar| calendar.id == fixture.calendar_id));
+    assert!(
+        visible
+            .iter()
+            .any(|calendar| calendar.id == fixture.calendar_id)
+    );
     assert!(visible.iter().any(|calendar| calendar.id == read_only.id));
     assert!(visible.iter().any(|calendar| calendar.id == read_write.id));
 
     assert!(matches!(
         fixture
             .access
-            .authorize_write(
-                &fixture.owner.to_string(),
-                &read_only.id.to_string(),
-                None,
-            )
+            .authorize_write(&fixture.owner.to_string(), &read_only.id.to_string(), None,)
             .await,
         Err(GoogleCalendarAccessError::WriteNotAuthorized)
     ));
     assert!(
         fixture
             .access
-            .authorize_write(
-                &fixture.owner.to_string(),
-                &read_write.id.to_string(),
-                None,
-            )
+            .authorize_write(&fixture.owner.to_string(), &read_write.id.to_string(), None,)
             .await
             .is_ok()
     );
