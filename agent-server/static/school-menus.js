@@ -42,6 +42,7 @@ function monday(value) {
 function statusLabel(status) {
   return ({
     known: "Menu published",
+    not_published: "Unknown / not imported",
 
     closed: "School closed",
     unknown: "Unknown / not imported",
