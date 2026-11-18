@@ -5,8 +5,8 @@
 mod config;
 mod domain;
 mod error;
-mod recipes;
 mod plans;
+mod recipes;
 mod school_menus;
 mod store;
 
@@ -17,8 +17,8 @@ pub use domain::{
     resolve_date, resolve_week,
 };
 pub use error::MealPlannerError;
-pub use recipes::{Recipe, RecipeDraft, RecipeIngredient};
 pub use plans::{MealAssignment, PlanParticipant, WeeklyPlan, WeeklyPlanDraft, WeeklyPlanStatus};
+pub use recipes::{Recipe, RecipeDraft, RecipeIngredient};
 pub use school_menus::{
     SchoolMenuDraft, SchoolMenuEntry, SchoolMenuImportReport, SchoolMenuItem, SchoolMenuOrigin,
     SchoolMenuStatus,
