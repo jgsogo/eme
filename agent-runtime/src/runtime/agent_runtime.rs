@@ -333,7 +333,6 @@ impl AgentRuntime {
                             iteration,
                             kind: RunEventKind::ModelFailed {
                                 category: ErrorCategory::Model,
-                                error: error.to_string(),
                             },
                         },
                     );
