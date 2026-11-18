@@ -23,7 +23,10 @@ pub fn register_tools(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
     let app = MealPlannerApplication::new(store);
-    registry.register_from_file(data.join(definitions::CONTEXT), GetPlanningContext(app.clone()))?;
+    registry.register_from_file(
+        data.join(definitions::CONTEXT),
+        GetPlanningContext(app.clone()),
+    )?;
     registry.register_from_file(data.join(definitions::PROPOSE), ProposePlan(app.clone()))?;
     registry.register_from_file(data.join(definitions::VALIDATE), ValidatePlan(app.clone()))?;
     registry.register_from_file(data.join(definitions::SAVE), SavePlanDraft(app.clone()))?;
@@ -32,8 +35,14 @@ pub fn register_tools(
 }
 
 fn require_user(context: &ToolContext) -> Result<(), ToolError> {
-    context.user_id.as_deref().filter(|id| !id.trim().is_empty()).map(|_| ())
-        .ok_or_else(|| ToolError::Execution("Meal Planner tools require an authenticated user context".into()))
+    context
+        .user_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+        .map(|_| ())
+        .ok_or_else(|| {
+            ToolError::Execution("Meal Planner tools require an authenticated user context".into())
+        })
 }
 
 fn output(value: &impl serde::Serialize) -> Result<String, ToolError> {
@@ -41,7 +50,9 @@ fn output(value: &impl serde::Serialize) -> Result<String, ToolError> {
 }
 
 #[derive(Deserialize)]
-struct WeekArgs { week_start: NaiveDate }
+struct WeekArgs {
+    week_start: NaiveDate,
+}
 
 #[derive(Deserialize)]
 struct ProposalArgs {
@@ -51,7 +62,12 @@ struct ProposalArgs {
 
 impl ProposalArgs {
     fn into_draft(self) -> (NaiveDate, WeeklyPlanDraft) {
-        (self.week_start, WeeklyPlanDraft { assignments: self.assignments })
+        (
+            self.week_start,
+            WeeklyPlanDraft {
+                assignments: self.assignments,
+            },
+        )
     }
 }
 
@@ -65,9 +81,12 @@ struct ConfirmPlan(MealPlannerApplication);
 impl Tool for GetPlanningContext {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
         require_user(context)?;
-        let args: WeekArgs = serde_json::from_value(arguments)
-            .map_err(|error| ToolError::Execution(format!("invalid planning-context arguments: {error}")))?;
-        let value = self.0.planning_context(args.week_start)
+        let args: WeekArgs = serde_json::from_value(arguments).map_err(|error| {
+            ToolError::Execution(format!("invalid planning-context arguments: {error}"))
+        })?;
+        let value = self
+            .0
+            .planning_context(args.week_start)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&value)
     }
@@ -80,7 +99,9 @@ impl Tool for ProposePlan {
         let args: ProposalArgs = serde_json::from_value(arguments)
             .map_err(|error| ToolError::Execution(format!("invalid plan proposal: {error}")))?;
         let (week_start, draft) = args.into_draft();
-        let proposal = self.0.propose(week_start, draft)
+        let proposal = self
+            .0
+            .propose(week_start, draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&proposal)
     }
@@ -93,7 +114,9 @@ impl Tool for ValidatePlan {
         let args: ProposalArgs = serde_json::from_value(arguments)
             .map_err(|error| ToolError::Execution(format!("invalid plan validation request: {error}")))?;
         let (week_start, draft) = args.into_draft();
-        let validation = self.0.validate(week_start, &draft)
+        let validation = self
+            .0
+            .validate(week_start, &draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&validation)
     }
@@ -111,7 +134,9 @@ impl Tool for SavePlanDraft {
         if !validation.valid {
             return output(&json!({"saved": false, "confirmed": false, "validation": validation}));
         }
-        let plan = self.0.save_draft(week_start, draft)
+        let plan = self
+            .0
+            .save_draft(week_start, draft)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&json!({"saved": true, "confirmed": false, "plan": plan}))
     }
@@ -123,7 +148,9 @@ impl Tool for ConfirmPlan {
         require_user(context)?;
         let args: WeekArgs = serde_json::from_value(arguments)
             .map_err(|error| ToolError::Execution(format!("invalid plan confirmation: {error}")))?;
-        let plan = self.0.confirm_saved_draft(args.week_start)
+        let plan = self
+            .0
+            .confirm_saved_draft(args.week_start)
             .map_err(|error| ToolError::Execution(error.to_string()))?;
         output(&json!({"confirmed": true, "plan": plan}))
     }
@@ -134,8 +161,9 @@ mod tests {
     use super::*;
     use agent_runtime::Tool;
 
-    fn monday() -> NaiveDate { NaiveDate::from_ymd_opt(2026, 11, 16).unwrap() }
-
+    fn monday() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()
+    }
 
     #[test]
     fn registers_every_tool_from_its_toml_definition() {
@@ -156,7 +184,10 @@ mod tests {
     async fn tools_require_authenticated_context() {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let tool = GetPlanningContext(MealPlannerApplication::new(store));
-        let error = tool.execute(&ToolContext::default(), json!({"week_start":"2026-11-16"})).await.unwrap_err();
+        let error = tool
+            .execute(&ToolContext::default(), json!({"week_start":"2026-11-16"}))
+            .await
+            .unwrap_err();
         assert!(error.to_string().contains("authenticated user"));
     }
 
@@ -188,14 +219,20 @@ mod tests {
     async fn invalid_proposal_returns_structured_feedback_without_saving() {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let app = MealPlannerApplication::new(store.clone());
-        let value = ProposePlan(app).execute(&ToolContext::new("user-1"), json!({
-            "week_start":"2026-11-16",
-            "assignments":[{
-                "id":1,"date":"2026-11-16","meal_type":"lunch",
-                "participants":[{"member_id":999,"name":"Unknown"}],
-                "arrangement":"home","recipe_id":null,"school_menu_date":null,"notes":null
-            }]
-        })).await.unwrap();
+        let value = ProposePlan(app)
+            .execute(
+                &ToolContext::new("user-1"),
+                json!({
+                    "week_start":"2026-11-16",
+                    "assignments":[{
+                        "id":1,"date":"2026-11-16","meal_type":"lunch",
+                        "participants":[{"member_id":999,"name":"Unknown"}],
+                        "arrangement":"home","recipe_id":null,"school_menu_date":null,"notes":null
+                    }]
+                }),
+            )
+            .await
+            .unwrap();
         assert!(value.contains("participant_exists"));
         assert!(store.get_weekly_plan(monday()).unwrap().is_none());
     }
