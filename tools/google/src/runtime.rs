@@ -24,7 +24,11 @@ impl GoogleCalendarRuntimeConfig {
         access: Arc<GoogleCalendarAccessService>,
         token_manager: Arc<GoogleOAuthTokenManager>,
     ) -> Self {
-        Self { oauth, access, token_manager }
+        Self {
+            oauth,
+            access,
+            token_manager,
+        }
     }
 
     /// Refresh credentials through the shared per-connection coordinator.
