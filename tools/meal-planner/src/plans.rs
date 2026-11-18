@@ -177,6 +177,12 @@ mod tests {
         let monday = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         let mut value = assignment(MealArrangement::Home);
         value.participants.push(value.participants[0].clone());
-        assert!(WeeklyPlanDraft { assignments: vec![value] }.validate(monday).is_err());
+        assert!(
+            WeeklyPlanDraft {
+                assignments: vec![value]
+            }
+            .validate(monday)
+            .is_err()
+        );
     }
 }
