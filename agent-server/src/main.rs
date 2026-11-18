@@ -31,9 +31,9 @@ use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_root, console_script, console_stylesheet, conversations_page, families_page, favicon,
-    invitation_page, mobile_conversations_page, mobile_families_page, mobile_notes_page,
-    mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet, mobile_tasks_page,
-    notes_page, profile_page, tasks_page,
+    integrations_page, invitation_page, mobile_conversations_page, mobile_families_page,
+    mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
+    mobile_tasks_page, notes_page, profile_page, tasks_page,
 };
 
 #[actix_web::main]
@@ -78,6 +78,14 @@ async fn main() -> Result<()> {
         SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
             .context("opening family and invitation storage")?,
     );
+    let family_service = Arc::new(FamilyService::new(
+        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+        Arc::clone(&family_store) as Arc<dyn FamilyInvitationStore>,
+    ));
+    let google_oauth_state = agent_server::GoogleOAuthState::from_env(&args.data_dir)
+        .map_err(anyhow::Error::msg)
+        .context("configuring Google OAuth integration")?;
+    let google_runtime = google_oauth_state.calendar_runtime(Arc::clone(&family_service));
 
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(
@@ -85,6 +93,7 @@ async fn main() -> Result<()> {
             gateway_for_tools,
             task_registry.clone(),
             Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+            google_runtime,
         )
         .with_context(|| {
             format!(
@@ -122,11 +131,6 @@ async fn main() -> Result<()> {
         ConversationStore::open(args.data_dir.join("conversations"))
             .context("opening conversation storage")?,
     );
-    let family_service = Arc::new(FamilyService::new(
-        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
-        Arc::clone(&family_store) as Arc<dyn FamilyInvitationStore>,
-    ));
-
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
         let updates = gateway.subscribe();
@@ -176,6 +180,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&family_service)))
             .app_data(web::Data::new(notes_store.clone()))
             .app_data(web::Data::new(task_registry.clone()))
+            .app_data(web::Data::new(google_oauth_state.clone()))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)));
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
@@ -191,6 +196,7 @@ async fn main() -> Result<()> {
             .service(families_page)
             .service(notes_page)
             .service(profile_page)
+            .service(integrations_page)
             .service(tasks_page)
             .service(console_stylesheet)
             .service(console_script)
@@ -199,6 +205,7 @@ async fn main() -> Result<()> {
             .service(favicon)
             .service(invitation_page)
             .service(agent_server::auth::auth_api())
+            .service(agent_server::google_integrations_api())
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())

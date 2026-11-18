@@ -40,3 +40,61 @@ The crate will implement:
 ## Non-goals
 
 The server will not implement agent execution logic, tool authorization, scheduling algorithms, or database access directly. Those responsibilities will be delegated to the corresponding crates.
+
+
+## Google account connections (OAuth)
+
+Google Calendar account linking is optional. Configure all four variables to enable it:
+
+- `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID.
+- `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret.
+- `GOOGLE_OAUTH_REDIRECT_URI`: registered callback URL, normally `https://your-host/integrations/google/oauth/callback`.
+- `EME_CREDENTIAL_ENCRYPTION_KEY`: stable 32-byte encryption key encoded as exactly 64 hexadecimal characters.
+
+Generate the encryption key with `openssl rand -hex 32`. Keep it in a deployment secret manager, separate from the SQLite database, and back it up securely. Losing or changing the key makes stored refresh tokens and pending PKCE verifiers undecryptable. Never put this key in TOML, source control, browser configuration, or logs.
+
+When the variables are absent, Google integration endpoints return `503 Service Unavailable` and the rest of the server remains available. A partial configuration or malformed encryption key prevents startup.
+
+Authenticated endpoints:
+
+- `POST /integrations/google/oauth/start` with `{"access":"read_only"}` or `{"access":"read_write"}` returns an authorization URL. The caller should navigate the browser to that URL.
+- `GET /integrations/google/oauth/callback` is the registered Google redirect URI. The existing EME browser session must still be present.
+- `GET /integrations/google/connections` lists the current user's connected Google accounts without returning credentials.
+- `DELETE /integrations/google/connections/{connection_id}` disables the EME connection first, then attempts to revoke the Google refresh token.
+
+OAuth state and PKCE verifiers are persisted with a ten-minute expiry. State is hashed at rest, the verifier is encrypted, and callbacks are single-use and bound to the initiating EME user. Google account identity is resolved through the OpenID Connect user-info endpoint and an unverified email is rejected.
+
+The current API supports account connections plus calendar discovery, selection, and per-calendar EME read/write settings. Family sharing and read-only agent access are also available. The server composes the Google tools with the same connection stores and authorization service used by the HTTP API.
+
+Family sharing configuration is available for selected calendars:
+
+- `PUT /integrations/google/calendars/{eme_calendar_id}/family-sharing` accepts `{"family_id":"...","access":"viewer"}` or `{"family_id":"...","access":"contributor"}`. The authenticated calendar owner must currently belong to that EME family.
+- `DELETE /integrations/google/calendars/{eme_calendar_id}/family-sharing` removes the family association.
+- Calendar responses include `family_id` and `family_access` when sharing is configured.
+
+A viewer grant allows read operations; a contributor grant requests read/write capability but cannot exceed the owner's calendar access mode or Google's granted scopes. Contributor sharing is rejected unless the owner has configured read/write access. Changing the owner mode to read-only downgrades an existing contributor grant to viewer. Deselecting a calendar removes its family share. These are EME permissions only; no Google Calendar ACLs or credentials are shared.
+
+The agent-facing tools apply these settings at execution time. `google_list_calendars` lists the caller's selected calendars and currently shared family calendars. `google_calendar_events` accepts the internal EME calendar ID returned by the list tool, then verifies the caller's identity, selected-family membership, owner's current membership, selected-calendar state, active connection, and Google event-read scope before decrypting the owner's refresh token. Google provider calendar IDs and credentials are not model inputs or tool output metadata. The current tool integration is read-only; contributor write operations will be added separately.
+
+
+Calendar management endpoints (also authenticated with the current EME browser session):
+
+- `GET /integrations/google/connections/{connection_id}/calendars` lists calendars already discovered for one of the caller's active Google connections.
+- `POST /integrations/google/connections/{connection_id}/calendars/sync` refreshes the calendar list from Google's `calendarList.list` API. Newly discovered calendars are unselected and read-only; a sync updates provider metadata without resetting the user's existing selection or EME access mode.
+- `PATCH /integrations/google/calendars/{calendar_id}` accepts either or both of `selected` (boolean) and `access_mode` (`read_only` or `read_write`). Calendar IDs in these APIs are EME-generated IDs, not Google provider IDs. Write access is rejected unless the connected account has actually granted Google's `calendar.events` or broader `calendar` scope.
+
+For example:
+
+```http
+POST /integrations/google/connections/{connection_id}/calendars/sync
+```
+
+```http
+PATCH /integrations/google/calendars/{eme_calendar_id}
+Content-Type: application/json
+
+{"selected":true,"access_mode":"read_only"}
+```
+
+The API does not delete calendars or events from Google. Deselecting a calendar only removes it from EME's future allowlist. Agent tools can access only selected calendars and re-check authorization on every invocation.
+

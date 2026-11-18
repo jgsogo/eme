@@ -57,6 +57,13 @@ pub(super) async fn notes_page() -> impl Responder {
         .body(include_str!("../../static/notes.html"))
 }
 
+#[get("/console/integrations")]
+pub(super) async fn integrations_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/integrations.html"))
+}
+
 #[get("/console/profile")]
 pub(super) async fn profile_page() -> impl Responder {
     HttpResponse::Ok()

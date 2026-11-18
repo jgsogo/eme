@@ -1,14 +1,15 @@
 name = "google_calendar_events"
-description = "List events from an explicitly selected Google Calendar for a calendar-local day or an explicit time period."
+description = "List events from a connected Google Calendar that the authenticated EME user is authorized to access, for a calendar-local day or an explicit time period."
 
 [parameters]
 type = "object"
 additionalProperties = false
+required = ["calendar_id"]
 
 [parameters.properties.calendar_id]
 type = "string"
 minLength = 1
-description = "Optional Google Calendar ID. Defaults to GOOGLE_CALENDAR_ID when omitted. The selected ID must also be listed in GOOGLE_CALENDAR_ALLOWED_IDS; the special 'primary' alias is not permitted."
+description = "Internal EME connected-calendar ID returned by the Google Calendar connection management API. Do not use a Google provider calendar ID."
 
 [parameters.properties.date]
 type = "string"

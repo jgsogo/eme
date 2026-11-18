@@ -1,40 +1,41 @@
-use super::super::{is_calendar_allowed, required_env};
 use super::GoogleCalendarClient;
+use crate::GoogleCalendarRuntimeConfig;
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::Value;
 
-/// Read-only Google Calendar events tool.
-pub(crate) struct GoogleCalendarEvents;
+/// Read-only Google Calendar events tool, scoped to the authenticated EME user.
+pub(crate) struct GoogleCalendarEvents {
+    runtime: Option<GoogleCalendarRuntimeConfig>,
+}
+
+impl GoogleCalendarEvents {
+    pub(crate) fn new(runtime: Option<GoogleCalendarRuntimeConfig>) -> Self {
+        Self { runtime }
+    }
+}
 
 #[async_trait]
 impl Tool for GoogleCalendarEvents {
-    async fn execute(&self, _context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        // An explicit tool argument takes precedence over the configured default.
-        // There is deliberately no implicit fallback to Google's "primary" calendar.
-        let configured_calendar_id = std::env::var("GOOGLE_CALENDAR_ID").ok();
+    async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            ToolError::Configuration(
+                "Google Calendar OAuth is not configured on this server.".into(),
+            )
+        })?;
+        let user_id = context.user_id.as_deref().ok_or_else(|| {
+            ToolError::Configuration("Google Calendar requires an authenticated EME user.".into())
+        })?;
         let calendar_id = arguments
             .get("calendar_id")
             .and_then(Value::as_str)
-            .or(configured_calendar_id.as_deref())
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .ok_or_else(|| {
-                ToolError::Configuration(
-                    "Set 'calendar_id' in the tool arguments or configure GOOGLE_CALENDAR_ID."
-                        .into(),
-                )
+            .ok_or_else(|| ToolError::InvalidArguments {
+                tool_name: "google_calendar_events".into(),
+                errors: vec!["'calendar_id' must be an EME connected-calendar ID.".into()],
             })?;
 
-        // Fail closed: only calendars explicitly listed in GOOGLE_CALENDAR_ALLOWED_IDS
-        // can be queried. The special "primary" alias is never accepted.
-        let allowed_calendar_ids = required_env("GOOGLE_CALENDAR_ALLOWED_IDS")
-            .map_err(|error| ToolError::Configuration(error.to_string()))?;
-        if !is_calendar_allowed(calendar_id, &allowed_calendar_ids) {
-            return Err(ToolError::Configuration(format!(
-                "Calendar '{calendar_id}' is not included in GOOGLE_CALENDAR_ALLOWED_IDS."
-            )));
-        }
         let date = arguments.get("date").and_then(Value::as_str);
         let time_min = arguments.get("time_min").and_then(Value::as_str);
         let time_max = arguments.get("time_max").and_then(Value::as_str);
@@ -50,14 +51,43 @@ impl Tool for GoogleCalendarEvents {
             });
         }
 
-        let client = GoogleCalendarClient::from_environment()
+        // Identity and family context are trusted host metadata. The model can
+        // supply only the opaque EME calendar ID, never an owner or family ID.
+        let family_id = context
+            .family
+            .as_ref()
+            .map(|family| family.family_id.as_str());
+        let authorized = runtime
+            .access
+            .authorize_read(user_id, calendar_id, family_id)
             .await
-            .map_err(|error| ToolError::Configuration(error.to_string()))?;
+            .map_err(|error| ToolError::Execution(error.to_string()))?;
+
+        let token = runtime
+            .refresh_access_token(authorized.calendar.connection_id, &authorized.refresh_token)
+            .await
+            .map_err(|error| ToolError::Execution(error.to_string()))?;
+        let client = GoogleCalendarClient::from_access_token(token);
+
+        let public_calendar_id = authorized.calendar.id.to_string();
+        let provider_calendar_id = authorized.calendar.provider_calendar_id.as_str();
         let result = if let Some(date) = date {
-            client.events_for_day(calendar_id, date, time_zone).await
+            client
+                .events_for_day(
+                    provider_calendar_id,
+                    date,
+                    time_zone.or(authorized.calendar.time_zone.as_deref()),
+                    &public_calendar_id,
+                )
+                .await
         } else {
             client
-                .events_for_period(calendar_id, time_min.unwrap(), time_max.unwrap())
+                .events_for_period(
+                    provider_calendar_id,
+                    time_min.unwrap(),
+                    time_max.unwrap(),
+                    &public_calendar_id,
+                )
                 .await
         }
         .map_err(|error| ToolError::Execution(error.to_string()))?;

@@ -4,12 +4,20 @@
 //! supervision, and event routing. Task definitions and scheduling live in
 //! the dedicated `tasks-tool` crate.
 
+mod authorized_google_calendar;
 mod family;
+mod google_calendar_access;
+mod google_calendar_access_error;
+#[cfg(test)]
+mod google_calendar_access_regressions;
 mod manager;
 mod run;
 mod runtime_executor;
 
+pub use authorized_google_calendar::AuthorizedGoogleCalendar;
 pub use family::{FamilyService, FamilyServiceError};
+pub use google_calendar_access::GoogleCalendarAccessService;
+pub use google_calendar_access_error::GoogleCalendarAccessError;
 pub use manager::{
     CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, RunExecutor, RunManager,
     RunManagerConfigError, SubmitRunError,

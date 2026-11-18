@@ -7,8 +7,6 @@ pub(crate) enum GoogleCalendarError {
     Http(#[from] reqwest::Error),
     #[error("Google Calendar returned HTTP {status}: {detail}")]
     Api { status: StatusCode, detail: String },
-    #[error("Google OAuth token refresh failed: {0}")]
-    OAuth(String),
     #[error("Invalid date or time value: {0}")]
     InvalidTime(String),
     #[error("Invalid response from Google: {0}")]

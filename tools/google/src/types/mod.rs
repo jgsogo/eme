@@ -6,8 +6,6 @@ mod calendar;
 pub(crate) use calendar::Calendar;
 mod events_page;
 pub(crate) use events_page::EventsPage;
-mod token_response;
-pub(crate) use token_response::TokenResponse;
 mod google_calendar_client;
 pub(crate) use google_calendar_client::GoogleCalendarClient;
 mod google_calendar_events;
