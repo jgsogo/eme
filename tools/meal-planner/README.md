@@ -38,3 +38,21 @@ School lunch menus are date-keyed records, separate from family recipes and hous
 Menu items retain optional notes, allergen annotations (unknown differs from a checked empty list) and dietary alternatives. Records retain source, import timestamp and origin. Manual entries and corrections take precedence: imports skip dates already marked manual, while later imports may refresh earlier imported records.
 
 The application supports manual save/edit, date and inclusive range retrieval, deletion, and a provider-neutral batch import boundary. No public school-menu API or provider format is assumed; a concrete importer should be added only after its source and format are identified. Holiday calendars remain separate context and are not used to infer that a menu is absent or a school is closed.
+
+
+## Weekly meal plans
+
+A weekly plan is keyed by a Monday local calendar date and contains date/meal slots with one or more participant assignments. Assignments snapshot member IDs and names, so later edits to household participation rules do not silently change an existing plan. The initial draft is generated from the participation resolver and groups members who share the same arrangement.
+
+Assignments distinguish home, school, away and not-participating arrangements. Home assignments may reference a recipe. School assignments reference the school-menu date and never a family recipe; if no menu record exists, the UI reports that no menu is recorded rather than inferring that the school is closed.
+
+Plans have explicit draft and confirmed states. Drafts can be edited; confirmation records a timestamp and makes that revision immutable. Creating a revision copies the latest confirmed assignments into a new draft revision. Earlier confirmed revisions remain available through the revision-history API.
+
+The authenticated API exposes:
+- `GET /meal-planner/plans/{week_start}` and `GET /meal-planner/plans/{week_start}/revisions`
+- `POST /meal-planner/plans/{week_start}` to create a draft from current participation rules
+- `PUT /meal-planner/plans/{week_start}` to replace the latest draft assignments
+- `POST /meal-planner/plans/{week_start}/confirm` and `POST /meal-planner/plans/{week_start}/revise`
+- `GET /meal-planner/members` and `POST /meal-planner/members` for planner participant selection
+
+The responsive planner is available at `/console/meal-planner`. It supports week navigation, member creation, multiple assignments per slot, recipe selection for home-prepared meals, school-menu context, draft editing and explicit confirmation/revision.

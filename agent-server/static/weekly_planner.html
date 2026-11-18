@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
+<title>EME Agent Console · Weekly planner</title>
+<link rel="stylesheet" href="/assets/console.css"><script src="/assets/weekly-planner.js" defer></script>
+</head>
+<body>
+<header><div class="header-title"><h1>EME Agent Console</h1><nav class="main-nav" aria-label="Main navigation">
+<a class="main-nav-link" href="/console/conversations">Conversations</a><a class="main-nav-link" href="/console/families">Families</a><a class="main-nav-link" href="/console/notes">Notes</a><a class="main-nav-link" href="/console/tasks">Tasks</a><a class="main-nav-link" href="/console/recipes">Recipes</a><a class="main-nav-link" href="/console/school-menus">School menus</a><a class="main-nav-link active" href="/console/meal-planner" aria-current="page">Meal planner</a>
+</nav></div><div class="header-actions"><a class="profile-link" href="/console/profile" aria-label="Profile">◉</a><span id="connection" class="hint">Connecting…</span></div></header>
+<main>
+<section class="panel planner-toolbar">
+<div class="planner-week-controls"><button id="previous-week" class="secondary" type="button" aria-label="Previous week">←</button><label>Week of <input id="week-date" type="date"></label><button id="next-week" class="secondary" type="button" aria-label="Next week">→</button></div>
+<div class="planner-actions"><span id="plan-status" class="hint" aria-live="polite"></span><button id="revise-plan" class="secondary" type="button" hidden>Create revision</button><button id="confirm-plan" type="button" hidden>Confirm week</button></div>
+</section>
+<section class="planner-members panel">
+<div><h2>Household members</h2><p class="hint">Members are used to assign meals and preserve who each plan was created for.</p></div>
+<form id="member-form" class="member-form"><input id="member-name" required maxlength="100" placeholder="Member name" aria-label="New member name"><button type="submit">Add member</button></form>
+<div id="member-list" class="member-list"></div>
+</section>
+<section id="planner-grid" class="planner-grid" aria-live="polite"><p class="hint">Loading weekly plan…</p></section>
+<section id="assignment-editor" class="panel assignment-editor" hidden>
+<div class="editor-heading"><h2 id="editor-title">Add meal assignment</h2><button id="close-editor" class="secondary" type="button">Close</button></div>
+<form id="assignment-form" class="recipe-form">
+<div class="recipe-grid">
+<label>Date<input id="assignment-date" type="date" required></label>
+<label>Meal<select id="assignment-meal"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option></select></label>
+</div>
+<label>Participants<select id="assignment-participants" multiple required size="4"></select></label>
+<div class="recipe-grid">
+<label>Arrangement<select id="assignment-arrangement"><option value="home">At home</option><option value="school">At school</option><option value="away">Away</option><option value="not_participating">Not participating</option></select></label>
+<label id="recipe-field">Recipe (optional)<select id="assignment-recipe"><option value="">No recipe selected</option></select></label>
+</div>
+<label>Notes<textarea id="assignment-notes" rows="2"></textarea></label>
+<div class="recipe-actions"><button type="submit">Save assignment</button><button id="remove-assignment" class="danger" type="button" hidden>Remove assignment</button></div>
+<p id="assignment-error" class="hint" role="status"></p>
+</form>
+</section>
+</main>
+</body></html>

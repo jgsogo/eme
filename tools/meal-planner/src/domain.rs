@@ -1,8 +1,9 @@
 //! Pure household entities and deterministic meal participation resolution.
 use chrono::{Datelike, Days, NaiveDate, Weekday};
+use serde::{Deserialize, Serialize};
 
 /// Stable household member identity.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FamilyMember {
     pub id: i64,
     pub name: String,
@@ -10,7 +11,8 @@ pub struct FamilyMember {
 }
 
 /// Meal categories supported by the initial planner.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MealType {
     Breakfast,
     Lunch,
@@ -36,7 +38,8 @@ impl MealType {
 }
 
 /// Explicit arrangement for a meal.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum MealArrangement {
     Home,
     School,
