@@ -255,7 +255,8 @@ mod tests {
         let member_a = store.create_family_member("Alex").unwrap();
         let member_b = store.create_family_member("Sam").unwrap();
         let recipe = store
-            .create_recipe(RecipeDraft {
+            .create_recipe("test-user", RecipeDraft {
+                family_id: None,
                 title: "Tomato pasta".into(),
                 description: None,
                 servings: 2,
@@ -404,7 +405,8 @@ mod tests {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let member = store.create_family_member("Alex").unwrap();
         let recipe = store
-            .create_recipe(RecipeDraft {
+            .create_recipe("test-user", RecipeDraft {
+                family_id: None,
                 title: "Soup".into(),
                 description: None,
                 servings: 1,
