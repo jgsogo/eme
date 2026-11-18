@@ -74,3 +74,61 @@ impl ModelError {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::{ModelError, ModelFailureCategory};
+
+    #[test]
+    fn classifies_provider_failures_without_retrying_permanent_request_errors() {
+        assert_eq!(
+            ModelError::ProviderResponse {
+                status: 429,
+                body: r#"{"error":{"type":"rate_limit_error"}}"#.into(),
+            }
+            .failure_category(),
+            ModelFailureCategory::RateLimited
+        );
+        assert_eq!(
+            ModelError::ProviderResponse {
+                status: 429,
+                body: r#"{"error":{"code":"insufficient_quota"}}"#.into(),
+            }
+            .failure_category(),
+            ModelFailureCategory::QuotaExceeded
+        );
+        assert_eq!(
+            ModelError::ProviderResponse {
+                status: 503,
+                body: "service unavailable".into(),
+            }
+            .failure_category(),
+            ModelFailureCategory::Transient
+        );
+        assert_eq!(
+            ModelError::ProviderResponse {
+                status: 401,
+                body: "invalid credentials".into(),
+            }
+            .failure_category(),
+            ModelFailureCategory::CandidateUnavailable
+        );
+        assert_eq!(
+            ModelError::ProviderResponse {
+                status: 400,
+                body: "invalid request".into(),
+            }
+            .failure_category(),
+            ModelFailureCategory::Permanent
+        );
+        assert_eq!(
+            ModelError::InvalidResponse("malformed response".into()).failure_category(),
+            ModelFailureCategory::Permanent
+        );
+        assert_eq!(
+            ModelError::MissingApiKey("PROVIDER_KEY".into()).failure_category(),
+            ModelFailureCategory::CandidateUnavailable
+        );
+    }
+}
