@@ -100,10 +100,10 @@ fn error_category_name(category: agent_runtime::ErrorCategory) -> &'static str {
 
 fn model_failure_category_name(category: agent_runtime::ModelFailureCategory) -> &'static str {
     match category {
-        agent_models::ModelFailureCategory::RateLimited => "rate_limited",
-        agent_models::ModelFailureCategory::QuotaExceeded => "quota_exceeded",
-        agent_models::ModelFailureCategory::Transient => "transient",
-        agent_models::ModelFailureCategory::CandidateUnavailable => "candidate_unavailable",
-        agent_models::ModelFailureCategory::Permanent => "permanent",
+        agent_runtime::ModelFailureCategory::RateLimited => "rate_limited",
+        agent_runtime::ModelFailureCategory::QuotaExceeded => "quota_exceeded",
+        agent_runtime::ModelFailureCategory::Transient => "transient",
+        agent_runtime::ModelFailureCategory::CandidateUnavailable => "candidate_unavailable",
+        agent_runtime::ModelFailureCategory::Permanent => "permanent",
     }
 }
