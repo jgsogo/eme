@@ -133,8 +133,12 @@ impl MealPlannerApplication {
             members: self.store.list_family_members_for_family(family_id)?,
             participation,
             recipes: self.store.list_recipes(owner_id, families, None)?,
-            school_menus: self.store.list_school_menus_for_family(family_id, week_start, week_end)?,
-            current_plan: self.store.get_weekly_plan_for_family(family_id, week_start)?,
+            school_menus: self
+                .store
+                .list_school_menus_for_family(family_id, week_start, week_end)?,
+            current_plan: self
+                .store
+                .get_weekly_plan_for_family(family_id, week_start)?,
         })
     }
 
@@ -165,7 +169,9 @@ impl MealPlannerApplication {
         let members = self.store.list_family_members_for_family(family_id)?;
         let recipes = self.store.list_recipes(owner_id, families, None)?;
         let menus = match week_start.checked_add_days(Days::new(6)) {
-            Some(end) => self.store.list_school_menus_for_family(family_id, week_start, end)?,
+            Some(end) => self
+                .store
+                .list_school_menus_for_family(family_id, week_start, end)?,
             None => Vec::new(),
         };
         let member_by_id = members
@@ -370,13 +376,22 @@ impl MealPlannerApplication {
             ));
         }
         let family_id = families.first().map(String::as_str).unwrap_or("legacy");
-        match self.store.get_weekly_plan_for_family(family_id, week_start)? {
-            None => self.store.create_weekly_plan_for_family(family_id, week_start, draft),
+        match self
+            .store
+            .get_weekly_plan_for_family(family_id, week_start)?
+        {
+            None => self
+                .store
+                .create_weekly_plan_for_family(family_id, week_start, draft),
             Some(plan) => match plan.status {
-                WeeklyPlanStatus::Draft => self.store.update_weekly_plan_for_family(family_id, week_start, draft),
+                WeeklyPlanStatus::Draft => self
+                    .store
+                    .update_weekly_plan_for_family(family_id, week_start, draft),
                 WeeklyPlanStatus::Confirmed => {
-                    self.store.revise_weekly_plan_for_family(family_id, week_start)?;
-                    self.store.update_weekly_plan_for_family(family_id, week_start, draft)
+                    self.store
+                        .revise_weekly_plan_for_family(family_id, week_start)?;
+                    self.store
+                        .update_weekly_plan_for_family(family_id, week_start, draft)
                 }
             },
         }
@@ -407,7 +422,8 @@ impl MealPlannerApplication {
                 "the saved draft has validation errors; correct it before confirming".into(),
             ));
         }
-        self.store.confirm_weekly_plan_for_family(family_id, week_start)
+        self.store
+            .confirm_weekly_plan_for_family(family_id, week_start)
     }
 }
 
