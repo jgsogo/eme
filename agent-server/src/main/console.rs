@@ -97,6 +97,21 @@ pub(super) async fn recipes_script() -> impl Responder {
         .body(include_str!("../../static/recipes.js"))
 }
 
+
+#[get("/console/meal-planner")]
+pub(super) async fn weekly_planner_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/weekly_planner.html"))
+}
+
+#[get("/assets/weekly-planner.js")]
+pub(super) async fn weekly_planner_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/weekly-planner.js"))
+}
+
 #[get("/console/tasks")]
 pub(super) async fn tasks_page() -> impl Responder {
     HttpResponse::Ok()
