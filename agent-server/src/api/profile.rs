@@ -11,7 +11,8 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct UpdateProfileRequest {
-    display_name: String,
+    display_name: Option<String>,
+    timezone: Option<String>,
 }
 
 fn current_user(
@@ -59,14 +60,35 @@ async fn update_profile(
         Ok(user) => user,
         Err(response) => return response,
     };
-    match identities.update_display_name(user.id, &body.display_name) {
-        Ok(user) => HttpResponse::Ok().json(user),
-        Err(IdentityStoreError::InvalidDisplayName) => {
-            HttpResponse::BadRequest().body("display name must contain between 1 and 80 characters")
-        }
-        Err(IdentityStoreError::UserNotFound(_)) => HttpResponse::NotFound().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+
+    if body.display_name.is_none() && body.timezone.is_none() {
+        return HttpResponse::BadRequest().body("at least one profile field must be provided");
     }
+
+    let mut updated = user;
+    if let Some(display_name) = body.display_name.as_deref() {
+        updated = match identities.update_display_name(updated.id, display_name) {
+            Ok(user) => user,
+            Err(IdentityStoreError::InvalidDisplayName) => {
+                return HttpResponse::BadRequest()
+                    .body("display name must contain between 1 and 80 characters");
+            }
+            Err(IdentityStoreError::UserNotFound(_)) => return HttpResponse::NotFound().finish(),
+            Err(_) => return HttpResponse::InternalServerError().finish(),
+        };
+    }
+    if let Some(timezone) = body.timezone.as_deref() {
+        updated = match identities.update_timezone(updated.id, Some(timezone)) {
+            Ok(user) => user,
+            Err(IdentityStoreError::InvalidTimezone) => {
+                return HttpResponse::BadRequest()
+                    .body("timezone must be an IANA timezone identifier, e.g. Europe/Madrid");
+            }
+            Err(IdentityStoreError::UserNotFound(_)) => return HttpResponse::NotFound().finish(),
+            Err(_) => return HttpResponse::InternalServerError().finish(),
+        };
+    }
+    HttpResponse::Ok().json(updated)
 }
 
 pub fn profile_api() -> Scope {

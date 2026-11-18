@@ -63,6 +63,16 @@ impl UserIdentityStore for InMemoryUserIdentityStore {
             .unwrap_or_else(|p| p.into_inner())
             .update_display_name(user_id, display_name)
     }
+    fn update_timezone(
+        &self,
+        user_id: UserId,
+        timezone: Option<&str>,
+    ) -> Result<User, IdentityStoreError> {
+        self.state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .update_timezone(user_id, timezone)
+    }
     fn find_identity(
         &self,
         provider: &str,

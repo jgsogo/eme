@@ -723,4 +723,41 @@ mod family_context_tests {
         assert!(prompt.contains("user-1"));
         assert!(!prompt.contains("telegram_id"));
     }
+    #[tokio::test]
+    async fn user_timezone_is_injected_as_authoritative_system_context() {
+        let model = Arc::new(CapturingModel(Mutex::new(None)));
+        let runtime = AgentRuntime::new(
+            model.clone(),
+            Arc::new(ToolRegistry::new()),
+            Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+        );
+        let agent = Agent {
+            id: "assistant".into(),
+            capabilities: Vec::new(),
+            system_prompt: Some("You are a helpful assistant.".into()),
+            tool_names: Vec::new(),
+            max_iterations: 1,
+        };
+
+        runtime
+            .run(
+                Uuid::new_v4(),
+                &agent,
+                ToolContext {
+                    timezone: Some("Europe/Madrid".into()),
+                    ..ToolContext::default()
+                },
+                Vec::new(),
+                "What time is it?",
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+
+        let request = model.0.lock().unwrap().take().unwrap();
+        let prompt = request.system_prompt.unwrap();
+        assert!(prompt.contains("User timezone: Europe/Madrid"));
+        assert!(prompt.contains("comes from the authenticated user's profile and is authoritative"));
+    }
+
 }

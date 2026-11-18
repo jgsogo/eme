@@ -170,3 +170,36 @@ fn managed_user_has_no_external_identity_and_persists_birthday() {
     assert!(reopened.find_identity("telegram", "123").unwrap().is_none());
     fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn timezone_can_be_updated_and_survives_reopening_store() {
+    let path = temporary_file();
+    let user = FileUserIdentityStore::open(&path)
+        .unwrap()
+        .resolve_or_create("telegram", "timezone-user", None)
+        .unwrap()
+        .0;
+
+    let updated = FileUserIdentityStore::open(&path)
+        .unwrap()
+        .update_timezone(user.id, Some("Europe/Madrid"))
+        .unwrap();
+    assert_eq!(updated.timezone.as_deref(), Some("Europe/Madrid"));
+
+    let reopened = FileUserIdentityStore::open(&path).unwrap();
+    assert_eq!(
+        reopened.get_user(user.id).unwrap().unwrap().timezone.as_deref(),
+        Some("Europe/Madrid")
+    );
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn timezone_rejects_non_iana_identifiers() {
+    let store = InMemoryUserIdentityStore::default();
+    let user = store.resolve_or_create("telegram", "invalid-timezone-user", None).unwrap().0;
+    assert!(matches!(
+        store.update_timezone(user.id, Some("Madrid")),
+        Err(IdentityStoreError::InvalidTimezone)
+    ));
+}

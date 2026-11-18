@@ -29,6 +29,11 @@ pub trait UserIdentityStore: Send + Sync {
         user_id: UserId,
         display_name: &str,
     ) -> Result<User, IdentityStoreError>;
+    fn update_timezone(
+        &self,
+        user_id: UserId,
+        timezone: Option<&str>,
+    ) -> Result<User, IdentityStoreError>;
     fn find_identity(
         &self,
         provider: &str,

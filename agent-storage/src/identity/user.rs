@@ -12,6 +12,9 @@ pub struct User {
     /// Calendar date of birth, when known.
     #[serde(default)]
     pub birthday: Option<NaiveDate>,
+    /// IANA timezone identifier configured for this user, when known.
+    #[serde(default)]
+    pub timezone: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
