@@ -264,7 +264,7 @@ mod tests {
         let scopes = query_parameter(&url, "scope").expect("scope parameter");
         assert!(scopes.contains(CALENDAR_LIST_READONLY));
         assert!(scopes.contains(CALENDAR_EVENTS_READONLY));
-        assert!(!scopes.contains(CALENDAR_EVENTS));
+        assert!(!scopes.split_whitespace().any(|scope| scope == CALENDAR_EVENTS));
     }
 
     #[test]
@@ -274,6 +274,6 @@ mod tests {
 
         assert!(scopes.contains(CALENDAR_LIST_READONLY));
         assert!(scopes.contains(CALENDAR_EVENTS));
-        assert!(!scopes.contains(CALENDAR_EVENTS_READONLY));
+        assert!(!scopes.split_whitespace().any(|scope| scope == CALENDAR_EVENTS_READONLY));
     }
 }
