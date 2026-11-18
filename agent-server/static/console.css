@@ -188,3 +188,29 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 .assignment-editor select[multiple]{width:100%;min-height:100px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px}
 .assignment-editor select:not([multiple]),.assignment-editor input[type=date],.assignment-editor textarea{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px;font:inherit;margin:5px 0 12px}
 @media(max-width:760px){.planner-toolbar{align-items:flex-start;flex-direction:column}.planner-members{align-items:flex-start;flex-direction:column}.planner-grid{grid-template-columns:repeat(7,minmax(230px,1fr))}.planner-week-controls{width:100%;justify-content:space-between}.planner-actions{width:100%}}
+
+/* Shopping list editing inside the weekly planner */
+body:has(#shopping-list-panel) main{overflow:auto}
+.shopping-list-panel{padding:16px;margin-top:14px}
+.shopping-list-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.shopping-list-heading h2{font-size:15px;color:var(--text);letter-spacing:0;text-transform:none;margin:0}
+.shopping-list-heading p{margin:4px 0 0}
+.shopping-list-form{display:grid;grid-template-columns:minmax(180px,2fr) minmax(90px,.7fr) minmax(90px,.7fr) auto;gap:8px;margin:14px 0}
+.shopping-list-form input,.shopping-item input:not([type=checkbox]){width:100%;min-width:0;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);font:inherit}
+.shopping-list-items{display:grid;gap:8px}
+.shopping-item{display:grid;grid-template-columns:minmax(150px,2fr) minmax(90px,.7fr) minmax(90px,.7fr) auto auto;gap:8px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:9px}
+.shopping-purchased{display:flex;align-items:center;gap:6px;white-space:nowrap;color:var(--text)}
+.shopping-purchased input{accent-color:var(--ok)}
+.shopping-stale{font-size:11px;color:var(--err)}
+.shopping-item-actions{display:flex;gap:6px}
+.shopping-item-actions button{padding:7px 9px}
+@media(max-width:760px){
+ .shopping-list-heading{align-items:flex-start;flex-direction:column}
+ .shopping-list-form{grid-template-columns:1fr 1fr}
+ .shopping-list-form input:first-child{grid-column:1/-1}
+ .shopping-item{grid-template-columns:1fr 1fr}
+ .shopping-item-name{grid-column:1/-1}
+ .shopping-purchased{grid-column:1}
+ .shopping-stale{grid-column:2}
+ .shopping-item-actions{grid-column:1/-1}
+}
