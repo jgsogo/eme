@@ -37,3 +37,16 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 .notes-actions{display:flex;gap:8px;margin-top:12px}
 .notes-actions button{flex:1}
 
+
+
+/* Header actions: layout switch and profile shortcut. */
+.header-actions{display:flex;align-items:center;gap:12px;flex:none}
+.console-mode-switch{display:inline-flex;align-items:center;padding:3px;background:var(--bg);border:1px solid var(--border);border-radius:10px;gap:2px}
+.console-mode-link,.profile-link{display:inline-flex;align-items:center;justify-content:center;color:var(--muted);text-decoration:none;border-radius:7px}
+.console-mode-link{width:34px;height:30px}
+.console-mode-link.active{background:var(--panel2);color:var(--text);box-shadow:0 0 0 1px var(--border)}
+.console-mode-link svg,.profile-link svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.profile-link{width:36px;height:36px;border:1px solid var(--border);background:var(--panel2)}
+.profile-link.active{color:var(--text);border-color:var(--accent);background:rgba(104,169,220,.12)}
+.console-mode-link:focus-visible,.profile-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:760px){header{padding:10px 12px;gap:8px}.header-title{gap:8px;min-width:0}.header-title h1{font-size:16px}.header-actions{gap:7px}.console-mode-link{width:31px}.profile-link{width:34px;height:34px}.header-actions #connection{display:none}.main-nav{min-width:0;flex:1}.main-nav-link{padding:6px 8px}}
