@@ -51,7 +51,7 @@ function formatDay(date, options) {
 }
 
 function renderMenuPlaceholder(entry) {
-  const status = entry ? statusLabel(entry.status) : "No menu added";
+  const status = entry ? statusLabel(entry.status) : "Unknown / not imported";
   return '<p class="school-menu-placeholder">' + esc(status) + '</p>';
 }
 
@@ -78,7 +78,7 @@ function renderMonthView() {
       : renderMenuPlaceholder(entry);
     const statusClass = entry?.status === "closed"
       ? " status-closed"
-      : entry && entry.status !== "known"
+      : entry?.status !== "known"
         ? " status-unknown"
         : "";
     cells.push(
