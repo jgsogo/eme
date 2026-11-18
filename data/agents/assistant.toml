@@ -41,4 +41,9 @@ tools = [
     "mercadona_list_categories",
     "mercadona_get_category",
     "mercadona_resolve_postal_code",
+    "meal_planner_context",
+    "meal_planner_propose",
+    "meal_planner_validate",
+    "meal_planner_save_draft",
+    "meal_planner_confirm",
 ]
