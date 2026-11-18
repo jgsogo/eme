@@ -36,9 +36,12 @@ impl MealPlannerStore {
         let same_plan = current.is_some();
         let existing = match current {
             Some(list) => Some(list),
-            None => {
-                load_latest_shopping_list_for_week(&connection, &plan_family_id(&connection, plan_id)?, plan.week_start, plan.revision)?
-            }
+            None => load_latest_shopping_list_for_week(
+                &connection,
+                &plan_family_id(&connection, plan_id)?,
+                plan.week_start,
+                plan.revision,
+            )?,
         };
         let now = timestamp();
         let mut list = ShoppingList::reconcile(existing, plan.id, plan.revision, generated, now);
@@ -180,8 +183,15 @@ fn load_shopping_list(
     }
 }
 
-fn plan_family_id(connection: &rusqlite::Connection, plan_id: i64) -> Result<String, MealPlannerError> {
-    Ok(connection.query_row("SELECT family_id FROM weekly_plans WHERE id = ?1", [plan_id], |row| row.get(0))?)
+fn plan_family_id(
+    connection: &rusqlite::Connection,
+    plan_id: i64,
+) -> Result<String, MealPlannerError> {
+    Ok(connection.query_row(
+        "SELECT family_id FROM weekly_plans WHERE id = ?1",
+        [plan_id],
+        |row| row.get(0),
+    )?)
 }
 
 fn load_latest_shopping_list_for_week(
