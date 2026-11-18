@@ -18,6 +18,7 @@ tavily-tool = { path = "../tools/tavily" }
 common-tools = { path = "../tools/common" }
 tasks-tool = { path = "../tools/tasks" }
 notes-tools = { path = "../tools/notes" }
+meal-planner = { path = "../tools/meal-planner" }
 mercadona-tool = { path = "../tools/mercadona" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }

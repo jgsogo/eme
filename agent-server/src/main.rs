@@ -22,6 +22,7 @@ use agent_storage::{
 };
 use anyhow::{Context, Result};
 use clap::Parser;
+use meal_planner::{MealPlannerConfig, MealPlannerStore};
 use tasks_tool::{TaskRegistry, TaskScheduler};
 use telegram_tool::TelegramGateway;
 use tracing::{error, info, warn};
@@ -73,6 +74,19 @@ async fn main() -> Result<()> {
 
     let task_registry =
         TaskRegistry::load(args.data_dir.join("tasks")).context("loading scheduled tasks")?;
+
+    let meal_planner_config = match args.meal_planner_database {
+        Some(path) => MealPlannerConfig::new(path)?,
+        None => MealPlannerConfig::from_data_dir(&args.data_dir),
+    };
+    let meal_planner_store =
+        MealPlannerStore::open(&meal_planner_config).context("opening Meal Planner storage")?;
+    let meal_planner_schema_version = meal_planner_store.schema_version()?;
+    info!(
+        database = %meal_planner_config.database_path().display(),
+        schema_version = meal_planner_schema_version,
+        "Meal Planner storage initialized"
+    );
 
     let family_store = Arc::new(
         SqliteFamilyStore::open(args.data_dir.join("families.sqlite"))
@@ -180,6 +194,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&family_service)))
             .app_data(web::Data::new(notes_store.clone()))
             .app_data(web::Data::new(task_registry.clone()))
+            .app_data(web::Data::new(meal_planner_store.clone()))
             .app_data(web::Data::new(google_oauth_state.clone()))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)));
         if let Some(config) = lan_invitation_config.clone() {

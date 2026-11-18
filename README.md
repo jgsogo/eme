@@ -97,6 +97,10 @@ Current tool:
 
 - `get_current_datetime`: returns the current UTC timestamp in RFC 3339 format, plus Unix timestamps in seconds and milliseconds.
 
+##### `tools/meal-planner` (`meal-planner`)
+
+The Meal Planner is an application module inside the EME monorepo. It owns its domain rules, application use cases and SQLite persistence as those features are introduced. The server initializes its database at startup and shares the store with HTTP handlers; the default path is `data/meal-planner.sqlite` (overridable with `--meal-planner-database`). It reuses the existing EME server and web console rather than introducing a separately deployed service or frontend. Agent tools will be added as thin adapters when the corresponding use cases are ready.
+
 ##### `tools/alexa` (`alexa-tool`)
 
 The Alexa integration crate contains Alexa-related tools. It currently provides `alexa_speak`, which sends speech to an Alexa device.

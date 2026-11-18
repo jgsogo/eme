@@ -1,0 +1,9 @@
+[package]
+name = "meal-planner"
+version = "0.1.0"
+edition = "2024"
+description = "Meal planning domain and application foundation for the EME platform."
+
+[dependencies]
+rusqlite = { workspace = true }
+thiserror = { workspace = true }
