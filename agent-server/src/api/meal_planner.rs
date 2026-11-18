@@ -1,18 +1,17 @@
 //! Authenticated HTTP API for the household recipe catalogue.
 use actix_web::{
-    HttpResponse, Responder, Scope, delete, get, post, put,
+    HttpResponse, HttpRequest, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path, Query},
 };
-use chrono::NaiveDate;
-use std::{str::FromStr, sync::Arc};
 use agent_service::FamilyService;
 use agent_storage::{FamilyId, FileUserIdentityStore, UserIdentityStore, UserId};
-use actix_web::HttpRequest;
+use chrono::NaiveDate;
 use meal_planner::{
     MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft, ShoppingListItemUpdate,
     WeeklyPlanDraft,
 };
 use serde::Deserialize;
+use std::{str::FromStr, sync::Arc};
 
 #[derive(Deserialize)]
 struct SearchQuery {
@@ -52,37 +51,169 @@ async fn list_members(store: Data<MealPlannerStore>) -> impl Responder {
     }
 }
 
-fn authenticated_user(request:&HttpRequest,auth:&crate::auth::TelegramAuth,identities:&FileUserIdentityStore)->Result<UserId,HttpResponse>{
- let owner=auth.owner_for_request(request).ok_or_else(||HttpResponse::Unauthorized().finish())?;
- let subject=owner.strip_prefix("telegram:").filter(|s|!s.is_empty()).ok_or_else(||HttpResponse::Unauthorized().finish())?;
- identities.find_identity("telegram",subject).map_err(|_|HttpResponse::InternalServerError().finish())?.map(|i|i.user_id).ok_or_else(||HttpResponse::Unauthorized().finish())
+fn authenticated_user(
+    request: &HttpRequest,
+    auth: &crate::auth::TelegramAuth,
+    identities: &FileUserIdentityStore,
+) -> Result<UserId, HttpResponse> {
+    let owner = auth
+        .owner_for_request(request)
+        .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
+    let subject = owner
+        .strip_prefix("telegram:")
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| HttpResponse::Unauthorized().finish())?;
+    identities
+        .find_identity("telegram", subject)
+        .map_err(|_| HttpResponse::InternalServerError().finish())?
+        .map(|identity| identity.user_id)
+        .ok_or_else(|| HttpResponse::Unauthorized().finish())
 }
-async fn family_ids(user:UserId,families:&FamilyService)->Result<Vec<String>,HttpResponse>{
- families.list_families(user).await.map(|fs|fs.into_iter().map(|f|f.id.to_string()).collect()).map_err(|_|HttpResponse::InternalServerError().finish())
+
+async fn family_ids(
+    user: UserId,
+    families: &FamilyService,
+) -> Result<Vec<String>, HttpResponse> {
+    families
+        .list_families(user)
+        .await
+        .map(|families| families.into_iter().map(|family| family.id.to_string()).collect())
+        .map_err(|_| HttpResponse::InternalServerError().finish())
 }
-fn validate_family(id:Option<&str>,available:&[String])->Result<(),HttpResponse>{
- if let Some(id)=id{FamilyId::from_str(id).map_err(|_|HttpResponse::BadRequest().body("invalid family id"))?;if !available.iter().any(|f|f==id){return Err(HttpResponse::NotFound().finish())}}Ok(())
+
+fn validate_family(id: Option<&str>, available: &[String]) -> Result<(), HttpResponse> {
+    if let Some(id) = id {
+        FamilyId::from_str(id)
+            .map_err(|_| HttpResponse::BadRequest().body("invalid family id"))?;
+        if !available.iter().any(|family| family == id) {
+            return Err(HttpResponse::NotFound().finish());
+        }
+    }
+    Ok(())
 }
-#[get("/recipes")] async fn list_recipes(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,query:Query<SearchQuery>)->impl Responder{
- let user=match authenticated_user(&request,&auth,&identities){Ok(v)=>v,Err(r)=>return r};let ids=match family_ids(user,&families).await{Ok(v)=>v,Err(r)=>return r};
- match store.list_recipes(&user.to_string(),&ids,query.q.as_deref()){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
+
+#[get("/recipes")]
+async fn list_recipes(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    query: Query<SearchQuery>,
+) -> impl Responder {
+    let user = match authenticated_user(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let ids = match family_ids(user, &families).await {
+        Ok(ids) => ids,
+        Err(response) => return response,
+    };
+
+    match store.list_recipes(&user.to_string(), &ids, query.q.as_deref()) {
+        Ok(recipes) => HttpResponse::Ok().json(recipes),
+        Err(error) => error_response(error),
+    }
 }
-#[post("/recipes")] async fn create_recipe(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,body:Json<RecipeDraft>)->impl Responder{
- let user=match authenticated_user(&request,&auth,&identities){Ok(v)=>v,Err(r)=>return r};let ids=match family_ids(user,&families).await{Ok(v)=>v,Err(r)=>return r};if let Err(r)=validate_family(body.family_id.as_deref(),&ids){return r}
- match store.create_recipe(&user.to_string(),body.into_inner()){Ok(v)=>HttpResponse::Created().json(v),Err(e)=>error_response(e)}
+
+#[post("/recipes")]
+async fn create_recipe(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    body: Json<RecipeDraft>,
+) -> impl Responder {
+    let user = match authenticated_user(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let ids = match family_ids(user, &families).await {
+        Ok(ids) => ids,
+        Err(response) => return response,
+    };
+    if let Err(response) = validate_family(body.family_id.as_deref(), &ids) {
+        return response;
+    }
+
+    match store.create_recipe(&user.to_string(), body.into_inner()) {
+        Ok(recipe) => HttpResponse::Created().json(recipe),
+        Err(error) => error_response(error),
+    }
 }
-#[get("/recipes/{id}")] async fn get_recipe(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,id:Path<i64>)->impl Responder{
- let user=match authenticated_user(&request,&auth,&identities){Ok(v)=>v,Err(r)=>return r};let ids=match family_ids(user,&families).await{Ok(v)=>v,Err(r)=>return r};
- match store.get_recipe(id.into_inner(),&user.to_string(),&ids){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
+
+#[get("/recipes/{id}")]
+async fn get_recipe(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    id: Path<i64>,
+) -> impl Responder {
+    let user = match authenticated_user(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let ids = match family_ids(user, &families).await {
+        Ok(ids) => ids,
+        Err(response) => return response,
+    };
+
+    match store.get_recipe(id.into_inner(), &user.to_string(), &ids) {
+        Ok(recipe) => HttpResponse::Ok().json(recipe),
+        Err(error) => error_response(error),
+    }
 }
-#[put("/recipes/{id}")] async fn update_recipe(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,id:Path<i64>,body:Json<RecipeDraft>)->impl Responder{
- let user=match authenticated_user(&request,&auth,&identities){Ok(v)=>v,Err(r)=>return r};let ids=match family_ids(user,&families).await{Ok(v)=>v,Err(r)=>return r};if let Err(r)=validate_family(body.family_id.as_deref(),&ids){return r}
- match store.update_recipe(id.into_inner(),&user.to_string(),body.into_inner()){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
+
+#[put("/recipes/{id}")]
+async fn update_recipe(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    id: Path<i64>,
+    body: Json<RecipeDraft>,
+) -> impl Responder {
+    let user = match authenticated_user(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let ids = match family_ids(user, &families).await {
+        Ok(ids) => ids,
+        Err(response) => return response,
+    };
+    if let Err(response) = validate_family(body.family_id.as_deref(), &ids) {
+        return response;
+    }
+
+    match store.update_recipe(id.into_inner(), &user.to_string(), body.into_inner()) {
+        Ok(recipe) => HttpResponse::Ok().json(recipe),
+        Err(error) => error_response(error),
+    }
 }
-#[delete("/recipes/{id}")] async fn delete_recipe(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,store:Data<MealPlannerStore>,id:Path<i64>)->impl Responder{
- let user=match authenticated_user(&request,&auth,&identities){Ok(v)=>v,Err(r)=>return r};
- match store.delete_recipe(id.into_inner(),&user.to_string()){Ok(())=>HttpResponse::NoContent().finish(),Err(e)=>error_response(e)}
+
+#[delete("/recipes/{id}")]
+async fn delete_recipe(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    store: Data<MealPlannerStore>,
+    id: Path<i64>,
+) -> impl Responder {
+    let user = match authenticated_user(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+
+    match store.delete_recipe(id.into_inner(), &user.to_string()) {
+        Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => error_response(error),
+    }
 }
+
 #[get("/plans/{week_start}")]
 async fn get_weekly_plan(
     store: Data<MealPlannerStore>,
