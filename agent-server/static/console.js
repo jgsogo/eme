@@ -542,4 +542,16 @@ on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFa
 on("logout","click",async()=>{
  try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];state.notes=[];state.selectedNote=null;state.tasks=[];state.selectedTask=null;if(page==="conversations")renderConversations();if(page==="notes")renderNotes();if(page==="tasks")renderTasks();await showLogin()}
 });
-(async()=>{try{await api("/auth/session");await showConsole()}catch(e){await showLogin()}})();
+(async()=>{
+ try{await api("/auth/session")}
+ catch{await showLogin();return}
+ try{await showConsole()}
+ catch(error){
+  document.body.classList.remove("login-active");
+  $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
+  document.querySelector("main").hidden=false;
+  $("connection").textContent="Error loading page: "+error.message;
+  $("connection").className="hint error";
+  console.error("Failed to initialize console page",error);
+ }
+})();
