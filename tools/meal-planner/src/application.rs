@@ -515,6 +515,26 @@ mod tests {
         assert!(app.confirm_saved_draft(monday()).is_err());
     }
 
+
+    #[test]
+    fn saving_after_confirmation_creates_a_new_draft_revision() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let member = store.create_family_member("Alex").unwrap();
+        let app = MealPlannerApplication::new(store.clone());
+        let first = app.save_draft(monday(), draft(member.id)).unwrap();
+        let confirmed = app.confirm_saved_draft(monday()).unwrap();
+        assert_eq!(confirmed.revision, first.revision);
+        let mut revised = draft(member.id);
+        revised.assignments[0].notes = Some("Updated after approval".into());
+        let saved = app.save_draft(monday(), revised).unwrap();
+        assert_eq!(saved.revision, first.revision + 1);
+        assert_eq!(saved.status, WeeklyPlanStatus::Draft);
+        assert_eq!(saved.assignments[0].notes.as_deref(), Some("Updated after approval"));
+        let revisions = store.list_weekly_plan_revisions(monday()).unwrap();
+        assert_eq!(revisions.len(), 2);
+        assert_eq!(revisions[1].status, WeeklyPlanStatus::Confirmed);
+    }
+
     #[test]
     fn context_includes_members_and_existing_plan_state() {
         let store = MealPlannerStore::open_in_memory().unwrap();
