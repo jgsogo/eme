@@ -56,3 +56,19 @@ The authenticated API exposes:
 - `GET /meal-planner/members` and `POST /meal-planner/members` for planner participant selection
 
 The responsive planner is available at `/console/meal-planner`. It supports week navigation, member creation, multiple assignments per slot, recipe selection for home-prepared meals, school-menu context, draft editing and explicit confirmation/revision.
+
+
+## Shopping lists
+
+A shopping list is generated from a specific weekly-plan revision. Only home-prepared assignments with a recipe contribute ingredients; school, away and not-participating assignments are excluded. Planned servings are the number of participants in the assignment, scaled against the recipe's base servings.
+
+Ingredient aggregation is deterministic and conservative. Ingredient names are matched case-insensitively after whitespace normalization. Supported conversions are kilograms to grams, litres to millilitres, and common piece/unit aliases. Other units are combined only when their normalized unit strings match. Missing quantities remain unknown; if any merged contribution has an unknown quantity, the consolidated quantity remains unknown.
+
+A list is stored separately from the plan and can be edited independently. Manual additions, explicit removals, purchased status and quantity overrides are reconciled when the user explicitly regenerates the list for the same plan. Generated entries no longer present in the plan are retained as stale when they contain user edits or purchase state, so they can be reviewed rather than silently discarded.
+
+The authenticated API exposes:
+- `GET /meal-planner/plans/{plan_id}/shopping-list`
+- `POST /meal-planner/plans/{plan_id}/shopping-list/generate` to generate or explicitly regenerate from that exact plan revision
+- `POST /meal-planner/plans/{plan_id}/shopping-list/items` to add a manual item
+- `PUT /meal-planner/plans/{plan_id}/shopping-list/items/{item_id}` to edit an item or mark it purchased
+- `DELETE /meal-planner/plans/{plan_id}/shopping-list/items/{item_id}` to remove an item (generated items are retained as removal markers for future regeneration)
