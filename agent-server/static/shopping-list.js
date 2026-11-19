@@ -38,10 +38,11 @@ async function loadList(){
  finally{state.loading=false;$("shopping-refresh").disabled=false}
 }
 function renderList(plannedWeeks,weeks){
- const items=state.groups;const needed=items.filter(item=>!item.purchased&&!item.disabled).length;
+ const items=state.groups;const needed=items.filter(item=>!item.purchased&&!item.disabled).length;const restorable=items.some(item=>item.entries.some(entry=>!entry.item.manually_added));$("shopping-restore-all").disabled=!restorable;
  if(!items.length){$("shopping-content").innerHTML='<p class="empty">'+(plannedWeeks?'No ingredients found in the planned meals.':'No meal plans found for this date range.')+'</p>';return}
- $("shopping-content").innerHTML='<div class="shopping-list-summary"><strong>'+needed+' items to buy</strong><span class="hint">'+items.length+' ingredients across '+plannedWeeks+' planned '+(plannedWeeks===1?'week':'weeks')+'</span></div><ul class="shopping-list-items">'+items.map((item,index)=>'<li class="'+(item.purchased?'is-available ':'')+(item.disabled?'is-disabled':'')+'"><div class="shopping-list-item"><input type="checkbox" data-index="'+index+'" aria-label="Mark '+esc(item.name)+' as available" '+(item.purchased?'checked':'')+(item.disabled?' disabled':'')+'><span class="shopping-list-item-name">'+esc(item.name)+'</span><span class="shopping-list-quantity" data-quantity="'+index+'">'+(item.disabled?'Not needed':esc(displayQuantity(item)))+'</span><div class="shopping-list-item-actions"><button type="button" class="shopping-icon-button" data-action="edit" data-index="'+index+'" title="Change quantity" aria-label="Change quantity">✎</button><button type="button" class="shopping-icon-button" data-action="disable" data-index="'+index+'" title="Disable item" aria-label="Disable item">⊘</button><button type="button" class="shopping-icon-button" data-action="restore" data-index="'+index+'" title="Restore original quantity" aria-label="Restore original quantity">↶</button></div></div></li>').join("")+'</ul>';
+ $("shopping-content").innerHTML='<div class="shopping-list-summary"><strong>'+needed+' items to buy</strong><span class="hint">'+items.length+' ingredients across '+plannedWeeks+' planned '+(plannedWeeks===1?'week':'weeks')+'</span></div><ul class="shopping-list-items">'+items.map((item,index)=>'<li class="'+(item.purchased?'is-available ':'')+(item.disabled?'is-disabled':'')+'"><div class="shopping-list-item"><input type="checkbox" data-index="'+index+'" aria-label="Mark '+esc(item.name)+' as available" '+(item.purchased?'checked':'')+(item.disabled?' disabled':'')+'><span class="shopping-list-item-name">'+esc(item.name)+'</span><span class="shopping-list-quantity" data-quantity="'+index+'">'+(item.disabled?'Not needed':esc(displayQuantity(item)))+'</span><div class="shopping-list-item-actions"><button type="button" class="shopping-icon-button" data-action="edit" data-index="'+index+'" title="Change quantity" aria-label="Change quantity">✎</button><button type="button" class="shopping-icon-button" data-action="disable" data-index="'+index+'" title="Disable item" aria-label="Disable item">⊘</button><button type="button" class="shopping-icon-button" data-action="restore" data-index="'+index+'" title="Restore original quantity" aria-label="Restore original quantity">↶</button></div></div></li>').join("")+'</ul><div class="shopping-list-footer"><button id="shopping-copy" type="button">Copy shopping list</button></div>';
  $("shopping-content").querySelectorAll('input[type="checkbox"][data-index]').forEach(input=>input.addEventListener("change",()=>toggleItem(Number(input.dataset.index),input.checked)));
+ $("shopping-copy").addEventListener("click",copyListToClipboard);
  $("shopping-content").querySelectorAll(".shopping-icon-button").forEach(button=>button.addEventListener("click",()=>handleItemAction(Number(button.dataset.index),button.dataset.action)));
 }
 async function updateEntries(group, transform){
@@ -77,7 +78,31 @@ async function toggleItem(index,available){
  catch(error){alert("Could not update ingredient: "+error.message);await loadList()}
 }
 $("shopping-refresh").addEventListener("click",loadList);
+$("shopping-restore-all").addEventListener("click",restoreAllItems);
 $("shopping-start").addEventListener("change",loadList);
 $("shopping-weeks").addEventListener("change",loadList);
 window.addEventListener("eme:family-changed",loadList);
 (async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();const today=new Date();$("shopping-start").value=dateString(monday(today));await loadList()}catch(error){$("connection").textContent="Error loading shopping list: "+error.message;$("shopping-content").textContent=error.message}})();
+async function restoreAllItems(){
+ const entries=state.groups.flatMap(group=>group.entries).filter(entry=>!entry.item.manually_added);
+ if(!entries.length)return;
+ const button=$("shopping-restore-all");button.disabled=true;button.textContent="Restoring…";
+ try{
+  await Promise.all(entries.map(({planId,item})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"/restore?family_id="+encodeURIComponent(state.familyId),{method:"POST"})));
+  await loadList();
+ }catch(error){alert("Could not restore shopping list quantities: "+error.message);await loadList()}
+ finally{button.textContent="Restore all items"}
+}
+async function copyListToClipboard(){
+ const lines=state.groups.filter(item=>!item.disabled).map(item=>(item.purchased?"[x] ":"[ ] ")+item.name+(displayQuantity(item)?" — "+displayQuantity(item):""));
+ if(!lines.length)return;
+ const content=lines.join("\n");
+ try{
+  if(navigator.clipboard&&navigator.clipboard.writeText)await navigator.clipboard.writeText(content);
+  else{
+   const textarea=document.createElement("textarea");textarea.value=content;textarea.setAttribute("readonly","");textarea.style.position="fixed";textarea.style.opacity="0";document.body.append(textarea);textarea.select();
+   const copied=document.execCommand("copy");textarea.remove();if(!copied)throw new Error("Clipboard access is unavailable");
+  }
+  const button=$("shopping-copy");button.textContent="Copied!";setTimeout(()=>{if(button.isConnected)button.textContent="Copy shopping list"},1800);
+ }catch(error){alert("Could not copy shopping list: "+error.message)}
+}
