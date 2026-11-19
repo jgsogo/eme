@@ -42,6 +42,7 @@ fn ensure_message_column(connection: &Connection, column: &str, alter: &str) -> 
             return Ok(());
         }
     }
+    drop(statement);
     connection.execute(alter, []).map_err(backend)?;
     Ok(())
 }
