@@ -117,7 +117,8 @@ fn error_detail(body: &str) -> String {
 
     if detail.is_empty() {
         "empty response body".into()
-    } else {        detail
+    } else {
+        detail
     }
 }
 
