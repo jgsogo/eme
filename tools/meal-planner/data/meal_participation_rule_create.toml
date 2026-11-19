@@ -1,5 +1,5 @@
 name = "meals.participation.create_recurring_rule"
-description = "Set a recurring household participation arrangement for one family member and meal on a weekday. Use home, school, away, or not_participating. Optional effective dates are inclusive. Read meals.plan.get_context first to resolve member IDs and existing arrangements."
+description = "Set a recurring household participation arrangement for one family member and lunch or dinner on a weekday. Use home, school, away, or not_participating. Optional effective dates are inclusive. Read meals.plan.get_context first to resolve member IDs and existing arrangements."
 
 [parameters]
 type = "object"
@@ -9,7 +9,7 @@ required = ["member_id", "weekday", "meal_type", "arrangement"]
 [parameters.properties]
 member_id = { type = "integer", minimum = 1 }
 weekday = { type = "string", enum = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] }
-meal_type = { type = "string", enum = ["breakfast", "lunch", "dinner"] }
+meal_type = { type = "string", enum = ["lunch", "dinner"] }
 arrangement = { type = "string", enum = ["home", "school", "away", "not_participating"] }
 effective_from = { type = ["string", "null"], format = "date" }
 effective_until = { type = ["string", "null"], format = "date" }
