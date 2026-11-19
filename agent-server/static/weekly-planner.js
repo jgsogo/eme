@@ -69,8 +69,7 @@ function openEditor(date,meal,assignment){
  [...$("assignment-recipes").options].forEach(o=>o.selected=recipeIds.has(o.value));
  $("assignment-error").textContent=plan?.status==="confirmed"?"This week is confirmed. Saving will create a new revision.":"";
  $("remove-assignment").hidden=!assignment;
- $("assignment-editor").hidden=false;
- $("assignment-editor").scrollIntoView({behavior:"smooth",block:"start"});
+ $("assignment-editor").showModal();
 }
 async function ensureDraft(week){
  let plan=state.plans.get(week);
@@ -100,14 +99,14 @@ async function persistAssignment(remove=false){
    assignments.push({id:Math.max(0,...plan.assignments.map(a=>a.id))+1,date,meal_type:meal,participants,arrangement:"home",recipe_ids:recipeIds,school_menu_date:null,notes:null});
   }
   const updated=await api("/meal-planner/plans/"+week+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({assignments})});
-  state.plans.set(week,updated);$("assignment-editor").hidden=true;renderMonth();
+  state.plans.set(week,updated);$("assignment-editor").close();renderMonth();
  }catch(e){$("assignment-error").textContent=e.message}
 }
 async function loadMonth(){
  const request=++state.request;state.month=$("month-date").value;
  if(!state.month)return;
  $("planner-month-view").innerHTML='<p class="hint">Loading meal planner…</p>';
- $("assignment-editor").hidden=true;
+ if($("assignment-editor").open)$("assignment-editor").close();
  try{
   state.familyId=window.emeMealsFamily.currentFamilyId();
   if(!state.familyId){state.plans.clear();$("planner-month-view").innerHTML='<p class="empty">Create or join a family to plan meals. <a href="/console/families">Manage families</a>.</p>';return}
@@ -132,7 +131,7 @@ async function loadMonth(){
 }
 $("assignment-form").addEventListener("submit",e=>{e.preventDefault();persistAssignment(false)});
 $("remove-assignment").addEventListener("click",()=>persistAssignment(true));
-$("close-editor").addEventListener("click",()=>$("assignment-editor").hidden=true);
+$("close-editor").addEventListener("click",()=>$("assignment-editor").close());
 $("previous-month").addEventListener("click",()=>{const d=monthStart($("month-date").value);d.setMonth(d.getMonth()-1);$("month-date").value=monthString(d);loadMonth()});
 $("next-month").addEventListener("click",()=>{const d=monthStart($("month-date").value);d.setMonth(d.getMonth()+1);$("month-date").value=monthString(d);loadMonth()});
 $("month-date").addEventListener("change",loadMonth);
