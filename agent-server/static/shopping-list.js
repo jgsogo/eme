@@ -24,31 +24,55 @@ async function loadList(){
    plannedWeeks++;
    const list=await api("/meal-planner/plans/"+plan.id+"/shopping-list/generate?family_id="+encodeURIComponent(state.familyId),{method:"POST"});
    for(const item of list.items||[]){
-    if(item.manually_removed)continue;
     const key=keyFor(item);let group=grouped.get(key);
-    if(!group){group={name:item.name,unit:item.unit,quantity:item.quantity,purchased:item.purchased,entries:[]};grouped.set(key,group)}
-    else if(group.quantity!==null&&item.quantity!==null)group.quantity+=item.quantity;else group.quantity=null;
+    if(!group){group={name:item.name,unit:item.unit,quantity:0,originalQuantity:0,purchased:item.purchased,entries:[]};grouped.set(key,group)}
+    const original=Number(item.quantity);
+    if(Number.isFinite(original)){group.originalQuantity+=original;if(!item.manually_removed)group.quantity+=original}else{group.quantity=null;group.originalQuantity=null}
     group.purchased=group.purchased&&item.purchased;
-    group.entries.push({week,planId:plan.id,item});
+    group.entries.push({week,planId:plan.id,item,originalQuantity:item.quantity});
    }
   }
-  state.groups=[...grouped.values()].sort((a,b)=>a.name.localeCompare(b.name));
+  state.groups=[...grouped.values()].map(group=>({...group,disabled:group.entries.every(entry=>entry.item.manually_removed),quantity:group.quantity===null?null:group.quantity})).sort((a,b)=>a.name.localeCompare(b.name));
   renderList(plannedWeeks,weeks);
  }catch(error){$("shopping-content").innerHTML='<p class="empty">'+esc(error.message)+'</p>'}
  finally{state.loading=false;$("shopping-refresh").disabled=false}
 }
 function renderList(plannedWeeks,weeks){
- const items=state.groups;const needed=items.filter(item=>!item.purchased).length;
+ const items=state.groups;const needed=items.filter(item=>!item.purchased&&!item.disabled).length;
  if(!items.length){$("shopping-content").innerHTML='<p class="empty">'+(plannedWeeks?'No ingredients found in the planned meals.':'No meal plans found for this date range.')+'</p>';return}
- $("shopping-content").innerHTML='<div class="shopping-list-summary"><strong>'+needed+' items to buy</strong><span class="hint">'+items.length+' ingredients across '+plannedWeeks+' planned '+(plannedWeeks===1?'week':'weeks')+'</span></div><ul class="shopping-list-items">'+items.map((item,index)=>'<li class="'+(item.purchased?'is-available':'')+'"><label class="shopping-list-item"><input type="checkbox" data-index="'+index+'" '+(item.purchased?'checked':'')+'><span class="shopping-list-item-name">'+esc(item.name)+'</span><span class="shopping-list-quantity">'+esc(displayQuantity(item))+'</span></label></li>').join("")+'</ul>';
- $("shopping-content").querySelectorAll('input[type="checkbox"]').forEach(input=>input.addEventListener("change",()=>toggleItem(Number(input.dataset.index),input.checked)));
+ $("shopping-content").innerHTML='<div class="shopping-list-summary"><strong>'+needed+' items to buy</strong><span class="hint">'+items.length+' ingredients across '+plannedWeeks+' planned '+(plannedWeeks===1?'week':'weeks')+'</span></div><ul class="shopping-list-items">'+items.map((item,index)=>'<li class="'+(item.purchased?'is-available ':'')+(item.disabled?'is-disabled':'')+'"><div class="shopping-list-item"><input type="checkbox" data-index="'+index+'" aria-label="Mark '+esc(item.name)+' as available" '+(item.purchased?'checked':'')+(item.disabled?' disabled':'')+'><span class="shopping-list-item-name">'+esc(item.name)+'</span><span class="shopping-list-quantity" data-quantity="'+index+'">'+(item.disabled?'Not needed':esc(displayQuantity(item)))+'</span><div class="shopping-list-item-actions"><button type="button" class="shopping-icon-button" data-action="edit" data-index="'+index+'" title="Change quantity" aria-label="Change quantity">✎</button><button type="button" class="shopping-icon-button" data-action="disable" data-index="'+index+'" title="Disable item" aria-label="Disable item">⊘</button><button type="button" class="shopping-icon-button" data-action="restore" data-index="'+index+'" title="Restore original quantity" aria-label="Restore original quantity">↶</button></div></div></li>').join("")+'</ul>';
+ $("shopping-content").querySelectorAll('input[type="checkbox"][data-index]').forEach(input=>input.addEventListener("change",()=>toggleItem(Number(input.dataset.index),input.checked)));
+ $("shopping-content").querySelectorAll(".shopping-icon-button").forEach(button=>button.addEventListener("click",()=>handleItemAction(Number(button.dataset.index),button.dataset.action)));
+}
+async function updateEntries(group, transform){
+ const updates=group.entries.map(({planId,item})=>{const fields=transform(item);return api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({...item,...fields})})});
+ await Promise.all(updates);
+}
+async function handleItemAction(index,action){
+ const group=state.groups[index];
+ if(action==="edit"){
+  const quantityNode=$("shopping-content").querySelector('[data-quantity="'+index+'"]');
+  const current=group.disabled?group.originalQuantity:group.quantity;
+  const input=document.createElement("input");input.type="number";input.min="0";input.step="any";input.value=current??"";input.className="shopping-quantity-editor";input.setAttribute("aria-label","New quantity for "+group.name);
+  quantityNode.replaceChildren(input);input.focus();input.select();
+  const commit=async save=>{if(!input.isConnected)return;if(!save){renderList(new Set(state.groups.flatMap(g=>g.entries.map(e=>e.week))).size,Number($("shopping-weeks").value));return}const next=Number(input.value);if(!input.value.trim()||!Number.isFinite(next)||next<0){input.focus();return}
+   const originalTotal=group.entries.reduce((sum,e)=>sum+(Number(e.originalQuantity)||0),0);
+   const active=group.entries.filter(e=>!e.item.manually_removed);
+   try{await Promise.all(group.entries.map(({planId,item,originalQuantity})=>{const base=Number(originalQuantity)||0;const scaled=originalTotal>0?next*base/originalTotal:next/group.entries.length;return api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({...item,quantity:scaled,manually_removed:false})})}));await loadList()}catch(error){alert("Could not change quantity: "+error.message);await loadList()}
+  };
+  input.addEventListener("keydown",event=>{if(event.key==="Enter")commit(true);if(event.key==="Escape")commit(false)});
+  input.addEventListener("blur",()=>commit(true));return;
+ }
+ try{
+  if(action==="disable")await updateEntries(group,()=>({manually_removed:true}));
+  else if(action==="restore")await Promise.all(group.entries.map(({planId,item,originalQuantity})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({...item,quantity:originalQuantity,manually_removed:false})})));
+  await loadList();
+ }catch(error){alert("Could not update ingredient: "+error.message);await loadList()}
 }
 async function toggleItem(index,available){
- const group=state.groups[index];const content=$("shopping-content");content.querySelectorAll('input[type="checkbox"]').forEach(input=>input.disabled=true);
- try{
-  await Promise.all(group.entries.map(({week,planId,item})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({name:item.name,quantity:item.quantity,unit:item.unit,purchased:available})})));
-  group.purchased=available;renderList(new Set(state.groups.flatMap(g=>g.entries.map(e=>e.week))).size,Number($("shopping-weeks").value));
- }catch(error){alert("Could not update ingredient: "+error.message);await loadList()}
+ const group=state.groups[index];$("shopping-content").querySelectorAll("button,input").forEach(input=>input.disabled=true);
+ try{await updateEntries(group,()=>({purchased:available}));group.purchased=available;renderList(new Set(state.groups.flatMap(g=>g.entries.map(e=>e.week))).size,Number($("shopping-weeks").value))}
+ catch(error){alert("Could not update ingredient: "+error.message);await loadList()}
 }
 $("shopping-refresh").addEventListener("click",loadList);
 $("shopping-start").addEventListener("change",loadList);
