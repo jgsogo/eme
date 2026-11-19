@@ -1,4 +1,4 @@
-name = "meal_planner.propose"
+name = "meals.planner.propose"
 description = "Create a non-persistent weekly meal-plan proposal and return deterministic validation feedback. This tool never saves or confirms the plan."
 
 [parameters]
