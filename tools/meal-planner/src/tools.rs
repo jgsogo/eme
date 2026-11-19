@@ -64,6 +64,29 @@ fn scope(ctx: &ToolContext) -> Result<(String, String), ToolError> {
         .to_owned();
     Ok((owner, family))
 }
+fn sync_family_members(
+    ctx: &ToolContext,
+    store: &MealPlannerStore,
+    family_id: &str,
+) -> Result<(), ToolError> {
+    let family = ctx.family.as_ref().ok_or_else(|| {
+        failure("Meal tools require a selected family. Select a family for this conversation and retry.")
+    })?;
+    let members = family
+        .members
+        .iter()
+        .map(|member| {
+            let name = member
+                .name
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or(&member.user_id);
+            (member.user_id.clone(), name.to_owned())
+        })
+        .collect::<Vec<_>>();
+    store.sync_family_members(family_id, &members).map_err(failure)?;
+    Ok(())
+}
 fn decode<T: for<'de> Deserialize<'de>>(v: Value) -> Result<T, ToolError> {
     serde_json::from_value(v)
         .map_err(|e| ToolError::Execution(format!("invalid tool arguments: {e}")))
@@ -153,6 +176,7 @@ struct ItemArgs {
 impl Tool for MealTool {
     async fn execute(&self, ctx: &ToolContext, args: Value) -> Result<String, ToolError> {
         let (owner, family) = scope(ctx)?;
+        sync_family_members(ctx, &self.store, &family)?;
         let families = vec![family.clone()];
         match self.action {
             Action::RecipeCreate => {
@@ -530,6 +554,19 @@ mod tests {
             members: vec![],
         });
         assert_eq!(scope(&context).unwrap(), ("user-1".into(), "family-1".into()));
+        context.family.as_mut().unwrap().members.push(agent_runtime::FamilyMemberContext {
+            user_id: "member-1".into(),
+            name: Some("Alex".into()),
+            birthday: None,
+            telegram_id: None,
+            role: "member".into(),
+            relationship: "son".into(),
+        });
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        sync_family_members(&context, &store, "family-1").unwrap();
+        let members = store.list_family_members_for_family("family-1").unwrap();
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].name, "Alex");
     }
 
     #[test]
