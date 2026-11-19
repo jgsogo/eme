@@ -26,6 +26,18 @@ impl ModelRoutingEventSink for ModelRoutingEventChannel {
     }
 }
 
+struct CompositeEventSink {
+    sinks: Vec<Arc<dyn EventSink>>,
+}
+
+impl EventSink for CompositeEventSink {
+    fn emit(&self, event: &RunEvent) {
+        for sink in &self.sinks {
+            sink.emit(event);
+        }
+    }
+}
+
 enum ModelTurnError {
     Model(ModelError),
     TimedOut,
@@ -50,6 +62,7 @@ fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
     output
 }
 
+#[derive(Clone)]
 pub struct AgentRuntime {
     model_router: Arc<dyn ModelRouter>,
     tools: Arc<dyn ToolDispatcher>,
@@ -231,6 +244,29 @@ impl AgentRuntime {
             iterations: iteration,
             events: events.clone(),
         }
+    }
+
+    /// Runs an agent while forwarding each emitted runtime event to an additional sink.
+    ///
+    /// The runtime's configured sink remains active; the supplied sink is composed
+    /// with it so existing observers continue to receive events.
+    pub async fn run_with_event_sink(
+        &self,
+        run_id: Uuid,
+        agent: &Agent,
+        context: ToolContext,
+        messages: Vec<Message>,
+        input: impl Into<String>,
+        cancellation: CancellationToken,
+        event_sink: Arc<dyn EventSink>,
+    ) -> Result<RunResult, RunFailure> {
+        let runtime = Self {
+            event_sink: Arc::new(CompositeEventSink {
+                sinks: vec![Arc::clone(&self.event_sink), event_sink],
+            }),
+            ..self.clone()
+        };
+        runtime.run(run_id, agent, context, messages, input, cancellation).await
     }
 
     /// Runs an agent with trusted platform context and optional conversation history.
