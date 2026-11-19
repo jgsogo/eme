@@ -361,7 +361,7 @@ async fn get_planning_context(
         Err(response) => return response,
     };
     if let Err(response) =
-        sync_family_roster(user, &family_id, &identities, &families, &store).await
+        sync_family_roster(user.clone(), &family_id, &identities, &families, &store).await
     {
         return response;
     }
