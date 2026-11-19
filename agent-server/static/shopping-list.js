@@ -53,8 +53,10 @@ async function handleItemAction(index,action){
  if(action==="edit"){
   const quantityNode=$("shopping-content").querySelector('[data-quantity="'+index+'"]');
   const current=group.disabled?group.originalQuantity:group.quantity;
+  const editor=document.createElement("span");editor.className="shopping-quantity-editor-wrap";
   const input=document.createElement("input");input.type="number";input.min="0";input.step="any";input.value=current??"";input.className="shopping-quantity-editor";input.setAttribute("aria-label","New quantity for "+group.name);
-  quantityNode.replaceChildren(input);input.focus();input.select();
+  const unit=document.createElement("span");unit.className="shopping-quantity-unit";unit.textContent=group.unit||"";
+  editor.append(input,unit);quantityNode.replaceChildren(editor);input.focus();input.select();
   const commit=async save=>{if(!input.isConnected)return;if(!save){renderList(new Set(state.groups.flatMap(g=>g.entries.map(e=>e.week))).size,Number($("shopping-weeks").value));return}const next=Number(input.value);if(!input.value.trim()||!Number.isFinite(next)||next<0){input.focus();return}
    const originalTotal=group.entries.reduce((sum,e)=>sum+(Number(e.originalQuantity)||0),0);
    const active=group.entries.filter(e=>!e.item.manually_removed);
@@ -64,7 +66,7 @@ async function handleItemAction(index,action){
   input.addEventListener("blur",()=>commit(true));return;
  }
  try{
-  if(action==="disable")await updateEntries(group,()=>({manually_removed:true}));
+  if(action==="disable")await Promise.all(group.entries.map(({planId,item})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"DELETE"})));
   else if(action==="restore")await Promise.all(group.entries.map(({planId,item,originalQuantity})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({...item,quantity:originalQuantity,manually_removed:false})})));
   await loadList();
  }catch(error){alert("Could not update ingredient: "+error.message);await loadList()}
