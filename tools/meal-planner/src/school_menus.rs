@@ -55,14 +55,18 @@ impl SchoolMenuDraft {
     pub(crate) fn validate(mut self) -> Result<Self, String> {
         match self.status {
             SchoolMenuStatus::Known if self.items.is_empty() => {
-                return Err("a known school menu must contain at least one item".into());
+                return Err("a school menu with status `known` must contain at least one item".into());
             }
-            SchoolMenuStatus::NotPublished
-            | SchoolMenuStatus::Closed
-            | SchoolMenuStatus::Unknown
+            // A closure is authoritative: discard any menu items supplied by
+            // the caller so an existing menu is cleared when this draft is saved.
+            SchoolMenuStatus::Closed => self.items.clear(),
+            SchoolMenuStatus::NotPublished | SchoolMenuStatus::Unknown
                 if !self.items.is_empty() =>
             {
-                return Err("only a known school menu may contain menu items".into());
+                return Err(format!(
+                    "a school menu with status `{}` cannot contain menu items; set `items` to an empty array ([]). Menu items are only valid when status is `known`",
+                    self.status.as_str()
+                ));
             }
             _ => {}
         }
@@ -95,12 +99,16 @@ fn normalize(v: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn date() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 11, 2).unwrap()
+    }
+
     #[test]
     fn menu_states_are_explicit() {
-        let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         assert!(
             SchoolMenuDraft {
-                date,
+                date: date(),
                 status: SchoolMenuStatus::Known,
                 items: vec![],
                 notes: None
@@ -115,7 +123,7 @@ mod tests {
         ] {
             assert!(
                 SchoolMenuDraft {
-                    date,
+                    date: date(),
                     status,
                     items: vec![],
                     notes: None
@@ -124,5 +132,45 @@ mod tests {
                 .is_ok()
             )
         }
+    }
+
+    #[test]
+    fn closing_school_discards_supplied_menu_items_and_preserves_notes() {
+        let draft = SchoolMenuDraft {
+            date: date(),
+            status: SchoolMenuStatus::Closed,
+            items: vec![SchoolMenuItem {
+                name: "Festivo / Sin servicio de comedor".into(),
+                notes: None,
+                allergens: None,
+                dietary_alternatives: vec![],
+            }],
+            notes: Some("Festivo".into()),
+        };
+
+        let normalized = draft.validate().unwrap();
+
+        assert!(normalized.items.is_empty());
+        assert_eq!(normalized.notes.as_deref(), Some("Festivo"));
+    }
+
+    #[test]
+    fn non_known_status_with_items_returns_actionable_error() {
+        let error = SchoolMenuDraft {
+            date: date(),
+            status: SchoolMenuStatus::NotPublished,
+            items: vec![SchoolMenuItem {
+                name: "Some dish".into(),
+                notes: None,
+                allergens: None,
+                dietary_alternatives: vec![],
+            }],
+            notes: None,
+        }
+        .validate()
+        .unwrap_err();
+
+        assert!(error.contains("set `items` to an empty array ([])"));
+        assert!(error.contains("status is `known`"));
     }
 }
