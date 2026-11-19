@@ -43,3 +43,24 @@ fn load_range(c:&rusqlite::Connection,family:&str,start:NaiveDate,end:NaiveDate)
 fn load_by_id(c:&rusqlite::Connection,id:i64)->Result<Option<ShoppingList>,MealPlannerError>{Ok(c.query_row("SELECT id,family_id,start_date,end_date,items,created_at,updated_at FROM shopping_lists WHERE id=?1",[id],|r|{let parse=|i|->rusqlite::Result<NaiveDate>{NaiveDate::parse_from_str(&r.get::<_,String>(i)?,"%Y-%m-%d").map_err(|e|rusqlite::Error::FromSqlConversionFailure(i,rusqlite::types::Type::Text,Box::new(e)))};let raw:String=r.get(4)?;let items=serde_json::from_str(&raw).map_err(|e|rusqlite::Error::FromSqlConversionFailure(4,rusqlite::types::Type::Text,Box::new(e)))?;Ok(ShoppingList{id:r.get(0)?,family_id:r.get(1)?,start_date:parse(2)?,end_date:parse(3)?,items,created_at:r.get(5)?,updated_at:r.get(6)?})}).optional()?)}
 fn save(c:&rusqlite::Connection,list:&mut ShoppingList)->Result<(),MealPlannerError>{list.updated_at=timestamp();let payload=serde_json::to_string(&list.items)?;c.execute("UPDATE shopping_lists SET items=?1,updated_at=?2 WHERE id=?3",params![payload,list.updated_at,list.id])?;Ok(())}
 fn timestamp()->i64{SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as i64}
+
+#[cfg(test)]
+mod tests {
+ use super::*;
+ use crate::{MealType,PlanParticipant,RecipeDraft,RecipeIngredient,WeeklyPlanDraft,MealPlannerStore};
+ use chrono::NaiveDate;
+ #[test]
+ fn range_generation_aggregates_plan_ingredients_and_preserves_disabled_items(){
+  let store=MealPlannerStore::open_in_memory().unwrap();
+  let member=store.create_family_member("Alex").unwrap();
+  let recipe=store.create_recipe("owner",RecipeDraft{family_id:Some("legacy".into()),title:"Soup".into(),description:None,servings:1,ingredients:vec![RecipeIngredient{name:"Carrot".into(),amount:Some(2.0),unit:Some("pcs".into()),preparation_note:None}],steps:vec!["Cook".into()],categories:vec![],tags:vec![],source:None,notes:None,dietary_information:vec![],allergens:None}).unwrap();
+  let monday=NaiveDate::from_ymd_opt(2026,11,16).unwrap();
+  store.create_weekly_plan(monday,WeeklyPlanDraft{assignments:vec![crate::MealAssignment{id:1,date:monday,meal_type:MealType::Lunch,participants:vec![PlanParticipant{member_id:member.id,name:member.name}],recipe_ids:vec![recipe.id]}]}).unwrap();
+  let mut list=store.generate_shopping_list_for_range("legacy",monday,monday.succ_opt().unwrap()).unwrap();
+  assert_eq!(list.items.len(),1);assert_eq!(list.items[0].quantity,Some(2.0));
+  let id=list.items[0].id;
+  list=store.remove_shopping_list_item(list.id,id).unwrap();assert!(list.items[0].manually_removed);
+  list=store.generate_shopping_list_for_range("legacy",monday,monday.succ_opt().unwrap()).unwrap();
+  assert!(list.items[0].manually_removed);
+ }
+}

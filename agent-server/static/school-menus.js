@@ -151,7 +151,7 @@ function edit(entry, date) {
     '<p id="menu-status-message" class="hint" aria-live="polite"></p>' +
     '</form></section>';
 
-  $("menu-status").value = entry?.status === "not_published" ? "unknown" : (entry?.status || "known");
+  $("menu-status").value = entry?.status || "known";
   $("menu-items").value = (entry?.items || []).map(item => item.name).join("\n");
   $("menu-dialog").showModal();
 
