@@ -483,7 +483,12 @@ mod tests {
                     title: "Pasta".into(),
                     description: None,
                     servings: 2,
-                    ingredients: vec![],
+                    ingredients: vec![crate::RecipeIngredient {
+                        name: "Pasta".into(),
+                        amount: None,
+                        unit: None,
+                        preparation_note: None,
+                    }],
                     steps: vec!["Cook".into()],
                     categories: vec![],
                     tags: vec![],
@@ -499,7 +504,7 @@ mod tests {
         let saved = app.save_draft("user-1", &[], monday(), revised).unwrap();
         assert_eq!(saved.revision, first.revision + 1);
         assert_eq!(saved.status, WeeklyPlanStatus::Draft);
-        assert_eq!(saved.assignments[0].recipe_ids, vec![42]);
+        assert_eq!(saved.assignments[0].recipe_ids, vec![recipe.id]);
         let revisions = store.list_weekly_plan_revisions(monday()).unwrap();
         assert_eq!(revisions.len(), 2);
         assert_eq!(revisions[1].status, WeeklyPlanStatus::Confirmed);
