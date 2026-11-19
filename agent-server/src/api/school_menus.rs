@@ -43,8 +43,7 @@ async fn authorize_family(
     Ok(id.to_owned())
 }
 
-#[get("")]
-async fn list(
+async fn list_handler(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
     identities: Data<Arc<FileUserIdentityStore>>,
@@ -195,7 +194,10 @@ async fn import(
 
 pub fn school_menus_api() -> Scope {
     web::scope("/meal-planner/school-menus")
-        .service(list)
+        // The browser may request the collection URL with or without a
+        // trailing slash. Register both forms explicitly.
+        .route("", web::get().to(list_handler))
+        .route("/", web::get().to(list_handler))
         .service(get_date)
         .service(save)
         .service(remove)
