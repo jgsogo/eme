@@ -413,230 +413,68 @@ async fn update_weekly_plan(
         Err(error) => error_response(error),
     }
 }
-#[get("/plans/{plan_id}/shopping-list")]
+
+#[get("/shopping-list")]
 async fn get_shopping_list(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    plan_id: Path<i64>,
-    query: Query<SearchQuery>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let id = plan_id.into_inner();
-    if !store
-        .plan_belongs_to_family(id, &family_id)
-        .unwrap_or(false)
-    {
-        return HttpResponse::NotFound().finish();
-    }
-    match store.get_shopping_list(id) {
-        Ok(Some(list)) => HttpResponse::Ok().json(list),
-        Ok(None) => HttpResponse::NotFound().finish(),
-        Err(error) => error_response(error),
-    }
+ request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
+ families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,query:Query<ShoppingRangeQuery>
+)->impl Responder{
+ let family_id=match selected_family(&request,&auth,&identities,&families,query.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};
+ let(Some(start),Some(end))=(query.start_date,query.end_date)else{return HttpResponse::BadRequest().body("start_date and end_date are required")};
+ match store.get_shopping_list_for_range(&family_id,start,end){Ok(Some(v))=>HttpResponse::Ok().json(v),Ok(None)=>HttpResponse::NotFound().finish(),Err(e)=>error_response(e)}
 }
-#[post("/plans/{plan_id}/shopping-list/generate")]
+#[post("/shopping-list/generate")]
 async fn generate_shopping_list(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    plan_id: Path<i64>,
-    query: Query<SearchQuery>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let id = plan_id.into_inner();
-    if !store
-        .plan_belongs_to_family(id, &family_id)
-        .unwrap_or(false)
-    {
-        return HttpResponse::NotFound().finish();
-    }
-    match store.generate_shopping_list(id) {
-        Ok(list) => HttpResponse::Ok().json(list),
-        Err(error) => error_response(error),
-    }
+ request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
+ families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,query:Query<ShoppingRangeQuery>
+)->impl Responder{
+ let family_id=match selected_family(&request,&auth,&identities,&families,query.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};
+ let(Some(start),Some(end))=(query.start_date,query.end_date)else{return HttpResponse::BadRequest().body("start_date and end_date are required")};
+ match store.generate_shopping_list_for_range(&family_id,start,end){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
 }
-#[post("/plans/{plan_id}/shopping-list/items")]
+#[post("/shopping-list/{list_id}/items")]
 async fn add_shopping_list_item(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    plan_id: Path<i64>,
-    query: Query<SearchQuery>,
-    body: Json<NewShoppingListItem>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let id = plan_id.into_inner();
-    if !store
-        .plan_belongs_to_family(id, &family_id)
-        .unwrap_or(false)
-    {
-        return HttpResponse::NotFound().finish();
-    }
-    match store.add_shopping_list_item(id, body.into_inner()) {
-        Ok(list) => HttpResponse::Created().json(list),
-        Err(error) => error_response(error),
-    }
+ request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
+ families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,list_id:Path<i64>,query:Query<SearchQuery>,body:Json<NewShoppingListItem>
+)->impl Responder{
+ let family_id=match selected_family(&request,&auth,&identities,&families,query.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};let id=list_id.into_inner();
+ if !store.shopping_list_belongs_to_family(id,&family_id).unwrap_or(false){return HttpResponse::NotFound().finish()}
+ match store.add_shopping_list_item(id,body.into_inner()){Ok(v)=>HttpResponse::Created().json(v),Err(e)=>error_response(e)}
 }
-#[put("/plans/{plan_id}/shopping-list/items/{item_id}")]
+#[put("/shopping-list/{list_id}/items/{item_id}")]
 async fn update_shopping_list_item(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    path: Path<(i64, i64)>,
-    query: Query<SearchQuery>,
-    body: Json<ShoppingListItemUpdate>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let (plan_id, item_id) = path.into_inner();
-    if !store
-        .plan_belongs_to_family(plan_id, &family_id)
-        .unwrap_or(false)
-    {
-        return HttpResponse::NotFound().finish();
-    }
-    match store.update_shopping_list_item(plan_id, item_id, body.into_inner()) {
-        Ok(list) => HttpResponse::Ok().json(list),
-        Err(error) => error_response(error),
-    }
+ request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
+ families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,path:Path<(i64,i64)>,query:Query<SearchQuery>,body:Json<ShoppingListItemUpdate>
+)->impl Responder{
+ let family_id=match selected_family(&request,&auth,&identities,&families,query.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};let(list_id,item_id)=path.into_inner();
+ if !store.shopping_list_belongs_to_family(list_id,&family_id).unwrap_or(false){return HttpResponse::NotFound().finish()}
+ match store.update_shopping_list_item(list_id,item_id,body.into_inner()){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
 }
-
-#[post("/plans/{plan_id}/shopping-list/items/{item_id}/restore")]
+#[post("/shopping-list/{list_id}/items/{item_id}/restore")]
 async fn restore_shopping_list_item(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    path: Path<(i64, i64)>,
-    query: Query<SearchQuery>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let (plan_id, item_id) = path.into_inner();
-    if !store
-        .plan_belongs_to_family(plan_id, &family_id)
-        .unwrap_or(false)
-    {
-        return HttpResponse::NotFound().finish();
-    }
-    match store.restore_shopping_list_item(plan_id, item_id) {
-        Ok(list) => HttpResponse::Ok().json(list),
-        Err(error) => error_response(error),
-    }
+ request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
+ families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,path:Path<(i64,i64)>,query:Query<SearchQuery>
+)->impl Responder{
+ let family_id=match selected_family(&request,&auth,&identities,&families,query.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};let(list_id,item_id)=path.into_inner();
+ if !store.shopping_list_belongs_to_family(list_id,&family_id).unwrap_or(false){return HttpResponse::NotFound().finish()}
+ match store.restore_shopping_list_item(list_id,item_id){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
 }
-#[delete("/plans/{plan_id}/shopping-list/items/{item_id}")]
+#[delete("/shopping-list/{list_id}/items/{item_id}")]
 async fn remove_shopping_list_item(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    path: Path<(i64, i64)>,
-    query: Query<SearchQuery>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let (plan_id, item_id) = path.into_inner();
-    if !store
-        .plan_belongs_to_family(plan_id, &family_id)
-        .unwrap_or(false)
-    {
-        return HttpResponse::NotFound().finish();
-    }
-    match store.remove_shopping_list_item(plan_id, item_id) {
-        Ok(list) => HttpResponse::Ok().json(list),
-        Err(error) => error_response(error),
-    }
+ request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
+ families:Data<FamilyService>,store:Data<MealPlannerStore>,path:Path<(i64,i64)>,query:Query<SearchQuery>
+)->impl Responder{
+ let family_id=match selected_family(&request,&auth,&identities,&families,query.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};let(list_id,item_id)=path.into_inner();
+ if !store.shopping_list_belongs_to_family(list_id,&family_id).unwrap_or(false){return HttpResponse::NotFound().finish()}
+ match store.remove_shopping_list_item(list_id,item_id){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
 }
+#[derive(Deserialize)]
+struct ShoppingRangeQuery{family_id:Option<String>,start_date:Option<NaiveDate>,end_date:Option<NaiveDate>}
 
-pub fn meal_planner_api() -> Scope {
-    web::scope("/meal-planner")
-        .service(list_members)
-        .service(list_recipes)
-        .service(create_recipe)
-        .service(get_recipe)
-        .service(update_recipe)
-        .service(delete_recipe)
-        .service(get_weekly_plan)
-        .service(create_weekly_plan)
-        .service(update_weekly_plan)
-        .service(get_shopping_list)
-        .service(generate_shopping_list)
-        .service(add_shopping_list_item)
-        .service(update_shopping_list_item)
-        .service(restore_shopping_list_item)
-        .service(remove_shopping_list_item)
+pub fn meal_planner_api()->Scope{
+ web::scope("/meal-planner")
+  .service(list_members).service(list_recipes).service(create_recipe).service(get_recipe).service(update_recipe).service(delete_recipe)
+  .service(get_weekly_plan).service(create_weekly_plan).service(update_weekly_plan)
+  .service(get_shopping_list).service(generate_shopping_list).service(add_shopping_list_item)
+  .service(update_shopping_list_item).service(restore_shopping_list_item).service(remove_shopping_list_item)
 }
