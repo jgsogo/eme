@@ -1,0 +1,10 @@
+name = "meals.plan.get_context"
+description = "Retrieve the family's planning context for a week: members, resolved participation rules, recipes, school menus and the current plan."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["week_start"]
+
+[parameters.properties]
+week_start = { type = "string", format = "date" }

@@ -1,0 +1,10 @@
+name = "meals.school_menu.get"
+description = "Get a school menu by date."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["date"]
+
+[parameters.properties]
+date = {type="string",format="date"}

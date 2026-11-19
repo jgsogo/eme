@@ -1,0 +1,13 @@
+name = "meals.school_menu.create"
+description = "Create a manual school menu."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["date", "status", "items"]
+
+[parameters.properties]
+date = {type="string",format="date"}
+status = {type="string",enum=["known","not_published","closed","unknown"]}
+items = {type="array",items={type="object",required=["name"],properties={name={type="string"},notes={type="string"},allergens={type="array",items={type="string"}},dietary_alternatives={type="array",items={type="string"}}}}}
+notes = {type="string"}

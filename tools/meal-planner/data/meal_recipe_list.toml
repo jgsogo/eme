@@ -1,0 +1,10 @@
+name = "meals.recipe.list"
+description = "List recipes, optionally filtered by query."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = []
+
+[parameters.properties]
+query = {type="string"}
