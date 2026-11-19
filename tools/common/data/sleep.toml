@@ -1,4 +1,4 @@
-name = "common.sleep"
+name = "common.runtime.sleep"
 description = "Wait for a bounded number of seconds."
 
 [parameters]
