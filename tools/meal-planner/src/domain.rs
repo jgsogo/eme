@@ -307,7 +307,7 @@ mod tests {
             &[],
         );
         assert_eq!(
-            result[1].status,
+            result[0].status,
             ParticipationStatus::Configured {
                 arrangement: MealArrangement::School,
                 source: ParticipationSource::RecurringRule
