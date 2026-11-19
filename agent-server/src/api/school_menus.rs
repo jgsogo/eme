@@ -16,15 +16,15 @@ async fn list_handler(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,i
  let(Some(from),Some(to))=(q.from,q.to)else{return HttpResponse::BadRequest().body("from and to are required")};
  match store.list_school_menus_for_family(&family_id,from,to){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
 }
-#[get("/{date}")]async fn get_date(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<FamilyService>,store:Data<MealPlannerStore>,date:Path<NaiveDate>,q:Query<FamilyQuery>)->impl Responder{
+#[get("/{date}")]async fn get_date(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,date:Path<NaiveDate>,q:Query<FamilyQuery>)->impl Responder{
  let family_id=match authorize_family(&request,&auth,&identities,&families,q.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};
  match store.get_school_menu_for_family(&family_id,date.into_inner()){Ok(Some(v))=>HttpResponse::Ok().json(v),Ok(None)=>HttpResponse::NotFound().finish(),Err(e)=>error_response(e)}
 }
-#[put("/{date}")]async fn save(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<FamilyService>,store:Data<MealPlannerStore>,date:Path<NaiveDate>,q:Query<FamilyQuery>,body:Json<SchoolMenuDraft>)->impl Responder{
+#[put("/{date}")]async fn save(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,date:Path<NaiveDate>,q:Query<FamilyQuery>,body:Json<SchoolMenuDraft>)->impl Responder{
  let family_id=match authorize_family(&request,&auth,&identities,&families,q.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};let date=date.into_inner();let draft=body.into_inner();if draft.date!=date{return HttpResponse::BadRequest().body("path date and menu date must match")}
  match store.save_school_menu_for_family(&family_id,draft){Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error_response(e)}
 }
-#[delete("/{date}")]async fn remove(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<FamilyService>,store:Data<MealPlannerStore>,date:Path<NaiveDate>,q:Query<FamilyQuery>)->impl Responder{
+#[delete("/{date}")]async fn remove(request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,date:Path<NaiveDate>,q:Query<FamilyQuery>)->impl Responder{
  let family_id=match authorize_family(&request,&auth,&identities,&families,q.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};
  match store.delete_school_menu_for_family(&family_id,date.into_inner()){Ok(())=>HttpResponse::NoContent().finish(),Err(e)=>error_response(e)}
 }

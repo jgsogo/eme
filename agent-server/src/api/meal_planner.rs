@@ -414,6 +414,14 @@ async fn update_weekly_plan(
     }
 }
 
+#[delete("/plans/{week_start}")]
+async fn delete_weekly_plan(
+ request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
+ families:Data<Arc<FamilyService>>,store:Data<MealPlannerStore>,week_start:Path<NaiveDate>,query:Query<SearchQuery>
+)->impl Responder{
+ let family_id=match selected_family(&request,&auth,&identities,&families,query.family_id.as_deref()).await{Ok(v)=>v,Err(r)=>return r};
+ match store.delete_weekly_plan_for_family(&family_id,week_start.into_inner()){Ok(())=>HttpResponse::NoContent().finish(),Err(e)=>error_response(e)}
+}
 #[get("/shopping-list")]
 async fn get_shopping_list(
  request:HttpRequest,auth:Data<crate::auth::TelegramAuth>,identities:Data<Arc<FileUserIdentityStore>>,
@@ -474,7 +482,7 @@ struct ShoppingRangeQuery{family_id:Option<String>,start_date:Option<NaiveDate>,
 pub fn meal_planner_api()->Scope{
  web::scope("/meal-planner")
   .service(list_members).service(list_recipes).service(create_recipe).service(get_recipe).service(update_recipe).service(delete_recipe)
-  .service(get_weekly_plan).service(create_weekly_plan).service(update_weekly_plan)
+  .service(get_weekly_plan).service(create_weekly_plan).service(update_weekly_plan).service(delete_weekly_plan)
   .service(get_shopping_list).service(generate_shopping_list).service(add_shopping_list_item)
   .service(update_shopping_list_item).service(restore_shopping_list_item).service(remove_shopping_list_item)
 }

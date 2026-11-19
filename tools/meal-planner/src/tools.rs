@@ -38,7 +38,7 @@ impl Tool for MealTool{
    Action::RecipeCreate=>{let mut d:RecipeDraft=decode(args)?;if d.family_id.is_none(){d.family_id=Some(family.clone())}encode(&self.store.create_recipe(&owner,d).map_err(failure)?)}
    Action::RecipeGet=>{let a:IdArgs=decode(args)?;encode(&self.store.get_recipe(a.id,&owner,&families).map_err(failure)?)}
    Action::RecipeList=>{let a:SearchArgs=decode(args)?;encode(&self.store.list_recipes(&owner,&families,a.query.as_deref()).map_err(failure)?)}
-   Action::RecipeUpdate=>{#[derive(Deserialize)]struct A{id:i64,#[serde(flatten)]draft:RecipeDraft}let a:A=decode(args)?;encode(&self.store.update_recipe_for_family(a.id,&owner,&family,a.draft).map_err(failure)?)}
+   Action::RecipeUpdate=>{#[derive(Deserialize)]struct A{id:i64,#[serde(flatten)]draft:RecipeDraft}let mut a:A=decode(args)?;if a.draft.family_id.as_deref().is_some_and(|id|id!=family){return Err(failure("recipe cannot be moved to a different family"))}a.draft.family_id=Some(family.clone());encode(&self.store.update_recipe_for_family(a.id,&owner,&family,a.draft).map_err(failure)?)}
    Action::RecipeDelete=>{let a:IdArgs=decode(args)?;self.store.delete_recipe_for_family(a.id,&owner,&family).map_err(failure)?;Ok("{\"deleted\":true}".into())}
    Action::SchoolCreate=>{let d:SchoolMenuDraft=decode(args)?;if self.store.get_school_menu_for_family(&family,d.date).map_err(failure)?.is_some(){return Err(failure("a school menu already exists for this date; use meals.school_menu.update"))}encode(&self.store.save_school_menu_for_family(&family,d).map_err(failure)?)}
    Action::SchoolGet=>{let a:DateArgs=decode(args)?;encode(&self.store.get_school_menu_for_family(&family,a.date).map_err(failure)?)}
