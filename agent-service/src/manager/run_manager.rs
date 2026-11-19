@@ -194,6 +194,7 @@ impl RunManager {
         // No work should be submitted before this builder is called.
         let mut guard = self.persistence.write().unwrap_or_else(|poisoned| poisoned.into_inner());
         *guard = Some(storage);
+        drop(guard);
         self
     }
 
