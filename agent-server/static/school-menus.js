@@ -98,7 +98,7 @@ function renderMonthView() {
         : "";
     cells.push(
       '<article class="school-menu-day' + (hasMenu ? ' has-entry' : '') + statusClass + '">' +
-      '<header><strong>' + day + '</strong><span>' + esc(formatDay(date, { weekday: "short" })) + '</span></header>' +
+      '<header class="school-menu-day-heading"><strong>' + day + '</strong><span>' + esc(formatDay(date, { weekday: "short" })) + '</span></header>' +
       '<div class="school-menu-day-content">' + content + '</div>' +
       '<button type="button" class="secondary" data-edit-date="' + date + '">' +
       (hasMenu ? "Edit" : "Add") + '</button></article>'
