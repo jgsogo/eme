@@ -43,7 +43,7 @@ async fn authorize_family(
     Ok(id.to_owned())
 }
 
-#[get("/")]
+#[get("")]
 async fn list(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
