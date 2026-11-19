@@ -88,7 +88,12 @@ impl MealPlannerStore {
             "INSERT INTO weekly_plans(family_id,week_start,assignments,created_at)
              VALUES(?1,?2,?3,?4)
              ON CONFLICT(family_id,week_start) DO UPDATE SET assignments=excluded.assignments",
-            params![family_id, week_start.to_string(), payload, Utc::now().timestamp()],
+            params![
+                family_id,
+                week_start.to_string(),
+                payload,
+                Utc::now().timestamp()
+            ],
         )?;
         let id = c.query_row(
             "SELECT id FROM weekly_plans WHERE family_id=?1 AND week_start=?2",
@@ -316,14 +321,18 @@ mod save_tests {
             .save_weekly_plan_for_family(
                 "family-a",
                 week,
-                WeeklyPlanDraft { assignments: vec![assignment.clone()] },
+                WeeklyPlanDraft {
+                    assignments: vec![assignment.clone()],
+                },
             )
             .unwrap();
         let second = store
             .save_weekly_plan_for_family(
                 "family-a",
                 week,
-                WeeklyPlanDraft { assignments: vec![assignment] },
+                WeeklyPlanDraft {
+                    assignments: vec![assignment],
+                },
             )
             .unwrap();
 
@@ -331,9 +340,18 @@ mod save_tests {
         assert_eq!(second.assignments.len(), 1);
         assert!(second.assignments[0].recipe_ids.is_empty());
         assert_eq!(
-            store.get_weekly_plan_for_family("family-a", week).unwrap().unwrap().id,
+            store
+                .get_weekly_plan_for_family("family-a", week)
+                .unwrap()
+                .unwrap()
+                .id,
             first.id
         );
-        assert!(store.get_weekly_plan_for_family("family-b", week).unwrap().is_none());
+        assert!(
+            store
+                .get_weekly_plan_for_family("family-b", week)
+                .unwrap()
+                .is_none()
+        );
     }
 }
