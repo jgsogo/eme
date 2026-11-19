@@ -178,7 +178,7 @@ impl ParticipationResolver {
     }
 }
 
-/// Resolve all active members for all meals. Exceptions win. Overlapping rules
+/// Resolve all active members for lunch and dinner. Exceptions win. Overlapping rules
 /// use the latest effective start (unbounded first), then the greatest rule ID.
 pub fn resolve_date(
     date: NaiveDate,
@@ -269,7 +269,7 @@ mod tests {
     #[test]
     fn only_lunch_and_dinner_are_supported() {
         assert_eq!(MealType::ALL, [MealType::Lunch, MealType::Dinner]);
-        assert!(serde_json::from_str::<MealType>(r#"\"breakfast\""#).is_err());
+        assert!(serde_json::from_str::<MealType>(r#""breakfast""#).is_err());
     }
 
     #[test]
@@ -288,7 +288,7 @@ mod tests {
             &[exception],
         );
         assert_eq!(
-            result[1].status,
+            result[0].status,
             ParticipationStatus::Configured {
                 arrangement: MealArrangement::NotParticipating,
                 source: ParticipationSource::DateException
@@ -323,11 +323,11 @@ mod tests {
             Some("2026-11-16"),
         )];
         assert!(matches!(
-            resolve_date(date("2026-11-16"), &[member()], &rules, &[])[1].status,
+            resolve_date(date("2026-11-16"), &[member()], &rules, &[])[0].status,
             ParticipationStatus::Configured { .. }
         ));
         assert_eq!(
-            resolve_date(date("2026-11-17"), &[member()], &rules, &[])[1].status,
+            resolve_date(date("2026-11-17"), &[member()], &rules, &[])[0].status,
             ParticipationStatus::Unconfigured
         );
     }
