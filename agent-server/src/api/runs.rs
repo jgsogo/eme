@@ -50,16 +50,10 @@ async fn list_runs(
     let owner = auth
         .as_ref()
         .and_then(|auth| auth.owner_for_request(&request));
-    let allowed = auth.as_ref().map(|auth| {
-        owner
-            .as_ref()
-            .map(|owner| auth.runs_for_owner(owner))
-            .unwrap_or_default()
-    });
     let runs = manager.list().await.into_iter()
         .filter(|run| {
             if let (Some(auth), Some(_owner)) = (auth.as_ref(), owner.as_ref()) {
-                owns_run(run, &request, Some(auth.as_ref()), store.as_ref())
+                owns_run(run, &request, Some(auth.get_ref()), store.as_ref())
             } else { false }
         })
         .collect::<Vec<_>>();
