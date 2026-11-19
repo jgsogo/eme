@@ -19,6 +19,16 @@ function weekStartFor(s){return dateString(mondayOf(parseDate(s)))}
 function planFor(date){return state.plans.get(weekStartFor(date))||null}
 function assignmentFor(date,meal){return planFor(date)?.assignments.find(a=>a.date===date&&a.meal_type===meal)||null}
 function recipeNames(a){return (a.recipe_ids||[]).map(id=>state.recipes.find(r=>r.id===id)?.title||"Recipe unavailable")}
+function renderSchoolMenu(date){
+ const entry=state.menus.find(menu=>menu.date===date);
+ if(!entry)return '<p class="meal-school-menu-placeholder">No school menu recorded</p>';
+ if(entry.status!=="known"){
+  const label=({not_published:"Menu not published",closed:"School closed",unknown:"Unknown"})[entry.status]||entry.status;
+  return '<p class="meal-school-menu-placeholder">'+esc(label)+'</p>';
+ }
+ const items=(entry.items||[]).map(item=>item.name).filter(Boolean);
+ return items.length?'<ul class="meal-school-menu-items">'+items.map(name=>'<li>'+esc(name)+'</li>').join("")+'</ul>':'<p class="meal-school-menu-placeholder">No dishes recorded</p>';
+}
 function renderMonth(){
  const first=monthStart(state.month),year=first.getFullYear(),month=first.getMonth(),days=new Date(year,month+1,0).getDate();
  const offset=(first.getDay()+6)%7,visibleOffset=state.showWeekends?offset:Math.min(offset,5),cells=[];
@@ -35,7 +45,7 @@ function renderMonth(){
    return '<section class="meal-calendar-slot"><div class="meal-calendar-slot-heading"><h3>'+title+'</h3>'+action+'</div>'+detail+'</section>';
   }).join("");
   const plan=planFor(date);
-  cells.push('<article class="school-menu-day meal-planner-day"><header><strong>'+parseDate(date).getDate()+'</strong><span>'+esc(labelDate(date,{weekday:"short"}))+'</span></header><div class="meal-day-slots">'+slots+'</div>'+(plan?.status==="confirmed"?'<span class="meal-plan-confirmed">Confirmed · rev '+plan.revision+'</span>':'')+'</article>');
+  cells.push('<article class="school-menu-day meal-planner-day"><header><strong>'+parseDate(date).getDate()+'</strong><span>'+esc(labelDate(date,{weekday:"short"}))+'</span></header><div class="meal-day-slots">'+slots+'</div><section class="meal-school-menu"><h3>School menu</h3>'+renderSchoolMenu(date)+'</section>'+(plan?.status==="confirmed"?'<span class="meal-plan-confirmed">Confirmed · rev '+plan.revision+'</span>':'')+'</article>');
  }
  const calendar=$("planner-month-view");calendar.classList.toggle("weekdays-only",!state.showWeekends);
  calendar.innerHTML='<div class="school-menu-calendar-weekdays">'+["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].slice(0,state.showWeekends?7:5).map(d=>'<span>'+d+'</span>').join("")+'</div><div class="school-menu-month">'+cells.join("")+'</div>';
