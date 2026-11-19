@@ -180,6 +180,10 @@ impl ConversationMessageStore for SqliteExecutionStore {
             "INSERT INTO conversation_messages(conversation_id, sequence, message_json, run_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![message.conversation_id.to_string(), message.sequence as i64, json, message.run_id.map(|id| id.to_string()), message.created_at.to_rfc3339()],
         ).map_err(backend)?;
+        connection.execute(
+            "UPDATE conversations SET updated_at = ?1 WHERE id = ?2",
+            params![message.created_at.to_rfc3339(), message.conversation_id.to_string()],
+        ).map_err(backend)?;
         Ok(())
     }
 
