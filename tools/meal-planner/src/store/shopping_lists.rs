@@ -137,7 +137,6 @@ impl MealPlannerStore {
         Ok(list)
     }
 
-
     /// Restore a generated ingredient to the quantity calculated from the
     /// recipes and participant counts in the current plan.
     pub fn restore_shopping_list_item(

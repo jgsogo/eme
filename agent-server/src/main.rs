@@ -35,8 +35,8 @@ use console::{
     families_page, favicon, integrations_page, invitation_page, meals_family_script, meals_page,
     mobile_conversations_page, mobile_families_page, mobile_notes_page, mobile_profile_page,
     mobile_root, mobile_script, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
-    recipes_page, recipes_script, school_menus_page, school_menus_script, shopping_list_page, shopping_list_script, tasks_page,
-    weekly_planner_page, weekly_planner_script,
+    recipes_page, recipes_script, school_menus_page, school_menus_script, shopping_list_page,
+    shopping_list_script, tasks_page, weekly_planner_page, weekly_planner_script,
 };
 
 #[actix_web::main]
