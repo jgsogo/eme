@@ -348,10 +348,6 @@ async fn get_planning_context(
         Ok(user) => user,
         Err(response) => return response,
     };
-    let user = match authenticated_user(&request, &auth, &identities) {
-        Ok(user) => user,
-        Err(response) => return response,
-    };
     let family_id = match selected_family(
         &request,
         &auth,
@@ -364,7 +360,9 @@ async fn get_planning_context(
         Ok(id) => id,
         Err(response) => return response,
     };
-    if let Err(response) = sync_family_roster(user, &family_id, &identities, &families, &store).await {
+    if let Err(response) =
+        sync_family_roster(user, &family_id, &identities, &families, &store).await
+    {
         return response;
     }
     let context = MealPlannerApplication::new(store.get_ref().clone()).planning_context(
