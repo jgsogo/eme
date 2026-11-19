@@ -78,6 +78,6 @@ mod tests {
     fn rejects_invalid_chime_values() {
         assert!(!valid_chime("https://example.com/sound.mp3"));
         assert!(!valid_chime("soundbank://soundlibrary/"));
-        assert!(!valid_chime("soundbank://soundlibrary/foo\\"/><speak>"));
+        assert!(!valid_chime("soundbank://soundlibrary/foo\"/><speak>"));
     }
 }
