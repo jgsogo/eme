@@ -1,4 +1,4 @@
-name = "task_list"
+name = "tasks.list"
 description = "List the scheduled and one-time tasks belonging to the authenticated user."
 
 [parameters]

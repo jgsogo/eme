@@ -1,4 +1,4 @@
-name = "task_add"
+name = "tasks.add"
 description = "Create a scheduled or one-time task for the authenticated user. Use either schedule (cron) or at (RFC3339 timestamp), never both. Recurring schedules may specify an IANA timezone."
 
 [parameters]

@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::{gateway_or_error, map_error};
 
-/// `tg_notify_user` — send a one-way notification to a trusted conversation recipient.
+/// `telegram.notify_user` — send a one-way notification to a trusted conversation recipient.
 pub struct TgNotifyUser {
     gateway: Option<Arc<TelegramGateway>>,
 }
@@ -27,7 +27,7 @@ impl Tool for TgNotifyUser {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .ok_or_else(|| ToolError::InvalidArguments {
-                tool_name: "tg_notify_user".into(),
+                tool_name: "telegram.notify_user".into(),
                 errors: vec!["Missing or invalid 'message' argument".into()],
             })?;
 

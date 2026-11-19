@@ -16,7 +16,7 @@ impl ListNotes {
 
 pub(super) fn definition() -> ToolDefinition {
     ToolDefinition {
-        name: "list_notes".into(),
+        name: "notes.list".into(),
         description: "List titles and metadata of notes accessible to the current user. Note contents are not returned.".into(),
         parameters: json!({
             "type": "object",

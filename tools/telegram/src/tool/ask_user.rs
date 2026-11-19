@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::{gateway_or_error, map_error};
 
-/// `tg_ask_user` — ask a trusted conversation recipient and wait for their reply.
+/// `telegram.ask_user` — ask a trusted conversation recipient and wait for their reply.
 pub struct TgAskUser {
     gateway: Option<Arc<TelegramGateway>>,
 }
@@ -27,7 +27,7 @@ impl Tool for TgAskUser {
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .ok_or_else(|| ToolError::InvalidArguments {
-                tool_name: "tg_ask_user".into(),
+                tool_name: "telegram.ask_user".into(),
                 errors: vec!["Missing or invalid 'question' argument".into()],
             })?;
         let kind = arguments
@@ -52,7 +52,7 @@ impl Tool for TgAskUser {
                 Ok(if answer { "yes" } else { "no" }.to_owned())
             }
             other => Err(ToolError::InvalidArguments {
-                tool_name: "tg_ask_user".into(),
+                tool_name: "telegram.ask_user".into(),
                 errors: vec![format!(
                     "Invalid 'kind' value '{other}'. Expected 'text' or 'yes_no'."
                 )],

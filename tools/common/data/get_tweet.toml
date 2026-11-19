@@ -1,4 +1,4 @@
-name = "get_tweet"
+name = "common.social.get_tweet"
 description = "Retrieve the content and available metadata of a public X/Twitter post from its URL using the FxEmbed API. The URL is parsed locally; tracking query parameters are ignored."
 [parameters]
 type = "object"

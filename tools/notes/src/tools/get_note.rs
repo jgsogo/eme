@@ -16,7 +16,7 @@ impl GetNote {
 
 pub(super) fn definition() -> ToolDefinition {
     ToolDefinition {
-        name: "get_note".into(),
+        name: "notes.get".into(),
         description:
             "Read the full content of one note by ID, only if it is accessible to the current user."
                 .into(),
@@ -25,7 +25,7 @@ pub(super) fn definition() -> ToolDefinition {
             "properties": {
                 "note_id": {
                     "type": "string",
-                    "description": "ID returned by list_notes"
+                    "description": "ID returned by notes.list"
                 }
             },
             "required": ["note_id"],

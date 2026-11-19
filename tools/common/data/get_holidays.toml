@@ -1,4 +1,4 @@
-name = "get_holidays"
+name = "common.calendar.get_holidays"
 description = "Retrieve official public holidays or school holidays from OpenHolidays API for a country and date range. Supports regional subdivision and school holiday group filters. Date ranges may not exceed three years."
 [parameters]
 type = "object"

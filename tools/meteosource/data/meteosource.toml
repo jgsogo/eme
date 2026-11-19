@@ -1,4 +1,4 @@
-name = "meteosource"
+name = "meteosource.get_weather"
 description = "Retrieve the current weather and hourly forecast for a location."
 
 [parameters]

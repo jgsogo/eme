@@ -1,4 +1,4 @@
-name = "mercadona_get_category"
+name = "mercadona.get_category"
 description = "Retrieve a Mercadona category by identifier, including its products and subcategories when provided by the API."
 [parameters]
 type = "object"
@@ -8,7 +8,7 @@ additionalProperties = false
 [parameters.properties.category_id]
 type = "string"
 minLength = 1
-description = "Category identifier returned by mercadona_list_categories."
+description = "Category identifier returned by mercadona.list_categories."
 
 [parameters.properties.warehouse]
 type = "string"
