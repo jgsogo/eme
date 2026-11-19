@@ -59,6 +59,7 @@ impl ConversationStore {
             owner: owner.clone(),
             agent,
             title: default_conversation_title(),
+            archived: false,
             selected_family_id: None,
             created_at: now,
             updated_at: now,
@@ -87,8 +88,21 @@ impl ConversationStore {
             .transpose()
     }
 
-    /// Lists all conversations belonging to owner, newest activity first.
+    /// Lists non-archived conversations belonging to owner, newest activity first.
     pub fn list(&self, owner: &str) -> Result<Vec<Conversation>, ConversationStoreError> {
+        self.list_with_archive_state(owner, false)
+    }
+
+    /// Lists archived conversations belonging to owner, newest activity first.
+    pub fn list_archived(&self, owner: &str) -> Result<Vec<Conversation>, ConversationStoreError> {
+        self.list_with_archive_state(owner, true)
+    }
+
+    fn list_with_archive_state(
+        &self,
+        owner: &str,
+        archived: bool,
+    ) -> Result<Vec<Conversation>, ConversationStoreError> {
         let _guard = self
             .lock
             .lock()
@@ -110,7 +124,7 @@ impl ConversationStore {
 
             let bytes = fs::read(entry.path())?;
             let conversation: Conversation = serde_json::from_slice(&bytes)?;
-            if conversation.owner == owner {
+            if conversation.owner == owner && conversation.archived == archived {
                 conversations.push(conversation);
             }
         }
@@ -208,6 +222,43 @@ impl ConversationStore {
         conversation.selected_family_id = family_id;
         conversation.updated_at = Utc::now();
         self.write_conversation(&conversation)?;
+        Ok(conversation)
+    }
+
+    /// Archives or restores a conversation belonging to owner.
+    ///
+    /// Archiving also clears the active pointer when it refers to this
+    /// conversation. The conversation document and its message history remain
+    /// untouched and can be restored later.
+    pub fn set_archived(
+        &self,
+        owner: &str,
+        id: ConversationId,
+        archived: bool,
+    ) -> Result<Conversation, ConversationStoreError> {
+        let _guard = self
+            .lock
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut conversation = self.read_conversation(id)?;
+        if conversation.owner != owner {
+            return Err(ConversationStoreError::OwnerMismatch {
+                conversation_id: id,
+                owner: owner.to_owned(),
+            });
+        }
+
+        conversation.archived = archived;
+        self.write_conversation(&conversation)?;
+
+        if archived {
+            let mut active = self.read_active_index()?;
+            if active.get(owner) == Some(&id) {
+                active.remove(owner);
+                self.write_active_index(&active)?;
+            }
+        }
+
         Ok(conversation)
     }
 
