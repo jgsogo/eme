@@ -700,7 +700,11 @@ mod tests {
             assert_eq!(normalized["properties"][property]["nullable"], true);
         }
         assert_eq!(normalized["properties"]["required_name"]["type"], "string");
-        assert!(normalized["properties"]["required_name"].get("nullable").is_none());
+        assert!(
+            normalized["properties"]["required_name"]
+                .get("nullable")
+                .is_none()
+        );
 
         // The source JSON Schema is not mutated.
         assert_eq!(
@@ -708,5 +712,4 @@ mod tests {
             serde_json::json!(["string", "null"])
         );
     }
-
 }
