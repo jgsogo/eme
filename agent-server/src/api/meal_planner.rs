@@ -349,33 +349,6 @@ async fn get_weekly_plan(
         Err(error) => error_response(error),
     }
 }
-#[get("/plans/{week_start}/revisions")]
-async fn list_weekly_plan_revisions(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-    query: Query<SearchQuery>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    match store.list_weekly_plan_revisions_for_family(&family_id, week_start.into_inner()) {
-        Ok(plans) => HttpResponse::Ok().json(plans),
-        Err(error) => error_response(error),
-    }
-}
 #[post("/plans/{week_start}")]
 async fn create_weekly_plan(
     request: HttpRequest,
@@ -437,60 +410,6 @@ async fn update_weekly_plan(
         body.into_inner(),
     ) {
         Ok(plan) => HttpResponse::Ok().json(plan),
-        Err(error) => error_response(error),
-    }
-}
-#[post("/plans/{week_start}/confirm")]
-async fn confirm_weekly_plan(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-    query: Query<SearchQuery>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    match store.confirm_weekly_plan_for_family(&family_id, week_start.into_inner()) {
-        Ok(plan) => HttpResponse::Ok().json(plan),
-        Err(error) => error_response(error),
-    }
-}
-#[post("/plans/{week_start}/revise")]
-async fn revise_weekly_plan(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    week_start: Path<NaiveDate>,
-    query: Query<SearchQuery>,
-) -> impl Responder {
-    let family_id = match selected_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        query.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    match store.revise_weekly_plan_for_family(&family_id, week_start.into_inner()) {
-        Ok(plan) => HttpResponse::Created().json(plan),
         Err(error) => error_response(error),
     }
 }
@@ -712,11 +631,8 @@ pub fn meal_planner_api() -> Scope {
         .service(update_recipe)
         .service(delete_recipe)
         .service(get_weekly_plan)
-        .service(list_weekly_plan_revisions)
         .service(create_weekly_plan)
         .service(update_weekly_plan)
-        .service(confirm_weekly_plan)
-        .service(revise_weekly_plan)
         .service(get_shopping_list)
         .service(generate_shopping_list)
         .service(add_shopping_list_item)

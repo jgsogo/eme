@@ -37,7 +37,7 @@ function renderMonth(){
   const date=dateString(new Date(year,month,day,12)),weekday=parseDate(date).getDay();
   if(!state.showWeekends&&(weekday===0||weekday===6))continue;
   const slots=meals.map(([meal,title])=>{
-   const assignment=assignmentFor(date,meal),editable=planFor(date)?.status!=="confirmed";
+   const assignment=assignmentFor(date,meal);
    const people=assignment?.participants?.map(p=>p.name).join(", ")||"No participants";
    const recipes=recipeNames(assignment||{}).join(" · ");
    const detail=assignment?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned</p>';
@@ -45,7 +45,7 @@ function renderMonth(){
    return '<section class="meal-calendar-slot"><div class="meal-calendar-slot-heading"><h3>'+title+'</h3>'+action+'</div>'+detail+'</section>';
   }).join("");
   const plan=planFor(date);
-  cells.push('<article class="school-menu-day meal-planner-day"><header><strong>'+parseDate(date).getDate()+'</strong><span>'+esc(labelDate(date,{weekday:"short"}))+'</span></header><div class="meal-day-slots">'+slots+'</div><section class="meal-school-menu"><h3>School menu</h3>'+renderSchoolMenu(date)+'</section>'+(plan?.status==="confirmed"?'<span class="meal-plan-confirmed">Confirmed · rev '+plan.revision+'</span>':'')+'</article>');
+  cells.push('<article class="school-menu-day meal-planner-day"><header><strong>'+parseDate(date).getDate()+'</strong><span>'+esc(labelDate(date,{weekday:"short"}))+'</span></header><div class="meal-day-slots">'+slots+'</div><section class="meal-school-menu"><h3>School menu</h3>'+renderSchoolMenu(date)+'</section>'+'</article>');
  }
  const calendar=$("planner-month-view");calendar.classList.toggle("weekdays-only",!state.showWeekends);
  calendar.innerHTML='<div class="school-menu-calendar-weekdays">'+["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].slice(0,state.showWeekends?7:5).map(d=>'<span>'+d+'</span>').join("")+'</div><div class="school-menu-month">'+cells.join("")+'</div>';
@@ -67,7 +67,7 @@ function openEditor(date,meal,assignment){
  $("assignment-recipes").innerHTML=state.recipes.map(r=>'<option value="'+r.id+'">'+esc(r.title)+'</option>').join("");
  const recipeIds=new Set((assignment?.recipe_ids||[]).map(String));
  [...$("assignment-recipes").options].forEach(o=>o.selected=recipeIds.has(o.value));
- $("assignment-error").textContent=plan?.status==="confirmed"?"This week is confirmed. Saving will create a new revision.":"";
+ $("assignment-error").textContent="";
  $("remove-assignment").hidden=!assignment;
  $("assignment-editor").showModal();
 }
