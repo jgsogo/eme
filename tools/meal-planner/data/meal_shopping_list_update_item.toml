@@ -1,0 +1,15 @@
+name = "meals.shopping_list.update_item"
+description = "Update a shopping-list item, including whether it is already available at home."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["list_id", "item_id", "name", "purchased"]
+
+[parameters.properties]
+list_id = {type="integer",minimum=1}
+item_id = {type="integer",minimum=1}
+name = {type="string"}
+quantity = {type="number",exclusiveMinimum=0}
+unit = {type="string"}
+purchased = {type="boolean"}

@@ -1,0 +1,11 @@
+name = "meals.shopping_list.generate"
+description = "Aggregate ingredients from all planned meals in the date range, preserving user edits and exclusions."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["start_date", "end_date"]
+
+[parameters.properties]
+start_date = {type="string",format="date"}
+end_date = {type="string",format="date"}

@@ -1,0 +1,11 @@
+name = "meals.shopping_list.remove_item"
+description = "Disable an ingredient or remove a manual item."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["list_id", "item_id"]
+
+[parameters.properties]
+list_id = {type="integer",minimum=1}
+item_id = {type="integer",minimum=1}

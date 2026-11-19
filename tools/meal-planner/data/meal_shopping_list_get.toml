@@ -1,0 +1,11 @@
+name = "meals.shopping_list.get"
+description = "Get an existing shopping list for a date range."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["start_date", "end_date"]
+
+[parameters.properties]
+start_date = {type="string",format="date"}
+end_date = {type="string",format="date"}

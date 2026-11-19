@@ -1,0 +1,13 @@
+name = "meals.shopping_list.add_item"
+description = "Add a manual item to an existing shopping list."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["list_id", "name"]
+
+[parameters.properties]
+list_id = {type="integer",minimum=1}
+name = {type="string"}
+quantity = {type="number",exclusiveMinimum=0}
+unit = {type="string"}
