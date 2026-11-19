@@ -12,9 +12,10 @@
     select.innerHTML = families.map(f => '<option value="' + String(f.id).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">' +
       String(f.name).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</option>').join("");
     if (!families.length) {
-      select.innerHTML = '<option value="">No family available</option>';
-      select.disabled = true;
+      mount.innerHTML = '<p class="hint">No family available. <a href="/console/families">Create or join a family</a> to use Meals.</p>';
       selectedFamilyId = "";
+      localStorage.removeItem(STORAGE_KEY);
+      return;
     } else {
       if (!families.some(f => String(f.id) === selectedFamilyId)) selectedFamilyId = String(families[0].id);
       select.value = selectedFamilyId;
@@ -30,7 +31,9 @@
   async function init() {
     const response = await fetch("/families");
     if (!response.ok) throw new Error("Unable to load families");
-    families = await response.json();
+    const payload = await response.json();
+    if (!Array.isArray(payload)) throw new Error("The families endpoint returned an invalid response");
+    families = payload.filter(family => family && typeof family.id === "string" && family.id.length > 0);
     render();
     return { families, familyId: selectedFamilyId };
   }
