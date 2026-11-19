@@ -22,6 +22,7 @@ enum Action {
     SchoolList,
     SchoolUpdate,
     SchoolDelete,
+    PlanContext,
     PlanCreate,
     PlanGet,
     PlanList,
@@ -214,6 +215,13 @@ impl Tool for MealTool {
                     .delete_school_menu_for_family(&family, a.date)
                     .map_err(failure)?;
                 Ok("{\"deleted\":true}".into())
+            }
+            Action::PlanContext => {
+                let a: WeekArgs = decode(args)?;
+                let context = crate::MealPlannerApplication::new(self.store.clone())
+                    .planning_context(&owner, &families, a.week_start)
+                    .map_err(failure)?;
+                encode(&context)
             }
             Action::PlanCreate => {
                 let a: PlanArgs = decode(args)?;
@@ -427,6 +435,7 @@ mod tests {
             "meals.school_menu.list",
             "meals.school_menu.update",
             "meals.school_menu.delete",
+            "meals.plan.get_context",
             "meals.plan.create",
             "meals.plan.get",
             "meals.plan.list",

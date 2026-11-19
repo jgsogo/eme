@@ -61,7 +61,7 @@ The server registers explicit, independently callable tools using the `domain.re
 
 - Recipes: `meals.recipe.create/get/list/update/delete`
 - School menus: `meals.school_menu.create/get/list/update/delete`
-- Plans: `meals.plan.create/get/list/update/delete`
+- Plans: `meals.plan.get_context/create/get/list/update/delete`
 - Shopping lists: `meals.shopping_list.get/generate/add_item/update_item/remove_item/restore_item`
 
 Each action has its own tool definition and JSON schema; tools do not multiplex actions through an `operation` argument. Every tool requires authenticated user context and is scoped to the selected family. Recipe and plan integrity checks remain deterministic storage-boundary checks.

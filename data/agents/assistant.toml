@@ -55,6 +55,7 @@ tools = [
     "meals.school_menu.list",
     "meals.school_menu.update",
     "meals.school_menu.delete",
+    "meals.plan.get_context",
     "meals.plan.create",
     "meals.plan.get",
     "meals.plan.list",
