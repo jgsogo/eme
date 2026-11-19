@@ -104,19 +104,25 @@ fn migration_10_removes_breakfast_participation_and_preserves_other_meals() {
     assert_eq!(store.schema_version().unwrap(), 10);
     let connection = store.connection.lock().unwrap();
     let rules: Vec<String> = {
-        let mut statement = connection.prepare(
-            "SELECT meal_type FROM recurring_participation_rules ORDER BY meal_type"
-        ).unwrap();
-        statement.query_map([], |row| row.get(0)).unwrap()
-            .collect::<Result<_, _>>().unwrap()
+        let mut statement = connection
+            .prepare("SELECT meal_type FROM recurring_participation_rules ORDER BY meal_type")
+            .unwrap();
+        statement
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
     };
     assert_eq!(rules, vec!["dinner".to_owned(), "lunch".to_owned()]);
     let exceptions: Vec<String> = {
-        let mut statement = connection.prepare(
-            "SELECT meal_type FROM meal_participation_exceptions ORDER BY meal_type"
-        ).unwrap();
-        statement.query_map([], |row| row.get(0)).unwrap()
-            .collect::<Result<_, _>>().unwrap()
+        let mut statement = connection
+            .prepare("SELECT meal_type FROM meal_participation_exceptions ORDER BY meal_type")
+            .unwrap();
+        statement
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
     };
     assert_eq!(exceptions, vec!["dinner".to_owned(), "lunch".to_owned()]);
     assert!(connection.execute(
