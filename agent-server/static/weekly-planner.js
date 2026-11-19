@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { familyId:"", members:[], recipes:[], menus:[], plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, request:0, showWeekends:true };
+const state = { familyId:"", members:[], recipes:[], menus:[], participation:[], plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, request:0, showWeekends:true };
 const meals = [["lunch","Lunch"],["dinner","Dinner"]];
 async function api(path, options={}) {
   const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});
@@ -19,6 +19,20 @@ function weekStartFor(s){return dateString(mondayOf(parseDate(s)))}
 function planFor(date){return state.plans.get(weekStartFor(date))||null}
 function assignmentFor(date,meal){return planFor(date)?.assignments.find(a=>a.date===date&&a.meal_type===meal)||null}
 function recipeNames(a){return (a.recipe_ids||[]).map(id=>state.recipes.find(r=>r.id===id)?.title||"Recipe unavailable")}
+function participationDetails(date,meal){
+ const configured=state.participation.filter(p=>p.date===date&&p.meal_type===meal&&p.arrangement);
+ if(!configured.length)return null;
+ const labels={home:"At home",school:"At school",away:"Away"};
+ const groups=new Map();
+ configured.forEach(p=>{
+  if(p.arrangement==="not_participating")return;
+  const names=groups.get(p.arrangement)||[];
+  names.push(p.member_name);
+  groups.set(p.arrangement,names);
+ });
+ if(!groups.size)return "Nobody is participating";
+ return [...groups].map(([arrangement,names])=>(labels[arrangement]||arrangement)+": "+names.join(", ")).join(" · ");
+}
 function renderSchoolMenu(date){
  const entry=state.menus.find(menu=>menu.date===date);
  if(!entry)return '<p class="meal-school-menu-placeholder">No school menu recorded</p>';
@@ -38,9 +52,10 @@ function renderMonth(){
   if(!state.showWeekends&&(weekday===0||weekday===6))continue;
   const slots=meals.map(([meal,title])=>{
    const assignment=assignmentFor(date,meal);
-   const people=assignment?.participants?.map(p=>p.name).join(", ")||"No participants";
+   const configuredPeople=participationDetails(date,meal);
+   const people=configuredPeople||assignment?.participants?.map(p=>p.name).join(", ")||"No participation configured";
    const recipes=recipeNames(assignment||{}).join(" · ");
-   const detail=assignment?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned</p>';
+   const detail=assignment||configuredPeople?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+(!assignment?'<span>Meal not planned</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned · No participation configured</p>';
    const action=assignment?'<button type="button" class="text-button" data-edit="'+date+'" data-meal="'+meal+'">Edit</button>':'<button type="button" class="text-button" data-add="'+date+'" data-meal="'+meal+'">＋ Add</button>';
    return '<section class="meal-calendar-slot"><div class="meal-calendar-slot-heading"><h3>'+title+'</h3>'+action+'</div>'+detail+'</section>';
   }).join("");
@@ -62,7 +77,7 @@ function openEditor(date,meal,assignment){
  $("editor-title").textContent=(assignment?"Edit ":"Plan ")+(meal==="lunch"?"lunch":"dinner");
  $("assignment-date").value=date;$("assignment-meal").value=meal;
  $("assignment-participants").innerHTML=state.members.filter(m=>m.active).map(m=>'<option value="'+m.id+'">'+esc(m.name)+'</option>').join("");
- const selected=new Set((assignment?.participants||[]).map(p=>String(p.member_id)));
+ const selected=new Set((assignment?.participants||[]).map(p=>String(p.member_id)));\n if(!assignment)state.participation.filter(p=>p.date===date&&p.meal_type===meal&&p.arrangement==="home").forEach(p=>selected.add(String(p.member_id)));
  [...$("assignment-participants").options].forEach(o=>o.selected=selected.has(o.value));
  $("assignment-recipes").innerHTML=state.recipes.map(r=>'<option value="'+r.id+'">'+esc(r.title)+'</option>').join("");
  const recipeIds=new Set((assignment?.recipe_ids||[]).map(String));
@@ -106,22 +121,20 @@ async function loadMonth(){
  try{
   state.familyId=window.emeMealsFamily.currentFamilyId();
   if(!state.familyId){state.plans.clear();$("planner-month-view").innerHTML='<p class="empty">Create or join a family to plan meals. <a href="/console/families">Manage families</a>.</p>';return}
-  const [members,recipes]=await Promise.all([
-   api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId)),
-   api("/meal-planner/recipes?family_id="+encodeURIComponent(state.familyId))
-  ]);
-  if(request!==state.request)return;state.members=members;state.recipes=recipes;state.plans.clear();
+  const members=await api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId));
+  if(request!==state.request)return;state.members=members;
   const first=monthStart(state.month),last=new Date(first.getFullYear(),first.getMonth()+1,0,12);
   const from=mondayOf(first),to=mondayOf(last);
   const weekStarts=[];for(let d=from;d<=to;d=addDays(d,7))weekStarts.push(dateString(d));
-  const results=await Promise.all(weekStarts.map(async week=>{
-   try{return await api("/meal-planner/plans/"+week+"?family_id="+encodeURIComponent(state.familyId))}
-   catch(e){if(e.status===404)return null;throw e}
-  }));
+  const contexts=await Promise.all(weekStarts.map(week=>
+   api("/meal-planner/context/"+week+"?family_id="+encodeURIComponent(state.familyId))
+  ));
   if(request!==state.request)return;
-  results.forEach((plan,i)=>{if(plan)state.plans.set(weekStarts[i],plan)});
-  const menus=await api("/meal-planner/school-menus?family_id="+encodeURIComponent(state.familyId)+"&from="+dateString(first)+"&to="+dateString(last));
-  if(request!==state.request)return;state.menus=menus;
+  state.recipes=contexts[0]?.recipes||[];
+  state.plans.clear();
+  state.participation=contexts.flatMap(context=>context?.participation||[]);
+  state.menus=contexts.flatMap(context=>context?.school_menus||[]);
+  contexts.forEach((context,i)=>{if(context?.current_plan)state.plans.set(weekStarts[i],context.current_plan)});
   renderMonth();$("connection").textContent="Connected";
  }catch(e){if(request===state.request){$("planner-month-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+'</p>';$("connection").textContent="Connection error"}}
 }
