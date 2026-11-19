@@ -1,0 +1,11 @@
+name = "meals.plan.save"
+description = "Create or replace the entire weekly meal plan for the selected family. Use this single operation whether a plan already exists or not. Save assignments even when recipe_ids is empty; participants are required."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["week_start", "assignments"]
+
+[parameters.properties]
+week_start = { type = "string", format = "date" }
+assignments = { type = "array", items = { type = "object", additionalProperties = false, required = ["id", "date", "meal_type", "participants"], properties = { id = { type = "integer", minimum = 1 }, date = { type = "string", format = "date" }, meal_type = { type = "string", enum = ["breakfast", "lunch", "dinner"] }, participants = { type = "array", minItems = 1, items = { type = "object", required = ["member_id", "name"], properties = { member_id = { type = "integer", minimum = 1 }, name = { type = "string" } } } }, recipe_ids = { type = "array", items = { type = "integer", minimum = 1 } } } } }
