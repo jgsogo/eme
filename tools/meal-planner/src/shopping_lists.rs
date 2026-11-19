@@ -347,8 +347,8 @@ mod tests {
     #[test]
     fn scales_by_participant_count_and_converts_compatible_units() {
         let p = plan(vec![
-            assignment(1, MealArrangement::Home, Some(1), 4),
-            assignment(2, MealArrangement::Home, Some(2), 1),
+            assignment(1, MealArrangement::Home, vec![1], 4),
+            assignment(2, MealArrangement::Home, vec![2], 1),
         ]);
         let generated = generate_items(&p, |id| match id {
             1 => Some(recipe(1, 2, Some(250.0), Some("g"))),
