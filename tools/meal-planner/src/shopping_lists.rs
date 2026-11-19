@@ -365,10 +365,10 @@ mod tests {
     #[test]
     fn incompatible_or_missing_units_are_not_aggregated() {
         let p = plan(vec![
-            assignment(1, MealArrangement::Home, Some(1), 1),
-            assignment(2, MealArrangement::Home, Some(2), 1),
-            assignment(3, MealArrangement::Home, Some(3), 1),
-            assignment(4, MealArrangement::Home, Some(4), 1),
+            assignment(1, MealArrangement::Home, vec![1], 1),
+            assignment(2, MealArrangement::Home, vec![2], 1),
+            assignment(3, MealArrangement::Home, vec![3], 1),
+            assignment(4, MealArrangement::Home, vec![4], 1),
         ]);
         let generated = generate_items(&p, |id| match id {
             1 => Some(recipe(1, 1, Some(100.0), Some("g"))),
@@ -390,9 +390,9 @@ mod tests {
     #[test]
     fn unknown_quantities_remain_unknown_and_non_home_meals_are_excluded() {
         let p = plan(vec![
-            assignment(1, MealArrangement::Home, Some(1), 2),
-            assignment(2, MealArrangement::School, Some(2), 1),
-            assignment(3, MealArrangement::Away, Some(2), 1),
+            assignment(1, MealArrangement::Home, vec![1], 2),
+            assignment(2, MealArrangement::School, vec![], 1),
+            assignment(3, MealArrangement::Away, vec![], 1),
         ]);
         let generated =
             generate_items(&p, |id| (id == 1).then(|| recipe(1, 2, None, None))).unwrap();
