@@ -15,6 +15,10 @@ impl RunId {
     pub fn as_uuid(&self) -> Uuid {
         self.0
     }
+
+    pub fn from_uuid(value: Uuid) -> Self {
+        Self(value)
+    }
 }
 
 impl Default for RunId {
