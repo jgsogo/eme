@@ -38,7 +38,9 @@ pub enum ModelError {
     #[error("Model routing was cancelled")]
     Cancelled,
 
-    #[error("I couldn’t complete this request because all compatible AI models failed. This is usually due to provider rate limits, exhausted quotas, or temporary service outages. Please try again later. Provider details: {0}")]
+    #[error(
+        "I couldn’t complete this request because all compatible AI models failed. This is usually due to provider rate limits, exhausted quotas, or temporary service outages. Please try again later. Provider details: {0}"
+    )]
     AllCandidatesFailed(String),
 }
 
