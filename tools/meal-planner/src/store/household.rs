@@ -78,13 +78,34 @@ impl MealPlannerStore {
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
         ensure_member_in_family(&connection, family_id, member_id)?;
-        connection.execute(
-            "INSERT INTO recurring_participation_rules(family_id,member_id,weekday,meal_type,arrangement,effective_from,effective_until)
-             VALUES(?1,?2,?3,?4,?5,?6,?7)",
-            params![family_id, member_id, weekday as u8, meal_type.as_str(), arrangement.as_str(),
-                effective_from.map(|d| d.to_string()), effective_until.map(|d| d.to_string())],
-        )?;
-        load_rule(&connection, connection.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
+        let effective_from = effective_from.map(|date| date.to_string());
+        let effective_until = effective_until.map(|date| date.to_string());
+        let existing_id = connection
+            .query_row(
+                "SELECT id FROM recurring_participation_rules
+                 WHERE family_id=?1 AND member_id=?2 AND weekday=?3 AND meal_type=?4
+                   AND effective_from IS ?5 AND effective_until IS ?6
+                 ORDER BY id DESC LIMIT 1",
+                params![family_id, member_id, weekday as u8, meal_type.as_str(), effective_from, effective_until],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()?;
+        let id = if let Some(id) = existing_id {
+            connection.execute(
+                "UPDATE recurring_participation_rules SET arrangement=?1 WHERE id=?2",
+                params![arrangement.as_str(), id],
+            )?;
+            id
+        } else {
+            connection.execute(
+                "INSERT INTO recurring_participation_rules(family_id,member_id,weekday,meal_type,arrangement,effective_from,effective_until)
+                 VALUES(?1,?2,?3,?4,?5,?6,?7)",
+                params![family_id, member_id, weekday as u8, meal_type.as_str(), arrangement.as_str(),
+                    effective_from, effective_until],
+            )?;
+            connection.last_insert_rowid()
+        };
+        load_rule(&connection, id)?.ok_or(MealPlannerError::NotFound)
     }
 
     pub fn set_meal_exception_for_family(
