@@ -59,6 +59,7 @@ impl From<Conversation> for ConversationSummary {
             id: conversation.id.to_string(),
             agent: conversation.agent,
             title: conversation.title,
+            archived: conversation.archived,
             created_at: conversation.created_at.to_rfc3339(),
             updated_at: conversation.updated_at.to_rfc3339(),
             message_count: conversation.messages.len(),
@@ -107,6 +108,69 @@ async fn list_conversations(
                 .map(ConversationSummary::from)
                 .collect::<Vec<_>>(),
         ),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[get("/archived")]
+async fn list_archived_conversations(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    match store.list_archived(&owner) {
+        Ok(conversations) => HttpResponse::Ok().json(
+            conversations
+                .into_iter()
+                .map(ConversationSummary::from)
+                .collect::<Vec<_>>(),
+        ),
+        Err(error) => conversation_error(error),
+    }
+}
+
+#[put("/{conversation_id}/archive")]
+async fn archive_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+) -> impl Responder {
+    set_conversation_archived(request, auth, store, conversation_id, true)
+}
+
+#[put("/{conversation_id}/unarchive")]
+async fn unarchive_conversation(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+) -> impl Responder {
+    set_conversation_archived(request, auth, store, conversation_id, false)
+}
+
+fn set_conversation_archived(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<ConversationStore>>,
+    conversation_id: Path<String>,
+    archived: bool,
+) -> HttpResponse {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+
+    match store.set_archived(&owner, id, archived) {
+        Ok(conversation) => HttpResponse::Ok().json(ConversationSummary::from(conversation)),
         Err(error) => conversation_error(error),
     }
 }
@@ -465,7 +529,10 @@ async fn continue_conversation(
 pub fn conversations_api() -> Scope {
     web::scope("/conversations")
         .service(list_conversations)
+        .service(list_archived_conversations)
         .service(create_conversation)
+        .service(archive_conversation)
+        .service(unarchive_conversation)
         .service(get_conversation)
         .service(rename_conversation)
         .service(delete_conversation)
