@@ -62,11 +62,9 @@ pub(super) fn generate_items(
                 let (unit, multiplier) = normalize_unit(ingredient.unit.as_deref());
                 let quantity = ingredient.amount.map(|a| a * factor * multiplier);
                 let key = (normalize_name(&ingredient.name), unit.clone());
-                let existing = unit.as_ref().and_then(|_| {
-                    items
-                        .iter_mut()
-                        .find(|i| (normalize_name(&i.name), i.unit.clone()) == key)
-                });
+                let existing = items
+                    .iter_mut()
+                    .find(|i| (normalize_name(&i.name), i.unit.clone()) == key);
                 if let Some(existing) = existing {
                     existing.quantity = match (existing.quantity, quantity) {
                         (Some(a), Some(b)) => Some(a + b),

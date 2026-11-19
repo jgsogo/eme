@@ -65,6 +65,20 @@ fn encode(v: &impl serde::Serialize) -> Result<String, ToolError> {
 fn failure(e: impl std::fmt::Display) -> ToolError {
     ToolError::Execution(e.to_string())
 }
+fn ensure_shopping_list_family(
+    store: &MealPlannerStore,
+    list_id: i64,
+    family_id: &str,
+) -> Result<(), ToolError> {
+    if store
+        .shopping_list_belongs_to_family(list_id, family_id)
+        .map_err(failure)?
+    {
+        Ok(())
+    } else {
+        Err(failure("shopping list does not belong to the selected family"))
+    }
+}
 #[derive(Deserialize)]
 struct IdArgs {
     id: i64,
@@ -104,9 +118,10 @@ impl Tool for MealTool {
         match self.action {
             Action::RecipeCreate => {
                 let mut d: RecipeDraft = decode(args)?;
-                if d.family_id.is_none() {
-                    d.family_id = Some(family.clone())
+                if d.family_id.as_deref().is_some_and(|id| id != family) {
+                    return Err(failure("recipe cannot be shared with a different family"));
                 }
+                d.family_id = Some(family.clone());
                 encode(&self.store.create_recipe(&owner, d).map_err(failure)?)
             }
             Action::RecipeGet => {
@@ -305,6 +320,7 @@ impl Tool for MealTool {
                     unit: Option<String>,
                 }
                 let b: B = decode(args)?;
+                ensure_shopping_list_family(&self.store, b.list_id, &family)?;
                 encode(
                     &self
                         .store
@@ -330,6 +346,7 @@ impl Tool for MealTool {
                     purchased: bool,
                 }
                 let a: A = decode(args)?;
+                ensure_shopping_list_family(&self.store, a.list_id, &family)?;
                 encode(
                     &self
                         .store
@@ -348,6 +365,7 @@ impl Tool for MealTool {
             }
             Action::ShoppingRemove => {
                 let a: ItemArgs = decode(args)?;
+                ensure_shopping_list_family(&self.store, a.list_id, &family)?;
                 encode(
                     &self
                         .store
@@ -357,6 +375,7 @@ impl Tool for MealTool {
             }
             Action::ShoppingRestore => {
                 let a: ItemArgs = decode(args)?;
+                ensure_shopping_list_family(&self.store, a.list_id, &family)?;
                 encode(
                     &self
                         .store
@@ -421,6 +440,19 @@ pub fn register_tools(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn shopping_list_mutations_are_scoped_to_the_selected_family() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
+        let list = store
+            .generate_shopping_list_for_range("family-a", date, date)
+            .unwrap();
+
+        assert!(ensure_shopping_list_family(&store, list.id, "family-a").is_ok());
+        assert!(ensure_shopping_list_family(&store, list.id, "family-b").is_err());
+        assert!(ensure_shopping_list_family(&store, i64::MAX, "family-a").is_err());
+    }
+
     #[test]
     fn registers_explicit_resource_tools() {
         let mut r = ToolRegistry::new();
