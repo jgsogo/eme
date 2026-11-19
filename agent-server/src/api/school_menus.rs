@@ -1,6 +1,6 @@
-//! HTTP API for manual school menu management and provider-neutral imports.
+//! HTTP API for manual school menu management.
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
+    HttpRequest, HttpResponse, Responder, Scope, delete, get, put,
     web::{self, Data, Json, Path, Query},
 };
 use agent_service::FamilyService;
@@ -9,11 +9,6 @@ use chrono::NaiveDate;
 use meal_planner::{MealPlannerError, MealPlannerStore, SchoolMenuDraft};
 use serde::Deserialize;
 use std::sync::Arc;
-#[derive(Deserialize)]
-struct ImportRequest {
-    source: String,
-    entries: Vec<SchoolMenuDraft>,
-}
 fn error_response(e: MealPlannerError) -> HttpResponse {
     match e {
         MealPlannerError::NotFound => HttpResponse::NotFound().finish(),
@@ -28,7 +23,6 @@ struct FamilyQuery {
     from: Option<NaiveDate>,
     to: Option<NaiveDate>,
 }
-
 async fn authorize_family(
     request: &HttpRequest,
     auth: &crate::auth::TelegramAuth,
@@ -42,7 +36,6 @@ async fn authorize_family(
     super::meal_planner::validate_family(Some(id), &ids)?;
     Ok(id.to_owned())
 }
-
 async fn list_handler(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
@@ -60,18 +53,17 @@ async fn list_handler(
     )
     .await
     {
-        Ok(id) => id,
-        Err(response) => return response,
+        Ok(v) => v,
+        Err(r) => return r,
     };
     let (Some(from), Some(to)) = (q.from, q.to) else {
-        return HttpResponse::BadRequest().finish();
+        return HttpResponse::BadRequest().body("from and to are required");
     };
     match store.list_school_menus_for_family(&family_id, from, to) {
         Ok(v) => HttpResponse::Ok().json(v),
         Err(e) => error_response(e),
     }
 }
-
 #[get("/{date}")]
 async fn get_date(
     request: HttpRequest,
@@ -91,8 +83,8 @@ async fn get_date(
     )
     .await
     {
-        Ok(id) => id,
-        Err(response) => return response,
+        Ok(v) => v,
+        Err(r) => return r,
     };
     match store.get_school_menu_for_family(&family_id, date.into_inner()) {
         Ok(Some(v)) => HttpResponse::Ok().json(v),
@@ -100,7 +92,6 @@ async fn get_date(
         Err(e) => error_response(e),
     }
 }
-
 #[put("/{date}")]
 async fn save(
     request: HttpRequest,
@@ -121,8 +112,8 @@ async fn save(
     )
     .await
     {
-        Ok(id) => id,
-        Err(response) => return response,
+        Ok(v) => v,
+        Err(r) => return r,
     };
     let date = date.into_inner();
     let draft = body.into_inner();
@@ -134,7 +125,6 @@ async fn save(
         Err(e) => error_response(e),
     }
 }
-
 #[delete("/{date}")]
 async fn remove(
     request: HttpRequest,
@@ -154,60 +144,26 @@ async fn remove(
     )
     .await
     {
-        Ok(id) => id,
-        Err(response) => return response,
+        Ok(v) => v,
+        Err(r) => return r,
     };
     match store.delete_school_menu_for_family(&family_id, date.into_inner()) {
         Ok(()) => HttpResponse::NoContent().finish(),
         Err(e) => error_response(e),
     }
 }
-
-#[post("/import")]
-async fn import(
-    request: HttpRequest,
-    auth: Data<crate::auth::TelegramAuth>,
-    identities: Data<Arc<FileUserIdentityStore>>,
-    families: Data<Arc<FamilyService>>,
-    store: Data<MealPlannerStore>,
-    q: Query<FamilyQuery>,
-    body: Json<ImportRequest>,
-) -> impl Responder {
-    let family_id = match authorize_family(
-        &request,
-        &auth,
-        &identities,
-        &families,
-        q.family_id.as_deref(),
-    )
-    .await
-    {
-        Ok(id) => id,
-        Err(response) => return response,
-    };
-    let ImportRequest { source, entries } = body.into_inner();
-    match store.import_school_menus_for_family(&family_id, &source, entries) {
-        Ok(v) => HttpResponse::Ok().json(v),
-        Err(e) => error_response(e),
-    }
-}
-
 pub fn school_menus_api() -> Scope {
     web::scope("/meal-planner/school-menus")
-        // The browser may request the collection URL with or without a
-        // trailing slash. Register both forms explicitly.
         .route("", web::get().to(list_handler))
         .route("/", web::get().to(list_handler))
         .service(get_date)
         .service(save)
         .service(remove)
-        .service(import)
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     use meal_planner::{SchoolMenuItem, SchoolMenuStatus};
-
     #[test]
     fn school_menus_are_isolated_by_family() {
         let store = MealPlannerStore::open_in_memory().unwrap();
@@ -224,7 +180,7 @@ mod tests {
             notes: None,
         };
         store
-            .save_school_menu_for_family("family-a", draft.clone())
+            .save_school_menu_for_family("family-a", draft)
             .unwrap();
         assert_eq!(
             store
@@ -238,6 +194,6 @@ mod tests {
                 .list_school_menus_for_family("family-b", date, date)
                 .unwrap()
                 .is_empty()
-        );
+        )
     }
 }

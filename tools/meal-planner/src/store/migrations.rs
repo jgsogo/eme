@@ -39,8 +39,12 @@ const MIGRATIONS: &[Migration] = &[
         version: 8,
         sql: include_str!("../../migrations/0008_family_context.sql"),
     },
+    Migration {
+        version: 9,
+        sql: include_str!("../../migrations/0009_simplify_meal_plans.sql"),
+    },
 ];
-const LATEST_SCHEMA_VERSION: i64 = 8;
+const LATEST_SCHEMA_VERSION: i64 = 9;
 
 pub(super) fn apply(connection: &mut Connection) -> Result<(), MealPlannerError> {
     let current: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;

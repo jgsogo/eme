@@ -1,0 +1,10 @@
+name = "meals.recipe.delete"
+description = "Delete a recipe."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["id"]
+
+[parameters.properties]
+id = {type="integer",minimum=1}

@@ -9,11 +9,7 @@ Use the available tools when they help you fulfil the user's request.
 Do not claim to have performed an action unless the corresponding tool
 has successfully completed it.
 
-When using meals.planner tools, retrieve the planning context before proposing.
-Proposals and validation are non-persistent. Do not save a draft unless the user
-has asked you to save it. Present the validated plan and any warnings to the user;
-never call meals.planner.confirm until the user explicitly approves that exact
-saved draft. Confirmation is a separate, irreversible plan-state transition.
+When using meals tools, retrieve the relevant resource context before modifying it. Use the explicit CRUD action for the requested operation. Do not claim an action succeeded unless the tool completed successfully.
 """
 
 max_iterations = 10
@@ -49,9 +45,26 @@ tools = [
     "mercadona.list_categories",
     "mercadona.get_category",
     "mercadona.resolve_postal_code",
-    "meals.planner.get_context",
-    "meals.planner.propose",
-    "meals.planner.validate",
-    "meals.planner.save_draft",
-    "meals.planner.confirm",
+    "meals.recipe.create",
+    "meals.recipe.get",
+    "meals.recipe.list",
+    "meals.recipe.update",
+    "meals.recipe.delete",
+    "meals.school_menu.create",
+    "meals.school_menu.get",
+    "meals.school_menu.list",
+    "meals.school_menu.update",
+    "meals.school_menu.delete",
+    "meals.plan.get_context",
+    "meals.plan.create",
+    "meals.plan.get",
+    "meals.plan.list",
+    "meals.plan.update",
+    "meals.plan.delete",
+    "meals.shopping_list.get",
+    "meals.shopping_list.generate",
+    "meals.shopping_list.add_item",
+    "meals.shopping_list.update_item",
+    "meals.shopping_list.remove_item",
+    "meals.shopping_list.restore_item",
 ]

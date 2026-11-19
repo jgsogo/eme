@@ -1,4 +1,4 @@
-//! Date-keyed school lunch menu domain model.
+//! Date-keyed, manually managed school lunch menu domain model.
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
@@ -43,37 +43,13 @@ pub struct SchoolMenuDraft {
     pub items: Vec<SchoolMenuItem>,
     pub notes: Option<String>,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SchoolMenuOrigin {
-    Manual,
-    Import,
-}
-impl SchoolMenuOrigin {
-    pub(crate) fn parse(s: &str) -> Option<Self> {
-        match s {
-            "manual" => Some(Self::Manual),
-            "import" => Some(Self::Import),
-            _ => None,
-        }
-    }
-}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchoolMenuEntry {
     pub id: i64,
     #[serde(flatten)]
     pub draft: SchoolMenuDraft,
-    pub source: Option<String>,
-    pub imported_at: Option<i64>,
-    pub origin: SchoolMenuOrigin,
     pub created_at: i64,
     pub updated_at: i64,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SchoolMenuImportReport {
-    pub inserted: usize,
-    pub updated: usize,
-    pub skipped_manual: usize,
 }
 impl SchoolMenuDraft {
     pub(crate) fn validate(mut self) -> Result<Self, String> {
@@ -119,52 +95,34 @@ fn normalize(v: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn draft(status: SchoolMenuStatus, items: Vec<SchoolMenuItem>) -> SchoolMenuDraft {
-        SchoolMenuDraft {
-            date: NaiveDate::from_ymd_opt(2026, 11, 16).unwrap(),
-            status,
-            items,
-            notes: None,
-        }
-    }
-    fn item(name: &str) -> SchoolMenuItem {
-        SchoolMenuItem {
-            name: name.into(),
-            notes: None,
-            allergens: None,
-            dietary_alternatives: vec![],
-        }
-    }
     #[test]
-    fn states_are_explicit_and_validated() {
-        assert!(draft(SchoolMenuStatus::Known, vec![]).validate().is_err());
+    fn menu_states_are_explicit() {
+        let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         assert!(
-            draft(SchoolMenuStatus::Closed, vec![item("Soup")])
-                .validate()
-                .is_err()
+            SchoolMenuDraft {
+                date,
+                status: SchoolMenuStatus::Known,
+                items: vec![],
+                notes: None
+            }
+            .validate()
+            .is_err()
         );
-        for s in [
+        for status in [
             SchoolMenuStatus::Unknown,
             SchoolMenuStatus::NotPublished,
             SchoolMenuStatus::Closed,
         ] {
-            assert!(draft(s, vec![]).validate().is_ok())
+            assert!(
+                SchoolMenuDraft {
+                    date,
+                    status,
+                    items: vec![],
+                    notes: None
+                }
+                .validate()
+                .is_ok()
+            )
         }
-    }
-    #[test]
-    fn annotations_are_normalized() {
-        let v = draft(
-            SchoolMenuStatus::Known,
-            vec![SchoolMenuItem {
-                name: " Soup ".into(),
-                notes: None,
-                allergens: Some(vec!["gluten".into(), " Gluten ".into()]),
-                dietary_alternatives: vec![],
-            }],
-        )
-        .validate()
-        .unwrap();
-        assert_eq!(v.items[0].name, "Soup");
-        assert_eq!(v.items[0].allergens, Some(vec!["gluten".into()]))
     }
 }

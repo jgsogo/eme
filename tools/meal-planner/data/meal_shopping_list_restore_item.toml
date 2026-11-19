@@ -1,0 +1,11 @@
+name = "meals.shopping_list.restore_item"
+description = "Restore a disabled ingredient or reset its recipe-derived quantity."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["list_id", "item_id"]
+
+[parameters.properties]
+list_id = {type="integer",minimum=1}
+item_id = {type="integer",minimum=1}

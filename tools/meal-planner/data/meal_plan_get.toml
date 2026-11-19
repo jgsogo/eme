@@ -1,0 +1,10 @@
+name = "meals.plan.get"
+description = "Get the plan for a Monday week start."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["week_start"]
+
+[parameters.properties]
+week_start = {type="string",format="date"}
