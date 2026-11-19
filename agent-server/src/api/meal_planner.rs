@@ -463,7 +463,7 @@ async fn update_weekly_plan(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match store.update_weekly_plan_for_family(
+    match store.save_weekly_plan_for_family(
         &family_id,
         week_start.into_inner(),
         body.into_inner(),
