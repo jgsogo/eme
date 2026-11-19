@@ -77,10 +77,6 @@ async function ensureDraft(week){
   plan=await api("/meal-planner/plans/"+week+"?family_id="+encodeURIComponent(state.familyId),{method:"POST",body:JSON.stringify({assignments:[]})});
   state.plans.set(week,plan);
  }
- if(plan.status==="confirmed"){
-  plan=await api("/meal-planner/plans/"+week+"/revise?family_id="+encodeURIComponent(state.familyId),{method:"POST"});
-  state.plans.set(week,plan);
- }
  return plan;
 }
 async function persistAssignment(remove=false){
