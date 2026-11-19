@@ -1,5 +1,5 @@
 name = "meals.plan.get_context"
-description = "Retrieve the family's planning context for a week: members, resolved participation rules, recipes, school menus and the current plan."
+description = "Read the selected family's complete planning context for a week: active members, resolved household participation for every member/meal (including unconfigured slots), recipes, school menus and the current weekly plan. Participation is independent from meal assignments; use the participation tools to change who is expected, and meals.plan.save to create or replace actual meal assignments. week_start must be Monday.
 
 [parameters]
 type = "object"
