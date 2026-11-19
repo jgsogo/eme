@@ -1,4 +1,4 @@
-//! Tool that creates a private note for the authenticated user.
+//! Tool that creates a note for the authenticated user, optionally shared with a family.
 
 use agent_runtime::{Tool, ToolContext, ToolDefinition, ToolError};
 use async_trait::async_trait;
@@ -17,7 +17,7 @@ impl AddNote {
 pub(super) fn definition() -> ToolDefinition {
     ToolDefinition {
         name: "notes.add".into(),
-        description: "Create a new private note for the current user. Use this to save information the user wants to remember for later. Notes created with this tool are private by default.".into(),
+        description: "Create a note for the current user. Notes are private by default. To share a note with a family, provide that family's ID as family_id; the user must be a member of that family.".into(),
         parameters: json!({
             "type": "object",
             "properties": {
@@ -28,6 +28,10 @@ pub(super) fn definition() -> ToolDefinition {
                 "content": {
                     "type": "string",
                     "description": "The note content to save"
+                },
+                "family_id": {
+                    "type": "string",
+                    "description": "Optional ID of a family to share this note with. Omit to keep the note private."
                 }
             },
             "required": ["title", "content"],
@@ -55,12 +59,21 @@ impl Tool for AddNote {
             .get("content")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::Execution("'content' must be a string".into()))?;
+        let family_id = match args.get("family_id") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(id)) if !id.trim().is_empty() => Some(id.trim().to_owned()),
+            Some(_) => {
+                return Err(ToolError::Execution(
+                    "'family_id' must be a non-empty string when provided".into(),
+                ));
+            }
+        };
 
         let note = self
             .0
             .create(NewNote {
                 owner_id: user.to_owned(),
-                family_id: None,
+                family_id,
                 title: title.to_owned(),
                 content: content.to_owned(),
             })
