@@ -3,7 +3,7 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use agent_service::{RunId, RunManager, RunStatus};
-use agent_storage::{ConversationId, ConversationStore};
+use agent_storage::{ConversationId, SqliteConversationStore};
 use telegram_tool::TelegramGateway;
 use tokio::sync::Mutex;
 
@@ -13,7 +13,7 @@ pub(super) async fn report(
     gateway: Arc<TelegramGateway>,
     chat_id: i64,
     manager: RunManager,
-    store: Arc<ConversationStore>,
+    store: Arc<SqliteConversationStore>,
     conversation_id: ConversationId,
     active_conversations: Arc<Mutex<HashSet<ConversationId>>>,
     id: RunId,
@@ -33,12 +33,6 @@ pub(super) async fn report(
                     RunStatus::MaxIterationsReached => "Maximum iterations reached.".into(),
                     _ => unreachable!(),
                 };
-
-                if let Some(messages) = manager.history(id).await {
-                    if let Err(error) = store.save_messages(conversation_id, messages) {
-                        eprintln!("Telegram conversation persistence failed: {error}");
-                    }
-                }
 
                 active_conversations.lock().await.remove(&conversation_id);
                 if let Err(error) = gateway.send_message(chat_id, &truncate(&text)).await {

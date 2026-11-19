@@ -35,6 +35,10 @@ async fn persists_runs_events_and_structured_messages_across_reopen() {
         kind: "queued".into(),
         iteration: None,
         tool_name: None,
+        model_id: None,
+        next_model_id: None,
+        model_candidates: None,
+        attempted_candidates: None,
         error_category: None,
         occurred_at: Utc::now(),
     }).await.unwrap();
