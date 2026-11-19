@@ -29,7 +29,6 @@ fn failure(e:impl std::fmt::Display)->ToolError{ToolError::Execution(e.to_string
 #[derive(Deserialize)]struct WeekArgs{week_start:NaiveDate}
 #[derive(Deserialize)]struct PlanArgs{week_start:NaiveDate,assignments:Vec<crate::MealAssignment>}
 #[derive(Deserialize)]struct SearchArgs{query:Option<String>}
-#[derive(Deserialize)]struct ListIdArgs{list_id:i64}
 #[derive(Deserialize)]struct ItemArgs{list_id:i64,item_id:i64}
 #[async_trait]
 impl Tool for MealTool{
@@ -53,7 +52,7 @@ impl Tool for MealTool{
    Action::PlanDelete=>{let a:WeekArgs=decode(args)?;self.store.delete_weekly_plan_for_family(&family,a.week_start).map_err(failure)?;Ok("{\"deleted\":true}".into())}
    Action::ShoppingGet=>{let a:RangeArgs=decode(args)?;encode(&self.store.get_shopping_list_for_range(&family,a.start_date,a.end_date).map_err(failure)?)}
    Action::ShoppingGenerate=>{let a:RangeArgs=decode(args)?;encode(&self.store.generate_shopping_list_for_range(&family,a.start_date,a.end_date).map_err(failure)?)}
-   Action::ShoppingAdd=>{let a:ListIdArgs=decode(args)?;#[derive(Deserialize)]struct B{list_id:i64,name:String,quantity:Option<f64>,unit:Option<String>}let b:B=decode(args)?;if a.list_id!=b.list_id{return Err(failure("invalid shopping list id"))}encode(&self.store.add_shopping_list_item(b.list_id,NewShoppingListItem{name:b.name,quantity:b.quantity,unit:b.unit}).map_err(failure)?)}
+   Action::ShoppingAdd=>{#[derive(Deserialize)]struct B{list_id:i64,name:String,quantity:Option<f64>,unit:Option<String>}let b:B=decode(args)?;encode(&self.store.add_shopping_list_item(b.list_id,NewShoppingListItem{name:b.name,quantity:b.quantity,unit:b.unit}).map_err(failure)?)}
    Action::ShoppingUpdate=>{#[derive(Deserialize)]struct A{list_id:i64,item_id:i64,name:String,quantity:Option<f64>,unit:Option<String>,purchased:bool}let a:A=decode(args)?;encode(&self.store.update_shopping_list_item(a.list_id,a.item_id,ShoppingListItemUpdate{name:a.name,quantity:a.quantity,unit:a.unit,purchased:a.purchased}).map_err(failure)?)}
    Action::ShoppingRemove=>{let a:ItemArgs=decode(args)?;encode(&self.store.remove_shopping_list_item(a.list_id,a.item_id).map_err(failure)?)}
    Action::ShoppingRestore=>{let a:ItemArgs=decode(args)?;encode(&self.store.restore_shopping_list_item(a.list_id,a.item_id).map_err(failure)?)}
