@@ -38,7 +38,7 @@ pub enum ModelError {
     #[error("Model routing was cancelled")]
     Cancelled,
 
-    #[error("All compatible model candidates failed: {0}")]
+    #[error("I couldn’t complete this request because all compatible AI models failed. This is usually due to provider rate limits, exhausted quotas, or temporary service outages. Please try again later. Provider details: {0}")]
     AllCandidatesFailed(String),
 }
 
@@ -164,5 +164,14 @@ mod tests {
             ModelError::MissingApiKey("PROVIDER_KEY".into()).failure_category(),
             ModelFailureCategory::CandidateUnavailable
         );
+
+        let error = ModelError::AllCandidatesFailed(
+            "cloudflare [QuotaExceeded]: daily free allocation exhausted; gemini [Transient]: service unavailable".into(),
+        );
+        let message = error.to_string();
+        assert!(message.contains("all compatible AI models failed"));
+        assert!(message.contains("Please try again later."));
+        assert!(message.contains("cloudflare [QuotaExceeded]"));
+        assert!(message.contains("gemini [Transient]"));
     }
 }
