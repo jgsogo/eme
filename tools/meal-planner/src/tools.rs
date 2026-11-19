@@ -84,7 +84,9 @@ fn sync_family_members(
             (member.user_id.clone(), name.to_owned())
         })
         .collect::<Vec<_>>();
-    store.sync_family_members(family_id, &members).map_err(failure)?;
+    store
+        .sync_family_members(family_id, &members)
+        .map_err(failure)?;
     Ok(())
 }
 fn decode<T: for<'de> Deserialize<'de>>(v: Value) -> Result<T, ToolError> {
@@ -304,37 +306,48 @@ impl Tool for MealTool {
             Action::ParticipationRuleCreate => {
                 let a: RecurringRuleArgs = decode(args)?;
                 encode(
-                    &self.store.add_recurring_rule_for_family(
-                        &family,
-                        a.member_id,
-                        parse_weekday(&a.weekday)?,
-                        a.meal_type,
-                        a.arrangement,
-                        a.effective_from,
-                        a.effective_until,
-                    ).map_err(failure)?,
+                    &self
+                        .store
+                        .add_recurring_rule_for_family(
+                            &family,
+                            a.member_id,
+                            parse_weekday(&a.weekday)?,
+                            a.meal_type,
+                            a.arrangement,
+                            a.effective_from,
+                            a.effective_until,
+                        )
+                        .map_err(failure)?,
                 )
             }
             Action::ParticipationExceptionSet => {
                 let a: ParticipationExceptionArgs = decode(args)?;
                 encode(
-                    &self.store.set_meal_exception_for_family(
-                        &family,
-                        a.member_id,
-                        a.date,
-                        a.meal_type,
-                        a.arrangement,
-                    ).map_err(failure)?,
+                    &self
+                        .store
+                        .set_meal_exception_for_family(
+                            &family,
+                            a.member_id,
+                            a.date,
+                            a.meal_type,
+                            a.arrangement,
+                        )
+                        .map_err(failure)?,
                 )
             }
             Action::PlanSave => {
                 let a: PlanArgs = decode(args)?;
                 encode(
-                    &self.store.save_weekly_plan_for_family(
-                        &family,
-                        a.week_start,
-                        WeeklyPlanDraft { assignments: a.assignments },
-                    ).map_err(failure)?,
+                    &self
+                        .store
+                        .save_weekly_plan_for_family(
+                            &family,
+                            a.week_start,
+                            WeeklyPlanDraft {
+                                assignments: a.assignments,
+                            },
+                        )
+                        .map_err(failure)?,
                 )
             }
             Action::PlanCreate => {
@@ -504,8 +517,14 @@ pub fn register_tools(
         ("meal_school_menu_delete.toml", Action::SchoolDelete),
         ("meal_plan_context.toml", Action::PlanContext),
         ("meal_plan_save.toml", Action::PlanSave),
-        ("meal_participation_rule_create.toml", Action::ParticipationRuleCreate),
-        ("meal_participation_exception_set.toml", Action::ParticipationExceptionSet),
+        (
+            "meal_participation_rule_create.toml",
+            Action::ParticipationRuleCreate,
+        ),
+        (
+            "meal_participation_exception_set.toml",
+            Action::ParticipationExceptionSet,
+        ),
         ("meal_plan_create.toml", Action::PlanCreate),
         ("meal_plan_get.toml", Action::PlanGet),
         ("meal_plan_list.toml", Action::PlanList),
@@ -553,15 +572,23 @@ mod tests {
             relationship: "father".into(),
             members: vec![],
         });
-        assert_eq!(scope(&context).unwrap(), ("user-1".into(), "family-1".into()));
-        context.family.as_mut().unwrap().members.push(agent_runtime::FamilyMemberContext {
-            user_id: "member-1".into(),
-            name: Some("Alex".into()),
-            birthday: None,
-            telegram_id: None,
-            role: "member".into(),
-            relationship: "son".into(),
-        });
+        assert_eq!(
+            scope(&context).unwrap(),
+            ("user-1".into(), "family-1".into())
+        );
+        context
+            .family
+            .as_mut()
+            .unwrap()
+            .members
+            .push(agent_runtime::FamilyMemberContext {
+                user_id: "member-1".into(),
+                name: Some("Alex".into()),
+                birthday: None,
+                telegram_id: None,
+                role: "member".into(),
+                relationship: "son".into(),
+            });
         let store = MealPlannerStore::open_in_memory().unwrap();
         sync_family_members(&context, &store, "family-1").unwrap();
         let members = store.list_family_members_for_family("family-1").unwrap();
