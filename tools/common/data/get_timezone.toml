@@ -1,4 +1,4 @@
-name="common.get_timezone"
+name="common.datetime.get_timezone"
 description="Get the current date and time and UTC offset for an IANA timezone. Defaults to UTC."
 [parameters]
 type="object"
