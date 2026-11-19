@@ -40,9 +40,9 @@ function monthStart(value) {
 function statusLabel(status) {
   return ({
     known: "Menu published",
-    not_published: "Unknown / not imported",
+    not_published: "Menu not published",
     closed: "School closed",
-    unknown: "Unknown / not imported",
+    unknown: "Unknown",
   })[status] || status;
 }
 
@@ -62,7 +62,7 @@ function appendMenuLog(message) {
 }
 
 function renderMenuPlaceholder(entry) {
-  const status = entry ? statusLabel(entry.status) : "Unknown / not imported";
+  const status = entry ? statusLabel(entry.status) : "Unknown";
   return '<p class="school-menu-placeholder">' + esc(status) + '</p>';
 }
 
@@ -138,7 +138,7 @@ function edit(entry, date) {
     '<select id="menu-status">' +
     '<option value="known">Menu published</option>' +
     '<option value="closed">School closed</option>' +
-    '<option value="unknown">Unknown / not imported</option>' +
+    '<option value="unknown">Unknown</option>' +
     '</select>' +
     '<label for="menu-items">Dishes</label>' +
     '<textarea id="menu-items" rows="5" placeholder="One dish per line&#10;Vegetable soup&#10;Baked fish with potatoes"></textarea>' +
@@ -154,12 +154,6 @@ function edit(entry, date) {
 
   $("menu-status").value = entry?.status === "not_published" ? "unknown" : (entry?.status || "known");
   $("menu-items").value = (entry?.items || []).map(item => item.name).join("\n");
-  $("menu-provenance").textContent = entry
-    ? (entry.origin === "import"
-      ? "Imported from " + (entry.source || "unspecified source") +
-        (entry.imported_at ? " · " + new Date(entry.imported_at * 1000).toLocaleString() : "")
-      : "Manually entered or corrected")
-    : "No menu record exists for this date.";
   $("menu-dialog").showModal();
 
   $("menu-form").addEventListener("submit", save);
