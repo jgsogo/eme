@@ -4,7 +4,7 @@ use crate::{
     domain::{MealArrangement, ParticipationStatus},
     plans::{MealAssignment, PlanParticipant, WeeklyPlan, WeeklyPlanDraft},
 };
-use chrono::{Datelike, NaiveDate, Utc, Weekday};
+use chrono::{NaiveDate, Utc};
 use rusqlite::{OptionalExtension, params};
 
 impl MealPlannerStore {
@@ -245,7 +245,7 @@ pub(super) fn load_plan(
     )
     .optional()?
     .map(|(id, family_id, date, assignments, created_at)| {
-        Ok(WeeklyPlan {
+        Ok::<WeeklyPlan, MealPlannerError>(WeeklyPlan {
             id,
             family_id,
             week_start: NaiveDate::parse_from_str(&date, "%Y-%m-%d").map_err(|e| {

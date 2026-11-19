@@ -178,7 +178,7 @@ impl MealPlannerStore {
             .position(|i| i.id == item_id)
             .ok_or(MealPlannerError::NotFound)?;
         if list.items[ix].manually_added {
-            list.items.remove(ix)
+            list.items.remove(ix);
         } else {
             list.items[ix].manually_removed = true;
             list.items[ix].purchased = false;
