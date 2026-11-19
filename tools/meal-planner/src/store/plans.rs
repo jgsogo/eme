@@ -67,6 +67,42 @@ impl MealPlannerStore {
         })?;
         load_plan(&c, c.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
     }
+    /// Create or replace a family's weekly plan in one atomic operation.
+    /// Repeating the same save is safe and does not create duplicate plans.
+    pub fn save_weekly_plan_for_family(
+        &self,
+        family_id: &str,
+        week_start: NaiveDate,
+        draft: WeeklyPlanDraft,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        let draft = draft
+            .validate(week_start)
+            .map_err(MealPlannerError::InvalidInput)?;
+        let c = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_family_references(&c, family_id, &draft)?;
+        let payload = serde_json::to_string(&draft.assignments)?;
+        c.execute(
+            "INSERT INTO weekly_plans(family_id,week_start,assignments,created_at)
+             VALUES(?1,?2,?3,?4)
+             ON CONFLICT(family_id,week_start) DO UPDATE SET assignments=excluded.assignments",
+            params![
+                family_id,
+                week_start.to_string(),
+                payload,
+                Utc::now().timestamp()
+            ],
+        )?;
+        let id = c.query_row(
+            "SELECT id FROM weekly_plans WHERE family_id=?1 AND week_start=?2",
+            params![family_id, week_start.to_string()],
+            |row| row.get(0),
+        )?;
+        load_plan(&c, id)?.ok_or(MealPlannerError::NotFound)
+    }
+
     pub fn get_weekly_plan_for_family(
         &self,
         family_id: &str,
@@ -256,4 +292,66 @@ pub(super) fn load_plan(
         })
     })
     .transpose()?)
+}
+
+#[cfg(test)]
+mod save_tests {
+    use super::*;
+    use crate::{MealType, PlanParticipant};
+
+    #[test]
+    fn saving_a_plan_is_idempotent_and_preserves_empty_recipe_assignments() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let week = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
+        let members = store
+            .sync_family_members("family-a", &[("user-1".into(), "Alex".into())])
+            .unwrap();
+        let assignment = MealAssignment {
+            id: 1,
+            date: week,
+            meal_type: MealType::Lunch,
+            participants: vec![PlanParticipant {
+                member_id: members[0].id,
+                name: members[0].name.clone(),
+            }],
+            recipe_ids: vec![],
+        };
+
+        let first = store
+            .save_weekly_plan_for_family(
+                "family-a",
+                week,
+                WeeklyPlanDraft {
+                    assignments: vec![assignment.clone()],
+                },
+            )
+            .unwrap();
+        let second = store
+            .save_weekly_plan_for_family(
+                "family-a",
+                week,
+                WeeklyPlanDraft {
+                    assignments: vec![assignment],
+                },
+            )
+            .unwrap();
+
+        assert_eq!(first.id, second.id);
+        assert_eq!(second.assignments.len(), 1);
+        assert!(second.assignments[0].recipe_ids.is_empty());
+        assert_eq!(
+            store
+                .get_weekly_plan_for_family("family-a", week)
+                .unwrap()
+                .unwrap()
+                .id,
+            first.id
+        );
+        assert!(
+            store
+                .get_weekly_plan_for_family("family-b", week)
+                .unwrap()
+                .is_none()
+        );
+    }
 }

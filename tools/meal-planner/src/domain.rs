@@ -67,7 +67,8 @@ impl MealArrangement {
 }
 
 /// Weekday index: Monday is zero and Sunday is six.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "snake_case")]
 #[repr(u8)]
 pub enum MealWeekday {
     Monday,
@@ -105,7 +106,7 @@ impl MealWeekday {
 }
 
 /// Recurring rule with inclusive optional effective dates.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct RecurringParticipationRule {
     pub id: i64,
     pub member_id: i64,
@@ -124,7 +125,7 @@ impl RecurringParticipationRule {
 }
 
 /// One-off date-specific override.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MealException {
     pub id: i64,
     pub member_id: i64,

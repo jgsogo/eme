@@ -1,5 +1,5 @@
 name = "meals.plan.update"
-description = "Replace all assignments in an existing weekly plan."
+description = "Compatibility operation: replace assignments only when a weekly plan already exists. Prefer meals.plan.save for normal workflows; recipe_ids may be empty when participants are known but the meal is not planned yet."
 
 [parameters]
 type = "object"

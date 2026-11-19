@@ -122,3 +122,50 @@ fn invalid_values_are_rejected() {
             .is_err()
     );
 }
+
+#[test]
+fn recurring_rule_writes_are_idempotent_for_the_same_schedule() {
+    let store = MealPlannerStore::open_in_memory().unwrap();
+    let members = store
+        .sync_family_members("family-a", &[("user-1".into(), "Alex".into())])
+        .unwrap();
+    let member_id = members[0].id;
+
+    let first = store
+        .add_recurring_rule_for_family(
+            "family-a",
+            member_id,
+            MealWeekday::Monday,
+            MealType::Lunch,
+            MealArrangement::Home,
+            None,
+            None,
+        )
+        .unwrap();
+    let second = store
+        .add_recurring_rule_for_family(
+            "family-a",
+            member_id,
+            MealWeekday::Monday,
+            MealType::Lunch,
+            MealArrangement::School,
+            None,
+            None,
+        )
+        .unwrap();
+
+    assert_eq!(first.id, second.id);
+    let monday = store
+        .resolve_meal_week_for_family("family-a", date("2026-11-16"))
+        .unwrap()
+        .into_iter()
+        .find(|item| item.date == date("2026-11-16") && item.meal_type == MealType::Lunch)
+        .unwrap();
+    assert_eq!(
+        monday.status,
+        ParticipationStatus::Configured {
+            arrangement: MealArrangement::School,
+            source: ParticipationSource::RecurringRule,
+        }
+    );
+}

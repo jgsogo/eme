@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { familyId:"", members:[], recipes:[], menus:[], participation:[], plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, request:0, showWeekends:true };
+const state = { familyId:"", members:[], recipes:[], menus:[], participation:[], failedWeeks:new Set(), plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, request:0, showWeekends:true };
 const meals = [["lunch","Lunch"],["dinner","Dinner"]];
 async function api(path, options={}) {
   const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});
@@ -34,6 +34,7 @@ function participationDetails(date,meal){
  return [...groups].map(([arrangement,names])=>(labels[arrangement]||arrangement)+": "+names.join(", ")).join(" · ");
 }
 function renderSchoolMenu(date){
+ if(state.failedWeeks.has(weekStartFor(date)))return '<p class="meal-school-menu-placeholder">School menu data unavailable</p>';
  const entry=state.menus.find(menu=>menu.date===date);
  if(!entry)return '<p class="meal-school-menu-placeholder">No school menu recorded</p>';
  if(entry.status!=="known"){
@@ -55,8 +56,9 @@ function renderMonth(){
    const configuredPeople=participationDetails(date,meal);
    const people=configuredPeople||assignment?.participants?.map(p=>p.name).join(", ")||"No participation configured";
    const recipes=recipeNames(assignment||{}).join(" · ");
-   const detail=assignment||configuredPeople?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+(!assignment?'<span>Meal not planned</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned · No participation configured</p>';
-   const action=assignment?'<button type="button" class="text-button" data-edit="'+date+'" data-meal="'+meal+'">Edit</button>':'<button type="button" class="text-button" data-add="'+date+'" data-meal="'+meal+'">＋ Add</button>';
+   const detail=state.failedWeeks.has(weekStartFor(date))?'<p class="school-menu-placeholder">Planning data unavailable</p>':assignment||configuredPeople?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+(!assignment?'<span>Meal not planned</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned · No participation configured</p>';
+   const failed=state.failedWeeks.has(weekStartFor(date));
+   const action=failed?'<button type="button" class="text-button" data-retry>Retry</button>':assignment?'<button type="button" class="text-button" data-edit="'+date+'" data-meal="'+meal+'">Edit</button>':'<button type="button" class="text-button" data-add="'+date+'" data-meal="'+meal+'">＋ Add</button>';
    return '<section class="meal-calendar-slot"><div class="meal-calendar-slot-heading"><h3>'+title+'</h3>'+action+'</div>'+detail+'</section>';
   }).join("");
   const plan=planFor(date);
@@ -64,7 +66,8 @@ function renderMonth(){
  }
  const calendar=$("planner-month-view");calendar.classList.toggle("weekdays-only",!state.showWeekends);
  calendar.innerHTML='<div class="school-menu-calendar-weekdays">'+["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].slice(0,state.showWeekends?7:5).map(d=>'<span>'+d+'</span>').join("")+'</div><div class="school-menu-month">'+cells.join("")+'</div>';
- calendar.querySelectorAll("[data-add],[data-edit]").forEach(button=>button.addEventListener("click",()=>{
+ calendar.querySelectorAll("[data-add],[data-edit],[data-retry]").forEach(button=>button.addEventListener("click",()=>{
+  if(button.hasAttribute("data-retry")){loadMonth();return}
   const date=button.dataset.add||button.dataset.edit,meal=button.dataset.meal;
   openEditor(date,meal,assignmentFor(date,meal));
  }));
@@ -87,18 +90,10 @@ function openEditor(date,meal,assignment){
  $("remove-assignment").hidden=!assignment;
  $("assignment-editor").showModal();
 }
-async function ensureDraft(week){
- let plan=state.plans.get(week);
- if(!plan){
-  plan=await api("/meal-planner/plans/"+week+"?family_id="+encodeURIComponent(state.familyId),{method:"POST",body:JSON.stringify({assignments:[]})});
-  state.plans.set(week,plan);
- }
- return plan;
-}
 async function persistAssignment(remove=false){
  const week=state.editingWeek;
  try{
-  const plan=await ensureDraft(week);
+  const plan=state.plans.get(week)||{assignments:[]};
   let assignments=plan.assignments.filter(a=>a.id!==state.editingId);
   if(!remove){
    const date=$("assignment-date").value,meal=$("assignment-meal").value;
@@ -121,22 +116,27 @@ async function loadMonth(){
  if($("assignment-editor").open)$("assignment-editor").close();
  try{
   state.familyId=window.emeMealsFamily.currentFamilyId();
-  if(!state.familyId){state.plans.clear();$("planner-month-view").innerHTML='<p class="empty">Create or join a family to plan meals. <a href="/console/families">Manage families</a>.</p>';return}
-  const members=await api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId));
-  if(request!==state.request)return;state.members=members;
+  if(!state.familyId){state.members=[];state.recipes=[];state.menus=[];state.participation=[];state.failedWeeks.clear();state.plans.clear();$("planner-month-view").innerHTML='<p class="empty">Create or join a family to plan meals. <a href="/console/families">Manage families</a>.</p>';return}
   const first=monthStart(state.month),last=new Date(first.getFullYear(),first.getMonth()+1,0,12);
   const from=mondayOf(first),to=mondayOf(last);
   const weekStarts=[];for(let d=from;d<=to;d=addDays(d,7))weekStarts.push(dateString(d));
-  const contexts=await Promise.all(weekStarts.map(week=>
+  const results=await Promise.allSettled(weekStarts.map(week=>
    api("/meal-planner/context/"+week+"?family_id="+encodeURIComponent(state.familyId))
   ));
   if(request!==state.request)return;
-  state.recipes=contexts[0]?.recipes||[];
+  const contexts=results.map(result=>result.status==="fulfilled"?result.value:null);
+  const failed=results.filter(result=>result.status==="rejected");
+  state.failedWeeks=new Set(results.flatMap((result,i)=>result.status==="rejected"?[weekStarts[i]]:[]));
+  if(failed.length===results.length)throw failed[0].reason;
+  const firstContext=contexts.find(Boolean);
+  state.members=(firstContext?.members||[]).filter(member=>member.active);
+  state.recipes=firstContext?.recipes||[];
   state.plans.clear();
   state.participation=contexts.flatMap(context=>context?.participation||[]);
   state.menus=contexts.flatMap(context=>context?.school_menus||[]);
   contexts.forEach((context,i)=>{if(context?.current_plan)state.plans.set(weekStarts[i],context.current_plan)});
-  renderMonth();$("connection").textContent="Connected";
+  renderMonth();
+  $("connection").textContent=failed.length?("Partially connected · "+failed.length+" week(s) failed to load"):"Connected";
  }catch(e){if(request===state.request){$("planner-month-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+'</p>';$("connection").textContent="Connection error"}}
 }
 $("assignment-form").addEventListener("submit",e=>{e.preventDefault();persistAssignment(false)});
@@ -149,4 +149,6 @@ $("show-weekends").addEventListener("change",e=>{state.showWeekends=e.target.che
 try{state.showWeekends=localStorage.getItem("eme-meal-planner-show-weekends")!=="false"}catch{}
 $("show-weekends").checked=state.showWeekends;
 window.addEventListener("eme:family-changed",()=>loadMonth());
+window.addEventListener("focus",()=>loadMonth());
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")loadMonth()});
 (async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("month-date").value=monthString(new Date());await loadMonth()}catch(e){$("connection").textContent="Error loading planner: "+e.message}})();

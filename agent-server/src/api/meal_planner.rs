@@ -48,30 +48,47 @@ async fn list_members(
         },
         None => return HttpResponse::BadRequest().body("family_id is required"),
     };
-    let (_, memberships) = match families.get_family(user, family_id).await {
-        Ok(value) => value,
-        Err(_) => return HttpResponse::NotFound().finish(),
-    };
+    match sync_family_roster(user, &family_id.to_string(), &identities, &families, &store).await {
+        Ok(()) => match store.list_family_members_for_family(&family_id.to_string()) {
+            Ok(members) => HttpResponse::Ok().json(
+                members
+                    .into_iter()
+                    .filter(|member| member.active)
+                    .collect::<Vec<_>>(),
+            ),
+            Err(error) => error_response(error),
+        },
+        Err(response) => response,
+    }
+}
+
+async fn sync_family_roster(
+    user: UserId,
+    family_id: &str,
+    identities: &FileUserIdentityStore,
+    families: &FamilyService,
+    store: &MealPlannerStore,
+) -> Result<(), HttpResponse> {
+    let id = FamilyId::from_str(family_id)
+        .map_err(|_| HttpResponse::BadRequest().body("invalid family id"))?;
+    let (_, memberships) = families
+        .get_family(user, id)
+        .await
+        .map_err(|_| HttpResponse::NotFound().finish())?;
     let mut members = Vec::with_capacity(memberships.len());
     for member in memberships {
-        let profile = match identities.get_user(member.user_id.clone()) {
-            Ok(profile) => profile,
-            Err(_) => return HttpResponse::InternalServerError().finish(),
-        };
+        let profile = identities
+            .get_user(member.user_id.clone())
+            .map_err(|_| HttpResponse::InternalServerError().finish())?;
         let name = profile
             .and_then(|user| user.display_name)
             .unwrap_or_else(|| member.user_id.to_string());
         members.push((member.user_id.to_string(), name));
     }
-    match store.sync_family_members(&family_id.to_string(), &members) {
-        Ok(members) => HttpResponse::Ok().json(
-            members
-                .into_iter()
-                .filter(|member| member.active)
-                .collect::<Vec<_>>(),
-        ),
-        Err(error) => error_response(error),
-    }
+    store
+        .sync_family_members(family_id, &members)
+        .map_err(error_response)?;
+    Ok(())
 }
 
 pub(crate) fn authenticated_user(
@@ -346,6 +363,11 @@ async fn get_planning_context(
         Ok(id) => id,
         Err(response) => return response,
     };
+    if let Err(response) =
+        sync_family_roster(user.clone(), &family_id, &identities, &families, &store).await
+    {
+        return response;
+    }
     let context = MealPlannerApplication::new(store.get_ref().clone()).planning_context(
         &user.to_string(),
         &[family_id],
@@ -441,11 +463,8 @@ async fn update_weekly_plan(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match store.update_weekly_plan_for_family(
-        &family_id,
-        week_start.into_inner(),
-        body.into_inner(),
-    ) {
+    match store.save_weekly_plan_for_family(&family_id, week_start.into_inner(), body.into_inner())
+    {
         Ok(plan) => HttpResponse::Ok().json(plan),
         Err(error) => error_response(error),
     }

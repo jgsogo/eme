@@ -291,20 +291,56 @@ fn build_contents(messages: Vec<ConversationMessage>) -> Vec<Content> {
 }
 
 fn normalize_gemini_schema(schema: &Value) -> Value {
-    fn remove_unsupported_fields(value: &mut Value) {
+    fn normalize(value: &mut Value) {
         match value {
             Value::Object(object) => {
                 object.remove("additionalProperties");
                 object.remove("exclusiveMinimum");
                 object.remove("exclusiveMaximum");
 
+                // JSON Schema permits nullable unions such as ["string", "null"],
+                // but Gemini's Schema.type is a scalar enum. Translate the common
+                // nullable form into Gemini's scalar type + nullable flag.
+                if let Some(Value::Array(types)) = object.get("type") {
+                    let nullable = types.iter().any(|kind| kind == "null");
+                    let concrete_types = types
+                        .iter()
+                        .filter(|kind| *kind != "null")
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    match concrete_types.as_slice() {
+                        [kind] => {
+                            object.insert("type".into(), kind.clone());
+                            if nullable {
+                                object.insert("nullable".into(), Value::Bool(true));
+                            }
+                        }
+                        [] => {
+                            object.remove("type");
+                            if nullable {
+                                object.insert("nullable".into(), Value::Bool(true));
+                            }
+                        }
+                        _ => {
+                            // Gemini cannot express a multi-type JSON Schema union.
+                            // Drop the unsupported type constraint rather than send
+                            // an invalid array-valued Schema.type to the API.
+                            object.remove("type");
+                            if nullable {
+                                object.insert("nullable".into(), Value::Bool(true));
+                            }
+                        }
+                    }
+                }
+
                 for value in object.values_mut() {
-                    remove_unsupported_fields(value);
+                    normalize(value);
                 }
             }
             Value::Array(values) => {
                 for value in values {
-                    remove_unsupported_fields(value);
+                    normalize(value);
                 }
             }
             _ => {}
@@ -312,7 +348,7 @@ fn normalize_gemini_schema(schema: &Value) -> Value {
     }
 
     let mut schema = schema.clone();
-    remove_unsupported_fields(&mut schema);
+    normalize(&mut schema);
     schema
 }
 
@@ -645,5 +681,35 @@ mod tests {
         assert_eq!(schema["additionalProperties"], false);
         assert_eq!(schema["properties"]["count"]["exclusiveMinimum"], 1);
         assert_eq!(schema["properties"]["count"]["exclusiveMaximum"], 10);
+    }
+    #[test]
+    fn converts_nullable_json_schema_types_to_gemini_schema() {
+        let schema = serde_json::json!({
+            "type": "object",
+            "properties": {
+                "effective_from": { "type": ["string", "null"], "format": "date" },
+                "effective_until": { "type": ["string", "null"], "format": "date" },
+                "required_name": { "type": "string" }
+            }
+        });
+
+        let normalized = normalize_gemini_schema(&schema);
+
+        for property in ["effective_from", "effective_until"] {
+            assert_eq!(normalized["properties"][property]["type"], "string");
+            assert_eq!(normalized["properties"][property]["nullable"], true);
+        }
+        assert_eq!(normalized["properties"]["required_name"]["type"], "string");
+        assert!(
+            normalized["properties"]["required_name"]
+                .get("nullable")
+                .is_none()
+        );
+
+        // The source JSON Schema is not mutated.
+        assert_eq!(
+            schema["properties"]["effective_from"]["type"],
+            serde_json::json!(["string", "null"])
+        );
     }
 }

@@ -101,6 +101,8 @@ async fn create_conversation(
     auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<ConversationStore>>,
     catalog: Data<AgentCatalog>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
     request: Json<CreateConversationRequest>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request_http, &auth) {
@@ -115,8 +117,48 @@ async fn create_conversation(
         return HttpResponse::BadRequest().body("unknown agent");
     }
 
+    let family_id = match request.family_id.as_deref() {
+        Some(value) => {
+            let family_id = match FamilyId::from_str(value) {
+                Ok(id) => id,
+                Err(_) => return HttpResponse::BadRequest().body("invalid family identifier"),
+            };
+            let subject = match owner.strip_prefix("telegram:") {
+                Some(subject) if !subject.is_empty() => subject,
+                _ => return HttpResponse::Unauthorized().finish(),
+            };
+            let identity = match identities.find_identity("telegram", subject) {
+                Ok(Some(identity)) => identity,
+                Ok(None) => return HttpResponse::Unauthorized().finish(),
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            };
+            match families
+                .context_for_member(identity.user_id, family_id)
+                .await
+            {
+                Ok(_) => Some(family_id),
+                Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
+                    return HttpResponse::NotFound().finish();
+                }
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            }
+        }
+        None => None,
+    };
+
     match store.create(&owner, agent) {
-        Ok(conversation) => HttpResponse::Created().json(ConversationSummary::from(conversation)),
+        Ok(conversation) => {
+            let conversation = match family_id {
+                Some(family_id) => {
+                    match store.set_selected_family(&owner, conversation.id, Some(family_id)) {
+                        Ok(conversation) => conversation,
+                        Err(error) => return conversation_error(error),
+                    }
+                }
+                None => conversation,
+            };
+            HttpResponse::Created().json(ConversationSummary::from(conversation))
+        }
         Err(error) => conversation_error(error),
     }
 }

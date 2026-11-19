@@ -1,7 +1,7 @@
 //! Explicit, independently registered agent tools for Meal Planner resources.
 use crate::{
-    MealPlannerStore, NewShoppingListItem, RecipeDraft, SchoolMenuDraft, ShoppingListItemUpdate,
-    WeeklyPlanDraft,
+    MealArrangement, MealPlannerStore, MealType, MealWeekday, NewShoppingListItem, RecipeDraft,
+    SchoolMenuDraft, ShoppingListItemUpdate, WeeklyPlanDraft,
 };
 use agent_runtime::{Tool, ToolContext, ToolError, ToolRegistry};
 use async_trait::async_trait;
@@ -23,6 +23,9 @@ enum Action {
     SchoolUpdate,
     SchoolDelete,
     PlanContext,
+    PlanSave,
+    ParticipationRuleCreate,
+    ParticipationExceptionSet,
     PlanCreate,
     PlanGet,
     PlanList,
@@ -51,9 +54,40 @@ fn scope(ctx: &ToolContext) -> Result<(String, String), ToolError> {
     let family = ctx
         .family
         .as_ref()
-        .map(|v| v.family_id.clone())
-        .unwrap_or_else(|| "legacy".into());
+        .map(|v| v.family_id.trim())
+        .filter(|id| !id.is_empty())
+        .ok_or_else(|| {
+            ToolError::Execution(
+                "Meal tools require a selected family. Select a family for this conversation and retry.".into(),
+            )
+        })?
+        .to_owned();
     Ok((owner, family))
+}
+fn sync_family_members(
+    ctx: &ToolContext,
+    store: &MealPlannerStore,
+    family_id: &str,
+) -> Result<(), ToolError> {
+    let family = ctx.family.as_ref().ok_or_else(|| {
+        failure("Meal tools require a selected family. Select a family for this conversation and retry.")
+    })?;
+    let members = family
+        .members
+        .iter()
+        .map(|member| {
+            let name = member
+                .name
+                .as_deref()
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or(&member.user_id);
+            (member.user_id.clone(), name.to_owned())
+        })
+        .collect::<Vec<_>>();
+    store
+        .sync_family_members(family_id, &members)
+        .map_err(failure)?;
+    Ok(())
 }
 fn decode<T: for<'de> Deserialize<'de>>(v: Value) -> Result<T, ToolError> {
     serde_json::from_value(v)
@@ -104,6 +138,34 @@ struct PlanArgs {
     assignments: Vec<crate::MealAssignment>,
 }
 #[derive(Deserialize)]
+struct RecurringRuleArgs {
+    member_id: i64,
+    weekday: String,
+    meal_type: MealType,
+    arrangement: MealArrangement,
+    effective_from: Option<NaiveDate>,
+    effective_until: Option<NaiveDate>,
+}
+#[derive(Deserialize)]
+struct ParticipationExceptionArgs {
+    member_id: i64,
+    date: NaiveDate,
+    meal_type: MealType,
+    arrangement: MealArrangement,
+}
+fn parse_weekday(value: &str) -> Result<MealWeekday, ToolError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "monday" | "mon" => Ok(MealWeekday::Monday),
+        "tuesday" | "tue" => Ok(MealWeekday::Tuesday),
+        "wednesday" | "wed" => Ok(MealWeekday::Wednesday),
+        "thursday" | "thu" => Ok(MealWeekday::Thursday),
+        "friday" | "fri" => Ok(MealWeekday::Friday),
+        "saturday" | "sat" => Ok(MealWeekday::Saturday),
+        "sunday" | "sun" => Ok(MealWeekday::Sunday),
+        _ => Err(failure("weekday must be a weekday name, e.g. monday")),
+    }
+}
+#[derive(Deserialize)]
 struct SearchArgs {
     query: Option<String>,
 }
@@ -116,6 +178,7 @@ struct ItemArgs {
 impl Tool for MealTool {
     async fn execute(&self, ctx: &ToolContext, args: Value) -> Result<String, ToolError> {
         let (owner, family) = scope(ctx)?;
+        sync_family_members(ctx, &self.store, &family)?;
         let families = vec![family.clone()];
         match self.action {
             Action::RecipeCreate => {
@@ -239,6 +302,53 @@ impl Tool for MealTool {
                     .planning_context(&owner, &families, a.week_start)
                     .map_err(failure)?;
                 encode(&context)
+            }
+            Action::ParticipationRuleCreate => {
+                let a: RecurringRuleArgs = decode(args)?;
+                encode(
+                    &self
+                        .store
+                        .add_recurring_rule_for_family(
+                            &family,
+                            a.member_id,
+                            parse_weekday(&a.weekday)?,
+                            a.meal_type,
+                            a.arrangement,
+                            a.effective_from,
+                            a.effective_until,
+                        )
+                        .map_err(failure)?,
+                )
+            }
+            Action::ParticipationExceptionSet => {
+                let a: ParticipationExceptionArgs = decode(args)?;
+                encode(
+                    &self
+                        .store
+                        .set_meal_exception_for_family(
+                            &family,
+                            a.member_id,
+                            a.date,
+                            a.meal_type,
+                            a.arrangement,
+                        )
+                        .map_err(failure)?,
+                )
+            }
+            Action::PlanSave => {
+                let a: PlanArgs = decode(args)?;
+                encode(
+                    &self
+                        .store
+                        .save_weekly_plan_for_family(
+                            &family,
+                            a.week_start,
+                            WeeklyPlanDraft {
+                                assignments: a.assignments,
+                            },
+                        )
+                        .map_err(failure)?,
+                )
             }
             Action::PlanCreate => {
                 let a: PlanArgs = decode(args)?;
@@ -406,6 +516,15 @@ pub fn register_tools(
         ("meal_school_menu_update.toml", Action::SchoolUpdate),
         ("meal_school_menu_delete.toml", Action::SchoolDelete),
         ("meal_plan_context.toml", Action::PlanContext),
+        ("meal_plan_save.toml", Action::PlanSave),
+        (
+            "meal_participation_rule_create.toml",
+            Action::ParticipationRuleCreate,
+        ),
+        (
+            "meal_participation_exception_set.toml",
+            Action::ParticipationExceptionSet,
+        ),
         ("meal_plan_create.toml", Action::PlanCreate),
         ("meal_plan_get.toml", Action::PlanGet),
         ("meal_plan_list.toml", Action::PlanList),
@@ -443,6 +562,48 @@ pub fn register_tools(
 mod tests {
     use super::*;
     #[test]
+    fn meal_tools_require_an_explicit_family_context() {
+        let mut context = ToolContext::new("user-1");
+        assert!(scope(&context).is_err());
+        context.family = Some(agent_runtime::FamilyContext {
+            family_id: "family-1".into(),
+            family_name: "Home".into(),
+            family_role: "owner".into(),
+            relationship: "father".into(),
+            members: vec![],
+        });
+        assert_eq!(
+            scope(&context).unwrap(),
+            ("user-1".into(), "family-1".into())
+        );
+        context
+            .family
+            .as_mut()
+            .unwrap()
+            .members
+            .push(agent_runtime::FamilyMemberContext {
+                user_id: "member-1".into(),
+                name: Some("Alex".into()),
+                birthday: None,
+                telegram_id: None,
+                role: "member".into(),
+                relationship: "son".into(),
+            });
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        sync_family_members(&context, &store, "family-1").unwrap();
+        let members = store.list_family_members_for_family("family-1").unwrap();
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].name, "Alex");
+    }
+
+    #[test]
+    fn weekday_parser_accepts_full_and_short_names() {
+        assert!(matches!(parse_weekday("Monday"), Ok(MealWeekday::Monday)));
+        assert!(matches!(parse_weekday("thu"), Ok(MealWeekday::Thursday)));
+        assert!(parse_weekday("someday").is_err());
+    }
+
+    #[test]
     fn shopping_list_mutations_are_scoped_to_the_selected_family() {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let date = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
@@ -471,6 +632,9 @@ mod tests {
             "meals.school_menu.update",
             "meals.school_menu.delete",
             "meals.plan.get_context",
+            "meals.plan.save",
+            "meals.participation.create_recurring_rule",
+            "meals.participation.set_exception",
             "meals.plan.create",
             "meals.plan.get",
             "meals.plan.list",
