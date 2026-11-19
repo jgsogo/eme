@@ -48,15 +48,7 @@ async fn list_members(
         },
         None => return HttpResponse::BadRequest().body("family_id is required"),
     };
-    match sync_family_roster(
-        user,
-        &family_id.to_string(),
-        &identities,
-        &families,
-        &store,
-    )
-    .await
-    {
+    match sync_family_roster(user, &family_id.to_string(), &identities, &families, &store).await {
         Ok(()) => match store.list_family_members_for_family(&family_id.to_string()) {
             Ok(members) => HttpResponse::Ok().json(
                 members
