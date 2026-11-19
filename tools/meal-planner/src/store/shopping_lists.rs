@@ -179,10 +179,8 @@ impl MealPlannerStore {
             .into_iter()
             .find(|candidate| {
                 candidate.name.trim().eq_ignore_ascii_case(item.name.trim())
-                    && candidate
-                        .source_recipe_ids
-                        .iter()
-                        .any(|id| item.source_recipe_ids.contains(id))
+                    && candidate.source_recipe_ids == item.source_recipe_ids
+                    && candidate.source_assignment_ids == item.source_assignment_ids
             })
             .ok_or(MealPlannerError::NotFound)?;
         item.quantity = generated_item.quantity;
