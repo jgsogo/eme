@@ -76,7 +76,9 @@ fn ensure_shopping_list_family(
     {
         Ok(())
     } else {
-        Err(failure("shopping list does not belong to the selected family"))
+        Err(failure(
+            "shopping list does not belong to the selected family",
+        ))
     }
 }
 #[derive(Deserialize)]

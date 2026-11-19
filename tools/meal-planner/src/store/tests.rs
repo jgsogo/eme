@@ -180,10 +180,15 @@ fn migration_9_keeps_latest_plan_and_its_shopping_list_and_preserves_school_menu
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .unwrap();
-    assert_eq!(school_menu, ("2026-11-17".into(), r#"{"lunch":"Pasta"}"#.into()));
+    assert_eq!(
+        school_menu,
+        ("2026-11-17".into(), r#"{"lunch":"Pasta"}"#.into())
+    );
 
     let school_columns: Vec<String> = {
-        let mut statement = connection.prepare("PRAGMA table_info(school_menus)").unwrap();
+        let mut statement = connection
+            .prepare("PRAGMA table_info(school_menus)")
+            .unwrap();
         statement
             .query_map([], |row| row.get(1))
             .unwrap()
