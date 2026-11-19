@@ -209,14 +209,17 @@ impl RunManager {
         let permit = self.sender.try_reserve().map_err(|_| SubmitRunError::QueueFull)?;
         let mut run = Run::new(agent, input);
         let run_id = run.id;
-        let conversation_id = context.conversation_id.as_deref()
-            .map(Uuid::from_str)
-            .transpose()
-            .map_err(|error| SubmitRunError::Storage(format!("invalid conversation identifier: {error}")))?;
+        let storage = current_storage(&self.persistence);
+        let conversation_id = if storage.is_some() {
+            context.conversation_id.as_deref()
+                .map(Uuid::from_str)
+                .transpose()
+                .map_err(|error| SubmitRunError::Storage(format!("invalid conversation identifier: {error}")))?
+        } else {
+            None
+        };
         run.conversation_id = conversation_id;
         context.run_id = Some(run_id.as_uuid());
-
-        let storage = current_storage(&self.persistence);
         let mut persisted_message_count = None;
         if let Some(storage) = storage {
             if let Some(conversation_id) = conversation_id {
