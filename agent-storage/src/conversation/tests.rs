@@ -214,8 +214,7 @@ fn legacy_conversation_files_default_to_not_archived() {
     let path = directory
         .join("conversations")
         .join(format!("{}.json", conversation.id));
-    let mut value: serde_json::Value =
-        serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     value.as_object_mut().unwrap().remove("archived");
     fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
 
