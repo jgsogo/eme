@@ -343,8 +343,9 @@ async fn get_weekly_plan(
         Err(response) => return response,
     };
     match store.get_weekly_plan_for_family(&family_id, week_start.into_inner()) {
-        Ok(Some(plan)) => HttpResponse::Ok().json(plan),
-        Ok(None) => HttpResponse::NotFound().finish(),
+        Ok(Some(plan)) => HttpResponse::Ok().json(Some(plan)),
+        // An unplanned week is a normal empty state for the monthly calendar.
+        Ok(None) => HttpResponse::Ok().json(None::<()>),
         Err(error) => error_response(error),
     }
 }
