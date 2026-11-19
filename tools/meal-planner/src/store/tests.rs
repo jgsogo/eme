@@ -142,6 +142,37 @@ fn migration_9_keeps_latest_plan_and_its_shopping_list_and_preserves_school_menu
     connection
         .execute_batch(
             r#"
+            CREATE TABLE family_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_id TEXT NOT NULL,
+                external_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(family_id, external_id)
+            );
+            CREATE INDEX idx_family_members_family ON family_members(family_id, active);
+            CREATE TABLE recurring_participation_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_id TEXT NOT NULL,
+                member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE RESTRICT,
+                weekday INTEGER NOT NULL CHECK(weekday BETWEEN 0 AND 6),
+                meal_type TEXT NOT NULL,
+                arrangement TEXT NOT NULL,
+                effective_from TEXT,
+                effective_until TEXT
+            );
+            CREATE INDEX idx_participation_rules_family ON recurring_participation_rules(family_id, member_id);
+            CREATE TABLE meal_participation_exceptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_id TEXT NOT NULL,
+                member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE RESTRICT,
+                date TEXT NOT NULL,
+                meal_type TEXT NOT NULL,
+                arrangement TEXT NOT NULL,
+                UNIQUE(family_id, member_id, date, meal_type)
+            );
+            CREATE INDEX idx_participation_exceptions_family ON meal_participation_exceptions(family_id, date);
+
             CREATE TABLE weekly_plans (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 family_id TEXT NOT NULL,
