@@ -21,7 +21,7 @@ use actix_web::{
 use agent_runtime::{Message, ToolContext};
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
+    Conversation, ConversationId, SqliteConversationStore, ConversationStoreError, FamilyId,
     FileUserIdentityStore, UserId, UserIdentityStore,
 };
 
@@ -95,7 +95,7 @@ fn conversation_error(error: ConversationStoreError) -> HttpResponse {
 async fn list_conversations(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
         Ok(owner) => owner,
@@ -179,7 +179,7 @@ fn set_conversation_archived(
 async fn create_conversation(
     request_http: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     catalog: Data<AgentCatalog>,
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
@@ -247,7 +247,7 @@ async fn create_conversation(
 async fn get_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
@@ -278,7 +278,7 @@ async fn get_conversation(
 async fn rename_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
     request_body: Json<UpdateConversationRequest>,
 ) -> impl Responder {
@@ -309,7 +309,7 @@ async fn rename_conversation(
 async fn delete_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
@@ -331,7 +331,7 @@ async fn delete_conversation(
 async fn select_conversation_family(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
     conversation_id: Path<String>,
@@ -390,7 +390,7 @@ async fn select_conversation_family(
 async fn continue_conversation(
     request_http: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     manager: Data<RunManager>,
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
@@ -551,7 +551,7 @@ mod tests {
     };
     use agent_service::FamilyService;
     use agent_storage::{
-        ConversationStore, FamilyRelationship, FileUserIdentityStore,
+        SqliteConversationStore, FamilyRelationship, FileUserIdentityStore,
         InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore,
     };
     use serde_json::{Value, json};
@@ -562,7 +562,7 @@ mod tests {
     #[actix_web::test]
     async fn conversation_family_selection_requires_membership_and_can_be_cleared() {
         let directory = env::temp_dir().join(format!("eme-conversation-family-{}", Uuid::new_v4()));
-        let store = Arc::new(ConversationStore::open(directory.join("conversations")).unwrap());
+        let store = Arc::new(SqliteConversationStore::open(directory.join("conversations.sqlite")).unwrap());
         let identities =
             Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
         let (user, _) = identities
