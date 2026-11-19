@@ -57,6 +57,7 @@ impl ModelError {
                 ModelFailureCategory::Transient
             }
             Self::ProviderResponse { status, body } => match *status {
+                413 if is_request_token_limit_error(body) => ModelFailureCategory::RateLimited,
                 408 | 425 | 500..=599 => ModelFailureCategory::Transient,
                 429 if body.to_ascii_lowercase().contains("quota") => {
                     ModelFailureCategory::QuotaExceeded
@@ -73,6 +74,24 @@ impl ModelError {
             | Self::AllCandidatesFailed(_) => ModelFailureCategory::Permanent,
         }
     }
+}
+
+/// HTTP 413 is retryable only when the provider explicitly identifies a
+/// request-token or tokens-per-minute limit. Other payload-too-large errors
+/// remain permanent because changing models may not make the request valid.
+fn is_request_token_limit_error(body: &str) -> bool {
+    let body = body.to_ascii_lowercase();
+    [
+        "tokens per minute",
+        "token per minute",
+        "tpm",
+        "requested tokens",
+        "request too large for model",
+        "token limit",
+        "maximum context length",
+    ]
+    .iter()
+    .any(|marker| body.contains(marker))
 }
 
 #[cfg(test)]
@@ -112,6 +131,22 @@ mod tests {
             }
             .failure_category(),
             ModelFailureCategory::CandidateUnavailable
+        );
+        assert_eq!(
+            ModelError::ProviderResponse {
+                status: 413,
+                body: r#"{ "error": { "message": "Request too large for model openai/gpt-oss-20b on tokens per minute (TPM): Limit 8000, Requested 71863", "type": "tokens", "code": "rate_limit_exceeded" } }"#.into(),
+            }
+            .failure_category(),
+            ModelFailureCategory::RateLimited
+        );
+        assert_eq!(
+            ModelError::ProviderResponse {
+                status: 413,
+                body: "Payload Too Large".into(),
+            }
+            .failure_category(),
+            ModelFailureCategory::Permanent
         );
         assert_eq!(
             ModelError::ProviderResponse {

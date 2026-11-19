@@ -47,8 +47,22 @@ impl From<Conversation> for ConversationSummary {
             updated_at: conversation.updated_at.to_rfc3339(),
             message_count: conversation.messages.len(),
             selected_family_id: conversation.selected_family_id.map(|id| id.to_string()),
+            history_tokens_estimate: estimate_history_tokens(&conversation.messages),
         }
     }
+}
+
+#[derive(serde::Serialize)]
+struct ConversationDetail {
+    #[serde(flatten)]
+    conversation: Conversation,
+    history_tokens_estimate: usize,
+}
+
+fn estimate_history_tokens(messages: &[agent_runtime::Message]) -> usize {
+    serde_json::to_string(messages)
+        .map(|serialized| serialized.len().div_ceil(4))
+        .unwrap_or_default()
 }
 
 fn conversation_error(error: ConversationStoreError) -> HttpResponse {
@@ -126,7 +140,13 @@ async fn get_conversation(
     };
 
     match store.get(id) {
-        Ok(conversation) if conversation.owner == owner => HttpResponse::Ok().json(conversation),
+        Ok(conversation) if conversation.owner == owner => {
+            let history_tokens_estimate = estimate_history_tokens(&conversation.messages);
+            HttpResponse::Ok().json(ConversationDetail {
+                conversation,
+                history_tokens_estimate,
+            })
+        },
         Ok(_) => HttpResponse::NotFound().finish(),
         Err(error) => conversation_error(error),
     }
