@@ -55,7 +55,9 @@ impl SchoolMenuDraft {
     pub(crate) fn validate(mut self) -> Result<Self, String> {
         match self.status {
             SchoolMenuStatus::Known if self.items.is_empty() => {
-                return Err("a school menu with status `known` must contain at least one item".into());
+                return Err(
+                    "a school menu with status `known` must contain at least one item".into(),
+                );
             }
             // A closure is authoritative: discard any menu items supplied by
             // the caller so an existing menu is cleared when this draft is saved.
