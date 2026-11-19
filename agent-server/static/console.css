@@ -432,3 +432,10 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .shopping-list-items li.is-disabled .shopping-list-quantity{text-decoration:line-through;color:var(--muted);opacity:.55}
 
 .shopping-list-footer{display:flex;justify-content:flex-end;padding-top:16px}
+
+
+/* Shared date banner for School menus and Meal planner calendar cards. */
+.school-menu-day-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-7px -7px 5px!important;padding:8px 9px!important;background:var(--panel2);border-bottom:1px solid var(--border);border-radius:9px 9px 0 0}
+.school-menu-day-heading strong{font-size:14px!important;font-weight:750;color:var(--accent);font-variant-numeric:tabular-nums}
+.school-menu-day-heading span{font-size:11px!important;font-weight:650;color:var(--text)!important;text-transform:capitalize}
+@media(max-width:760px){.school-menu-day-heading{margin:-4px -4px 5px!important;padding:6px!important;border-radius:6px 6px 0 0}.school-menu-day-heading strong{font-size:12px!important}.school-menu-day-heading span{font-size:9px!important}}
