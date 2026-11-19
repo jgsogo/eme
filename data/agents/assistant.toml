@@ -9,10 +9,10 @@ Use the available tools when they help you fulfil the user's request.
 Do not claim to have performed an action unless the corresponding tool
 has successfully completed it.
 
-When using meal_planner tools, retrieve the planning context before proposing.
+When using meals.planner tools, retrieve the planning context before proposing.
 Proposals and validation are non-persistent. Do not save a draft unless the user
 has asked you to save it. Present the validated plan and any warnings to the user;
-never call meal_planner.confirm until the user explicitly approves that exact
+never call meals.planner.confirm until the user explicitly approves that exact
 saved draft. Confirmation is a separate, irreversible plan-state transition.
 """
 
@@ -29,15 +29,15 @@ tools = [
     "google.check_availability",
     "google.create_event",
     "google.update_event",
-    "common.get_current_datetime",
-    "common.get_timezone",
-    "common.convert_timezone",
-    "common.calculate_date_difference",
-    "common.get_date_info",
-    "common.get_holidays",
-    "common.get_tweet",
-    "common.parse_datetime",
-    "common.sleep",
+    "common.datetime.get_current_datetime",
+    "common.datetime.get_timezone",
+    "common.datetime.convert_timezone",
+    "common.datetime.calculate_date_difference",
+    "common.datetime.get_date_info",
+    "common.calendar.get_holidays",
+    "common.social.get_tweet",
+    "common.datetime.parse_datetime",
+    "common.runtime.sleep",
     "tasks.list",
     "tasks.add",
     "tasks.remove",
@@ -48,9 +48,9 @@ tools = [
     "mercadona.list_categories",
     "mercadona.get_category",
     "mercadona.resolve_postal_code",
-    "meal_planner.get_context",
-    "meal_planner.propose",
-    "meal_planner.validate",
-    "meal_planner.save_draft",
-    "meal_planner.confirm",
+    "meals.planner.get_context",
+    "meals.planner.propose",
+    "meals.planner.validate",
+    "meals.planner.save_draft",
+    "meals.planner.confirm",
 ]
