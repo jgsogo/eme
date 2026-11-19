@@ -176,7 +176,6 @@ impl ConversationClient for GeminiClient {
     }
 }
 
-
 /// Converts provider-neutral messages into Gemini contents.
 ///
 /// Gemini expects the responses to parallel function calls to be returned
@@ -267,14 +266,14 @@ fn build_contents(messages: Vec<ConversationMessage>) -> Vec<Content> {
                     thought_signature: None,
                 };
 
-                let can_append_to_previous_tool_responses = contents.last().is_some_and(
-                    |previous| {
+                let can_append_to_previous_tool_responses =
+                    contents.last().is_some_and(|previous| {
                         previous.role == "user"
-                            && previous.parts.iter().all(|part| {
-                                part.function_response.is_some()
-                            })
-                    },
-                );
+                            && previous
+                                .parts
+                                .iter()
+                                .all(|part| part.function_response.is_some())
+                    });
 
                 if can_append_to_previous_tool_responses {
                     contents.last_mut().expect("checked above").parts.push(part);
@@ -467,7 +466,6 @@ mod tests {
         assert_eq!(tool_parts[0]["functionResponse"]["name"], "calculator");
     }
 
-
     #[tokio::test]
     async fn groups_parallel_function_responses_and_preserves_thought_signature() {
         let server = MockServer::start().await;
@@ -550,10 +548,7 @@ mod tests {
 
         let assistant_parts = contents[1]["parts"].as_array().unwrap();
         assert_eq!(assistant_parts.len(), 2);
-        assert_eq!(
-            assistant_parts[0]["thoughtSignature"],
-            "parallel-signature"
-        );
+        assert_eq!(assistant_parts[0]["thoughtSignature"], "parallel-signature");
         assert!(assistant_parts[1].get("thoughtSignature").is_none());
         assert_eq!(
             assistant_parts[0]["functionCall"]["name"],
@@ -566,14 +561,8 @@ mod tests {
 
         let response_parts = contents[2]["parts"].as_array().unwrap();
         assert_eq!(response_parts.len(), 2);
-        assert_eq!(
-            response_parts[0]["functionResponse"]["id"],
-            "google-call-1"
-        );
-        assert_eq!(
-            response_parts[1]["functionResponse"]["id"],
-            "google-call-2"
-        );
+        assert_eq!(response_parts[0]["functionResponse"]["id"], "google-call-1");
+        assert_eq!(response_parts[1]["functionResponse"]["id"], "google-call-2");
         assert_eq!(
             response_parts[0]["functionResponse"]["name"],
             "google.list_calendars"
