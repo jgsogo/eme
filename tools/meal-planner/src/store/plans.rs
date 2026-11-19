@@ -1,7 +1,7 @@
 //! SQLite persistence for weekly plans and immutable confirmed revisions.
 use crate::{
     MealPlannerError, MealPlannerStore,
-    domain::ParticipationStatus,
+    domain::{MealArrangement, ParticipationStatus},
     plans::{MealAssignment, PlanParticipant, WeeklyPlan, WeeklyPlanDraft, WeeklyPlanStatus},
 };
 use chrono::{Datelike, NaiveDate, Utc, Weekday};
@@ -18,6 +18,7 @@ impl MealPlannerStore {
         for participation in resolved {
             match participation.status {
                 ParticipationStatus::Unconfigured => continue,
+                ParticipationStatus::Configured { arrangement: MealArrangement::NotParticipating, .. } => continue,
                 ParticipationStatus::Configured { .. } => {}
             }
             let participant = PlanParticipant {

@@ -23,7 +23,7 @@ pub struct MealAssignment {
     pub date: NaiveDate,
     pub meal_type: MealType,
     pub participants: Vec<PlanParticipant>,
-    /// Only home-prepared assignments may reference a family recipe.
+    /// Family recipes assigned to this meal.
     pub recipe_ids: Vec<i64>,
 }
 
