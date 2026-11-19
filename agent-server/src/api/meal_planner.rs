@@ -7,8 +7,8 @@ use agent_service::FamilyService;
 use agent_storage::{FamilyId, FileUserIdentityStore, UserId, UserIdentityStore};
 use chrono::NaiveDate;
 use meal_planner::{
-    MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft, ShoppingListItemUpdate,
-    WeeklyPlanDraft,
+    MealPlannerApplication, MealPlannerError, MealPlannerStore, NewShoppingListItem, RecipeDraft,
+    ShoppingListItemUpdate, WeeklyPlanDraft,
 };
 use serde::Deserialize;
 use std::{str::FromStr, sync::Arc};
@@ -316,6 +316,43 @@ async fn delete_recipe(
     };
     match store.delete_recipe_for_family(id.into_inner(), &user.to_string(), &family_id) {
         Ok(()) => HttpResponse::NoContent().finish(),
+        Err(error) => error_response(error),
+    }
+}
+
+#[get("/context/{week_start}")]
+async fn get_planning_context(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    week_start: Path<NaiveDate>,
+    query: Query<SearchQuery>,
+) -> impl Responder {
+    let user = match authenticated_user(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let family_id = match selected_family(
+        &request,
+        &auth,
+        &identities,
+        &families,
+        query.family_id.as_deref(),
+    )
+    .await
+    {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let context = MealPlannerApplication::new(store.get_ref().clone()).planning_context(
+        &user.to_string(),
+        &[family_id],
+        week_start.into_inner(),
+    );
+    match context {
+        Ok(context) => HttpResponse::Ok().json(context),
         Err(error) => error_response(error),
     }
 }
@@ -648,6 +685,7 @@ struct ShoppingRangeQuery {
 pub fn meal_planner_api() -> Scope {
     web::scope("/meal-planner")
         .service(list_members)
+        .service(get_planning_context)
         .service(list_recipes)
         .service(create_recipe)
         .service(get_recipe)
