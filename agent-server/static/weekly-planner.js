@@ -21,8 +21,8 @@ function assignmentFor(date,meal){return planFor(date)?.assignments.find(a=>a.da
 function recipeNames(a){return (a.recipe_ids||[]).map(id=>state.recipes.find(r=>r.id===id)?.title||"Recipe unavailable")}
 function renderMonth(){
  const first=monthStart(state.month),year=first.getFullYear(),month=first.getMonth(),days=new Date(year,month+1,0).getDate();
- const offset=(first.getDay()+6)%7,cells=[];
- for(let i=0;i<offset;i++)cells.push('<div class="school-menu-calendar-empty" aria-hidden="true"></div>');
+ const offset=(first.getDay()+6)%7,visibleOffset=state.showWeekends?offset:Math.min(offset,5),cells=[];
+ for(let i=0;i<visibleOffset;i++)cells.push('<div class="school-menu-calendar-empty" aria-hidden="true"></div>');
  for(let day=1;day<=days;day++){
   const date=dateString(new Date(year,month,day,12)),weekday=parseDate(date).getDay();
   if(!state.showWeekends&&(weekday===0||weekday===6))continue;
