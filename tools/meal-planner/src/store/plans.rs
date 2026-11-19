@@ -18,7 +18,10 @@ impl MealPlannerStore {
         for participation in resolved {
             match participation.status {
                 ParticipationStatus::Unconfigured => continue,
-                ParticipationStatus::Configured { arrangement: MealArrangement::NotParticipating, .. } => continue,
+                ParticipationStatus::Configured {
+                    arrangement: MealArrangement::NotParticipating,
+                    ..
+                } => continue,
                 ParticipationStatus::Configured { .. } => {}
             }
             let participant = PlanParticipant {
@@ -26,8 +29,7 @@ impl MealPlannerStore {
                 name: participation.member.name,
             };
             if let Some(assignment) = assignments.iter_mut().find(|item| {
-                item.date == participation.date
-                    && item.meal_type == participation.meal_type
+                item.date == participation.date && item.meal_type == participation.meal_type
             }) {
                 assignment.participants.push(participant);
             } else {
@@ -231,8 +233,7 @@ impl MealPlannerStore {
                 ParticipationStatus::Configured { .. } => {}
             }
             let assignment = assignments.iter_mut().find(|item| {
-                item.date == participation.date
-                    && item.meal_type == participation.meal_type
+                item.date == participation.date && item.meal_type == participation.meal_type
             });
             let participant = PlanParticipant {
                 member_id: participation.member.id,

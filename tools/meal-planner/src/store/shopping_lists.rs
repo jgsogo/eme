@@ -257,8 +257,8 @@ fn timestamp() -> i64 {
 mod tests {
     use super::*;
     use crate::{
-        MealType, NewShoppingListItem, PlanParticipant, RecipeDraft,
-        RecipeIngredient, ShoppingListItemUpdate, WeeklyPlanDraft,
+        MealType, NewShoppingListItem, PlanParticipant, RecipeDraft, RecipeIngredient,
+        ShoppingListItemUpdate, WeeklyPlanDraft,
     };
     use chrono::NaiveDate;
 
