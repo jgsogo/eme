@@ -304,7 +304,7 @@ impl RunManager {
 
     pub async fn list(&self) -> Vec<Run> {
         let mut by_id = HashMap::new();
-        if let Some(storage) = self.persistence.read().await.clone() {
+        if let Some(storage) = current_storage(&self.persistence) {
             match storage.list_runs(None).await {
                 Ok(stored) => for run in stored { by_id.insert(run.id, from_stored_run(run)); },
                 Err(error) => error!(%error, "failed to load persisted runs"),
@@ -322,7 +322,7 @@ impl RunManager {
         if let Some(events) = self.runs.lock().await.get(&run_id).map(|entry| entry.events.clone()) {
             return Some(events);
         }
-        let storage = self.persistence.read().await.clone()?;
+        let storage = current_storage(&self.persistence)?;
         match storage.list_events(run_id.as_uuid(), None).await {
             Ok(events) => Some(events.into_iter().map(from_stored_event).collect()),
             Err(error) => {
@@ -336,7 +336,7 @@ impl RunManager {
         if let Some(run) = self.runs.lock().await.get(&run_id).map(|entry| entry.run.clone()) {
             return Some(run);
         }
-        let storage = self.persistence.read().await.clone()?;
+        let storage = current_storage(&self.persistence)?;
         match storage.get_run(run_id.as_uuid()).await {
             Ok(Some(run)) => Some(from_stored_run(run)),
             Ok(None) => None,
@@ -351,7 +351,7 @@ impl RunManager {
         if let Some(history) = self.runs.lock().await.get(&run_id).map(|entry| entry.history.clone()) {
             return Some(history);
         }
-        let storage = self.persistence.read().await.clone()?;
+        let storage = current_storage(&self.persistence)?;
         let run = storage.get_run(run_id.as_uuid()).await.ok()??;
         let conversation_id = run.conversation_id?;
         storage.list_messages(conversation_id).await.ok().map(|messages| {
