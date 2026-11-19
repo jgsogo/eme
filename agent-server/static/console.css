@@ -323,6 +323,8 @@ body:has(#shopping-list-panel) main{overflow:auto}
 .school-menu-weekends-toggle input{margin:0;accent-color:var(--accent)}
 #menu-month-view.weekdays-only .school-menu-calendar-weekdays,
 #menu-month-view.weekdays-only .school-menu-month{grid-template-columns:repeat(5,minmax(0,1fr))}
+#planner-month-view.weekdays-only .school-menu-calendar-weekdays,
+#planner-month-view.weekdays-only .school-menu-month{grid-template-columns:repeat(5,minmax(0,1fr))}
 
 
 /* Keep school-menu load and save messages below the calendar and editor. */
