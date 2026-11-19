@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={googleConnections:[],googleCalendars:{},agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null};
+const state={googleConnections:[],googleCalendars:{},agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -12,9 +12,13 @@ function setStatus(message,kind=""){const node=$("run-status")||$("connection");
 function renderAgents(){const previous=$("agent").value;$("agent").innerHTML=state.agents.map(a=>'<option value="'+escapeHtml(a.name)+'">'+escapeHtml(a.name)+'</option>').join("");if(state.agents.some(a=>a.name===previous))$("agent").value=previous;updateAgentDescription()}
 function updateAgentDescription(){const a=state.agents.find(x=>x.name===$("agent").value);$("agent-desc").textContent=a?[(a.capabilities||[]).join(", "),(a.tools||[]).length+" tools",a.description].filter(Boolean).join(" · "):""}
 function renderConversations(){
- const toggle=$("toggle-archived");
- if(toggle){toggle.textContent=state.showArchived?"Show active":"Show archived";toggle.setAttribute("aria-pressed",String(state.showArchived))}
- $("conversations").innerHTML=state.conversations.length?state.conversations.map(c=>'<li data-id="'+escapeHtml(c.id)+'" class="'+(c.id===state.selected?"active":"")+'"><div class="conversation-row"><div class="conversation-main"><div class="conv-title">'+escapeHtml(c.title||"New conversation")+'</div><div class="conv-agent">'+escapeHtml(c.agent)+'</div><div class="conv-meta">'+new Date(c.updated_at).toLocaleString()+' · '+c.message_count+' messages · ~'+Number(c.history_tokens_estimate||0).toLocaleString()+' history tokens</div></div><div class="conversation-actions"><button type="button" class="secondary conversation-archive" data-archive-id="'+escapeHtml(c.id)+'" aria-label="'+(state.showArchived?"Restore ":"Archive ")+escapeHtml(c.title||"conversation")+'">'+(state.showArchived?"Restore":"Archive")+'</button><button type="button" class="danger conversation-delete" data-delete-id="'+escapeHtml(c.id)+'" aria-label="Delete '+escapeHtml(c.title||"conversation")+'" title="Delete conversation">Delete</button></div></div></li>').join(""):'<li style="cursor:default;color:var(--muted)">'+(state.showArchived?"No archived conversations.":"No conversations yet.")+'</li>';
+ const query=state.conversationSearch.trim().toLocaleLowerCase();
+ const conversations=state.conversations.filter(c=>!query||[c.title,c.agent,c.id].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ const search=$("conversation-search");
+ if(search&&search.value!==state.conversationSearch)search.value=state.conversationSearch;
+ const archived=$("show-archived");
+ if(archived)archived.checked=state.showArchived;
+ $("conversations").innerHTML=conversations.length?conversations.map(c=>'<li data-id="'+escapeHtml(c.id)+'" class="'+(c.id===state.selected?"active":"")+'"><div class="conversation-row"><div class="conversation-main"><div class="conv-title">'+escapeHtml(c.title||"New conversation")+'</div><div class="conv-agent">'+escapeHtml(c.agent)+'</div><div class="conv-meta">'+new Date(c.updated_at).toLocaleString()+' · '+c.message_count+' messages · ~'+Number(c.history_tokens_estimate||0).toLocaleString()+' history tokens</div></div><div class="conversation-actions"><button type="button" class="secondary conversation-archive" data-archive-id="'+escapeHtml(c.id)+'" aria-label="'+(state.showArchived?"Restore ":"Archive ")+escapeHtml(c.title||"conversation")+'">'+(state.showArchived?"Restore":"Archive")+'</button><button type="button" class="danger conversation-delete" data-delete-id="'+escapeHtml(c.id)+'" aria-label="Delete '+escapeHtml(c.title||"conversation")+'" title="Delete conversation">Delete</button></div></div></li>').join(""):'<li style="cursor:default;color:var(--muted)">'+(query?"No conversations match your search.":state.showArchived?"No archived conversations.":"No conversations yet.")+'</li>';
 }
 function messageParts(message){if(!message||typeof message!=="object")return null;const [kind,value]=Object.entries(message)[0]||[];if(!kind)return null;return {kind:kind.toLowerCase(),value:value||{}}}
 function renderMarkdown(source){
@@ -562,7 +566,7 @@ on("invite-accept","click",async()=>{
  if(!pendingInviteToken)return;const button=$("invite-accept"),status=$("invite-status");button.disabled=true;status.textContent="Validating and accepting invitation…";
  try{await api("/invitations/accept",{method:"POST",body:JSON.stringify({token:pendingInviteToken,relationship:$("invite-relationship").value})});pendingInviteToken=null;window.history.replaceState({},"", consoleBase+"/families");$("invite-screen").hidden=true;await showConsole();setStatus("Family invitation accepted","ok")}catch(e){status.textContent=e.message;button.disabled=false}
 });
-on("toggle-archived","click",async()=>{state.showArchived=!state.showArchived;try{await loadConversations()}catch(e){setStatus(e.message,"error")}});
+on("show-archived","change",async e=>{state.showArchived=e.target.checked;try{await loadConversations()}catch(e){setStatus(e.message,"error")}});\non("conversation-search","input",e=>{state.conversationSearch=e.target.value;renderConversations()});
 on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFamilies()]);if(state.managedFamilyId)await loadFamilyDetails(state.managedFamilyId)}catch(e){setStatus(e.message,"error")}});
 on("logout","click",async()=>{
  try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];state.notes=[];state.selectedNote=null;state.tasks=[];state.selectedTask=null;if(page==="conversations")renderConversations();if(page==="notes")renderNotes();if(page==="tasks")renderTasks();await showLogin()}
