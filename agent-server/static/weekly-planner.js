@@ -90,18 +90,10 @@ function openEditor(date,meal,assignment){
  $("remove-assignment").hidden=!assignment;
  $("assignment-editor").showModal();
 }
-async function ensureDraft(week){
- let plan=state.plans.get(week);
- if(!plan){
-  plan=await api("/meal-planner/plans/"+week+"?family_id="+encodeURIComponent(state.familyId),{method:"POST",body:JSON.stringify({assignments:[]})});
-  state.plans.set(week,plan);
- }
- return plan;
-}
 async function persistAssignment(remove=false){
  const week=state.editingWeek;
  try{
-  const plan=await ensureDraft(week);
+  const plan=state.plans.get(week)||{assignments:[]};
   let assignments=plan.assignments.filter(a=>a.id!==state.editingId);
   if(!remove){
    const date=$("assignment-date").value,meal=$("assignment-meal").value;
