@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { entries: [], selected: null, loadRequest: 0, showWeekends: true };
+const state = { entries: [], selected: null, loadRequest: 0, showWeekends: true, familyId: "" };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -200,7 +200,7 @@ async function save(event) {
 
   button.disabled = true;
   try {
-    await api("/meal-planner/school-menus/" + date, {
+    await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), {
       method: "PUT",
       body: JSON.stringify({ date, status, items }),
     });
@@ -221,7 +221,7 @@ async function remove() {
   const button = $("delete-menu");
   button.disabled = true;
   try {
-    await api("/meal-planner/school-menus/" + date, { method: "DELETE" });
+    await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), { method: "DELETE" });
     state.selected = null;
     await loadMonth();
     appendMenuLog("Menu deleted for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
@@ -242,7 +242,13 @@ async function loadMonth() {
   $("menu-content").innerHTML = '<p class="empty">Loading school menus…</p>';
 
   try {
-    const entries = await api("/meal-planner/school-menus/?from=" +
+    if (!state.familyId) {
+      state.entries = [];
+      $("menu-content").innerHTML = '<p class="empty">Create or join a family to manage school menus. <a href="/console/families">Manage families</a>.</p>';
+      $("connection").textContent = "No family selected";
+      return;
+    }
+    const entries = await api("/meal-planner/school-menus/?family_id=" + encodeURIComponent(state.familyId) + "&from=" +
       dateString(start) + "&to=" + dateString(end));
     if (request !== state.loadRequest) return;
     state.entries = entries;
@@ -296,9 +302,13 @@ try {
 }
 $("show-weekends").checked = state.showWeekends;
 
+window.addEventListener("eme:family-changed", () => { state.familyId = window.emeMealsFamily.currentFamilyId(); state.selected = null; loadMonth(); });
+
 (async () => {
   try {
     await window.emeConsoleReady;
+    await window.emeMealsFamily.init();
+    state.familyId = window.emeMealsFamily.currentFamilyId();
     $("month-date").value = monthString(new Date());
     await loadMonth();
   } catch (error) {

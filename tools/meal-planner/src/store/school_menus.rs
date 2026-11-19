@@ -18,7 +18,7 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        c.execute("INSERT INTO school_menus(date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES(?1,?2,?3,NULL,NULL,'manual',?4,?4) ON CONFLICT(date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=NULL,imported_at=NULL,origin='manual',updated_at=excluded.updated_at",params![draft.date.to_string(),draft.status.as_str(),payload,now])?;
+        c.execute("INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES('legacy',?1,?2,?3,NULL,NULL,'manual',?4,?4) ON CONFLICT(family_id,date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=NULL,imported_at=NULL,origin='manual',updated_at=excluded.updated_at",params![draft.date.to_string(),draft.status.as_str(),payload,now])?;
         load(&c, draft.date)?.ok_or(MealPlannerError::NotFound)
     }
     pub fn import_school_menus(
@@ -57,7 +57,7 @@ impl MealPlannerStore {
         for d in valid {
             let old: Option<String> = tx
                 .query_row(
-                    "SELECT origin FROM school_menus WHERE date=?1",
+                    "SELECT origin FROM school_menus WHERE family_id='legacy' AND date=?1",
                     [d.date.to_string()],
                     |r| r.get(0),
                 )
@@ -67,7 +67,7 @@ impl MealPlannerStore {
                 continue;
             }
             let payload = serde_json::to_string(&d)?;
-            tx.execute("INSERT INTO school_menus(date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,'import',?5,?5) ON CONFLICT(date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=excluded.source,imported_at=excluded.imported_at,origin='import',updated_at=excluded.updated_at",params![d.date.to_string(),d.status.as_str(),payload,source,now])?;
+            tx.execute("INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at) VALUES('legacy',?1,?2,?3,?4,?5,'import',?5,?5) ON CONFLICT(family_id,date) DO UPDATE SET status=excluded.status,payload=excluded.payload,source=excluded.source,imported_at=excluded.imported_at,origin='import',updated_at=excluded.updated_at",params![d.date.to_string(),d.status.as_str(),payload,source,now])?;
             if old.is_some() {
                 report.updated += 1
             } else {
@@ -101,7 +101,7 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        let mut s=c.prepare("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE date>=?1 AND date<=?2 ORDER BY date")?;
+        let mut s=c.prepare("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE family_id='legacy' AND date>=?1 AND date<=?2 ORDER BY date")?;
         s.query_map(params![from.to_string(), to.to_string()], map_entry)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
@@ -111,17 +111,180 @@ impl MealPlannerStore {
             .connection
             .lock()
             .map_err(|_| MealPlannerError::LockPoisoned)?;
-        if c.execute("DELETE FROM school_menus WHERE date=?1", [date.to_string()])? == 0 {
+        if c.execute(
+            "DELETE FROM school_menus WHERE family_id='legacy' AND date=?1",
+            [date.to_string()],
+        )? == 0
+        {
             return Err(MealPlannerError::NotFound);
         }
         Ok(())
     }
+
+    pub fn save_school_menu_for_family(
+        &self,
+        family_id: &str,
+        draft: SchoolMenuDraft,
+    ) -> Result<SchoolMenuEntry, MealPlannerError> {
+        let draft = draft.validate().map_err(MealPlannerError::InvalidInput)?;
+        let payload = serde_json::to_string(&draft)?;
+        let now = timestamp();
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        connection.execute(
+            "INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at)
+             VALUES(?1,?2,?3,?4,NULL,NULL,'manual',?5,?5)
+             ON CONFLICT(family_id,date) DO UPDATE SET status=excluded.status,payload=excluded.payload,
+             source=NULL,imported_at=NULL,origin='manual',updated_at=excluded.updated_at",
+            params![family_id, draft.date.to_string(), draft.status.as_str(), payload, now],
+        )?;
+        load_for_family(&connection, family_id, draft.date)?.ok_or(MealPlannerError::NotFound)
+    }
+
+    pub fn get_school_menu_for_family(
+        &self,
+        family_id: &str,
+        date: NaiveDate,
+    ) -> Result<Option<SchoolMenuEntry>, MealPlannerError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        load_for_family(&connection, family_id, date)
+    }
+
+    pub fn list_school_menus_for_family(
+        &self,
+        family_id: &str,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<SchoolMenuEntry>, MealPlannerError> {
+        if to < from {
+            return Err(MealPlannerError::InvalidInput(
+                "school menu range ends before it starts".into(),
+            ));
+        }
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        let mut statement = connection.prepare(
+            "SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at
+             FROM school_menus WHERE family_id=?1 AND date>=?2 AND date<=?3 ORDER BY date",
+        )?;
+        statement
+            .query_map(
+                params![family_id, from.to_string(), to.to_string()],
+                map_entry,
+            )?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(Into::into)
+    }
+
+    pub fn delete_school_menu_for_family(
+        &self,
+        family_id: &str,
+        date: NaiveDate,
+    ) -> Result<(), MealPlannerError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        if connection.execute(
+            "DELETE FROM school_menus WHERE family_id=?1 AND date=?2",
+            params![family_id, date.to_string()],
+        )? == 0
+        {
+            return Err(MealPlannerError::NotFound);
+        }
+        Ok(())
+    }
+
+    pub fn import_school_menus_for_family(
+        &self,
+        family_id: &str,
+        source: &str,
+        drafts: Vec<SchoolMenuDraft>,
+    ) -> Result<SchoolMenuImportReport, MealPlannerError> {
+        let source = source.trim();
+        if source.is_empty() {
+            return Err(MealPlannerError::InvalidInput(
+                "import source must not be empty".into(),
+            ));
+        }
+        let mut valid = Vec::new();
+        let mut dates = std::collections::HashSet::new();
+        for draft in drafts {
+            let draft = draft.validate().map_err(MealPlannerError::InvalidInput)?;
+            if !dates.insert(draft.date) {
+                return Err(MealPlannerError::InvalidInput(
+                    "an import batch contains duplicate dates".into(),
+                ));
+            }
+            valid.push(draft);
+        }
+        let now = timestamp();
+        let mut connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        let transaction = connection.transaction()?;
+        let mut report = SchoolMenuImportReport {
+            inserted: 0,
+            updated: 0,
+            skipped_manual: 0,
+        };
+        for draft in valid {
+            let old: Option<String> = transaction
+                .query_row(
+                    "SELECT origin FROM school_menus WHERE family_id=?1 AND date=?2",
+                    params![family_id, draft.date.to_string()],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if old.as_deref() == Some("manual") {
+                report.skipped_manual += 1;
+                continue;
+            }
+            let payload = serde_json::to_string(&draft)?;
+            transaction.execute(
+                "INSERT INTO school_menus(family_id,date,status,payload,source,imported_at,origin,created_at,updated_at)
+                 VALUES(?1,?2,?3,?4,?5,?6,'import',?6,?6)
+                 ON CONFLICT(family_id,date) DO UPDATE SET status=excluded.status,payload=excluded.payload,
+                 source=excluded.source,imported_at=excluded.imported_at,origin='import',updated_at=excluded.updated_at",
+                params![family_id, draft.date.to_string(), draft.status.as_str(), payload, source, now],
+            )?;
+            if old.is_some() {
+                report.updated += 1
+            } else {
+                report.inserted += 1
+            }
+        }
+        transaction.commit()?;
+        Ok(report)
+    }
+}
+fn load_for_family(
+    connection: &rusqlite::Connection,
+    family_id: &str,
+    date: NaiveDate,
+) -> Result<Option<SchoolMenuEntry>, MealPlannerError> {
+    Ok(connection
+        .query_row(
+            "SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at
+         FROM school_menus WHERE family_id=?1 AND date=?2",
+            params![family_id, date.to_string()],
+            map_entry,
+        )
+        .optional()?)
 }
 fn load(
     c: &rusqlite::Connection,
     date: NaiveDate,
 ) -> Result<Option<SchoolMenuEntry>, MealPlannerError> {
-    Ok(c.query_row("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE date=?1",[date.to_string()],map_entry).optional()?)
+    Ok(c.query_row("SELECT id,date,status,payload,source,imported_at,origin,created_at,updated_at FROM school_menus WHERE family_id='legacy' AND date=?1",[date.to_string()],map_entry).optional()?)
 }
 fn map_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<SchoolMenuEntry> {
     let date = NaiveDate::parse_from_str(&r.get::<_, String>(1)?, "%Y-%m-%d").map_err(|e| {
