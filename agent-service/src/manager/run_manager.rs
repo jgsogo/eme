@@ -10,8 +10,8 @@ use agent_storage::{
     ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus,
 };
 use chrono::{DateTime, Utc};
-use std::{collections::HashMap, str::FromStr, sync::Arc, time::SystemTime};
-use tokio::sync::{Mutex, RwLock, mpsc};
+use std::{collections::HashMap, str::FromStr, sync::{Arc, RwLock}, time::SystemTime};
+use tokio::sync::{Mutex, mpsc};
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -71,7 +71,7 @@ impl RunManager {
                         )
                     };
 
-                    if let Some(storage) = persistence.read().await.clone() {
+                    if let Some(storage) = current_storage(&persistence) {
                         if let Err(storage_error) = persist_snapshot_and_event(
                             storage.as_ref(), &run, &RunEvent {
                                 sequence: 1,
@@ -192,10 +192,8 @@ impl RunManager {
         // Workers share this slot, so attaching storage immediately after
         // construction is safe before the manager is handed to request handlers.
         // No work should be submitted before this builder is called.
-        let slot = self.persistence.clone();
-        if let Ok(mut guard) = slot.try_write() {
-            *guard = Some(storage);
-        }
+        let mut guard = self.persistence.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+        *guard = Some(storage);
         self
     }
 
@@ -218,7 +216,7 @@ impl RunManager {
         run.conversation_id = conversation_id;
         context.run_id = Some(run_id.as_uuid());
 
-        let storage = self.persistence.read().await.clone();
+        let storage = current_storage(&self.persistence);
         let mut persisted_message_count = None;
         if let Some(storage) = storage {
             if let Some(conversation_id) = conversation_id {
@@ -360,6 +358,10 @@ impl RunManager {
             messages.into_iter().map(|message| message.message).collect()
         })
     }
+}
+
+fn current_storage(slot: &RwLock<Option<Arc<dyn ExecutionStore>>>) -> Option<Arc<dyn ExecutionStore>> {
+    slot.read().unwrap_or_else(|poisoned| poisoned.into_inner()).clone()
 }
 
 fn queued_event() -> RunEvent {
