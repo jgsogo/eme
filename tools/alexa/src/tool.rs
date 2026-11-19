@@ -27,7 +27,7 @@ impl Tool for AlexaSpeak {
             .and_then(Value::as_str)
             .filter(|text| !text.trim().is_empty())
             .ok_or_else(|| ToolError::InvalidArguments {
-                tool_name: "alexa_speak".into(),
+                tool_name: "alexa.speak".into(),
                 errors: vec!["Missing or invalid 'text' argument".into()],
             })?;
 
@@ -35,7 +35,7 @@ impl Tool for AlexaSpeak {
         if let Some(uri) = chime {
             if !valid_chime(uri) {
                 return Err(ToolError::InvalidArguments {
-                    tool_name: "alexa_speak".into(),
+                    tool_name: "alexa.speak".into(),
                     errors: vec![
                         "'chime' must be 'none' or a soundbank://soundlibrary/ URI containing only letters, numbers, '/', '_' or '-'".into(),
                     ],
@@ -78,6 +78,6 @@ mod tests {
     fn rejects_invalid_chime_values() {
         assert!(!valid_chime("https://example.com/sound.mp3"));
         assert!(!valid_chime("soundbank://soundlibrary/"));
-        assert!(!valid_chime("soundbank://soundlibrary/foo\"/><speak>"));
+        assert!(!valid_chime("soundbank://soundlibrary/foo\\"/><speak>"));
     }
 }

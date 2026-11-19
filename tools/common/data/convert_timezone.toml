@@ -1,4 +1,4 @@
-name="convert_timezone"
+name="common.convert_timezone"
 description="Convert an RFC 3339 or local datetime between IANA timezones."
 [parameters]
 type="object"

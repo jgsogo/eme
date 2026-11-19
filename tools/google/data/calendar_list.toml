@@ -1,4 +1,4 @@
-name = "google_list_calendars"
+name = "google.list_calendars"
 description = "List the Google calendars the authenticated EME user can currently read, including calendars shared with the selected family. Each calendar includes access (the user's EME relationship) and permissions (effective read/write capabilities). Treat permissions.write as authoritative: ownership does not imply write access; it is false when either EME settings or the Google OAuth grant is read-only."
 
 [parameters]

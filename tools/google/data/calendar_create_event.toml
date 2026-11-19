@@ -1,4 +1,4 @@
-name = "google_calendar_create_event"
+name = "google.create_event"
 description = "Create an event in a connected Google Calendar when the authenticated EME user has write access."
 [parameters]
 type = "object"
@@ -7,7 +7,7 @@ required = ["calendar_id", "summary", "start", "end"]
 [parameters.properties.calendar_id]
 type = "string"
 minLength = 1
-description = "Internal EME connected-calendar ID returned by google_list_calendars."
+description = "Internal EME connected-calendar ID returned by google.list_calendars."
 [parameters.properties.summary]
 type = "string"
 minLength = 1

@@ -1,4 +1,4 @@
-name = "task_remove"
+name = "tasks.remove"
 description = "Remove one of the authenticated user's tasks by its UUID. Tasks belonging to other users cannot be removed."
 
 [parameters]
@@ -9,4 +9,4 @@ required = ["id"]
 [parameters.properties.id]
 type = "string"
 format = "uuid"
-description = "UUID returned by task_list or task_add."
+description = "UUID returned by tasks.list or tasks.add."

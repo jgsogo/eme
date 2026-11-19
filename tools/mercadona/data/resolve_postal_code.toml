@@ -1,4 +1,4 @@
-name = "mercadona_resolve_postal_code"
+name = "mercadona.resolve_postal_code"
 description = "Resolve a Spanish postal code to the Mercadona online-shop warehouse serving that area. Does not modify a customer account or delivery address."
 [parameters]
 type = "object"
@@ -9,4 +9,3 @@ additionalProperties = false
 type = "string"
 pattern = "^[0-9]{5}$"
 description = "Five-digit Spanish postal code."
-

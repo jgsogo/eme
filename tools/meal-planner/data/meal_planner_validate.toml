@@ -1,4 +1,4 @@
-name = "meal_planner_validate"
+name = "meal_planner.validate"
 description = "Validate a candidate weekly meal plan against household members, recipes, school-menu records and deterministic plan constraints. This tool never saves or confirms the plan."
 
 [parameters]

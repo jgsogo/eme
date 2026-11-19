@@ -10,7 +10,7 @@ use url::Url;
 
 const API_BASE_URL: &str = "https://api.fxtwitter.com";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
-const TOOL_NAME: &str = "get_tweet";
+const TOOL_NAME: &str = "common.get_tweet";
 
 /// Retrieve a tweet/post by URL. The API host is fixed; the supplied URL is
 /// parsed locally and is never fetched, preventing arbitrary URL requests.
@@ -117,8 +117,7 @@ fn error_detail(body: &str) -> String {
 
     if detail.is_empty() {
         "empty response body".into()
-    } else {
-        detail
+    } else {        detail
     }
 }
 

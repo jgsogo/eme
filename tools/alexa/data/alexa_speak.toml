@@ -1,4 +1,4 @@
-name = "alexa_speak"
+name = "alexa.speak"
 description = """Send a text message to an Alexa device, optionally preceded by an Alexa sound effect.
 
 The optional chime argument accepts any soundbank URI from the Alexa Skills Kit Sound Library; it is not restricted to a predefined list.

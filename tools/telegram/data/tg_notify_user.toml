@@ -1,4 +1,4 @@
-name = "tg_notify_user"
+name = "telegram.notify_user"
 description = "Send a one-way Telegram notification to the conversation owner or a selected family member. Does not wait for a reply."
 
 [parameters]

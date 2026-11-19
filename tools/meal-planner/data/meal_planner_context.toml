@@ -1,4 +1,4 @@
-name = "meal_planner_context"
+name = "meal_planner.get_context"
 description = "Retrieve the authenticated household's planning context for a week: members, resolved participation rules, recipes, school menus and the latest saved plan."
 
 [parameters]

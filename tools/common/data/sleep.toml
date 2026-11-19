@@ -1,4 +1,4 @@
-name = "sleep"
+name = "common.sleep"
 description = "Wait for a bounded number of seconds."
 
 [parameters]

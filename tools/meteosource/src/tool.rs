@@ -17,7 +17,7 @@ impl Tool for MeteosourceWeather {
             .and_then(Value::as_str)
             .filter(|location| !location.trim().is_empty())
             .ok_or_else(|| ToolError::InvalidArguments {
-                tool_name: "meteosource".into(),
+                tool_name: "meteosource.get_weather".into(),
                 errors: vec!["Missing or invalid 'location' argument".into()],
             })?;
 

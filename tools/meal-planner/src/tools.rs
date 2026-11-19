@@ -179,11 +179,11 @@ mod tests {
         let mut registry = ToolRegistry::new();
         register_tools(&mut registry, MealPlannerStore::open_in_memory().unwrap()).unwrap();
         for name in [
-            "meal_planner_context",
-            "meal_planner_propose",
-            "meal_planner_validate",
-            "meal_planner_save_draft",
-            "meal_planner_confirm",
+            "meal_planner.get_context",
+            "meal_planner.propose",
+            "meal_planner.validate",
+            "meal_planner.save_draft",
+            "meal_planner.confirm",
         ] {
             assert!(registry.contains(name), "missing registered tool: {name}");
         }
