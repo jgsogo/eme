@@ -45,7 +45,7 @@ function renderMonth(){
    return '<section class="meal-calendar-slot"><div class="meal-calendar-slot-heading"><h3>'+title+'</h3>'+action+'</div>'+detail+'</section>';
   }).join("");
   const plan=planFor(date);
-  cells.push('<article class="school-menu-day meal-planner-day"><header><strong>'+parseDate(date).getDate()+'</strong><span>'+esc(labelDate(date,{weekday:"short"}))+'</span></header><div class="meal-day-slots">'+slots+'</div><section class="meal-school-menu"><h3>School menu</h3>'+renderSchoolMenu(date)+'</section>'+'</article>');
+  cells.push('<article class="school-menu-day meal-planner-day"><header class="school-menu-day-heading"><strong>'+parseDate(date).getDate()+'</strong><span>'+esc(labelDate(date,{weekday:"short"}))+'</span></header><div class="meal-day-slots">'+slots+'</div><section class="meal-school-menu"><h3>School menu</h3>'+renderSchoolMenu(date)+'</section>'+'</article>');
  }
  const calendar=$("planner-month-view");calendar.classList.toggle("weekdays-only",!state.showWeekends);
  calendar.innerHTML='<div class="school-menu-calendar-weekdays">'+["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].slice(0,state.showWeekends?7:5).map(d=>'<span>'+d+'</span>').join("")+'</div><div class="school-menu-month">'+cells.join("")+'</div>';

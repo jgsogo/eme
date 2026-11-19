@@ -98,10 +98,13 @@ function renderMonthView() {
         : "";
     cells.push(
       '<article class="school-menu-day' + (hasMenu ? ' has-entry' : '') + statusClass + '">' +
-      '<header><strong>' + day + '</strong><span>' + esc(formatDay(date, { weekday: "short" })) + '</span></header>' +
-      '<div class="school-menu-day-content">' + content + '</div>' +
-      '<button type="button" class="secondary" data-edit-date="' + date + '">' +
-      (hasMenu ? "Edit" : "Add") + '</button></article>'
+      '<header class="school-menu-day-heading"><strong>' + day + '</strong><span>' + esc(formatDay(date, { weekday: "short" })) + '</span></header>' +
+      '<section class="meal-calendar-slot school-menu-lunch-slot">' +
+      '<div class="meal-calendar-slot-heading"><h3>Lunch</h3>' +
+      '<button type="button" class="text-button" data-edit-date="' + date + '">' +
+      (hasMenu ? "Edit" : "＋ Add") + '</button></div>' +
+      '<div class="meal-slot-details school-menu-lunch-details">' + content + '</div>' +
+      '</section></article>'
     );
   }
   const calendar = $("menu-month-view");
