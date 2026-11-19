@@ -31,7 +31,7 @@ function renderMessages(messages=[],pending=null){
   if(kind==="user"){
    rendered.push('<article class="message user"><div class="role">You</div>'+escapeHtml(value.content)+'</article>');
   }else if(kind==="assistant"){
-   if(value.content||(value.tool_calls||[]).length){
+   if(value.content||(value.tool_calls||[]).length||value.model_id||value.generated_at){
     const generatedAt=value.generated_at?new Date(value.generated_at):null;
     const timestamp=generatedAt&&!Number.isNaN(generatedAt.getTime())?generatedAt.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}):null;
     const metadata=[value.model_id,timestamp].filter(Boolean).map(escapeHtml).join(" · ");
