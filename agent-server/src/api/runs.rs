@@ -136,7 +136,7 @@ async fn submit_run(
 async fn get_run(
     request: HttpRequest,
     auth: Option<Data<crate::auth::TelegramAuth>>,
-    store: Data<Arc<SqliteConversationStore>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
     manager: Data<RunManager>,
     run_id: Path<String>,
 ) -> impl Responder {
@@ -161,7 +161,7 @@ async fn get_run(
 async fn get_run_events(
     request: HttpRequest,
     auth: Option<Data<crate::auth::TelegramAuth>>,
-    store: Data<Arc<SqliteConversationStore>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
     manager: Data<RunManager>,
     run_id: Path<String>,
 ) -> impl Responder {
@@ -171,7 +171,7 @@ async fn get_run_events(
     };
 
     let Some(run) = manager.get(run_id).await else { return HttpResponse::NotFound().finish(); };
-    if !owns_run(&run, &request, auth.as_deref(), store.as_ref()) {
+    if !owns_run(&run, &request, auth.as_deref(), store.as_ref().map(|store| store.get_ref().as_ref())) {
         return HttpResponse::NotFound().finish();
     }
     match manager.events(run_id).await {
@@ -189,7 +189,7 @@ async fn get_run_events(
 async fn cancel_run(
     request: HttpRequest,
     auth: Option<Data<crate::auth::TelegramAuth>>,
-    store: Data<Arc<SqliteConversationStore>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
     manager: Data<RunManager>,
     run_id: Path<String>,
 ) -> impl Responder {
@@ -199,7 +199,7 @@ async fn cancel_run(
     };
 
     let Some(run) = manager.get(run_id).await else { return HttpResponse::NotFound().finish(); };
-    if !owns_run(&run, &request, auth.as_deref(), store.as_ref()) {
+    if !owns_run(&run, &request, auth.as_deref(), store.as_ref().map(|store| store.get_ref().as_ref())) {
         return HttpResponse::NotFound().finish();
     }
     match manager.cancel(run_id).await {
