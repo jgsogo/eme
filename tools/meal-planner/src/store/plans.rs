@@ -1,7 +1,7 @@
 //! SQLite persistence for weekly plans and immutable confirmed revisions.
 use crate::{
     MealPlannerError, MealPlannerStore,
-    domain::{MealArrangement, ParticipationStatus},
+    domain::ParticipationStatus,
     plans::{MealAssignment, PlanParticipant, WeeklyPlan, WeeklyPlanDraft, WeeklyPlanStatus},
 };
 use chrono::{Datelike, NaiveDate, Utc, Weekday};
@@ -16,10 +16,10 @@ impl MealPlannerStore {
         let resolved = self.resolve_meal_week_for_family(family_id, week_start)?;
         let mut assignments: Vec<MealAssignment> = Vec::new();
         for participation in resolved {
-            let arrangement = match participation.status {
+            match participation.status {
                 ParticipationStatus::Unconfigured => continue,
-                ParticipationStatus::Configured { arrangement, .. } => arrangement,
-            };
+                ParticipationStatus::Configured { .. } => {}
+            }
             let participant = PlanParticipant {
                 member_id: participation.member.id,
                 name: participation.member.name,
@@ -27,7 +27,6 @@ impl MealPlannerStore {
             if let Some(assignment) = assignments.iter_mut().find(|item| {
                 item.date == participation.date
                     && item.meal_type == participation.meal_type
-                    && item.arrangement == arrangement
             }) {
                 assignment.participants.push(participant);
             } else {
@@ -37,11 +36,7 @@ impl MealPlannerStore {
                     date: participation.date,
                     meal_type: participation.meal_type,
                     participants: vec![participant],
-                    arrangement,
                     recipe_ids: vec![],
-                    school_menu_date: (arrangement == MealArrangement::School)
-                        .then_some(participation.date),
-                    notes: None,
                 });
             }
         }
@@ -230,14 +225,13 @@ impl MealPlannerStore {
         let resolved = self.resolve_meal_week(week_start)?;
         let mut assignments: Vec<MealAssignment> = Vec::new();
         for participation in resolved {
-            let arrangement = match participation.status {
+            match participation.status {
                 ParticipationStatus::Unconfigured => continue,
-                ParticipationStatus::Configured { arrangement, .. } => arrangement,
-            };
+                ParticipationStatus::Configured { .. } => {}
+            }
             let assignment = assignments.iter_mut().find(|item| {
                 item.date == participation.date
                     && item.meal_type == participation.meal_type
-                    && item.arrangement == arrangement
             });
             let participant = PlanParticipant {
                 member_id: participation.member.id,
@@ -252,11 +246,7 @@ impl MealPlannerStore {
                     date: participation.date,
                     meal_type: participation.meal_type,
                     participants: vec![participant],
-                    arrangement,
                     recipe_ids: vec![],
-                    school_menu_date: (arrangement == MealArrangement::School)
-                        .then_some(participation.date),
-                    notes: None,
                 });
             }
         }

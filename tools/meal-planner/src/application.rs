@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     FamilyMember, MealArrangement, MealPlannerError, MealPlannerStore, MealType, Recipe,
-    SchoolMenuEntry, SchoolMenuStatus, WeeklyPlan, WeeklyPlanDraft, WeeklyPlanStatus,
+    SchoolMenuEntry, WeeklyPlan, WeeklyPlanDraft, WeeklyPlanStatus,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -168,21 +168,11 @@ impl MealPlannerApplication {
         let family_id = families.first().map(String::as_str).unwrap_or("legacy");
         let members = self.store.list_family_members_for_family(family_id)?;
         let recipes = self.store.list_recipes(owner_id, families, None)?;
-        let menus = match week_start.checked_add_days(Days::new(6)) {
-            Some(end) => self
-                .store
-                .list_school_menus_for_family(family_id, week_start, end)?,
-            None => Vec::new(),
-        };
         let member_by_id = members
             .iter()
             .map(|item| (item.id, item))
             .collect::<HashMap<_, _>>();
         let recipe_ids = recipes.iter().map(|item| item.id).collect::<HashSet<_>>();
-        let menu_by_date = menus
-            .iter()
-            .map(|item| (item.draft.date, item))
-            .collect::<HashMap<_, _>>();
         let mut issues = Vec::new();
         let mut assignment_ids = HashSet::new();
 
@@ -279,60 +269,6 @@ impl MealPlannerApplication {
                         None,
                     )),
                     _ => {}
-                }
-            }
-            match assignment.arrangement {
-                MealArrangement::Home => {
-                    if assignment.school_menu_date.is_some() {
-                        issues.push(issue(
-                            "home_without_school_menu",
-                            ValidationSeverity::Error,
-                            "Home-prepared assignments cannot reference a school menu.",
-                            date,
-                            meal,
-                            id,
-                            None,
-                            None,
-                        ));
-                    }
-                }
-                MealArrangement::School => {
-                    if !assignment.recipe_ids.is_empty() {
-                        issues.push(issue(
-                            "school_without_recipe",
-                            ValidationSeverity::Error,
-                            "School assignments cannot reference a family recipe.",
-                            date,
-                            meal,
-                            id,
-                            None,
-                            assignment.recipe_ids.first().copied(),
-                        ));
-                    }
-                    if assignment.school_menu_date != Some(assignment.date) {
-                        issues.push(issue(
-                            "school_menu_matches_date",
-                            ValidationSeverity::Error,
-                            "A school assignment must reference the menu for its own date.",
-                            date,
-                            meal,
-                            id,
-                            None,
-                            None,
-                        ));
-                    } else {
-                        match menu_by_date.get(&assignment.date) {
-                            None => issues.push(issue("school_menu_recorded", ValidationSeverity::Warning, "No school menu is recorded for this date; this is not evidence that the school is closed.", date, meal, id, None, None)),
-                            Some(menu) if menu.draft.status == SchoolMenuStatus::Closed => issues.push(issue("school_menu_not_closed", ValidationSeverity::Error, "The recorded school menu says the school is closed on this date.", date, meal, id, None, None)),
-                            Some(menu) if menu.draft.status != SchoolMenuStatus::Known => issues.push(issue("school_menu_known", ValidationSeverity::Warning, "The school menu is not published or its status is unknown.", date, meal, id, None, None)),
-                            _ => {}
-                        }
-                    }
-                }
-                MealArrangement::Away | MealArrangement::NotParticipating => {
-                    if !assignment.recipe_ids.is_empty() || assignment.school_menu_date.is_some() {
-                        issues.push(issue("away_without_references", ValidationSeverity::Error, "Away and not-participating assignments cannot reference recipes or school menus.", date, meal, id, None, assignment.recipe_ids.first().copied()));
-                    }
                 }
             }
             for recipe_id in &assignment.recipe_ids {
@@ -459,10 +395,7 @@ mod tests {
                     member_id,
                     name: "Alex".into(),
                 }],
-                arrangement: MealArrangement::Home,
                 recipe_ids: vec![],
-                school_menu_date: None,
-                notes: None,
             }],
         }
     }
@@ -486,7 +419,6 @@ mod tests {
         let store = MealPlannerStore::open_in_memory().unwrap();
         let app = MealPlannerApplication::new(store);
         let mut proposal = draft(999);
-        proposal.assignments[0].arrangement = MealArrangement::School;
         proposal.assignments[0].recipe_ids = vec![123];
         let result = app.validate("user-1", &[], monday(), &proposal).unwrap();
         assert!(!result.valid);
@@ -497,18 +429,6 @@ mod tests {
                 .any(|item| item.constraint == "participant_exists"
                     && item.assignment_id == Some(1)
                     && item.date == Some(monday()))
-        );
-        assert!(
-            result
-                .issues
-                .iter()
-                .any(|item| item.constraint == "school_without_recipe")
-        );
-        assert!(
-            result
-                .issues
-                .iter()
-                .any(|item| item.constraint == "school_menu_matches_date")
         );
         assert!(
             result
@@ -553,14 +473,11 @@ mod tests {
         let confirmed = app.confirm_saved_draft("user-1", &[], monday()).unwrap();
         assert_eq!(confirmed.revision, first.revision);
         let mut revised = draft(member.id);
-        revised.assignments[0].notes = Some("Updated after approval".into());
+        revised.assignments[0].recipe_ids = vec![42];
         let saved = app.save_draft("user-1", &[], monday(), revised).unwrap();
         assert_eq!(saved.revision, first.revision + 1);
         assert_eq!(saved.status, WeeklyPlanStatus::Draft);
-        assert_eq!(
-            saved.assignments[0].notes.as_deref(),
-            Some("Updated after approval")
-        );
+        assert_eq!(saved.assignments[0].recipe_ids, vec![42]);
         let revisions = store.list_weekly_plan_revisions(monday()).unwrap();
         assert_eq!(revisions.len(), 2);
         assert_eq!(revisions[1].status, WeeklyPlanStatus::Confirmed);
