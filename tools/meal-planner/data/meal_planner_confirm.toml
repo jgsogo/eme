@@ -1,4 +1,4 @@
-name = "meal_planner.confirm"
+name = "meals.planner.confirm"
 description = "Explicitly confirm the already-saved latest draft for a week. Revalidates it first. Confirmation is a separate operation and makes that plan revision immutable."
 
 [parameters]
