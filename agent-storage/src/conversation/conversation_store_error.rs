@@ -10,6 +10,8 @@ pub enum ConversationStoreError {
     Io(#[from] io::Error),
     #[error("conversation serialization failed: {0}")]
     Serialization(#[from] serde_json::Error),
+    #[error("conversation database operation failed: {0}")]
+    Sqlite(String),
     #[error("conversation {0} was not found")]
     NotFound(ConversationId),
     #[error("conversation {conversation_id} does not belong to owner '{owner}'")]
