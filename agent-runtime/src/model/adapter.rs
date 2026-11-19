@@ -50,6 +50,7 @@ impl AgentModel for ModelAdapter {
                     crate::Message::Assistant {
                         content,
                         tool_calls,
+                        ..
                     } => ConversationMessage::Assistant {
                         content,
                         tool_calls: tool_calls
