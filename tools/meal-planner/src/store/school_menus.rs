@@ -125,6 +125,64 @@ fn map_entry(r: &rusqlite::Row<'_>) -> rusqlite::Result<SchoolMenuEntry> {
         updated_at: r.get(5)?,
     })
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::SchoolMenuItem;
+
+    #[test]
+    fn closing_existing_school_menu_replaces_it_with_an_empty_closed_record() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let date = NaiveDate::from_ymd_opt(2026, 11, 2).unwrap();
+
+        store
+            .save_school_menu_for_family(
+                "family",
+                SchoolMenuDraft {
+                    date,
+                    status: SchoolMenuStatus::Known,
+                    items: vec![SchoolMenuItem {
+                        name: "Soup".into(),
+                        notes: None,
+                        allergens: None,
+                        dietary_alternatives: vec![],
+                    }],
+                    notes: None,
+                },
+            )
+            .unwrap();
+
+        let closed = store
+            .save_school_menu_for_family(
+                "family",
+                SchoolMenuDraft {
+                    date,
+                    status: SchoolMenuStatus::Closed,
+                    items: vec![SchoolMenuItem {
+                        name: "Festivo / Sin servicio de comedor".into(),
+                        notes: None,
+                        allergens: None,
+                        dietary_alternatives: vec![],
+                    }],
+                    notes: Some("Festivo".into()),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(closed.draft.status, SchoolMenuStatus::Closed);
+        assert!(closed.draft.items.is_empty());
+        assert_eq!(closed.draft.notes.as_deref(), Some("Festivo"));
+        assert_eq!(
+            store
+                .get_school_menu_for_family("family", date)
+                .unwrap()
+                .unwrap()
+                .draft
+                .items,
+            vec![]
+        );
+    }
+}
 fn timestamp() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
