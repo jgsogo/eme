@@ -117,8 +117,6 @@ async function loadMonth(){
  try{
   state.familyId=window.emeMealsFamily.currentFamilyId();
   if(!state.familyId){state.members=[];state.recipes=[];state.menus=[];state.participation=[];state.failedWeeks.clear();state.plans.clear();$("planner-month-view").innerHTML='<p class="empty">Create or join a family to plan meals. <a href="/console/families">Manage families</a>.</p>';return}
-  const members=await api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId));
-  if(request!==state.request)return;state.members=members;
   const first=monthStart(state.month),last=new Date(first.getFullYear(),first.getMonth()+1,0,12);
   const from=mondayOf(first),to=mondayOf(last);
   const weekStarts=[];for(let d=from;d<=to;d=addDays(d,7))weekStarts.push(dateString(d));
@@ -131,6 +129,7 @@ async function loadMonth(){
   state.failedWeeks=new Set(results.flatMap((result,i)=>result.status==="rejected"?[weekStarts[i]]:[]));
   if(failed.length===results.length)throw failed[0].reason;
   const firstContext=contexts.find(Boolean);
+  state.members=(firstContext?.members||[]).filter(member=>member.active);
   state.recipes=firstContext?.recipes||[];
   state.plans.clear();
   state.participation=contexts.flatMap(context=>context?.participation||[]);
