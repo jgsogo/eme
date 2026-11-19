@@ -682,4 +682,31 @@ mod tests {
         assert_eq!(schema["properties"]["count"]["exclusiveMinimum"], 1);
         assert_eq!(schema["properties"]["count"]["exclusiveMaximum"], 10);
     }
+    #[test]
+    fn converts_nullable_json_schema_types_to_gemini_schema() {
+        let schema = serde_json::json!({
+            "type": "object",
+            "properties": {
+                "effective_from": { "type": ["string", "null"], "format": "date" },
+                "effective_until": { "type": ["string", "null"], "format": "date" },
+                "required_name": { "type": "string" }
+            }
+        });
+
+        let normalized = normalize_gemini_schema(&schema);
+
+        for property in ["effective_from", "effective_until"] {
+            assert_eq!(normalized["properties"][property]["type"], "string");
+            assert_eq!(normalized["properties"][property]["nullable"], true);
+        }
+        assert_eq!(normalized["properties"]["required_name"]["type"], "string");
+        assert!(normalized["properties"]["required_name"].get("nullable").is_none());
+
+        // The source JSON Schema is not mutated.
+        assert_eq!(
+            schema["properties"]["effective_from"]["type"],
+            serde_json::json!(["string", "null"])
+        );
+    }
+
 }
