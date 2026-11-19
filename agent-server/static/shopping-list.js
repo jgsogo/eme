@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-const state={familyId:"",groups:[],loading:false};
+const state={familyId:"",groups:[],loading:false,originalQuantities:new Map()};
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let value=null;try{value=raw?JSON.parse(raw):null}catch{value=raw}if(!response.ok)throw new Error(typeof value==="string"&&value?value:response.statusText);return value}
 function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function parseDate(value){const [y,m,d]=value.split("-").map(Number);return new Date(y,m-1,d,12)}
