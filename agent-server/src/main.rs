@@ -18,7 +18,7 @@ use actix_web::{App, HttpServer, middleware, web};
 use agent_server::{LanInvitationConfig, auth::TelegramAuth};
 use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager};
 use agent_storage::{
-    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore, SqliteFamilyStore,
+    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore, SqliteExecutionStore, SqliteFamilyStore,
 };
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -136,10 +136,6 @@ async fn main() -> Result<()> {
         .map(|agent| agent.name.clone())
         .collect::<Vec<_>>();
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
-    let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
-        .context("configuring run manager")?;
-    let task_scheduler = TaskScheduler::start(task_registry.clone(), manager.clone());
-    info!("task scheduler started");
     let identity_store = Arc::new(
         FileUserIdentityStore::open(args.data_dir.join("users.json"))
             .context("opening persistent user identity storage")?,
@@ -150,6 +146,10 @@ async fn main() -> Result<()> {
     let conversation_store = Arc::new(
         SqliteConversationStore::open(&conversation_database)
             .context("opening SQLite conversation storage")?,
+    );
+    let execution_store = Arc::new(
+        SqliteExecutionStore::open(&conversation_database)
+            .context("opening SQLite execution history storage")?,
     );
     let import_report = conversation_store
         .import_legacy(args.data_dir.join("conversations"))
@@ -170,6 +170,12 @@ async fn main() -> Result<()> {
             import_report.invalid_active_entries.len()
         );
     }
+    let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
+        .context("configuring run manager")?
+        .with_storage(execution_store);
+    let task_scheduler = TaskScheduler::start(task_registry.clone(), manager.clone());
+    info!("task scheduler started");
+
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
         let updates = gateway.subscribe();
