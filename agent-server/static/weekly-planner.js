@@ -128,6 +128,13 @@ async function loadWeek(){
  $("assignment-editor").hidden=true;
  try{
   state.familyId=window.emeMealsFamily.currentFamilyId();
+  if(!state.familyId){
+   state.plan=null;state.shoppingList=null;
+   $("planner-grid").innerHTML='<p class="empty">Create or join a family to start planning meals. <a href="/console/families">Manage families</a>.</p>';
+   $("shopping-list-panel").hidden=true;
+   $("connection").textContent="No family selected";
+   return;
+  }
   const [members,recipes]=await Promise.all([api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId)),api("/meal-planner/recipes?family_id="+encodeURIComponent(state.familyId))]);
   state.members=members;state.recipes=recipes;
   const dates=weekDates();
