@@ -56,7 +56,7 @@ impl WeeklyPlanDraft {
             .checked_add_days(Days::new(6))
             .ok_or_else(|| "week_start is outside the supported date range".to_owned())?;
         let mut assignment_ids = Vec::new();
-            for assignment in &self.assignments {
+        for assignment in &self.assignments {
             if assignment.id <= 0 || assignment_ids.contains(&assignment.id) {
                 return Err("assignment IDs must be positive and unique within a plan".into());
             }

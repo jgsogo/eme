@@ -185,7 +185,6 @@ impl MealPlannerApplication {
             .collect::<HashMap<_, _>>();
         let mut issues = Vec::new();
         let mut assignment_ids = HashSet::new();
-        
 
         if week_start.weekday() != Weekday::Mon {
             issues.push(issue(
@@ -338,7 +337,16 @@ impl MealPlannerApplication {
             }
             for recipe_id in &assignment.recipe_ids {
                 if *recipe_id <= 0 || !recipe_ids.contains(recipe_id) {
-                    issues.push(issue("recipe_exists", ValidationSeverity::Error, "A referenced recipe does not exist.", date, meal, id, None, Some(*recipe_id)));
+                    issues.push(issue(
+                        "recipe_exists",
+                        ValidationSeverity::Error,
+                        "A referenced recipe does not exist.",
+                        date,
+                        meal,
+                        id,
+                        None,
+                        Some(*recipe_id),
+                    ));
                 }
             }
         }

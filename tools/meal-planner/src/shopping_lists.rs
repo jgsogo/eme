@@ -67,36 +67,36 @@ pub(super) fn generate_items(
             continue;
         }
         for recipe_id in &assignment.recipe_ids {
-        let recipe_id = *recipe_id;
-        let recipe = recipe_for(recipe_id)
-            .ok_or_else(|| format!("recipe {recipe_id} referenced by plan was not found"))?;
-        let factor = assignment.participants.len() as f64 / recipe.draft.servings as f64;
-        for ingredient in recipe.draft.ingredients {
-            let (unit, multiplier) = normalize_unit(ingredient.unit.as_deref());
-            let quantity = ingredient.amount.map(|amount| amount * factor * multiplier);
-            let key = (normalize_name(&ingredient.name), unit.clone());
-            let existing = unit.as_ref().and_then(|_| {
-                items
-                    .iter_mut()
-                    .find(|item| (normalize_name(&item.name), item.unit.clone()) == key)
-            });
-            if let Some(existing) = existing {
-                existing.quantity = match (existing.quantity, quantity) {
-                    (Some(left), Some(right)) => Some(left + right),
-                    _ => None,
-                };
-                push_unique(&mut existing.source_assignment_ids, assignment.id);
-                push_unique(&mut existing.source_recipe_ids, recipe_id);
-            } else {
-                items.push(GeneratedItem {
-                    name: ingredient.name,
-                    quantity,
-                    unit,
-                    source_assignment_ids: vec![assignment.id],
-                    source_recipe_ids: vec![recipe_id],
+            let recipe_id = *recipe_id;
+            let recipe = recipe_for(recipe_id)
+                .ok_or_else(|| format!("recipe {recipe_id} referenced by plan was not found"))?;
+            let factor = assignment.participants.len() as f64 / recipe.draft.servings as f64;
+            for ingredient in recipe.draft.ingredients {
+                let (unit, multiplier) = normalize_unit(ingredient.unit.as_deref());
+                let quantity = ingredient.amount.map(|amount| amount * factor * multiplier);
+                let key = (normalize_name(&ingredient.name), unit.clone());
+                let existing = unit.as_ref().and_then(|_| {
+                    items
+                        .iter_mut()
+                        .find(|item| (normalize_name(&item.name), item.unit.clone()) == key)
                 });
+                if let Some(existing) = existing {
+                    existing.quantity = match (existing.quantity, quantity) {
+                        (Some(left), Some(right)) => Some(left + right),
+                        _ => None,
+                    };
+                    push_unique(&mut existing.source_assignment_ids, assignment.id);
+                    push_unique(&mut existing.source_recipe_ids, recipe_id);
+                } else {
+                    items.push(GeneratedItem {
+                        name: ingredient.name,
+                        quantity,
+                        unit,
+                        source_assignment_ids: vec![assignment.id],
+                        source_recipe_ids: vec![recipe_id],
+                    });
+                }
             }
-        }
         }
     }
     Ok(items)
