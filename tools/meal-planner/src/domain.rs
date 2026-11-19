@@ -10,26 +10,23 @@ pub struct FamilyMember {
     pub active: bool,
 }
 
-/// Meal categories supported by the initial planner.
+/// Meal categories supported by the planner.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MealType {
-    Breakfast,
     Lunch,
     Dinner,
 }
 impl MealType {
-    pub const ALL: [Self; 3] = [Self::Breakfast, Self::Lunch, Self::Dinner];
+    pub const ALL: [Self; 2] = [Self::Lunch, Self::Dinner];
     pub(crate) fn as_str(self) -> &'static str {
         match self {
-            Self::Breakfast => "breakfast",
             Self::Lunch => "lunch",
             Self::Dinner => "dinner",
         }
     }
     pub(crate) fn parse(value: &str) -> Option<Self> {
         match value {
-            "breakfast" => Some(Self::Breakfast),
             "lunch" => Some(Self::Lunch),
             "dinner" => Some(Self::Dinner),
             _ => None,
@@ -270,6 +267,12 @@ mod tests {
         }
     }
     #[test]
+    fn only_lunch_and_dinner_are_supported() {
+        assert_eq!(MealType::ALL, [MealType::Lunch, MealType::Dinner]);
+        assert!(serde_json::from_str::<MealType>(r#"\"breakfast\""#).is_err());
+    }
+
+    #[test]
     fn exception_overrides_rule_and_can_mean_not_participating() {
         let exception = MealException {
             id: 1,
@@ -337,7 +340,7 @@ mod tests {
         );
         assert_eq!(
             resolve_week(date("2026-11-16"), &[member()], &[], &[]).len(),
-            21
+            14
         );
     }
 }
