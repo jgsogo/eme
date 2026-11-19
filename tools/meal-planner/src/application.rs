@@ -472,8 +472,30 @@ mod tests {
             .unwrap();
         let confirmed = app.confirm_saved_draft("user-1", &[], monday()).unwrap();
         assert_eq!(confirmed.revision, first.revision);
+
+        // Keep this test focused on revision lifecycle: the revised proposal
+        // must reference a real recipe because save_draft validates references.
+        let recipe = store
+            .create_recipe(
+                "user-1",
+                crate::RecipeDraft {
+                    family_id: None,
+                    title: "Pasta".into(),
+                    description: None,
+                    servings: 2,
+                    ingredients: vec![],
+                    steps: vec!["Cook".into()],
+                    categories: vec![],
+                    tags: vec![],
+                    source: None,
+                    notes: None,
+                    dietary_information: vec![],
+                    allergens: None,
+                },
+            )
+            .unwrap();
         let mut revised = draft(member.id);
-        revised.assignments[0].recipe_ids = vec![42];
+        revised.assignments[0].recipe_ids = vec![recipe.id];
         let saved = app.save_draft("user-1", &[], monday(), revised).unwrap();
         assert_eq!(saved.revision, first.revision + 1);
         assert_eq!(saved.status, WeeklyPlanStatus::Draft);
