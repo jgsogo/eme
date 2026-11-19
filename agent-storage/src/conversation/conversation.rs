@@ -16,6 +16,9 @@ pub struct Conversation {
     /// User-editable display name. Defaults when reading older conversation files.
     #[serde(default = "super::default_conversation_title")]
     pub title: String,
+    /// Whether the conversation is hidden from the default conversation list.
+    #[serde(default)]
+    pub archived: bool,
     /// Family explicitly selected for this conversation; absent in legacy records.
     #[serde(default)]
     pub selected_family_id: Option<FamilyId>,
