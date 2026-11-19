@@ -39,7 +39,7 @@ fn conversation_history_for_submission(
     }
 
     let message_index = history.iter().rposition(
-        |message| matches!(message, Message::User { content } if content == input),
+        |message| matches!(message, Message::User { content } if content.as_str() == input),
     )?;
     history.truncate(message_index);
     Some(history)
