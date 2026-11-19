@@ -122,6 +122,10 @@ async fn submit_run(
         Err(SubmitRunError::QueueFull) => {
             HttpResponse::ServiceUnavailable().body("run queue is full")
         }
+        Err(SubmitRunError::Storage(error)) => {
+            tracing::error!(%error, "failed to persist submitted run");
+            HttpResponse::InternalServerError().body("could not persist run")
+        }
     }
 }
 
