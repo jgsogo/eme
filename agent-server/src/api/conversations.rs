@@ -146,7 +146,7 @@ async fn get_conversation(
                 conversation,
                 history_tokens_estimate,
             })
-        },
+        }
         Ok(_) => HttpResponse::NotFound().finish(),
         Err(error) => conversation_error(error),
     }
