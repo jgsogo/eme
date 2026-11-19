@@ -54,7 +54,7 @@ async function handleItemAction(index,action){
   const quantityNode=$("shopping-content").querySelector('[data-quantity="'+index+'"]');
   const current=group.disabled?group.originalQuantity:group.quantity;
   const editor=document.createElement("span");editor.className="shopping-quantity-editor-wrap";
-  const input=document.createElement("input");input.type="number";input.min="0";input.step="any";input.value=current??"";input.className="shopping-quantity-editor";input.setAttribute("aria-label","New quantity for "+group.name);
+  const input=document.createElement("input");input.type="number";input.min="0";input.step="any";input.value=current===null||current===undefined?"":String(Number.isInteger(current)?current:Number(Number(current).toFixed(2)));input.className="shopping-quantity-editor";input.setAttribute("aria-label","New quantity for "+group.name);
   const unit=document.createElement("span");unit.className="shopping-quantity-unit";unit.textContent=group.unit||"";
   editor.append(input,unit);quantityNode.replaceChildren(editor);input.focus();input.select();
   const commit=async save=>{if(!input.isConnected)return;if(!save){renderList(new Set(state.groups.flatMap(g=>g.entries.map(e=>e.week))).size,Number($("shopping-weeks").value));return}const next=Number(input.value);if(!input.value.trim()||!Number.isFinite(next)||next<0){input.focus();return}
