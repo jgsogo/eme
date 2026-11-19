@@ -1,4 +1,4 @@
-name = "mercadona_search_products"
+name = "mercadona.search_products"
 description = "Search Mercadona's product catalogue by name or keywords. Returns product identifiers, names, packaging, prices, thumbnails and category information. Searches the configured warehouse catalogue."
 [parameters]
 type = "object"

@@ -1,4 +1,4 @@
-name="parse_datetime"
+name="common.datetime.parse_datetime"
 description="Parse a date/time string, optionally using a chrono strftime format and IANA timezone."
 [parameters]
 type="object"

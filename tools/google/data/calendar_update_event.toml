@@ -1,4 +1,4 @@
-name = "google_calendar_update_event"
+name = "google.update_event"
 description = "Update an existing event in a connected Google Calendar when the authenticated EME user has write access."
 [parameters]
 type = "object"
@@ -7,11 +7,11 @@ required = ["calendar_id", "event_id"]
 [parameters.properties.calendar_id]
 type = "string"
 minLength = 1
-description = "Internal EME connected-calendar ID returned by google_list_calendars."
+description = "Internal EME connected-calendar ID returned by google.list_calendars."
 [parameters.properties.event_id]
 type = "string"
 minLength = 1
-description = "Google event ID returned by google_calendar_events."
+description = "Google event ID returned by google.list_events."
 [parameters.properties.summary]
 type = "string"
 maxLength = 1024

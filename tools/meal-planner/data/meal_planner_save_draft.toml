@@ -1,4 +1,4 @@
-name = "meal_planner_save_draft"
+name = "meals.planner.save_draft"
 description = "Save a validated meal-plan proposal as an editable draft. It never confirms the plan. If the latest revision is confirmed, this explicit save creates a new draft revision and preserves the confirmed snapshot. If validation fails, returns structured issues and does not persist anything."
 
 [parameters]

@@ -1,4 +1,4 @@
-name = "tg_ask_user"
+name = "telegram.ask_user"
 description = "Ask the conversation owner or a selected family member a question and wait for their Telegram reply. Use kind='text' for free-text answers, or kind='yes_no' for a Yes/No choice presented as inline buttons. Returns the user's answer (free text, or 'yes'/'no')."
 
 [parameters]

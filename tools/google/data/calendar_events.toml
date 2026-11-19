@@ -1,4 +1,4 @@
-name = "google_calendar_events"
+name = "google.list_events"
 description = "List events from a connected Google Calendar that the authenticated EME user is authorized to access, for a calendar-local day or an explicit time period."
 
 [parameters]

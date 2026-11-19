@@ -1,4 +1,4 @@
-name="get_date_info"
+name="common.datetime.get_date_info"
 description="Get weekday, ISO week, day of year, leap-year status and month length for a date."
 [parameters]
 type="object"
