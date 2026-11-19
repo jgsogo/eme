@@ -490,14 +490,26 @@ mod tests {
 
         assert_eq!(normalized["required"], serde_json::json!(["text"]));
         assert_eq!(normalized["properties"]["text"]["type"], "string");
-        assert!(normalized["properties"]["options"]["properties"]["urgent"]
-            .get("exclusiveMinimum")
-            .is_none());
-        assert!(normalized["properties"]["count"].get("exclusiveMinimum").is_none());
-        assert!(normalized["properties"]["count"].get("exclusiveMaximum").is_none());
-        assert!(normalized["properties"]["values"]["items"]
-            .get("exclusiveMinimum")
-            .is_none());
+        assert!(
+            normalized["properties"]["options"]["properties"]["urgent"]
+                .get("exclusiveMinimum")
+                .is_none()
+        );
+        assert!(
+            normalized["properties"]["count"]
+                .get("exclusiveMinimum")
+                .is_none()
+        );
+        assert!(
+            normalized["properties"]["count"]
+                .get("exclusiveMaximum")
+                .is_none()
+        );
+        assert!(
+            normalized["properties"]["values"]["items"]
+                .get("exclusiveMinimum")
+                .is_none()
+        );
 
         // The original schema remains intact.
         assert_eq!(schema["additionalProperties"], false);
