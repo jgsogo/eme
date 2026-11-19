@@ -18,7 +18,7 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path},
 };
-use agent_runtime::ToolContext;
+use agent_runtime::{Message, ToolContext};
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
     Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
@@ -389,11 +389,22 @@ async fn continue_conversation(
         None => None,
     };
 
+    let mut history = conversation.messages;
+    if request.retry {
+        let Some(message_index) = history.iter().rposition(
+            |message| matches!(message, Message::User { content } if content == input),
+        ) else {
+            return HttpResponse::BadRequest()
+                .body("the message to retry is not present in this conversation");
+        };
+        history.truncate(message_index);
+    }
+
     match manager
         .submit(
             conversation.agent.clone(),
             input.to_owned(),
-            conversation.messages,
+            history,
             ToolContext {
                 user_id: Some(identity.user_id.to_string()),
                 timezone: user.timezone,
