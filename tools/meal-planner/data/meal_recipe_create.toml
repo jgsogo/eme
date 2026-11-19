@@ -1,0 +1,21 @@
+name = "meals.recipe.create"
+description = "Create a recipe."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["title", "servings", "ingredients", "steps"]
+
+[parameters.properties]
+family_id = {type="string"}
+title = {type="string"}
+description = {type="string"}
+servings = {type="integer",minimum=1}
+ingredients = {type="array",items={type="object",required=["name"],properties={name={type="string"},amount={type="number"},unit={type="string"},preparation_note={type="string"}}}}
+steps = {type="array",items={type="string"}}
+categories = {type="array",items={type="string"}}
+tags = {type="array",items={type="string"}}
+source = {type="string"}
+notes = {type="string"}
+dietary_information = {type="array",items={type="string"}}
+allergens = {type="array",items={type="string"}}

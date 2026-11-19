@@ -1,0 +1,10 @@
+name = "meals.recipe.get"
+description = "Get a recipe."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["id"]
+
+[parameters.properties]
+id = {type="integer",minimum=1}
