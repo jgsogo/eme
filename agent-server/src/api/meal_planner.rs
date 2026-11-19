@@ -633,6 +633,41 @@ async fn update_shopping_list_item(
         Err(error) => error_response(error),
     }
 }
+
+#[post("/plans/{plan_id}/shopping-list/items/{item_id}/restore")]
+async fn restore_shopping_list_item(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    families: Data<Arc<FamilyService>>,
+    store: Data<MealPlannerStore>,
+    path: Path<(i64, i64)>,
+    query: Query<SearchQuery>,
+) -> impl Responder {
+    let family_id = match selected_family(
+        &request,
+        &auth,
+        &identities,
+        &families,
+        query.family_id.as_deref(),
+    )
+    .await
+    {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let (plan_id, item_id) = path.into_inner();
+    if !store
+        .plan_belongs_to_family(plan_id, &family_id)
+        .unwrap_or(false)
+    {
+        return HttpResponse::NotFound().finish();
+    }
+    match store.restore_shopping_list_item(plan_id, item_id) {
+        Ok(list) => HttpResponse::Ok().json(list),
+        Err(error) => error_response(error),
+    }
+}
 #[delete("/plans/{plan_id}/shopping-list/items/{item_id}")]
 async fn remove_shopping_list_item(
     request: HttpRequest,
@@ -686,5 +721,6 @@ pub fn meal_planner_api() -> Scope {
         .service(generate_shopping_list)
         .service(add_shopping_list_item)
         .service(update_shopping_list_item)
+        .service(restore_shopping_list_item)
         .service(remove_shopping_list_item)
 }
