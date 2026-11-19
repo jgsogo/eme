@@ -1,5 +1,5 @@
 name = "meals.plan.create"
-description = "Create a weekly plan; week_start must be Monday."
+description = "Compatibility operation: create a weekly plan only when one does not already exist. Prefer meals.plan.save for normal workflows; recipe_ids may be empty when participants are known but the meal is not planned yet."
 
 [parameters]
 type = "object"
