@@ -67,6 +67,37 @@ impl MealPlannerStore {
         })?;
         load_plan(&c, c.last_insert_rowid())?.ok_or(MealPlannerError::NotFound)
     }
+    /// Create or replace a family's weekly plan in one atomic operation.
+    /// Repeating the same save is safe and does not create duplicate plans.
+    pub fn save_weekly_plan_for_family(
+        &self,
+        family_id: &str,
+        week_start: NaiveDate,
+        draft: WeeklyPlanDraft,
+    ) -> Result<WeeklyPlan, MealPlannerError> {
+        let draft = draft
+            .validate(week_start)
+            .map_err(MealPlannerError::InvalidInput)?;
+        let c = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        ensure_family_references(&c, family_id, &draft)?;
+        let payload = serde_json::to_string(&draft.assignments)?;
+        c.execute(
+            "INSERT INTO weekly_plans(family_id,week_start,assignments,created_at)
+             VALUES(?1,?2,?3,?4)
+             ON CONFLICT(family_id,week_start) DO UPDATE SET assignments=excluded.assignments",
+            params![family_id, week_start.to_string(), payload, Utc::now().timestamp()],
+        )?;
+        let id = c.query_row(
+            "SELECT id FROM weekly_plans WHERE family_id=?1 AND week_start=?2",
+            params![family_id, week_start.to_string()],
+            |row| row.get(0),
+        )?;
+        load_plan(&c, id)?.ok_or(MealPlannerError::NotFound)
+    }
+
     pub fn get_weekly_plan_for_family(
         &self,
         family_id: &str,
