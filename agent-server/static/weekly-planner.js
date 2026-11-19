@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { familyId:"", members:[], recipes:[], menus:[], participation:[], failedWeeks:new Set(), plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, request:0, showWeekends:true };
+const state = { familyId:"", members:[], recipes:[], menus:[], participation:[], failedWeeks:new Set(), plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, selectedRecipeIds:new Set(), recipeSearch:"", request:0, showWeekends:true };
 const meals = [["lunch","Lunch"],["dinner","Dinner"]];
 async function api(path, options={}) {
   const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});
@@ -74,6 +74,17 @@ function renderMonth(){
  const count=[...state.plans.values()].reduce((n,p)=>n+p.assignments.length,0);
  $("plan-status").textContent=count+" planned meal"+(count===1?"":"s")+" · "+state.plans.size+" weekly plan(s) loaded";
 }
+function renderRecipePicker(){
+ const query=state.recipeSearch.trim().toLocaleLowerCase();
+ const matches=state.recipes.filter(recipe=>recipe.title.toLocaleLowerCase().includes(query));
+ $("recipe-selection-count").textContent=state.selectedRecipeIds.size+" selected";
+ $("recipe-search-results").textContent=query?matches.length+" matching recipe"+(matches.length===1?"":"s"):"";
+ $("recipe-selection-empty").hidden=matches.length>0;
+ $("assignment-recipes-list").innerHTML=matches.map(recipe=>{
+  const id=String(recipe.id),checked=state.selectedRecipeIds.has(id);
+  return '<label class="recipe-option'+(checked?' selected':'')+'"><input type="checkbox" value="'+esc(id)+'"'+(checked?' checked':'')+'><span>'+esc(recipe.title)+'</span></label>';
+ }).join("");
+}
 function openEditor(date,meal,assignment){
  const week=weekStartFor(date),plan=state.plans.get(week);
  state.selectedDate=date;state.editingWeek=week;state.editingId=assignment?.id??null;
@@ -83,9 +94,10 @@ function openEditor(date,meal,assignment){
  const selected=new Set((assignment?.participants||[]).map(p=>String(p.member_id)));
  if(!assignment)state.participation.filter(p=>p.date===date&&p.meal_type===meal&&p.arrangement==="home").forEach(p=>selected.add(String(p.member_id)));
  [...$("assignment-participants").options].forEach(o=>o.selected=selected.has(o.value));
- $("assignment-recipes").innerHTML=state.recipes.map(r=>'<option value="'+r.id+'">'+esc(r.title)+'</option>').join("");
- const recipeIds=new Set((assignment?.recipe_ids||[]).map(String));
- [...$("assignment-recipes").options].forEach(o=>o.selected=recipeIds.has(o.value));
+ state.selectedRecipeIds=new Set((assignment?.recipe_ids||[]).map(String));
+ state.recipeSearch="";
+ $("recipe-search").value="";
+ renderRecipePicker();
  $("assignment-error").textContent="";
  $("remove-assignment").hidden=!assignment;
  $("assignment-editor").showModal();
@@ -100,7 +112,7 @@ async function persistAssignment(remove=false){
    if(weekStartFor(date)!==week){$("assignment-error").textContent="The date must remain in the selected week.";return}
    const participants=[...$("assignment-participants").selectedOptions].map(o=>{const m=state.members.find(x=>x.id===Number(o.value));return{member_id:m.id,name:m.name}});
    if(!participants.length){$("assignment-error").textContent="Select at least one family member.";return}
-   const recipeIds=[...$("assignment-recipes").selectedOptions].map(o=>Number(o.value));
+   const recipeIds=[...state.selectedRecipeIds].map(Number);
    const existing=assignments.find(a=>a.date===date&&a.meal_type===meal);
    if(existing){$("assignment-error").textContent="This meal already has an entry. Edit that entry instead.";return}
    assignments.push({id:Math.max(0,...plan.assignments.map(a=>a.id))+1,date,meal_type:meal,participants,arrangement:"home",recipe_ids:recipeIds,school_menu_date:null,notes:null});
@@ -139,6 +151,16 @@ async function loadMonth(){
   $("connection").textContent=failed.length?("Partially connected · "+failed.length+" week(s) failed to load"):"Connected";
  }catch(e){if(request===state.request){$("planner-month-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+'</p>';$("connection").textContent="Connection error"}}
 }
+$("recipe-search").addEventListener("input",e=>{state.recipeSearch=e.target.value;renderRecipePicker()});
+$("assignment-recipes-list").addEventListener("change",e=>{
+ const input=e.target;
+ if(input.matches("input[type=checkbox]")){
+  if(input.checked)state.selectedRecipeIds.add(input.value);
+  else state.selectedRecipeIds.delete(input.value);
+  input.closest(".recipe-option").classList.toggle("selected",input.checked);
+  $("recipe-selection-count").textContent=state.selectedRecipeIds.size+" selected";
+ }
+});
 $("assignment-form").addEventListener("submit",e=>{e.preventDefault();persistAssignment(false)});
 $("remove-assignment").addEventListener("click",()=>persistAssignment(true));
 $("close-editor").addEventListener("click",()=>$("assignment-editor").close());
