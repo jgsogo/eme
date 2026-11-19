@@ -48,11 +48,11 @@ pub struct ShoppingListItemUpdate {
 
 #[derive(Debug, Clone)]
 pub(super) struct GeneratedItem {
-    name: String,
-    quantity: Option<f64>,
-    unit: Option<String>,
-    source_assignment_ids: Vec<i64>,
-    source_recipe_ids: Vec<i64>,
+    pub(super) name: String,
+    pub(super) quantity: Option<f64>,
+    pub(super) unit: Option<String>,
+    pub(super) source_assignment_ids: Vec<i64>,
+    pub(super) source_recipe_ids: Vec<i64>,
 }
 
 /// Build the generated portion of a list. Participant count is the planned

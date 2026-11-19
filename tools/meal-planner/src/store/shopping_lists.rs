@@ -137,6 +137,62 @@ impl MealPlannerStore {
         Ok(list)
     }
 
+    /// Restore a generated ingredient to the quantity calculated from the
+    /// recipes and participant counts in the current plan.
+    pub fn restore_shopping_list_item(
+        &self,
+        plan_id: i64,
+        item_id: i64,
+    ) -> Result<ShoppingList, MealPlannerError> {
+        let connection = self
+            .connection
+            .lock()
+            .map_err(|_| MealPlannerError::LockPoisoned)?;
+        let plan =
+            super::plans::load_plan(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
+        let mut recipes = std::collections::HashMap::new();
+        for assignment in &plan.assignments {
+            for recipe_id in &assignment.recipe_ids {
+                if !recipes.contains_key(recipe_id) {
+                    let recipe = super::recipes::load_recipe(&connection, *recipe_id)?
+                        .ok_or(MealPlannerError::NotFound)?;
+                    recipes.insert(*recipe_id, recipe);
+                }
+            }
+        }
+        let generated = generate_items(&plan, |id| recipes.get(&id).cloned())
+            .map_err(MealPlannerError::InvalidInput)?;
+        let mut list =
+            load_shopping_list(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
+        let item = list
+            .items
+            .iter_mut()
+            .find(|item| item.id == item_id)
+            .ok_or(MealPlannerError::NotFound)?;
+        if item.manually_added {
+            return Err(MealPlannerError::InvalidInput(
+                "manually added items have no recipe quantity to restore".into(),
+            ));
+        }
+        let generated_item = generated
+            .into_iter()
+            .find(|candidate| {
+                candidate.name.trim().eq_ignore_ascii_case(item.name.trim())
+                    && candidate.source_recipe_ids == item.source_recipe_ids
+                    && candidate.source_assignment_ids == item.source_assignment_ids
+            })
+            .ok_or(MealPlannerError::NotFound)?;
+        item.quantity = generated_item.quantity;
+        item.unit = generated_item.unit;
+        item.source_assignment_ids = generated_item.source_assignment_ids;
+        item.source_recipe_ids = generated_item.source_recipe_ids;
+        item.quantity_overridden = false;
+        item.manually_removed = false;
+        item.stale = false;
+        save_items(&connection, &mut list)?;
+        Ok(list)
+    }
+
     pub fn remove_shopping_list_item(
         &self,
         plan_id: i64,

@@ -233,3 +233,16 @@ mod tests {
         assert!(!is_mobile_user_agent("Mozilla/5.0 (X11; Linux x86_64)"));
     }
 }
+
+#[get("/console/shopping-list")]
+pub(super) async fn shopping_list_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/shopping_list.html"))
+}
+#[get("/assets/shopping-list.js")]
+pub(super) async fn shopping_list_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/shopping-list.js"))
+}
