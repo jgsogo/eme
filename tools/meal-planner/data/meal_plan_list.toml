@@ -1,0 +1,11 @@
+name = "meals.plan.list"
+description = "List plans whose Monday starts are in an inclusive date range."
+
+[parameters]
+type = "object"
+additionalProperties = false
+required = ["start_date", "end_date"]
+
+[parameters.properties]
+start_date = {type="string",format="date"}
+end_date = {type="string",format="date"}
