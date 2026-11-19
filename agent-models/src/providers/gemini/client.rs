@@ -41,98 +41,7 @@ impl ConversationClient for GeminiClient {
         &self,
         request: ConversationRequest,
     ) -> Result<ConversationResponse, ModelError> {
-        let contents = request
-            .messages
-            .into_iter()
-            .map(|message| match message {
-                ConversationMessage::User { content } => Content {
-                    role: "user".into(),
-                    parts: vec![Part {
-                        text: Some(content),
-                        function_call: None,
-                        function_response: None,
-                        thought_signature: None,
-                    }],
-                },
-
-                ConversationMessage::Assistant {
-                    content,
-                    tool_calls,
-                } => {
-                    let mut parts = Vec::new();
-
-                    if let Some(content) = content {
-                        parts.push(Part {
-                            text: Some(content),
-                            function_call: None,
-                            function_response: None,
-                            thought_signature: None,
-                        });
-                    }
-
-                    for call in tool_calls {
-                        let metadata = call.provider_metadata.as_ref();
-
-                        let thought_signature = metadata
-                            .and_then(|metadata| metadata.get("thought_signature"))
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned);
-
-                        let provider_call_id = metadata
-                            .and_then(|metadata| metadata.get("provider_call_id"))
-                            .and_then(serde_json::Value::as_str)
-                            .map(str::to_owned);
-
-                        parts.push(Part {
-                            text: None,
-                            function_call: Some(FunctionCall {
-                                name: call.name,
-                                args: call.arguments,
-                                id: provider_call_id,
-                            }),
-                            function_response: None,
-                            thought_signature,
-                        });
-                    }
-
-                    Content {
-                        role: "model".into(),
-                        parts,
-                    }
-                }
-
-                ConversationMessage::Tool {
-                    tool_call_id: _,
-                    name,
-                    content,
-                    is_error,
-                    provider_metadata,
-                } => {
-                    let provider_call_id = provider_metadata
-                        .as_ref()
-                        .and_then(|metadata| metadata.get("provider_call_id"))
-                        .and_then(serde_json::Value::as_str)
-                        .map(str::to_owned);
-
-                    Content {
-                        role: "user".into(),
-                        parts: vec![Part {
-                            text: None,
-                            function_call: None,
-                            function_response: Some(FunctionResponse {
-                                name,
-                                response: serde_json::json!({
-                                    "result": content,
-                                    "is_error": is_error,
-                                }),
-                                id: provider_call_id,
-                            }),
-                            thought_signature: None,
-                        }],
-                    }
-                }
-            })
-            .collect();
+        let contents = build_contents(request.messages);
 
         let tools = if request.tools.is_empty() {
             None
@@ -265,6 +174,120 @@ impl ConversationClient for GeminiClient {
             usage,
         })
     }
+}
+
+/// Converts provider-neutral messages into Gemini contents.
+///
+/// Gemini expects the responses to parallel function calls to be returned
+/// together in a single user content, in the same order as the calls.
+fn build_contents(messages: Vec<ConversationMessage>) -> Vec<Content> {
+    let mut contents: Vec<Content> = Vec::with_capacity(messages.len());
+
+    for message in messages {
+        match message {
+            ConversationMessage::User { content } => contents.push(Content {
+                role: "user".into(),
+                parts: vec![Part {
+                    text: Some(content),
+                    function_call: None,
+                    function_response: None,
+                    thought_signature: None,
+                }],
+            }),
+            ConversationMessage::Assistant {
+                content,
+                tool_calls,
+            } => {
+                let mut parts = Vec::new();
+
+                if let Some(content) = content {
+                    parts.push(Part {
+                        text: Some(content),
+                        function_call: None,
+                        function_response: None,
+                        thought_signature: None,
+                    });
+                }
+
+                for call in tool_calls {
+                    let metadata = call.provider_metadata.as_ref();
+
+                    let thought_signature = metadata
+                        .and_then(|metadata| metadata.get("thought_signature"))
+                        .and_then(Value::as_str)
+                        .map(str::to_owned);
+
+                    let provider_call_id = metadata
+                        .and_then(|metadata| metadata.get("provider_call_id"))
+                        .and_then(Value::as_str)
+                        .map(str::to_owned);
+
+                    parts.push(Part {
+                        text: None,
+                        function_call: Some(FunctionCall {
+                            name: call.name,
+                            args: call.arguments,
+                            id: provider_call_id,
+                        }),
+                        function_response: None,
+                        thought_signature,
+                    });
+                }
+
+                contents.push(Content {
+                    role: "model".into(),
+                    parts,
+                });
+            }
+            ConversationMessage::Tool {
+                name,
+                content,
+                is_error,
+                provider_metadata,
+                ..
+            } => {
+                let provider_call_id = provider_metadata
+                    .as_ref()
+                    .and_then(|metadata| metadata.get("provider_call_id"))
+                    .and_then(Value::as_str)
+                    .map(str::to_owned);
+
+                let part = Part {
+                    text: None,
+                    function_call: None,
+                    function_response: Some(FunctionResponse {
+                        name,
+                        response: serde_json::json!({
+                            "result": content,
+                            "is_error": is_error,
+                        }),
+                        id: provider_call_id,
+                    }),
+                    thought_signature: None,
+                };
+
+                let can_append_to_previous_tool_responses =
+                    contents.last().is_some_and(|previous| {
+                        previous.role == "user"
+                            && previous
+                                .parts
+                                .iter()
+                                .all(|part| part.function_response.is_some())
+                    });
+
+                if can_append_to_previous_tool_responses {
+                    contents.last_mut().expect("checked above").parts.push(part);
+                } else {
+                    contents.push(Content {
+                        role: "user".into(),
+                        parts: vec![part],
+                    });
+                }
+            }
+        }
+    }
+
+    contents
 }
 
 fn normalize_gemini_schema(schema: &Value) -> Value {
@@ -441,6 +464,113 @@ mod tests {
 
         assert_eq!(tool_parts[0]["functionResponse"]["id"], "gemini-call-123");
         assert_eq!(tool_parts[0]["functionResponse"]["name"], "calculator");
+    }
+
+    #[tokio::test]
+    async fn groups_parallel_function_responses_and_preserves_thought_signature() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/v1beta/models/gemini-2.5-flash:generateContent"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "candidates": [{
+                    "content": {
+                        "role": "model",
+                        "parts": [{"text": "Calendars retrieved."}]
+                    }
+                }]
+            })))
+            .mount(&server)
+            .await;
+
+        let client =
+            GeminiClient::new_with_base_url(server.uri(), "test-api-key", "gemini-2.5-flash");
+
+        let first_metadata = json!({
+            "thought_signature": "parallel-signature",
+            "provider_call_id": "google-call-1"
+        });
+        let second_metadata = json!({
+            "provider_call_id": "google-call-2"
+        });
+
+        client
+            .complete_conversation(ConversationRequest {
+                system: None,
+                messages: vec![
+                    ConversationMessage::User {
+                        content: "List my calendars".into(),
+                    },
+                    ConversationMessage::Assistant {
+                        content: None,
+                        tool_calls: vec![
+                            ToolCall {
+                                id: "runtime-call-1".into(),
+                                name: "google.list_calendars".into(),
+                                arguments: json!({}),
+                                provider_metadata: Some(first_metadata.clone()),
+                            },
+                            ToolCall {
+                                id: "runtime-call-2".into(),
+                                name: "google.get_calendar".into(),
+                                arguments: json!({"calendar_id": "primary"}),
+                                provider_metadata: Some(second_metadata.clone()),
+                            },
+                        ],
+                    },
+                    ConversationMessage::Tool {
+                        tool_call_id: "runtime-call-1".into(),
+                        name: "google.list_calendars".into(),
+                        content: "[{\"id\":\"primary\"}]".into(),
+                        is_error: false,
+                        provider_metadata: Some(first_metadata),
+                    },
+                    ConversationMessage::Tool {
+                        tool_call_id: "runtime-call-2".into(),
+                        name: "google.get_calendar".into(),
+                        content: "{\"id\":\"primary\"}".into(),
+                        is_error: false,
+                        provider_metadata: Some(second_metadata),
+                    },
+                ],
+                tools: vec![],
+                temperature: None,
+                max_tokens: None,
+            })
+            .await
+            .unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        let body: Value = serde_json::from_slice(&requests[0].body).unwrap();
+        let contents = body["contents"].as_array().unwrap();
+
+        assert_eq!(contents.len(), 3);
+
+        let assistant_parts = contents[1]["parts"].as_array().unwrap();
+        assert_eq!(assistant_parts.len(), 2);
+        assert_eq!(assistant_parts[0]["thoughtSignature"], "parallel-signature");
+        assert!(assistant_parts[1].get("thoughtSignature").is_none());
+        assert_eq!(
+            assistant_parts[0]["functionCall"]["name"],
+            "google.list_calendars"
+        );
+        assert_eq!(
+            assistant_parts[1]["functionCall"]["name"],
+            "google.get_calendar"
+        );
+
+        let response_parts = contents[2]["parts"].as_array().unwrap();
+        assert_eq!(response_parts.len(), 2);
+        assert_eq!(response_parts[0]["functionResponse"]["id"], "google-call-1");
+        assert_eq!(response_parts[1]["functionResponse"]["id"], "google-call-2");
+        assert_eq!(
+            response_parts[0]["functionResponse"]["name"],
+            "google.list_calendars"
+        );
+        assert_eq!(
+            response_parts[1]["functionResponse"]["name"],
+            "google.get_calendar"
+        );
     }
 
     #[test]
