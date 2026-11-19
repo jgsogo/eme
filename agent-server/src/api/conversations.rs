@@ -29,6 +29,22 @@ use tokio::time::sleep;
 
 use super::types::{AgentCatalog, SubmitRunResponse};
 
+fn conversation_history_for_submission(
+    mut history: Vec<Message>,
+    input: &str,
+    retry: bool,
+) -> Option<Vec<Message>> {
+    if !retry {
+        return Some(history);
+    }
+
+    let message_index = history.iter().rposition(
+        |message| matches!(message, Message::User { content } if content == input),
+    )?;
+    history.truncate(message_index);
+    Some(history)
+}
+
 fn authenticated_owner(
     request: &HttpRequest,
     auth: &crate::auth::TelegramAuth,
@@ -389,16 +405,17 @@ async fn continue_conversation(
         None => None,
     };
 
-    let mut history = conversation.messages;
-    if request.retry {
-        let Some(message_index) = history.iter().rposition(
-            |message| matches!(message, Message::User { content } if content == input),
-        ) else {
+    let history = match conversation_history_for_submission(
+        conversation.messages,
+        input,
+        request.retry,
+    ) {
+        Some(history) => history,
+        None => {
             return HttpResponse::BadRequest()
                 .body("the message to retry is not present in this conversation");
-        };
-        history.truncate(message_index);
-    }
+        }
+    };
 
     match manager
         .submit(
@@ -587,5 +604,70 @@ mod tests {
         drop(store);
         drop(identities);
         let _ = std::fs::remove_dir_all(directory);
+    }
+}
+
+
+#[cfg(test)]
+mod retry_history_tests {
+    use super::conversation_history_for_submission;
+    use agent_runtime::Message;
+
+    #[test]
+    fn retry_removes_the_failed_turn_before_resubmitting_it() {
+        let history = vec![
+            Message::User {
+                content: "earlier request".to_owned(),
+            },
+            Message::User {
+                content: "request to retry".to_owned(),
+            },
+            Message::Assistant {
+                content: Some("partial response".to_owned()),
+                tool_calls: Vec::new(),
+                model_id: None,
+                generated_at: None,
+            },
+        ];
+
+        let retried = conversation_history_for_submission(
+            history,
+            "request to retry",
+            true,
+        )
+        .expect("matching user message should be found");
+
+        assert_eq!(retried.len(), 1);
+        assert!(matches!(
+            &retried[0],
+            Message::User { content } if content == "earlier request"
+        ));
+    }
+
+    #[test]
+    fn retry_requires_the_original_user_message() {
+        assert!(
+            conversation_history_for_submission(
+                vec![Message::User {
+                    content: "another request".to_owned(),
+                }],
+                "missing request",
+                true,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn normal_submission_keeps_the_existing_history() {
+        let history = vec![Message::User {
+            content: "previous request".to_owned(),
+        }];
+
+        let submitted =
+            conversation_history_for_submission(history, "new request", false)
+                .expect("normal submissions do not require a matching message");
+
+        assert_eq!(submitted.len(), 1);
     }
 }
