@@ -12,7 +12,7 @@ pub use create_conversation_request::CreateConversationRequest;
 use select_conversation_family_request::SelectConversationFamilyRequest;
 pub use update_conversation_request::UpdateConversationRequest;
 
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc};
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
@@ -24,8 +24,6 @@ use agent_storage::{
     Conversation, ConversationId, SqliteConversationStore, ConversationStoreError, FamilyId,
     FileUserIdentityStore, UserId, UserIdentityStore,
 };
-
-use tokio::time::sleep;
 
 use super::types::{AgentCatalog, SubmitRunResponse};
 
@@ -496,25 +494,6 @@ async fn continue_conversation(
     {
         Ok(run_id) => {
             auth.register_run(run_id.to_string(), &owner);
-            let manager = manager.get_ref().clone();
-            let store = store.get_ref().clone();
-            tokio::spawn(async move {
-                loop {
-                    match manager.get(run_id).await {
-                        Some(run) if run.status.is_terminal() => {
-                            if let Some(messages) = manager.history(run_id).await {
-                                if let Err(error) = store.save_messages(id, messages) {
-                                    eprintln!("failed to persist conversation {id}: {error}");
-                                }
-                            }
-                            break;
-                        }
-                        Some(_) => sleep(Duration::from_millis(250)).await,
-                        None => break,
-                    }
-                }
-            });
-
             HttpResponse::Accepted().json(SubmitRunResponse {
                 run_id: run_id.to_string(),
                 status: "queued",
@@ -522,6 +501,10 @@ async fn continue_conversation(
         }
         Err(SubmitRunError::QueueFull) => {
             HttpResponse::ServiceUnavailable().body("run queue is full")
+        }
+        Err(SubmitRunError::Storage(error)) => {
+            tracing::error!(%error, "failed to persist submitted run");
+            HttpResponse::InternalServerError().body("could not persist run")
         }
     }
 }
