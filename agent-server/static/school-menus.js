@@ -118,11 +118,7 @@ function renderMonthView() {
     });
   });
 
-  if (state.selected) {
-    edit(state.entries.find(item => item.date === state.selected), state.selected);
-  } else {
-    $("menu-editor").innerHTML = "";
-  }
+  // The editor is a dialog and is managed independently from the calendar render.
 }
 
 function edit(entry, date) {
@@ -133,7 +129,7 @@ function edit(entry, date) {
 
   editor.innerHTML =
     '<section class="school-menu-editor">' +
-    '<div class="school-menu-editor-heading"><h2>' +
+    '<div class="school-menu-editor-heading"><h2 id="menu-editor-title">' +
     (isNew ? "Add menu for " : "Edit menu for ") +
     esc(formatDay(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })) +
     '</h2></div>' +
@@ -164,15 +160,16 @@ function edit(entry, date) {
         (entry.imported_at ? " · " + new Date(entry.imported_at * 1000).toLocaleString() : "")
       : "Manually entered or corrected")
     : "No menu record exists for this date.";
-  editor.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("menu-dialog").showModal();
 
   $("menu-form").addEventListener("submit", save);
   $("cancel-menu").addEventListener("click", () => {
-    state.selected = null;
-    renderMonthView();
+    $("menu-dialog").close();
   });
   $("delete-menu")?.addEventListener("click", remove);
 }
+
+$("menu-dialog").addEventListener("close", () => { state.selected = null; });
 
 function parseItems() {
   return $("menu-items").value.split("\n").map(line => line.trim()).filter(Boolean).map(name => ({
@@ -205,6 +202,7 @@ async function save(event) {
       body: JSON.stringify({ date, status, items }),
     });
     state.selected = null;
+    $("menu-dialog").close();
     await loadMonth();
     appendMenuLog("Menu saved for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
@@ -223,6 +221,7 @@ async function remove() {
   try {
     await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), { method: "DELETE" });
     state.selected = null;
+    $("menu-dialog").close();
     await loadMonth();
     appendMenuLog("Menu deleted for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
@@ -254,7 +253,7 @@ async function loadMonth() {
     state.entries = entries;
     const count = new Set(entries.filter(entry => entry.status === "known").map(entry => entry.date)).size;
     $("menu-content").innerHTML =
-      '<div id="menu-month-view"></div><div id="menu-editor"></div><div id="menu-status-log" class="school-menu-status-log" aria-live="polite"></div>';
+      '<div id="menu-month-view"></div><div id="menu-status-log" class="school-menu-status-log" aria-live="polite"></div>';
     appendMenuLog(count
       ? "Month loaded. Published menus are available for " + count + " of " + end.getDate() + " days."
       : "Month loaded successfully, but no published menus are available for this month.");
