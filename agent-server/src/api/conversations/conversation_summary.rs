@@ -11,4 +11,5 @@ pub struct ConversationSummary {
     pub updated_at: String,
     pub message_count: usize,
     pub selected_family_id: Option<String>,
+    pub history_tokens_estimate: usize,
 }

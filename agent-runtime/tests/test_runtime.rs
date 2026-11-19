@@ -148,6 +148,24 @@ async fn executes_tool_and_returns_final_response() {
     assert_eq!(result.response.unwrap(), "123 × 456 = 56088");
     assert_eq!(result.iterations, 2);
 
+    let assistant_messages = result
+        .messages
+        .iter()
+        .filter_map(|message| match message {
+            Message::Assistant {
+                model_id,
+                generated_at,
+                ..
+            } => Some((model_id, generated_at)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(assistant_messages.len(), 2);
+    for (model_id, generated_at) in assistant_messages {
+        assert_eq!(model_id.as_deref(), Some("fixed"));
+        assert!(generated_at.is_some());
+    }
+
     // The dispatcher executed exactly one tool call.
     let calls = tools.calls.lock().unwrap();
     assert_eq!(calls.len(), 1);

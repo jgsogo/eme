@@ -4,6 +4,16 @@ Generic tools that expose useful information to agents, including deterministic 
 
 ## Tools
 
+### `get_tweet`
+
+Retrieves a public X/Twitter post from its URL using the FxEmbed API v2.
+
+Required argument:
+
+- `url`: a post URL on `x.com`, `twitter.com`, `fixupx.com` or `fxtwitter.com`.
+
+The tool extracts the numeric post ID locally and requests `https://api.fxtwitter.com/2/status/{id}`. Query parameters (including tracking parameters) are ignored. It returns the API's JSON response unchanged, preserving the available post text, author, timestamps, engagement counts, quoted post and media metadata. The input URL is never fetched; only the fixed FxEmbed API host is contacted. No API token is required.
+
 ### `get_holidays`
 
 Retrieves public holidays or official school holidays from [OpenHolidays API](https://www.openholidaysapi.org/).

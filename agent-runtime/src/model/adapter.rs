@@ -50,6 +50,7 @@ impl AgentModel for ModelAdapter {
                     crate::Message::Assistant {
                         content,
                         tool_calls,
+                        ..
                     } => ConversationMessage::Assistant {
                         content,
                         tool_calls: tool_calls
@@ -168,6 +169,8 @@ mod tests {
                         arguments: json!({"expression": "2 + 2"}),
                         provider_metadata: None,
                     }],
+                    model_id: None,
+                    generated_at: None,
                 },
                 Message::Tool {
                     tool_call_id: "call-previous".into(),
