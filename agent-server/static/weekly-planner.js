@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { familyId:"", members:[], recipes:[], menus:[], participation:[], plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, request:0, showWeekends:true };
+const state = { familyId:"", members:[], recipes:[], menus:[], participation:[], failedWeeks:new Set(), plans:new Map(), month:"", selectedDate:null, editingWeek:null, editingId:null, request:0, showWeekends:true };
 const meals = [["lunch","Lunch"],["dinner","Dinner"]];
 async function api(path, options={}) {
   const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});
@@ -55,8 +55,9 @@ function renderMonth(){
    const configuredPeople=participationDetails(date,meal);
    const people=configuredPeople||assignment?.participants?.map(p=>p.name).join(", ")||"No participation configured";
    const recipes=recipeNames(assignment||{}).join(" · ");
-   const detail=assignment||configuredPeople?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+(!assignment?'<span>Meal not planned</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned · No participation configured</p>';
-   const action=assignment?'<button type="button" class="text-button" data-edit="'+date+'" data-meal="'+meal+'">Edit</button>':'<button type="button" class="text-button" data-add="'+date+'" data-meal="'+meal+'">＋ Add</button>';
+   const detail=state.failedWeeks.has(weekStartFor(date))?'<p class="school-menu-placeholder">Planning data unavailable</p>':assignment||configuredPeople?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+(!assignment?'<span>Meal not planned</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned · No participation configured</p>';
+   const failed=state.failedWeeks.has(weekStartFor(date));
+   const action=failed?'<button type="button" class="text-button" data-retry>Retry</button>':assignment?'<button type="button" class="text-button" data-edit="'+date+'" data-meal="'+meal+'">Edit</button>':'<button type="button" class="text-button" data-add="'+date+'" data-meal="'+meal+'">＋ Add</button>';
    return '<section class="meal-calendar-slot"><div class="meal-calendar-slot-heading"><h3>'+title+'</h3>'+action+'</div>'+detail+'</section>';
   }).join("");
   const plan=planFor(date);
@@ -64,7 +65,8 @@ function renderMonth(){
  }
  const calendar=$("planner-month-view");calendar.classList.toggle("weekdays-only",!state.showWeekends);
  calendar.innerHTML='<div class="school-menu-calendar-weekdays">'+["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].slice(0,state.showWeekends?7:5).map(d=>'<span>'+d+'</span>').join("")+'</div><div class="school-menu-month">'+cells.join("")+'</div>';
- calendar.querySelectorAll("[data-add],[data-edit]").forEach(button=>button.addEventListener("click",()=>{
+ calendar.querySelectorAll("[data-add],[data-edit],[data-retry]").forEach(button=>button.addEventListener("click",()=>{
+  if(button.hasAttribute("data-retry")){loadMonth();return}
   const date=button.dataset.add||button.dataset.edit,meal=button.dataset.meal;
   openEditor(date,meal,assignmentFor(date,meal));
  }));
@@ -133,6 +135,7 @@ async function loadMonth(){
   if(request!==state.request)return;
   const contexts=results.map(result=>result.status==="fulfilled"?result.value:null);
   const failed=results.filter(result=>result.status==="rejected");
+  state.failedWeeks=new Set(results.flatMap((result,i)=>result.status==="rejected"?[weekStarts[i]]:[]));
   if(failed.length===results.length)throw failed[0].reason;
   const firstContext=contexts.find(Boolean);
   state.recipes=firstContext?.recipes||[];
