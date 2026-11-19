@@ -1,0 +1,11 @@
+name = "get_tweet"
+description = "Retrieve the content and available metadata of a public X/Twitter post from its URL using the FxEmbed API. The URL is parsed locally; tracking query parameters are ignored."
+[parameters]
+type = "object"
+required = ["url"]
+additionalProperties = false
+
+[parameters.properties.url]
+type = "string"
+minLength = 1
+description = "A public post URL on x.com, twitter.com, fixupx.com or fxtwitter.com, for example https://x.com/user/status/123."
