@@ -21,10 +21,13 @@ pub struct RecipeDraft {
     pub ingredients: Vec<RecipeIngredient>,
     /// Ordered preparation instructions; vector order is the stable step order.
     pub steps: Vec<String>,
+    #[serde(default)]
     pub categories: Vec<String>,
+    #[serde(default)]
     pub tags: Vec<String>,
     pub source: Option<String>,
     pub notes: Option<String>,
+    #[serde(default)]
     pub dietary_information: Vec<String>,
     /// None means unknown; Some([]) means explicitly checked and no allergens.
     pub allergens: Option<Vec<String>>,

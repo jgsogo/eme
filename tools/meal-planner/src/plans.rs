@@ -12,6 +12,7 @@ pub struct MealAssignment {
     pub date: NaiveDate,
     pub meal_type: MealType,
     pub participants: Vec<PlanParticipant>,
+    #[serde(default)]
     pub recipe_ids: Vec<i64>,
 }
 

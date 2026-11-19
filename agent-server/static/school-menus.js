@@ -143,7 +143,6 @@ function edit(entry, date) {
     '<label for="menu-items">Dishes</label>' +
     '<textarea id="menu-items" rows="5" placeholder="One dish per line&#10;Vegetable soup&#10;Baked fish with potatoes"></textarea>' +
     '<p class="hint school-menu-field-help">Enter one dish name per line.</p>' +
-    '<p id="menu-provenance" class="hint"></p>' +
     '<div class="recipe-actions">' +
     '<button type="submit">' + (isNew ? "Add menu" : "Save changes") + '</button>' +
     '<button type="button" class="secondary" id="cancel-menu">Cancel</button>' +
