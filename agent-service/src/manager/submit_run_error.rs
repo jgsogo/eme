@@ -7,4 +7,6 @@ use thiserror::Error;
 pub enum SubmitRunError {
     #[error("the run queue is full")]
     QueueFull,
+    #[error("run persistence failed: {0}")]
+    Storage(String),
 }

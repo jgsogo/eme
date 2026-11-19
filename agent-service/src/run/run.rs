@@ -2,6 +2,7 @@
 
 use super::{InvalidRunTransition, RunId, RunStatus};
 use std::time::SystemTime;
+use uuid::Uuid;
 
 /// Service-level representation of a submitted run.
 ///
@@ -11,6 +12,7 @@ pub struct Run {
     pub id: RunId,
     pub agent: String,
     pub input: String,
+    pub conversation_id: Option<Uuid>,
     pub status: RunStatus,
     pub created_at: SystemTime,
     pub started_at: Option<SystemTime>,
@@ -25,6 +27,7 @@ impl Run {
             id: RunId::new(),
             agent: agent.into(),
             input: input.into(),
+            conversation_id: None,
             status: RunStatus::Queued,
             created_at: SystemTime::now(),
             started_at: None,
