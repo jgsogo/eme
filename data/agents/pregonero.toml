@@ -14,8 +14,8 @@ tools = [
     "google.list_calendars",
     "google.list_events",
     "common.calendar.get_holidays",
-    "meal.shool_menu.get",
-    "meal.plan.get",
+    "meals.school_menu.get",
+    "meals.plan.get",
     "alexa.speak",
     "telegram.notify_user",
 ]
