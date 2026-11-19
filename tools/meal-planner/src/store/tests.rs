@@ -24,7 +24,7 @@ fn file_database_can_be_reopened_without_reapplying_migrations() {
     {
         let store = MealPlannerStore::open(&config).unwrap();
         store.health_check().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 9);
+        assert_eq!(store.schema_version().unwrap(), 10);
     }
     let _ = std::fs::remove_file(path);
 }
@@ -204,7 +204,7 @@ fn migration_9_keeps_latest_plan_and_its_shopping_list_and_preserves_school_menu
         .unwrap();
 
     let store = MealPlannerStore::from_connection(connection).unwrap();
-    assert_eq!(store.schema_version().unwrap(), 9);
+    assert_eq!(store.schema_version().unwrap(), 10);
 
     let connection = store.connection.lock().unwrap();
     let plans: Vec<(i64, String)> = {
