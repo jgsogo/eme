@@ -86,7 +86,14 @@ impl MealPlannerStore {
                  WHERE family_id=?1 AND member_id=?2 AND weekday=?3 AND meal_type=?4
                    AND effective_from IS ?5 AND effective_until IS ?6
                  ORDER BY id DESC LIMIT 1",
-                params![family_id, member_id, weekday as u8, meal_type.as_str(), effective_from, effective_until],
+                params![
+                    family_id,
+                    member_id,
+                    weekday as u8,
+                    meal_type.as_str(),
+                    effective_from,
+                    effective_until
+                ],
                 |row| row.get::<_, i64>(0),
             )
             .optional()?;
