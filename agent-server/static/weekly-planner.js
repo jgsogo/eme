@@ -77,7 +77,8 @@ function openEditor(date,meal,assignment){
  $("editor-title").textContent=(assignment?"Edit ":"Plan ")+(meal==="lunch"?"lunch":"dinner");
  $("assignment-date").value=date;$("assignment-meal").value=meal;
  $("assignment-participants").innerHTML=state.members.filter(m=>m.active).map(m=>'<option value="'+m.id+'">'+esc(m.name)+'</option>').join("");
- const selected=new Set((assignment?.participants||[]).map(p=>String(p.member_id)));\n if(!assignment)state.participation.filter(p=>p.date===date&&p.meal_type===meal&&p.arrangement==="home").forEach(p=>selected.add(String(p.member_id)));
+ const selected=new Set((assignment?.participants||[]).map(p=>String(p.member_id)));
+ if(!assignment)state.participation.filter(p=>p.date===date&&p.meal_type===meal&&p.arrangement==="home").forEach(p=>selected.add(String(p.member_id)));
  [...$("assignment-participants").options].forEach(o=>o.selected=selected.has(o.value));
  $("assignment-recipes").innerHTML=state.recipes.map(r=>'<option value="'+r.id+'">'+esc(r.title)+'</option>').join("");
  const recipeIds=new Set((assignment?.recipe_ids||[]).map(String));
