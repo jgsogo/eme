@@ -20,13 +20,11 @@ impl MealPlannerStore {
             super::plans::load_plan(&connection, plan_id)?.ok_or(MealPlannerError::NotFound)?;
         let mut recipes = std::collections::HashMap::new();
         for assignment in &plan.assignments {
-            if assignment.arrangement == crate::MealArrangement::Home {
-                for recipe_id in &assignment.recipe_ids {
-                    if !recipes.contains_key(recipe_id) {
-                        let recipe = super::recipes::load_recipe(&connection, *recipe_id)?
-                            .ok_or(MealPlannerError::NotFound)?;
-                        recipes.insert(*recipe_id, recipe);
-                    }
+            for recipe_id in &assignment.recipe_ids {
+                if !recipes.contains_key(recipe_id) {
+                    let recipe = super::recipes::load_recipe(&connection, *recipe_id)?
+                        .ok_or(MealPlannerError::NotFound)?;
+                    recipes.insert(*recipe_id, recipe);
                 }
             }
         }
@@ -259,7 +257,7 @@ fn timestamp() -> i64 {
 mod tests {
     use super::*;
     use crate::{
-        MealArrangement, MealType, NewShoppingListItem, PlanParticipant, RecipeDraft,
+        MealType, NewShoppingListItem, PlanParticipant, RecipeDraft,
         RecipeIngredient, ShoppingListItemUpdate, WeeklyPlanDraft,
     };
     use chrono::NaiveDate;
@@ -312,10 +310,7 @@ mod tests {
                                 name: member_b.name,
                             },
                         ],
-                        arrangement: MealArrangement::Home,
                         recipe_ids: vec![recipe.id],
-                        school_menu_date: None,
-                        notes: None,
                     }],
                 },
             )
@@ -459,10 +454,7 @@ mod tests {
                             member_id: member.id,
                             name: member.name,
                         }],
-                        arrangement: MealArrangement::Home,
                         recipe_ids: vec![recipe.id],
-                        school_menu_date: None,
-                        notes: None,
                     }],
                 },
             )

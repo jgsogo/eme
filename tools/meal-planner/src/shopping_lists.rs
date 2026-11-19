@@ -63,9 +63,6 @@ pub(super) fn generate_items(
 ) -> Result<Vec<GeneratedItem>, String> {
     let mut items: Vec<GeneratedItem> = Vec::new();
     for assignment in &plan.assignments {
-        if assignment.arrangement != MealArrangement::Home {
-            continue;
-        }
         for recipe_id in &assignment.recipe_ids {
             let recipe_id = *recipe_id;
             let recipe = recipe_for(recipe_id)
@@ -336,11 +333,7 @@ mod tests {
                     name: format!("Member {member_id}"),
                 })
                 .collect(),
-            arrangement,
             recipe_ids,
-            school_menu_date: (arrangement == MealArrangement::School)
-                .then(|| NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()),
-            notes: None,
         }
     }
 
@@ -388,7 +381,7 @@ mod tests {
     }
 
     #[test]
-    fn unknown_quantities_remain_unknown_and_non_home_meals_are_excluded() {
+    fn unknown_quantities_remain_unknown_and_assignments_without_recipes_are_ignored() {
         let p = plan(vec![
             assignment(1, MealArrangement::Home, vec![1], 2),
             assignment(2, MealArrangement::School, vec![], 1),
