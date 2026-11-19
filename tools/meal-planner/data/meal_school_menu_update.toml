@@ -1,5 +1,5 @@
-name = "meals.school_menu.update"
-description = "Replace an existing school menu."
+name = "meals.school_menu.create"
+description = "Create a manual school menu. If status is `closed`, the tool discards any supplied items and stores an empty menu; put the closure reason in notes. Otherwise, only status `known` may contain menu items."
 
 [parameters]
 type = "object"
