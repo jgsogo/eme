@@ -17,12 +17,12 @@ use agent_storage::{ConversationId, FileUserIdentityStore, SqliteConversationSto
 use std::sync::Arc;
 use agent_service::Run;
 
-fn owns_run(run: &Run, request: &HttpRequest, auth: Option<&crate::auth::TelegramAuth>, store: &SqliteConversationStore) -> bool {
-    let Some(auth) = auth else { return false; };
+fn owns_run(run: &Run, request: &HttpRequest, auth: Option<&crate::auth::TelegramAuth>, store: Option<&SqliteConversationStore>) -> bool {
+    let Some(auth) = auth else { return true; };
     let Some(owner) = auth.owner_for_request(request) else { return false; };
     if let Some(conversation_id) = run.conversation_id {
         let Ok(id) = ConversationId::from_str(&conversation_id.to_string()) else { return false; };
-        store.get(id).is_ok_and(|conversation| conversation.owner == owner)
+        store.is_some_and(|store| store.get(id).is_ok_and(|conversation| conversation.owner == owner))
     } else {
         auth.runs_for_owner(&owner).contains(&run.id.to_string())
     }
@@ -45,16 +45,15 @@ async fn list_runs(
     request: HttpRequest,
     auth: Option<Data<crate::auth::TelegramAuth>>,
     manager: Data<RunManager>,
-    store: Data<Arc<SqliteConversationStore>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
 ) -> impl Responder {
-    let owner = auth
-        .as_ref()
-        .and_then(|auth| auth.owner_for_request(&request));
     let runs = manager.list().await.into_iter()
-        .filter(|run| {
-            if let (Some(auth), Some(_owner)) = (auth.as_ref(), owner.as_ref()) {
-                owns_run(run, &request, Some(auth.get_ref()), store.as_ref())
-            } else { false }
+        .filter(|run| match auth.as_ref() {
+            Some(auth) => owns_run(
+                run, &request, Some(auth.get_ref()),
+                store.as_ref().map(|store| store.get_ref().as_ref()),
+            ),
+            None => true,
         })
         .collect::<Vec<_>>();
     let body = runs
@@ -147,7 +146,7 @@ async fn get_run(
     };
 
     match manager.get(run_id).await {
-        Some(run) if owns_run(&run, &request, auth.as_deref(), store.as_ref()) => HttpResponse::Ok().json(GetRunResponse {
+        Some(run) if owns_run(&run, &request, auth.as_deref(), store.as_ref().map(|store| store.get_ref().as_ref())) => HttpResponse::Ok().json(GetRunResponse {
             run_id: run.id.to_string(),
             agent: run.agent,
             status: status_name(run.status),
