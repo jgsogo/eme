@@ -25,7 +25,7 @@ pub struct MealAssignment {
     pub participants: Vec<PlanParticipant>,
     pub arrangement: MealArrangement,
     /// Only home-prepared assignments may reference a family recipe.
-    pub recipe_id: Option<i64>,
+    pub recipe_ids: Vec<i64>,
     /// School assignments refer to the menu for this local calendar date.
     pub school_menu_date: Option<NaiveDate>,
     pub notes: Option<String>,
@@ -56,8 +56,7 @@ impl WeeklyPlanDraft {
             .checked_add_days(Days::new(6))
             .ok_or_else(|| "week_start is outside the supported date range".to_owned())?;
         let mut assignment_ids = Vec::new();
-        let mut slot_participants = Vec::new();
-        for assignment in &self.assignments {
+            for assignment in &self.assignments {
             if assignment.id <= 0 || assignment_ids.contains(&assignment.id) {
                 return Err("assignment IDs must be positive and unique within a plan".into());
             }
@@ -77,14 +76,6 @@ impl WeeklyPlanDraft {
                     return Err("an assignment cannot contain a participant more than once".into());
                 }
                 seen.push(participant.member_id);
-                let slot_key = (assignment.date, assignment.meal_type, participant.member_id);
-                if slot_participants.contains(&slot_key) {
-                    return Err(
-                        "a participant cannot have multiple assignments for the same meal slot"
-                            .into(),
-                    );
-                }
-                slot_participants.push(slot_key);
             }
             match assignment.arrangement {
                 MealArrangement::Home => {
@@ -95,7 +86,7 @@ impl WeeklyPlanDraft {
                     }
                 }
                 MealArrangement::School => {
-                    if assignment.recipe_id.is_some() {
+                    if !assignment.recipe_ids.is_empty() {
                         return Err("school assignments cannot reference a family recipe".into());
                     }
                     if assignment.school_menu_date != Some(assignment.date) {
@@ -110,8 +101,8 @@ impl WeeklyPlanDraft {
                     }
                 }
             }
-            if assignment.recipe_id.is_some_and(|id| id <= 0) {
-                return Err("recipe_id must be positive".into());
+            if assignment.recipe_ids.iter().any(|id| *id <= 0) {
+                return Err("recipe_ids must contain only positive IDs".into());
             }
         }
         Ok(self)
@@ -132,7 +123,7 @@ mod tests {
                 name: "Alex".into(),
             }],
             arrangement,
-            recipe_id: None,
+            recipe_ids: vec![],
             school_menu_date: (arrangement == MealArrangement::School)
                 .then(|| NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()),
             notes: None,
@@ -162,7 +153,7 @@ mod tests {
     fn school_meals_reference_menu_and_never_a_recipe() {
         let monday = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         let mut value = assignment(MealArrangement::School);
-        value.recipe_id = Some(4);
+        value.recipe_ids = vec![4];
         assert!(
             WeeklyPlanDraft {
                 assignments: vec![value]

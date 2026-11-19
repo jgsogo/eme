@@ -210,7 +210,7 @@ mod tests {
             "assignments": [{
                 "id": 1, "date": monday(), "meal_type": "lunch",
                 "participants": [{"member_id": member.id, "name": "Alex"}],
-                "arrangement": "home", "recipe_id": null, "school_menu_date": null, "notes": null
+                "arrangement": "home", "recipe_ids": [], "school_menu_date": null, "notes": null
             }]
         });
         let context = ToolContext::new("user-1");

@@ -185,7 +185,7 @@ impl MealPlannerApplication {
             .collect::<HashMap<_, _>>();
         let mut issues = Vec::new();
         let mut assignment_ids = HashSet::new();
-        let mut slot_participants = HashSet::new();
+        
 
         if week_start.weekday() != Weekday::Mon {
             issues.push(issue(
@@ -258,13 +258,6 @@ impl MealPlannerApplication {
                         None,
                     ));
                 }
-                if !slot_participants.insert((
-                    assignment.date,
-                    assignment.meal_type,
-                    participant.member_id,
-                )) {
-                    issues.push(issue("participant_single_assignment_per_slot", ValidationSeverity::Error, "A participant cannot have multiple assignments for the same date and meal.", date, meal, id, Some(participant.member_id), None));
-                }
                 match member_by_id.get(&participant.member_id) {
                     None => issues.push(issue(
                         "participant_exists",
@@ -305,7 +298,7 @@ impl MealPlannerApplication {
                     }
                 }
                 MealArrangement::School => {
-                    if assignment.recipe_id.is_some() {
+                    if !assignment.recipe_ids.is_empty() {
                         issues.push(issue(
                             "school_without_recipe",
                             ValidationSeverity::Error,
@@ -314,7 +307,7 @@ impl MealPlannerApplication {
                             meal,
                             id,
                             None,
-                            assignment.recipe_id,
+                            assignment.recipe_ids.first().copied(),
                         ));
                     }
                     if assignment.school_menu_date != Some(assignment.date) {
@@ -343,18 +336,9 @@ impl MealPlannerApplication {
                     }
                 }
             }
-            if let Some(recipe_id) = assignment.recipe_id {
-                if recipe_id <= 0 || !recipe_ids.contains(&recipe_id) {
-                    issues.push(issue(
-                        "recipe_exists",
-                        ValidationSeverity::Error,
-                        "The referenced recipe does not exist.",
-                        date,
-                        meal,
-                        id,
-                        None,
-                        Some(recipe_id),
-                    ));
+            for recipe_id in &assignment.recipe_ids {
+                if *recipe_id <= 0 || !recipe_ids.contains(recipe_id) {
+                    issues.push(issue("recipe_exists", ValidationSeverity::Error, "A referenced recipe does not exist.", date, meal, id, None, Some(*recipe_id)));
                 }
             }
         }
@@ -468,7 +452,7 @@ mod tests {
                     name: "Alex".into(),
                 }],
                 arrangement: MealArrangement::Home,
-                recipe_id: None,
+                recipe_ids: vec![],
                 school_menu_date: None,
                 notes: None,
             }],
@@ -495,7 +479,7 @@ mod tests {
         let app = MealPlannerApplication::new(store);
         let mut proposal = draft(999);
         proposal.assignments[0].arrangement = MealArrangement::School;
-        proposal.assignments[0].recipe_id = Some(123);
+        proposal.assignments[0].recipe_ids = vec![123];
         let result = app.validate("user-1", &[], monday(), &proposal).unwrap();
         assert!(!result.valid);
         assert!(

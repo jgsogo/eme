@@ -38,7 +38,7 @@ impl MealPlannerStore {
                     meal_type: participation.meal_type,
                     participants: vec![participant],
                     arrangement,
-                    recipe_id: None,
+                    recipe_ids: vec![],
                     school_menu_date: (arrangement == MealArrangement::School)
                         .then_some(participation.date),
                     notes: None,
@@ -430,14 +430,12 @@ fn ensure_family_references(
                 return Err(MealPlannerError::NotFound);
             }
         }
-        if let Some(recipe_id) = assignment.recipe_id {
+        for recipe_id in &assignment.recipe_ids {
             let exists: bool = connection.query_row(
                 "SELECT EXISTS(SELECT 1 FROM recipes WHERE id=?1 AND (family_id IS NULL OR family_id=?2))",
                 params![recipe_id, family_id], |row| row.get(0)
             )?;
-            if !exists {
-                return Err(MealPlannerError::NotFound);
-            }
+            if !exists { return Err(MealPlannerError::NotFound); }
         }
     }
     Ok(())
@@ -469,15 +467,12 @@ fn ensure_references(
                 return Err(MealPlannerError::NotFound);
             }
         }
-        if let Some(recipe_id) = assignment.recipe_id {
+        for recipe_id in &assignment.recipe_ids {
             let exists: bool = connection.query_row(
                 "SELECT EXISTS(SELECT 1 FROM recipes WHERE id = ?1)",
-                [recipe_id],
-                |row| row.get(0),
+                [recipe_id], |row| row.get(0),
             )?;
-            if !exists {
-                return Err(MealPlannerError::NotFound);
-            }
+            if !exists { return Err(MealPlannerError::NotFound); }
         }
     }
     Ok(())

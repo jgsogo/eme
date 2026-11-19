@@ -21,11 +21,11 @@ impl MealPlannerStore {
         let mut recipes = std::collections::HashMap::new();
         for assignment in &plan.assignments {
             if assignment.arrangement == crate::MealArrangement::Home {
-                if let Some(recipe_id) = assignment.recipe_id {
-                    if !recipes.contains_key(&recipe_id) {
-                        let recipe = super::recipes::load_recipe(&connection, recipe_id)?
+                for recipe_id in &assignment.recipe_ids {
+                    if !recipes.contains_key(recipe_id) {
+                        let recipe = super::recipes::load_recipe(&connection, *recipe_id)?
                             .ok_or(MealPlannerError::NotFound)?;
-                        recipes.insert(recipe_id, recipe);
+                        recipes.insert(*recipe_id, recipe);
                     }
                 }
             }
@@ -313,7 +313,7 @@ mod tests {
                             },
                         ],
                         arrangement: MealArrangement::Home,
-                        recipe_id: Some(recipe.id),
+                        recipe_ids: vec![recipe.id],
                         school_menu_date: None,
                         notes: None,
                     }],

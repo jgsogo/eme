@@ -66,9 +66,8 @@ pub(super) fn generate_items(
         if assignment.arrangement != MealArrangement::Home {
             continue;
         }
-        let Some(recipe_id) = assignment.recipe_id else {
-            continue;
-        };
+        for recipe_id in &assignment.recipe_ids {
+        let recipe_id = *recipe_id;
         let recipe = recipe_for(recipe_id)
             .ok_or_else(|| format!("recipe {recipe_id} referenced by plan was not found"))?;
         let factor = assignment.participants.len() as f64 / recipe.draft.servings as f64;
@@ -97,6 +96,7 @@ pub(super) fn generate_items(
                     source_recipe_ids: vec![recipe_id],
                 });
             }
+        }
         }
     }
     Ok(items)
@@ -323,7 +323,7 @@ mod tests {
     fn assignment(
         id: i64,
         arrangement: MealArrangement,
-        recipe_id: Option<i64>,
+        recipe_ids: Vec<i64>,
         participants: usize,
     ) -> MealAssignment {
         MealAssignment {
@@ -337,7 +337,7 @@ mod tests {
                 })
                 .collect(),
             arrangement,
-            recipe_id,
+            recipe_ids,
             school_menu_date: (arrangement == MealArrangement::School)
                 .then(|| NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()),
             notes: None,
