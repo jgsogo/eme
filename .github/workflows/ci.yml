@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,8 +20,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          ref: ${{ github.head_ref }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -30,18 +28,6 @@ jobs:
 
       - name: Cache Cargo dependencies
         uses: Swatinem/rust-cache@v2
-
-      - name: Format Rust sources for this PR
-        if: github.event_name == 'pull_request' && github.head_ref == 'refactor/meal-planner-tools'
-        run: |
-          cargo fmt --all
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add -u
-            git commit -m "style: format meal planner refactor"
-            git push origin "HEAD:${GITHUB_HEAD_REF}"
-          fi
 
       - name: Check formatting
         run: cargo fmt --all -- --check
