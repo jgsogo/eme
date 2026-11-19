@@ -1,4 +1,5 @@
 use super::*;
+use crate::RunId;
 use agent_runtime::{CancellationToken, EventSink, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind, ToolContext};
 use agent_storage::{ConversationMessageStore, RunEventStore, RunStore, SqliteConversationStore, SqliteExecutionStore};
 use async_trait::async_trait;
