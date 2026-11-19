@@ -242,6 +242,12 @@ async function loadMonth() {
   $("menu-content").innerHTML = '<p class="empty">Loading school menus…</p>';
 
   try {
+    if (!state.familyId) {
+      state.entries = [];
+      $("menu-content").innerHTML = '<p class="empty">Create or join a family to manage school menus. <a href="/console/families">Manage families</a>.</p>';
+      $("connection").textContent = "No family selected";
+      return;
+    }
     const entries = await api("/meal-planner/school-menus/?family_id=" + encodeURIComponent(state.familyId) + "&from=" +
       dateString(start) + "&to=" + dateString(end));
     if (request !== state.loadRequest) return;
