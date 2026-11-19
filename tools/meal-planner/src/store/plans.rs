@@ -288,3 +288,52 @@ pub(super) fn load_plan(
     })
     .transpose()?)
 }
+
+#[cfg(test)]
+mod save_tests {
+    use super::*;
+    use crate::{MealType, PlanParticipant};
+
+    #[test]
+    fn saving_a_plan_is_idempotent_and_preserves_empty_recipe_assignments() {
+        let store = MealPlannerStore::open_in_memory().unwrap();
+        let week = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
+        let members = store
+            .sync_family_members("family-a", &[("user-1".into(), "Alex".into())])
+            .unwrap();
+        let assignment = MealAssignment {
+            id: 1,
+            date: week,
+            meal_type: MealType::Lunch,
+            participants: vec![PlanParticipant {
+                member_id: members[0].id,
+                name: members[0].name.clone(),
+            }],
+            recipe_ids: vec![],
+        };
+
+        let first = store
+            .save_weekly_plan_for_family(
+                "family-a",
+                week,
+                WeeklyPlanDraft { assignments: vec![assignment.clone()] },
+            )
+            .unwrap();
+        let second = store
+            .save_weekly_plan_for_family(
+                "family-a",
+                week,
+                WeeklyPlanDraft { assignments: vec![assignment] },
+            )
+            .unwrap();
+
+        assert_eq!(first.id, second.id);
+        assert_eq!(second.assignments.len(), 1);
+        assert!(second.assignments[0].recipe_ids.is_empty());
+        assert_eq!(
+            store.get_weekly_plan_for_family("family-a", week).unwrap().unwrap().id,
+            first.id
+        );
+        assert!(store.get_weekly_plan_for_family("family-b", week).unwrap().is_none());
+    }
+}
