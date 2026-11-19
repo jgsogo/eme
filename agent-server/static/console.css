@@ -339,3 +339,23 @@ body:has(#shopping-list-panel) main{overflow:auto}
 .pending-cancel:disabled{opacity:.55;cursor:wait}
 @keyframes pending-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.pending-spinner{animation:none}}
+
+
+/* Monthly meal planner */
+.meal-planner-day { min-height: 250px; }
+.meal-day-slots { display: grid; gap: 0.75rem; }
+.meal-calendar-slot { border-top: 1px solid var(--border-color, #ddd); padding-top: 0.55rem; min-width: 0; }
+.meal-calendar-slot-heading { display:flex; align-items:center; justify-content:space-between; gap:.4rem; }
+.meal-calendar-slot-heading h3 { margin:0; font-size:.9rem; }
+.meal-calendar-slot .text-button { padding:.15rem .25rem; white-space:nowrap; }
+.meal-slot-details { display:grid; gap:.2rem; margin-top:.35rem; font-size:.85rem; overflow-wrap:anywhere; }
+.meal-slot-details span { color:var(--muted, #666); }
+.meal-slot-details p { margin:.2rem 0 0; color:var(--muted, #666); }
+.meal-plan-confirmed { display:inline-block; margin-top:.55rem; font-size:.75rem; color:var(--muted, #666); }
+.meal-planner-day header { margin-bottom:.45rem; }
+@media (max-width: 720px) {
+  .meal-planner-day { min-height: 0; }
+  .meal-day-slots { grid-template-columns: 1fr 1fr; gap:.55rem; }
+  .meal-calendar-slot { padding-top:.4rem; }
+  .meal-calendar-slot-heading { align-items:flex-start; flex-wrap:wrap; }
+}
