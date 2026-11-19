@@ -127,16 +127,21 @@ async function loadMonth(){
   const first=monthStart(state.month),last=new Date(first.getFullYear(),first.getMonth()+1,0,12);
   const from=mondayOf(first),to=mondayOf(last);
   const weekStarts=[];for(let d=from;d<=to;d=addDays(d,7))weekStarts.push(dateString(d));
-  const contexts=await Promise.all(weekStarts.map(week=>
+  const results=await Promise.allSettled(weekStarts.map(week=>
    api("/meal-planner/context/"+week+"?family_id="+encodeURIComponent(state.familyId))
   ));
   if(request!==state.request)return;
-  state.recipes=contexts[0]?.recipes||[];
+  const contexts=results.map(result=>result.status==="fulfilled"?result.value:null);
+  const failed=results.filter(result=>result.status==="rejected");
+  if(failed.length===results.length)throw failed[0].reason;
+  const firstContext=contexts.find(Boolean);
+  state.recipes=firstContext?.recipes||[];
   state.plans.clear();
   state.participation=contexts.flatMap(context=>context?.participation||[]);
   state.menus=contexts.flatMap(context=>context?.school_menus||[]);
   contexts.forEach((context,i)=>{if(context?.current_plan)state.plans.set(weekStarts[i],context.current_plan)});
-  renderMonth();$("connection").textContent="Connected";
+  renderMonth();
+  $("connection").textContent=failed.length?("Partially connected · "+failed.length+" week(s) failed to load"):"Connected";
  }catch(e){if(request===state.request){$("planner-month-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+'</p>';$("connection").textContent="Connection error"}}
 }
 $("assignment-form").addEventListener("submit",e=>{e.preventDefault();persistAssignment(false)});
@@ -149,4 +154,6 @@ $("show-weekends").addEventListener("change",e=>{state.showWeekends=e.target.che
 try{state.showWeekends=localStorage.getItem("eme-meal-planner-show-weekends")!=="false"}catch{}
 $("show-weekends").checked=state.showWeekends;
 window.addEventListener("eme:family-changed",()=>loadMonth());
+window.addEventListener("focus",()=>loadMonth());
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")loadMonth()});
 (async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("month-date").value=monthString(new Date());await loadMonth()}catch(e){$("connection").textContent="Error loading planner: "+e.message}})();
