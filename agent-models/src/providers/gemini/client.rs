@@ -272,6 +272,8 @@ fn normalize_gemini_schema(schema: &Value) -> Value {
         match value {
             Value::Object(object) => {
                 object.remove("additionalProperties");
+                object.remove("exclusiveMinimum");
+                object.remove("exclusiveMaximum");
 
                 for value in object.values_mut() {
                     remove_unsupported_fields(value);
@@ -456,8 +458,21 @@ mod tests {
                     "additionalProperties": false,
                     "properties": {
                         "urgent": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "exclusiveMinimum": 0
                         }
+                    }
+                },
+                "count": {
+                    "type": "integer",
+                    "exclusiveMinimum": 1,
+                    "exclusiveMaximum": 10
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
                     }
                 }
             },
@@ -475,8 +490,30 @@ mod tests {
 
         assert_eq!(normalized["required"], serde_json::json!(["text"]));
         assert_eq!(normalized["properties"]["text"]["type"], "string");
+        assert!(
+            normalized["properties"]["options"]["properties"]["urgent"]
+                .get("exclusiveMinimum")
+                .is_none()
+        );
+        assert!(
+            normalized["properties"]["count"]
+                .get("exclusiveMinimum")
+                .is_none()
+        );
+        assert!(
+            normalized["properties"]["count"]
+                .get("exclusiveMaximum")
+                .is_none()
+        );
+        assert!(
+            normalized["properties"]["values"]["items"]
+                .get("exclusiveMinimum")
+                .is_none()
+        );
 
         // The original schema remains intact.
         assert_eq!(schema["additionalProperties"], false);
+        assert_eq!(schema["properties"]["count"]["exclusiveMinimum"], 1);
+        assert_eq!(schema["properties"]["count"]["exclusiveMaximum"], 10);
     }
 }
