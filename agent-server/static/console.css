@@ -359,3 +359,8 @@ body:has(#shopping-list-panel) main{overflow:auto}
   .meal-calendar-slot { padding-top:.4rem; }
   .meal-calendar-slot-heading { align-items:flex-start; flex-wrap:wrap; }
 }
+
+/* The monthly meal planner can exceed the viewport: scroll the page rather
+   than clipping the calendar inside its panel. */
+main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
+.meal-planner-page .school-menu-main{overflow:visible}
