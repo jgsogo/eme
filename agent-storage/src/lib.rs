@@ -19,7 +19,7 @@ pub use connected_calendar::{
     SqliteConnectedCalendarStore,
 };
 pub use contracts::{
-    ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
+    ConversationMessageStore, ExecutionStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
     StoredRunEvent, StoredRunStatus,
 };
 pub use conversation::{Conversation, ConversationId, ConversationStore, ConversationStoreError};

@@ -17,3 +17,7 @@ pub use stored_message::StoredMessage;
 pub use stored_run::StoredRun;
 pub use stored_run_event::StoredRunEvent;
 pub use stored_run_status::StoredRunStatus;
+
+/// Combined persistence interface required by the run coordinator.
+pub trait ExecutionStore: RunStore + RunEventStore + ConversationMessageStore {}
+impl<T> ExecutionStore for T where T: RunStore + RunEventStore + ConversationMessageStore {}
