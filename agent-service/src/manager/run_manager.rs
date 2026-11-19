@@ -145,7 +145,7 @@ impl RunManager {
                     };
 
                     if let (Some(storage), Some((snapshot, events, messages, message_count))) =
-                        (persistence.read().await.clone(), persisted)
+                        (current_storage(&persistence), persisted)
                     {
                         if let Err(storage_error) = storage.update_run(to_stored_run(&snapshot)).await {
                             error!(run_id = %run_id, %storage_error, "failed to persist terminal run state");
@@ -294,7 +294,7 @@ impl RunManager {
             };
             (outcome, entry.run.clone(), entry.events.last().cloned().unwrap())
         };
-        if let Some(storage) = self.persistence.read().await.clone() {
+        if let Some(storage) = current_storage(&self.persistence) {
             if let Err(error) = persist_snapshot_and_event(storage.as_ref(), &snapshot, &event).await {
                 error!(run_id = %run_id, %error, "failed to persist queued-run cancellation");
             }
