@@ -405,17 +405,14 @@ async fn continue_conversation(
         None => None,
     };
 
-    let history = match conversation_history_for_submission(
-        conversation.messages,
-        input,
-        request.retry,
-    ) {
-        Some(history) => history,
-        None => {
-            return HttpResponse::BadRequest()
-                .body("the message to retry is not present in this conversation");
-        }
-    };
+    let history =
+        match conversation_history_for_submission(conversation.messages, input, request.retry) {
+            Some(history) => history,
+            None => {
+                return HttpResponse::BadRequest()
+                    .body("the message to retry is not present in this conversation");
+            }
+        };
 
     match manager
         .submit(
@@ -607,7 +604,6 @@ mod tests {
     }
 }
 
-
 #[cfg(test)]
 mod retry_history_tests {
     use super::conversation_history_for_submission;
@@ -630,12 +626,8 @@ mod retry_history_tests {
             },
         ];
 
-        let retried = conversation_history_for_submission(
-            history,
-            "request to retry",
-            true,
-        )
-        .expect("matching user message should be found");
+        let retried = conversation_history_for_submission(history, "request to retry", true)
+            .expect("matching user message should be found");
 
         assert_eq!(retried.len(), 1);
         assert!(matches!(
@@ -664,9 +656,8 @@ mod retry_history_tests {
             content: "previous request".to_owned(),
         }];
 
-        let submitted =
-            conversation_history_for_submission(history, "new request", false)
-                .expect("normal submissions do not require a matching message");
+        let submitted = conversation_history_for_submission(history, "new request", false)
+            .expect("normal submissions do not require a matching message");
 
         assert_eq!(submitted.len(), 1);
     }
