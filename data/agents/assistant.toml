@@ -43,6 +43,7 @@ tools = [
     "tasks.remove",
     "notes.list",
     "notes.get",
+    "notes.add",
     "mercadona.search_products",
     "mercadona.get_product",
     "mercadona.list_categories",

@@ -1,5 +1,6 @@
-//! Agent tool adapters for listing and reading accessible notes.
+//! Agent tool adapters for listing, reading, and creating accessible notes.
 
+mod add_note;
 mod get_note;
 mod list_notes;
 
@@ -16,6 +17,10 @@ pub fn register_tools(
     database: impl AsRef<Path>,
 ) -> Result<NotesStore, Box<dyn Error + Send + Sync>> {
     let store = NotesStore::open(database, families)?;
+    registry.register(
+        add_note::definition(),
+        add_note::AddNote::new(store.clone()),
+    )?;
     registry.register(
         get_note::definition(),
         get_note::GetNote::new(store.clone()),
