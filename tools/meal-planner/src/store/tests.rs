@@ -10,7 +10,7 @@ use crate::{MealPlannerConfig, MealPlannerError, MealPlannerStore};
 fn in_memory_database_is_initialized_and_healthy() {
     let store = MealPlannerStore::open_in_memory().unwrap();
     store.health_check().unwrap();
-    assert_eq!(store.schema_version().unwrap(), 9);
+    assert_eq!(store.schema_version().unwrap(), 10);
 }
 
 #[test]
@@ -45,10 +45,84 @@ fn database_with_newer_schema_is_rejected() {
         error,
         MealPlannerError::UnsupportedSchemaVersion {
             current: 99,
-            supported: 9
+            supported: 10
         }
     ));
     let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn migration_10_removes_breakfast_participation_and_preserves_other_meals() {
+    let connection = Connection::open_in_memory().unwrap();
+    connection.execute_batch(
+        r#"
+        CREATE TABLE family_members (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            family_id TEXT NOT NULL,
+            external_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1,
+            UNIQUE(family_id, external_id)
+        );
+        CREATE TABLE recurring_participation_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            family_id TEXT NOT NULL,
+            member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE RESTRICT,
+            weekday INTEGER NOT NULL CHECK(weekday BETWEEN 0 AND 6),
+            meal_type TEXT NOT NULL,
+            arrangement TEXT NOT NULL,
+            effective_from TEXT,
+            effective_until TEXT
+        );
+        CREATE TABLE meal_participation_exceptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            family_id TEXT NOT NULL,
+            member_id INTEGER NOT NULL REFERENCES family_members(id) ON DELETE RESTRICT,
+            date TEXT NOT NULL,
+            meal_type TEXT NOT NULL,
+            arrangement TEXT NOT NULL,
+            UNIQUE(family_id, member_id, date, meal_type)
+        );
+        INSERT INTO family_members(id, family_id, external_id, name) VALUES (1, 'family-a', 'user-1', 'Alex');
+        INSERT INTO recurring_participation_rules
+            (family_id, member_id, weekday, meal_type, arrangement)
+        VALUES
+            ('family-a', 1, 0, 'breakfast', 'home'),
+            ('family-a', 1, 0, 'lunch', 'school'),
+            ('family-a', 1, 0, 'dinner', 'home');
+        INSERT INTO meal_participation_exceptions
+            (family_id, member_id, date, meal_type, arrangement)
+        VALUES
+            ('family-a', 1, '2026-11-16', 'breakfast', 'home'),
+            ('family-a', 1, '2026-11-16', 'lunch', 'away'),
+            ('family-a', 1, '2026-11-16', 'dinner', 'home');
+        PRAGMA user_version = 9;
+        "#,
+    ).unwrap();
+
+    let store = MealPlannerStore::from_connection(connection).unwrap();
+    assert_eq!(store.schema_version().unwrap(), 10);
+    let connection = store.connection.lock().unwrap();
+    let rules: Vec<String> = {
+        let mut statement = connection.prepare(
+            "SELECT meal_type FROM recurring_participation_rules ORDER BY meal_type"
+        ).unwrap();
+        statement.query_map([], |row| row.get(0)).unwrap()
+            .collect::<Result<_, _>>().unwrap()
+    };
+    assert_eq!(rules, vec!["dinner".to_owned(), "lunch".to_owned()]);
+    let exceptions: Vec<String> = {
+        let mut statement = connection.prepare(
+            "SELECT meal_type FROM meal_participation_exceptions ORDER BY meal_type"
+        ).unwrap();
+        statement.query_map([], |row| row.get(0)).unwrap()
+            .collect::<Result<_, _>>().unwrap()
+    };
+    assert_eq!(exceptions, vec!["dinner".to_owned(), "lunch".to_owned()]);
+    assert!(connection.execute(
+        "INSERT INTO recurring_participation_rules (family_id, member_id, weekday, meal_type, arrangement) VALUES ('family-a', 1, 0, 'breakfast', 'home')",
+        []
+    ).is_err());
 }
 
 fn temporary_database_path() -> std::path::PathBuf {
