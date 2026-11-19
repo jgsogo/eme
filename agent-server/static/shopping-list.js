@@ -67,7 +67,7 @@ async function handleItemAction(index,action){
  }
  try{
   if(action==="disable")await Promise.all(group.entries.map(({planId,item})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"DELETE"})));
-  else if(action==="restore")await Promise.all(group.entries.map(({planId,item,originalQuantity})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"?family_id="+encodeURIComponent(state.familyId),{method:"PUT",body:JSON.stringify({...item,quantity:originalQuantity,manually_removed:false})})));
+  else if(action==="restore")await Promise.all(group.entries.map(({planId,item})=>api("/meal-planner/plans/"+planId+"/shopping-list/items/"+item.id+"/restore?family_id="+encodeURIComponent(state.familyId),{method:"POST"})));
   await loadList();
  }catch(error){alert("Could not update ingredient: "+error.message);await loadList()}
 }
