@@ -157,6 +157,64 @@ fn cannot_delete_another_owners_conversation() {
 }
 
 #[test]
+#[test]
+fn archives_and_restores_conversations_without_losing_history() {
+    let directory = temporary_directory();
+    let store = ConversationStore::open(&directory).unwrap();
+    let conversation = store.create("owner-a", "assistant").unwrap();
+    let messages = vec![Message::User { content: "keep this history".into() }];
+    store.save_messages(conversation.id, messages.clone()).unwrap();
+
+    let archived = store.set_archived("owner-a", conversation.id, true).unwrap();
+    assert!(archived.archived);
+    assert!(store.list("owner-a").unwrap().is_empty());
+    assert_eq!(store.list_archived("owner-a").unwrap().len(), 1);
+    assert!(store.active("owner-a").unwrap().is_none());
+
+    let restored = store.set_archived("owner-a", conversation.id, false).unwrap();
+    assert!(!restored.archived);
+    assert_eq!(store.list("owner-a").unwrap().len(), 1);
+    assert!(store.list_archived("owner-a").unwrap().is_empty());
+    assert_eq!(
+        serde_json::to_value(store.get(conversation.id).unwrap().messages).unwrap(),
+        serde_json::to_value(messages).unwrap()
+    );
+
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn cannot_archive_another_owners_conversation() {
+    let directory = temporary_directory();
+    let store = ConversationStore::open(&directory).unwrap();
+    let conversation = store.create("owner-a", "assistant").unwrap();
+
+    assert!(matches!(
+        store.set_archived("owner-b", conversation.id, true),
+        Err(ConversationStoreError::OwnerMismatch { .. })
+    ));
+    assert!(!store.get(conversation.id).unwrap().archived);
+    assert_eq!(store.list("owner-a").unwrap().len(), 1);
+
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn legacy_conversation_files_default_to_not_archived() {
+    let directory = temporary_directory();
+    let store = ConversationStore::open(&directory).unwrap();
+    let conversation = store.create("owner-a", "assistant").unwrap();
+    let path = directory.join("conversations").join(format!("{}.json", conversation.id));
+    let mut value: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    value.as_object_mut().unwrap().remove("archived");
+    fs::write(&path, serde_json::to_vec(&value).unwrap()).unwrap();
+
+    assert!(!store.get(conversation.id).unwrap().archived);
+    assert_eq!(store.list("owner-a").unwrap().len(), 1);
+
+    fs::remove_dir_all(directory).unwrap();
+}
+
 fn saves_full_runtime_message_history() {
     let directory = temporary_directory();
     let store = ConversationStore::open(&directory).unwrap();
