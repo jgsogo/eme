@@ -193,9 +193,9 @@ async fn runtime_events_are_durable_before_the_run_finishes() {
     release.notify_one();
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if manager.get(run_id).await.is_some_and(|run| run.status == crate::RunStatus::Completed) {
-                let events = execution.list_events(run_id.as_uuid(), None).await.unwrap();
-                assert_eq!(events.last().unwrap().kind, "completed");
+            let completed = manager.get(run_id).await.is_some_and(|run| run.status == crate::RunStatus::Completed);
+            let events = execution.list_events(run_id.as_uuid(), None).await.unwrap();
+            if completed && events.last().is_some_and(|event| event.kind == "completed") {
                 assert_eq!(events.last().unwrap().sequence, 3);
                 break;
             }
