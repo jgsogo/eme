@@ -34,6 +34,7 @@ function participationDetails(date,meal){
  return [...groups].map(([arrangement,names])=>(labels[arrangement]||arrangement)+": "+names.join(", ")).join(" · ");
 }
 function renderSchoolMenu(date){
+ if(state.failedWeeks.has(weekStartFor(date)))return '<p class="meal-school-menu-placeholder">School menu data unavailable</p>';
  const entry=state.menus.find(menu=>menu.date===date);
  if(!entry)return '<p class="meal-school-menu-placeholder">No school menu recorded</p>';
  if(entry.status!=="known"){
@@ -123,7 +124,7 @@ async function loadMonth(){
  if($("assignment-editor").open)$("assignment-editor").close();
  try{
   state.familyId=window.emeMealsFamily.currentFamilyId();
-  if(!state.familyId){state.plans.clear();$("planner-month-view").innerHTML='<p class="empty">Create or join a family to plan meals. <a href="/console/families">Manage families</a>.</p>';return}
+  if(!state.familyId){state.members=[];state.recipes=[];state.menus=[];state.participation=[];state.failedWeeks.clear();state.plans.clear();$("planner-month-view").innerHTML='<p class="empty">Create or join a family to plan meals. <a href="/console/families">Manage families</a>.</p>';return}
   const members=await api("/meal-planner/members?family_id="+encodeURIComponent(state.familyId));
   if(request!==state.request)return;state.members=members;
   const first=monthStart(state.month),last=new Date(first.getFullYear(),first.getMonth()+1,0,12);
