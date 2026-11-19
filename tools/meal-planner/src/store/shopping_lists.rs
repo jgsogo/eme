@@ -374,14 +374,24 @@ mod tests {
             .generate_shopping_list_for_range("legacy", monday, monday.succ_opt().unwrap())
             .unwrap();
         assert_eq!(list.items.len(), 2);
-        let carrot = list.items.iter().find(|item| item.name == "Carrot").unwrap();
+        let carrot = list
+            .items
+            .iter()
+            .find(|item| item.name == "Carrot")
+            .unwrap();
         assert_eq!(carrot.quantity, Some(2.0));
         let eggs = list.items.iter().find(|item| item.name == "Eggs").unwrap();
         assert_eq!(eggs.quantity, Some(5.0));
         assert_eq!(eggs.unit, None);
         let id = carrot.id;
         list = store.remove_shopping_list_item(list.id, id).unwrap();
-        assert!(list.items.iter().find(|item| item.id == id).unwrap().manually_removed);
+        assert!(
+            list.items
+                .iter()
+                .find(|item| item.id == id)
+                .unwrap()
+                .manually_removed
+        );
         list = store
             .generate_shopping_list_for_range("legacy", monday, monday.succ_opt().unwrap())
             .unwrap();

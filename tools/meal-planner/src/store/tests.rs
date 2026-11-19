@@ -166,8 +166,7 @@ fn migration_9_keeps_latest_plan_and_its_shopping_list_and_preserves_school_menu
         vec![
             (
                 110,
-                r#"[{"name":"latest item","purchased":true,"manually_removed":true}]"#
-                    .to_owned()
+                r#"[{"name":"latest item","purchased":true,"manually_removed":true}]"#.to_owned()
             ),
             (200, r#"[{"name":"other family item"}]"#.to_owned())
         ]
