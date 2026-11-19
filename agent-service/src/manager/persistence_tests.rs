@@ -1,8 +1,9 @@
 use super::*;
-use agent_runtime::{CancellationToken, Message, ToolContext};
+use agent_runtime::{CancellationToken, EventSink, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind, ToolContext};
 use agent_storage::{ConversationMessageStore, RunEventStore, RunStore, SqliteConversationStore, SqliteExecutionStore};
 use async_trait::async_trait;
 use std::{sync::Arc, time::Duration};
+use tokio::sync::Notify;
 use uuid::Uuid;
 
 struct TranscriptExecutor;
@@ -86,5 +87,123 @@ async fn run_and_conversation_transcript_survive_manager_restart() {
     assert_eq!(reopened.get_run(run_id.as_uuid()).await.unwrap().unwrap().status, agent_storage::StoredRunStatus::Completed);
     assert_eq!(reopened.list_messages(Uuid::parse_str(&conversation.id.to_string()).unwrap()).await.unwrap().len(), 2);
     drop(reopened);
+    let _ = std::fs::remove_dir_all(directory);
+}
+
+struct LiveEventExecutor {
+    started: Arc<Notify>,
+    release: Arc<Notify>,
+}
+
+#[async_trait]
+impl RunExecutor for LiveEventExecutor {
+    async fn execute(
+        &self,
+        _run_id: RunId,
+        _agent: String,
+        _input: String,
+        _history: Vec<Message>,
+        _context: ToolContext,
+        _cancellation: CancellationToken,
+    ) -> Result<ExecutionReport, String> {
+        Err("the live event executor must receive an event sink".into())
+    }
+
+    async fn execute_with_event_sink(
+        &self,
+        run_id: RunId,
+        _agent: String,
+        input: String,
+        mut history: Vec<Message>,
+        _context: ToolContext,
+        _cancellation: CancellationToken,
+        event_sink: Arc<dyn EventSink>,
+    ) -> Result<ExecutionReport, String> {
+        event_sink.emit(&RuntimeEvent {
+            run_id: run_id.as_uuid(),
+            iteration: 1,
+            kind: RuntimeEventKind::ToolExecutionStarted {
+                tool_call_id: "tool-call-1".into(),
+                name: "slow_tool".into(),
+            },
+        });
+        self.started.notify_one();
+        self.release.notified().await;
+
+        history.push(Message::User { content: input });
+        history.push(Message::Assistant {
+            content: Some("done".into()),
+            tool_calls: Vec::new(),
+            model_id: Some("test/model".into()),
+            generated_at: Some(chrono::Utc::now()),
+        });
+        Ok(ExecutionReport {
+            outcome: ExecutionOutcome::Completed(Some("done".into())),
+            runtime_events: Vec::new(),
+            messages: Some(history),
+        })
+    }
+}
+
+#[tokio::test]
+async fn runtime_events_are_durable_before_the_run_finishes() {
+    let directory = std::env::temp_dir().join(format!("eme-live-events-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let database = directory.join("agent-storage.sqlite");
+    let conversations = Arc::new(SqliteConversationStore::open(&database).unwrap());
+    let conversation = conversations.create("owner", "assistant").unwrap();
+    let execution = Arc::new(SqliteExecutionStore::open(&database).unwrap());
+    let started = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+
+    let manager = RunManager::new(
+        Arc::new(LiveEventExecutor {
+            started: started.clone(),
+            release: release.clone(),
+        }),
+        1,
+        2,
+    ).unwrap().with_storage(execution.clone());
+    let run_id = manager.submit(
+        "assistant",
+        "prompt",
+        Vec::new(),
+        ToolContext {
+            conversation_id: Some(conversation.id.to_string()),
+            ..ToolContext::default()
+        },
+    ).await.unwrap();
+
+    tokio::time::timeout(Duration::from_secs(2), started.notified())
+        .await.expect("executor should start");
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            let events = execution.list_events(run_id.as_uuid(), None).await.unwrap();
+            if events.len() >= 3 {
+                assert_eq!(events[2].kind, "tool_execution_started");
+                assert_eq!(events[2].tool_name.as_deref(), Some("slow_tool"));
+                assert_eq!(manager.get(run_id).await.unwrap().status, crate::RunStatus::Running);
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("runtime event should be persisted while execution is blocked");
+
+    release.notify_one();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if manager.get(run_id).await.is_some_and(|run| run.status == crate::RunStatus::Completed) {
+                let events = execution.list_events(run_id.as_uuid(), None).await.unwrap();
+                assert_eq!(events.last().unwrap().kind, "completed");
+                assert_eq!(events.last().unwrap().sequence, 3);
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    }).await.expect("run should complete after releasing the executor");
+
+    drop(manager);
+    drop(execution);
+    drop(conversations);
     let _ = std::fs::remove_dir_all(directory);
 }
