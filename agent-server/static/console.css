@@ -430,3 +430,5 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .shopping-list-quantity:has(.shopping-quantity-editor-wrap){min-width:0}
 .shopping-list-items li.is-disabled .shopping-list-item-name{text-decoration:line-through!important;color:var(--muted);opacity:.55}
 .shopping-list-items li.is-disabled .shopping-list-quantity{text-decoration:line-through;color:var(--muted);opacity:.55}
+
+.shopping-list-footer{display:flex;justify-content:flex-end;padding-top:16px}
