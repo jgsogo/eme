@@ -132,7 +132,10 @@ async fn create_conversation(
                 Ok(None) => return HttpResponse::Unauthorized().finish(),
                 Err(_) => return HttpResponse::InternalServerError().finish(),
             };
-            match families.context_for_member(identity.user_id, family_id).await {
+            match families
+                .context_for_member(identity.user_id, family_id)
+                .await
+            {
                 Ok(_) => Some(family_id),
                 Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
                     return HttpResponse::NotFound().finish();
@@ -146,10 +149,12 @@ async fn create_conversation(
     match store.create(&owner, agent) {
         Ok(conversation) => {
             let conversation = match family_id {
-                Some(family_id) => match store.set_selected_family(&owner, conversation.id, Some(family_id)) {
-                    Ok(conversation) => conversation,
-                    Err(error) => return conversation_error(error),
-                },
+                Some(family_id) => {
+                    match store.set_selected_family(&owner, conversation.id, Some(family_id)) {
+                        Ok(conversation) => conversation,
+                        Err(error) => return conversation_error(error),
+                    }
+                }
                 None => conversation,
             };
             HttpResponse::Created().json(ConversationSummary::from(conversation))
