@@ -384,6 +384,7 @@ pub fn register_tools(
         ("meal_school_menu_list.toml", Action::SchoolList),
         ("meal_school_menu_update.toml", Action::SchoolUpdate),
         ("meal_school_menu_delete.toml", Action::SchoolDelete),
+        ("meal_plan_context.toml", Action::PlanContext),
         ("meal_plan_create.toml", Action::PlanCreate),
         ("meal_plan_get.toml", Action::PlanGet),
         ("meal_plan_list.toml", Action::PlanList),
