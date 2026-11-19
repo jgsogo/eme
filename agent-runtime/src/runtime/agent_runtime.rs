@@ -399,7 +399,7 @@ impl AgentRuntime {
                     run_id,
                     iteration,
                     kind: RunEventKind::ModelResponded {
-                        model_id,
+                        model_id: model_id.clone(),
                         tool_calls: turn.tool_calls.len(),
                     },
                 },
@@ -408,6 +408,8 @@ impl AgentRuntime {
             messages.push(Message::Assistant {
                 content: turn.content.clone(),
                 tool_calls: turn.tool_calls.clone(),
+                model_id: Some(model_id),
+                generated_at: Some(chrono::Utc::now()),
             });
 
             // Preserve the completed model turn, but do not start any requested tools.

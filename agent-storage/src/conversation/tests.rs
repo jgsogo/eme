@@ -174,6 +174,8 @@ fn saves_full_runtime_message_history() {
                 arguments: json!({"expression": "2 + 2"}),
                 provider_metadata: Some(json!({"provider": "test"})),
             }],
+            model_id: None,
+            generated_at: None,
         },
         Message::Tool {
             tool_call_id: "call-1".into(),
