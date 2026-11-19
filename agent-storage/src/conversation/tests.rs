@@ -157,7 +157,6 @@ fn cannot_delete_another_owners_conversation() {
 }
 
 #[test]
-#[test]
 fn archives_and_restores_conversations_without_losing_history() {
     let directory = temporary_directory();
     let store = ConversationStore::open(&directory).unwrap();
@@ -215,6 +214,7 @@ fn legacy_conversation_files_default_to_not_archived() {
     fs::remove_dir_all(directory).unwrap();
 }
 
+#[test]
 fn saves_full_runtime_message_history() {
     let directory = temporary_directory();
     let store = ConversationStore::open(&directory).unwrap();
