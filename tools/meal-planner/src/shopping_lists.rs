@@ -63,39 +63,36 @@ pub(super) fn generate_items(
 ) -> Result<Vec<GeneratedItem>, String> {
     let mut items: Vec<GeneratedItem> = Vec::new();
     for assignment in &plan.assignments {
-        if assignment.arrangement != MealArrangement::Home {
-            continue;
-        }
-        let Some(recipe_id) = assignment.recipe_id else {
-            continue;
-        };
-        let recipe = recipe_for(recipe_id)
-            .ok_or_else(|| format!("recipe {recipe_id} referenced by plan was not found"))?;
-        let factor = assignment.participants.len() as f64 / recipe.draft.servings as f64;
-        for ingredient in recipe.draft.ingredients {
-            let (unit, multiplier) = normalize_unit(ingredient.unit.as_deref());
-            let quantity = ingredient.amount.map(|amount| amount * factor * multiplier);
-            let key = (normalize_name(&ingredient.name), unit.clone());
-            let existing = unit.as_ref().and_then(|_| {
-                items
-                    .iter_mut()
-                    .find(|item| (normalize_name(&item.name), item.unit.clone()) == key)
-            });
-            if let Some(existing) = existing {
-                existing.quantity = match (existing.quantity, quantity) {
-                    (Some(left), Some(right)) => Some(left + right),
-                    _ => None,
-                };
-                push_unique(&mut existing.source_assignment_ids, assignment.id);
-                push_unique(&mut existing.source_recipe_ids, recipe_id);
-            } else {
-                items.push(GeneratedItem {
-                    name: ingredient.name,
-                    quantity,
-                    unit,
-                    source_assignment_ids: vec![assignment.id],
-                    source_recipe_ids: vec![recipe_id],
+        for recipe_id in &assignment.recipe_ids {
+            let recipe_id = *recipe_id;
+            let recipe = recipe_for(recipe_id)
+                .ok_or_else(|| format!("recipe {recipe_id} referenced by plan was not found"))?;
+            let factor = assignment.participants.len() as f64 / recipe.draft.servings as f64;
+            for ingredient in recipe.draft.ingredients {
+                let (unit, multiplier) = normalize_unit(ingredient.unit.as_deref());
+                let quantity = ingredient.amount.map(|amount| amount * factor * multiplier);
+                let key = (normalize_name(&ingredient.name), unit.clone());
+                let existing = unit.as_ref().and_then(|_| {
+                    items
+                        .iter_mut()
+                        .find(|item| (normalize_name(&item.name), item.unit.clone()) == key)
                 });
+                if let Some(existing) = existing {
+                    existing.quantity = match (existing.quantity, quantity) {
+                        (Some(left), Some(right)) => Some(left + right),
+                        _ => None,
+                    };
+                    push_unique(&mut existing.source_assignment_ids, assignment.id);
+                    push_unique(&mut existing.source_recipe_ids, recipe_id);
+                } else {
+                    items.push(GeneratedItem {
+                        name: ingredient.name,
+                        quantity,
+                        unit,
+                        source_assignment_ids: vec![assignment.id],
+                        source_recipe_ids: vec![recipe_id],
+                    });
+                }
             }
         }
     }
@@ -323,7 +320,7 @@ mod tests {
     fn assignment(
         id: i64,
         arrangement: MealArrangement,
-        recipe_id: Option<i64>,
+        recipe_ids: Vec<i64>,
         participants: usize,
     ) -> MealAssignment {
         MealAssignment {
@@ -336,19 +333,15 @@ mod tests {
                     name: format!("Member {member_id}"),
                 })
                 .collect(),
-            arrangement,
-            recipe_id,
-            school_menu_date: (arrangement == MealArrangement::School)
-                .then(|| NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()),
-            notes: None,
+            recipe_ids,
         }
     }
 
     #[test]
     fn scales_by_participant_count_and_converts_compatible_units() {
         let p = plan(vec![
-            assignment(1, MealArrangement::Home, Some(1), 4),
-            assignment(2, MealArrangement::Home, Some(2), 1),
+            assignment(1, MealArrangement::Home, vec![1], 4),
+            assignment(2, MealArrangement::Home, vec![2], 1),
         ]);
         let generated = generate_items(&p, |id| match id {
             1 => Some(recipe(1, 2, Some(250.0), Some("g"))),
@@ -365,10 +358,10 @@ mod tests {
     #[test]
     fn incompatible_or_missing_units_are_not_aggregated() {
         let p = plan(vec![
-            assignment(1, MealArrangement::Home, Some(1), 1),
-            assignment(2, MealArrangement::Home, Some(2), 1),
-            assignment(3, MealArrangement::Home, Some(3), 1),
-            assignment(4, MealArrangement::Home, Some(4), 1),
+            assignment(1, MealArrangement::Home, vec![1], 1),
+            assignment(2, MealArrangement::Home, vec![2], 1),
+            assignment(3, MealArrangement::Home, vec![3], 1),
+            assignment(4, MealArrangement::Home, vec![4], 1),
         ]);
         let generated = generate_items(&p, |id| match id {
             1 => Some(recipe(1, 1, Some(100.0), Some("g"))),
@@ -388,11 +381,11 @@ mod tests {
     }
 
     #[test]
-    fn unknown_quantities_remain_unknown_and_non_home_meals_are_excluded() {
+    fn unknown_quantities_remain_unknown_and_assignments_without_recipes_are_ignored() {
         let p = plan(vec![
-            assignment(1, MealArrangement::Home, Some(1), 2),
-            assignment(2, MealArrangement::School, Some(2), 1),
-            assignment(3, MealArrangement::Away, Some(2), 1),
+            assignment(1, MealArrangement::Home, vec![1], 2),
+            assignment(2, MealArrangement::School, vec![], 1),
+            assignment(3, MealArrangement::Away, vec![], 1),
         ]);
         let generated =
             generate_items(&p, |id| (id == 1).then(|| recipe(1, 2, None, None))).unwrap();

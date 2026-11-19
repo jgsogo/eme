@@ -210,7 +210,7 @@ mod tests {
             "assignments": [{
                 "id": 1, "date": monday(), "meal_type": "lunch",
                 "participants": [{"member_id": member.id, "name": "Alex"}],
-                "arrangement": "home", "recipe_id": null, "school_menu_date": null, "notes": null
+                "recipe_ids": []
             }]
         });
         let context = ToolContext::new("user-1");
@@ -248,7 +248,7 @@ mod tests {
                     "assignments":[{
                         "id":1,"date":"2026-11-16","meal_type":"lunch",
                         "participants":[{"member_id":999,"name":"Unknown"}],
-                        "arrangement":"home","recipe_id":null,"school_menu_date":null,"notes":null
+                        "recipe_ids":[]
                     }]
                 }),
             )

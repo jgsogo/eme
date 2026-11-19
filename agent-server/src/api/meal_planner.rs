@@ -343,8 +343,9 @@ async fn get_weekly_plan(
         Err(response) => return response,
     };
     match store.get_weekly_plan_for_family(&family_id, week_start.into_inner()) {
-        Ok(Some(plan)) => HttpResponse::Ok().json(plan),
-        Ok(None) => HttpResponse::NotFound().finish(),
+        Ok(Some(plan)) => HttpResponse::Ok().json(Some(plan)),
+        // An unplanned week is a normal empty state for the monthly calendar.
+        Ok(None) => HttpResponse::Ok().json(None::<()>),
         Err(error) => error_response(error),
     }
 }
@@ -384,6 +385,7 @@ async fn create_weekly_plan(
     store: Data<MealPlannerStore>,
     week_start: Path<NaiveDate>,
     query: Query<SearchQuery>,
+    body: Json<WeeklyPlanDraft>,
 ) -> impl Responder {
     let family_id = match selected_family(
         &request,
@@ -397,7 +399,11 @@ async fn create_weekly_plan(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match store.create_weekly_plan_from_rules_for_family(&family_id, week_start.into_inner()) {
+    match store.create_weekly_plan_for_family(
+        &family_id,
+        week_start.into_inner(),
+        body.into_inner(),
+    ) {
         Ok(plan) => HttpResponse::Created().json(plan),
         Err(error) => error_response(error),
     }

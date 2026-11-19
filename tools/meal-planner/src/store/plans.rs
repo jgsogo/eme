@@ -16,18 +16,20 @@ impl MealPlannerStore {
         let resolved = self.resolve_meal_week_for_family(family_id, week_start)?;
         let mut assignments: Vec<MealAssignment> = Vec::new();
         for participation in resolved {
-            let arrangement = match participation.status {
+            match participation.status {
                 ParticipationStatus::Unconfigured => continue,
-                ParticipationStatus::Configured { arrangement, .. } => arrangement,
-            };
+                ParticipationStatus::Configured {
+                    arrangement: MealArrangement::NotParticipating,
+                    ..
+                } => continue,
+                ParticipationStatus::Configured { .. } => {}
+            }
             let participant = PlanParticipant {
                 member_id: participation.member.id,
                 name: participation.member.name,
             };
             if let Some(assignment) = assignments.iter_mut().find(|item| {
-                item.date == participation.date
-                    && item.meal_type == participation.meal_type
-                    && item.arrangement == arrangement
+                item.date == participation.date && item.meal_type == participation.meal_type
             }) {
                 assignment.participants.push(participant);
             } else {
@@ -37,11 +39,7 @@ impl MealPlannerStore {
                     date: participation.date,
                     meal_type: participation.meal_type,
                     participants: vec![participant],
-                    arrangement,
-                    recipe_id: None,
-                    school_menu_date: (arrangement == MealArrangement::School)
-                        .then_some(participation.date),
-                    notes: None,
+                    recipe_ids: vec![],
                 });
             }
         }
@@ -230,14 +228,12 @@ impl MealPlannerStore {
         let resolved = self.resolve_meal_week(week_start)?;
         let mut assignments: Vec<MealAssignment> = Vec::new();
         for participation in resolved {
-            let arrangement = match participation.status {
+            match participation.status {
                 ParticipationStatus::Unconfigured => continue,
-                ParticipationStatus::Configured { arrangement, .. } => arrangement,
-            };
+                ParticipationStatus::Configured { .. } => {}
+            }
             let assignment = assignments.iter_mut().find(|item| {
-                item.date == participation.date
-                    && item.meal_type == participation.meal_type
-                    && item.arrangement == arrangement
+                item.date == participation.date && item.meal_type == participation.meal_type
             });
             let participant = PlanParticipant {
                 member_id: participation.member.id,
@@ -252,11 +248,7 @@ impl MealPlannerStore {
                     date: participation.date,
                     meal_type: participation.meal_type,
                     participants: vec![participant],
-                    arrangement,
-                    recipe_id: None,
-                    school_menu_date: (arrangement == MealArrangement::School)
-                        .then_some(participation.date),
-                    notes: None,
+                    recipe_ids: vec![],
                 });
             }
         }
@@ -430,7 +422,7 @@ fn ensure_family_references(
                 return Err(MealPlannerError::NotFound);
             }
         }
-        if let Some(recipe_id) = assignment.recipe_id {
+        for recipe_id in &assignment.recipe_ids {
             let exists: bool = connection.query_row(
                 "SELECT EXISTS(SELECT 1 FROM recipes WHERE id=?1 AND (family_id IS NULL OR family_id=?2))",
                 params![recipe_id, family_id], |row| row.get(0)
@@ -469,7 +461,7 @@ fn ensure_references(
                 return Err(MealPlannerError::NotFound);
             }
         }
-        if let Some(recipe_id) = assignment.recipe_id {
+        for recipe_id in &assignment.recipe_ids {
             let exists: bool = connection.query_row(
                 "SELECT EXISTS(SELECT 1 FROM recipes WHERE id = ?1)",
                 [recipe_id],

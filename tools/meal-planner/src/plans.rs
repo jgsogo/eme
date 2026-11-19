@@ -1,5 +1,5 @@
 //! Weekly plan snapshots and deterministic validation.
-use crate::{MealArrangement, MealType};
+use crate::MealType;
 use chrono::{Datelike, Days, NaiveDate, Weekday};
 use serde::{Deserialize, Serialize};
 
@@ -16,19 +16,15 @@ pub struct PlanParticipant {
     pub name: String,
 }
 
-/// One group of participants sharing the same arrangement in a meal slot.
+/// Participants and recipes assigned to one meal slot.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MealAssignment {
     pub id: i64,
     pub date: NaiveDate,
     pub meal_type: MealType,
     pub participants: Vec<PlanParticipant>,
-    pub arrangement: MealArrangement,
-    /// Only home-prepared assignments may reference a family recipe.
-    pub recipe_id: Option<i64>,
-    /// School assignments refer to the menu for this local calendar date.
-    pub school_menu_date: Option<NaiveDate>,
-    pub notes: Option<String>,
+    /// Family recipes assigned to this meal.
+    pub recipe_ids: Vec<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,7 +52,6 @@ impl WeeklyPlanDraft {
             .checked_add_days(Days::new(6))
             .ok_or_else(|| "week_start is outside the supported date range".to_owned())?;
         let mut assignment_ids = Vec::new();
-        let mut slot_participants = Vec::new();
         for assignment in &self.assignments {
             if assignment.id <= 0 || assignment_ids.contains(&assignment.id) {
                 return Err("assignment IDs must be positive and unique within a plan".into());
@@ -77,41 +72,9 @@ impl WeeklyPlanDraft {
                     return Err("an assignment cannot contain a participant more than once".into());
                 }
                 seen.push(participant.member_id);
-                let slot_key = (assignment.date, assignment.meal_type, participant.member_id);
-                if slot_participants.contains(&slot_key) {
-                    return Err(
-                        "a participant cannot have multiple assignments for the same meal slot"
-                            .into(),
-                    );
-                }
-                slot_participants.push(slot_key);
             }
-            match assignment.arrangement {
-                MealArrangement::Home => {
-                    if assignment.school_menu_date.is_some() {
-                        return Err(
-                            "home-prepared assignments cannot reference a school menu".into()
-                        );
-                    }
-                }
-                MealArrangement::School => {
-                    if assignment.recipe_id.is_some() {
-                        return Err("school assignments cannot reference a family recipe".into());
-                    }
-                    if assignment.school_menu_date != Some(assignment.date) {
-                        return Err(
-                            "school assignments must reference the menu for their date".into()
-                        );
-                    }
-                }
-                MealArrangement::Away | MealArrangement::NotParticipating => {
-                    if assignment.recipe_id.is_some() || assignment.school_menu_date.is_some() {
-                        return Err("away and non-participating assignments cannot reference recipes or school menus".into());
-                    }
-                }
-            }
-            if assignment.recipe_id.is_some_and(|id| id <= 0) {
-                return Err("recipe_id must be positive".into());
+            if assignment.recipe_ids.iter().any(|id| *id <= 0) {
+                return Err("recipe_ids must contain only positive IDs".into());
             }
         }
         Ok(self)
@@ -122,7 +85,7 @@ impl WeeklyPlanDraft {
 mod tests {
     use super::*;
 
-    fn assignment(arrangement: MealArrangement) -> MealAssignment {
+    fn assignment() -> MealAssignment {
         MealAssignment {
             id: 1,
             date: NaiveDate::from_ymd_opt(2026, 11, 16).unwrap(),
@@ -131,11 +94,7 @@ mod tests {
                 member_id: 1,
                 name: "Alex".into(),
             }],
-            arrangement,
-            recipe_id: None,
-            school_menu_date: (arrangement == MealArrangement::School)
-                .then(|| NaiveDate::from_ymd_opt(2026, 11, 16).unwrap()),
-            notes: None,
+            recipe_ids: vec![],
         }
     }
 
@@ -144,7 +103,7 @@ mod tests {
         let monday = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
         assert!(
             WeeklyPlanDraft {
-                assignments: vec![assignment(MealArrangement::Home)]
+                assignments: vec![assignment()]
             }
             .validate(monday)
             .is_ok()
@@ -159,23 +118,23 @@ mod tests {
     }
 
     #[test]
-    fn school_meals_reference_menu_and_never_a_recipe() {
+    fn assignments_accept_multiple_recipes() {
         let monday = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
-        let mut value = assignment(MealArrangement::School);
-        value.recipe_id = Some(4);
+        let mut value = assignment();
+        value.recipe_ids = vec![4, 5];
         assert!(
             WeeklyPlanDraft {
                 assignments: vec![value]
             }
             .validate(monday)
-            .is_err()
+            .is_ok()
         );
     }
 
     #[test]
     fn assignments_cannot_include_duplicate_or_missing_participants() {
         let monday = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
-        let mut value = assignment(MealArrangement::Home);
+        let mut value = assignment();
         value.participants.push(value.participants[0].clone());
         assert!(
             WeeklyPlanDraft {
