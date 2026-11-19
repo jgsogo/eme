@@ -108,6 +108,8 @@ async fn message_store_preserves_order_and_runtime_message_payloads() {
         message: Message::Assistant {
             content: Some("hello".into()),
             tool_calls: Vec::new(),
+            model_id: None,
+            generated_at: None,
         },
         created_at: Utc::now(),
     };
