@@ -1,5 +1,5 @@
 name = "meals.participation.set_exception"
-description = "Set or replace a one-day participation exception for a family member and meal. Use home, school, away, or not_participating. Read meals.plan.get_context first to resolve member IDs and current arrangements."
+description = "Set or replace a one-day participation exception for a family member's lunch or dinner. Use home, school, away, or not_participating. Read meals.plan.get_context first to resolve member IDs and current arrangements."
 
 [parameters]
 type = "object"
@@ -9,5 +9,5 @@ required = ["member_id", "date", "meal_type", "arrangement"]
 [parameters.properties]
 member_id = { type = "integer", minimum = 1 }
 date = { type = "string", format = "date" }
-meal_type = { type = "string", enum = ["breakfast", "lunch", "dinner"] }
+meal_type = { type = "string", enum = ["lunch", "dinner"] }
 arrangement = { type = "string", enum = ["home", "school", "away", "not_participating"] }

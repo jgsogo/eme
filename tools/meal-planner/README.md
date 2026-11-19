@@ -4,7 +4,7 @@ The Meal Planner is an application module hosted inside the EME monorepo, not a 
 
 ## Household and meal participation
 
-The crate owns stable family-member identities, recurring participation rules and date-specific exceptions. The initial meal types are breakfast, lunch and dinner. Arrangements are home, school, away and not participating. Recurring rules are keyed by member, weekday and meal type and may have inclusive effective date bounds.
+The crate owns stable family-member identities, recurring participation rules and date-specific exceptions. Supported participation meals are lunch and dinner. Arrangements are home, school, away and not participating. Recurring rules are keyed by member, weekday and meal type and may have inclusive effective date bounds.
 
 A date-specific exception overrides the recurring rule. When recurring rules overlap, the rule with the latest effective start wins; an unbounded start sorts first and the stable rule ID breaks ties. Missing configuration is distinct from an explicit not-participating choice.
 

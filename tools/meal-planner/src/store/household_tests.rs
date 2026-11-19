@@ -84,7 +84,7 @@ fn missing_rule_differs_from_explicit_not_participating() {
     let member = store.create_family_member("Alex").unwrap();
     let date = date("2026-11-16");
     assert_eq!(
-        store.resolve_meal_date(date).unwrap()[1].status,
+        store.resolve_meal_date(date).unwrap()[0].status,
         ParticipationStatus::Unconfigured
     );
     store
@@ -96,7 +96,7 @@ fn missing_rule_differs_from_explicit_not_participating() {
         )
         .unwrap();
     assert_eq!(
-        store.resolve_meal_date(date).unwrap()[1].status,
+        store.resolve_meal_date(date).unwrap()[0].status,
         ParticipationStatus::Configured {
             arrangement: MealArrangement::NotParticipating,
             source: ParticipationSource::DateException
