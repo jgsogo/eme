@@ -316,3 +316,13 @@ body:has(#shopping-list-panel) main{overflow:auto}
 .school-menu-status-log{margin-top:14px;padding:8px 0 0;border-top:1px solid var(--border)}
 .school-menu-status-log:empty{display:none}
 .school-menu-status-log p{margin:0 0 4px}
+
+
+/* Keep the submitted message and its active run controls together. */
+.pending-message{display:flex;align-items:center;gap:9px;align-self:flex-start;max-width:min(92%,680px);margin:4px 0 14px 12px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel2);color:var(--muted);font-size:12px}
+.pending-spinner{width:13px;height:13px;flex:none;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:pending-spin .8s linear infinite}
+.pending-label{flex:1}
+.pending-cancel{padding:5px 9px;font-size:11px}
+.pending-cancel:disabled{opacity:.55;cursor:wait}
+@keyframes pending-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.pending-spinner{animation:none}}
