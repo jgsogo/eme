@@ -1,6 +1,6 @@
 use super::*;
 use agent_runtime::{CancellationToken, Message, ToolContext};
-use agent_storage::{SqliteConversationStore, SqliteExecutionStore};
+use agent_storage::{ConversationMessageStore, RunEventStore, RunStore, SqliteConversationStore, SqliteExecutionStore};
 use async_trait::async_trait;
 use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
@@ -85,5 +85,6 @@ async fn run_and_conversation_transcript_survive_manager_restart() {
     let reopened = SqliteExecutionStore::open(&database).unwrap();
     assert_eq!(reopened.get_run(run_id.as_uuid()).await.unwrap().unwrap().status, agent_storage::StoredRunStatus::Completed);
     assert_eq!(reopened.list_messages(Uuid::parse_str(&conversation.id.to_string()).unwrap()).await.unwrap().len(), 2);
+    drop(reopened);
     let _ = std::fs::remove_dir_all(directory);
 }

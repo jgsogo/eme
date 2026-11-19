@@ -57,5 +57,6 @@ async fn persists_runs_events_and_structured_messages_across_reopen() {
     assert_eq!(reopened.list_messages(conversation_id).await.unwrap().len(), 1);
     let conversation_view = SqliteConversationStore::open(&path).unwrap();
     assert_eq!(conversation_view.get(conversation.id).unwrap().messages.len(), 1);
+    drop(conversation_view);
     let _ = std::fs::remove_file(&path);
 }
