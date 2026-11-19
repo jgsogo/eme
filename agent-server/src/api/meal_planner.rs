@@ -463,11 +463,8 @@ async fn update_weekly_plan(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match store.save_weekly_plan_for_family(
-        &family_id,
-        week_start.into_inner(),
-        body.into_inner(),
-    ) {
+    match store.save_weekly_plan_for_family(&family_id, week_start.into_inner(), body.into_inner())
+    {
         Ok(plan) => HttpResponse::Ok().json(plan),
         Err(error) => error_response(error),
     }
