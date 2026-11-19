@@ -96,7 +96,7 @@ impl WeeklyPlanDraft {
                     }
                 }
                 MealArrangement::Away | MealArrangement::NotParticipating => {
-                    if assignment.recipe_id.is_some() || assignment.school_menu_date.is_some() {
+                    if !assignment.recipe_ids.is_empty() || assignment.school_menu_date.is_some() {
                         return Err("away and non-participating assignments cannot reference recipes or school menus".into());
                     }
                 }

@@ -253,7 +253,7 @@ impl MealPlannerStore {
                     meal_type: participation.meal_type,
                     participants: vec![participant],
                     arrangement,
-                    recipe_id: None,
+                    recipe_ids: vec![],
                     school_menu_date: (arrangement == MealArrangement::School)
                         .then_some(participation.date),
                     notes: None,

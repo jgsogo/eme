@@ -460,7 +460,7 @@ mod tests {
                             name: member.name,
                         }],
                         arrangement: MealArrangement::Home,
-                        recipe_id: Some(recipe.id),
+                        recipe_ids: vec![recipe.id],
                         school_menu_date: None,
                         notes: None,
                     }],

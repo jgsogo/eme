@@ -331,8 +331,8 @@ impl MealPlannerApplication {
                     }
                 }
                 MealArrangement::Away | MealArrangement::NotParticipating => {
-                    if assignment.recipe_id.is_some() || assignment.school_menu_date.is_some() {
-                        issues.push(issue("away_without_references", ValidationSeverity::Error, "Away and not-participating assignments cannot reference recipes or school menus.", date, meal, id, None, assignment.recipe_id));
+                    if !assignment.recipe_ids.is_empty() || assignment.school_menu_date.is_some() {
+                        issues.push(issue("away_without_references", ValidationSeverity::Error, "Away and not-participating assignments cannot reference recipes or school menus.", date, meal, id, None, assignment.recipe_ids.first().copied()));
                     }
                 }
             }
