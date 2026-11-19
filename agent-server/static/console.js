@@ -31,7 +31,12 @@ function renderMessages(messages=[],pending=null){
   if(kind==="user"){
    rendered.push('<article class="message user"><div class="role">You</div>'+escapeHtml(value.content)+'</article>');
   }else if(kind==="assistant"){
-   if(value.content)rendered.push('<article class="message assistant"><div class="role">Assistant</div><div class="markdown-content">'+renderMarkdown(value.content)+'</div></article>');
+   if(value.content||(value.tool_calls||[]).length){
+    const generatedAt=value.generated_at?new Date(value.generated_at):null;
+    const timestamp=generatedAt&&!Number.isNaN(generatedAt.getTime())?generatedAt.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"}):null;
+    const metadata=[value.model_id,timestamp].filter(Boolean).map(escapeHtml).join(" · ");
+    rendered.push('<article class="message assistant"><div class="message-heading"><div class="role">Assistant</div>'+(metadata?'<div class="message-metadata">'+metadata+'</div>':'')+'</div>'+(value.content?'<div class="markdown-content">'+renderMarkdown(value.content)+'</div>':'')+'</article>');
+   }
    for(const call of value.tool_calls||[]){
     const fn=call.function||{};
     const entry={id:call.id||null,name:call.name||fn.name||"unknown",arguments:call.arguments??fn.arguments??{},result:null,isError:false};
