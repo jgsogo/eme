@@ -385,6 +385,7 @@ async fn create_weekly_plan(
     store: Data<MealPlannerStore>,
     week_start: Path<NaiveDate>,
     query: Query<SearchQuery>,
+    body: Json<WeeklyPlanDraft>,
 ) -> impl Responder {
     let family_id = match selected_family(
         &request,
@@ -398,7 +399,11 @@ async fn create_weekly_plan(
         Ok(id) => id,
         Err(response) => return response,
     };
-    match store.create_weekly_plan_from_rules_for_family(&family_id, week_start.into_inner()) {
+    match store.create_weekly_plan_for_family(
+        &family_id,
+        week_start.into_inner(),
+        body.into_inner(),
+    ) {
         Ok(plan) => HttpResponse::Created().json(plan),
         Err(error) => error_response(error),
     }
