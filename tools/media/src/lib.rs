@@ -12,6 +12,7 @@ mod models;
 mod providers;
 mod services;
 mod store;
+mod tools;
 
 pub use config::{MediaConfig, MediaConfigError, StreamingService};
 pub use providers::{
@@ -21,6 +22,7 @@ pub use providers::{
 };
 pub use services::{MediaRecommendation, RecommendationError, RecommendationService};
 pub use store::{MediaExternalConnectionLink, MediaStore, MediaStoreError, PendingTraktLink};
+pub use tools::{MediaToolServices, register_media_tools};
 
 pub use models::{
     ContentRestrictions, ExternalId, FamilyMediaPreferences, HistoryCompleteness, MediaItem,

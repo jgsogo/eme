@@ -5,7 +5,9 @@ edition = "2024"
 description = "Media discovery and recommendation domain for the EME platform."
 
 [dependencies]
+agent-runtime = { path = "../../agent-runtime" }
 agent-storage = { path = "../../agent-storage" }
+async-trait = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
 reqwest = { workspace = true }

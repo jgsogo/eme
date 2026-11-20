@@ -83,7 +83,7 @@ impl TraktOAuthConfig {
 }
 
 /// URL and expiry for a pending Trakt consent flow.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TraktAuthorization {
     pub authorization_url: String,
     pub expires_at: DateTime<Utc>,
@@ -176,6 +176,7 @@ impl TraktOAuthService {
     /// Complete a callback, validate its one-time state, and persist the encrypted refresh token.
     pub async fn complete_link(
         &self,
+        expected_owner_id: UserId,
         state: &str,
         code: &str,
     ) -> Result<MediaExternalConnectionLink, TraktError> {
@@ -183,6 +184,14 @@ impl TraktOAuthService {
             return Err(TraktError::InvalidResponse(
                 "authorization code must not be empty".into(),
             ));
+        }
+        let pending = self
+            .media
+            .get_pending_trakt_link(state)
+            .await
+            .map_err(TraktError::MediaStorage)?;
+        if pending.owner_id != expected_owner_id {
+            return Err(TraktError::Forbidden);
         }
         let pending = self
             .media
@@ -226,6 +235,11 @@ impl TraktOAuthService {
             .await
             .map_err(TraktError::ExternalStorage)?;
 
+        let previous_link = self
+            .media
+            .get_external_connection_link(pending.profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?;
         let link = MediaExternalConnectionLink {
             owner_id: pending.owner_id,
             family_id: pending.family_id,
@@ -240,7 +254,92 @@ impl TraktOAuthService {
             .save_external_connection_link(&link)
             .await
             .map_err(TraktError::MediaStorage)?;
+        if let Some(previous) = previous_link
+            && previous.external_connection_id != link.external_connection_id
+        {
+            self.external_connections
+                .revoke_connection(previous.owner_id, previous.external_connection_id)
+                .await
+                .map_err(TraktError::ExternalStorage)?;
+            self.token_manager
+                .invalidate(previous.external_connection_id)
+                .await;
+        }
         Ok(link)
+    }
+
+    /// Remove a profile link and revoke its encrypted external credential.
+    pub async fn unlink_profile(
+        &self,
+        actor_id: UserId,
+        family_id: FamilyId,
+        profile_id: MediaProfileId,
+    ) -> Result<(), TraktError> {
+        if self
+            .media
+            .get_profile(family_id, profile_id)
+            .await
+            .map_err(TraktError::MediaStorage)?
+            .is_none()
+        {
+            return Err(TraktError::Forbidden);
+        }
+        let link = self
+            .media
+            .get_external_connection_link(profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?
+            .ok_or(TraktError::ConnectionUnavailable)?;
+        if link.owner_id != actor_id && !self.is_family_admin(actor_id, family_id).await? {
+            return Err(TraktError::Forbidden);
+        }
+        self.external_connections
+            .revoke_connection(link.owner_id, link.external_connection_id)
+            .await
+            .map_err(TraktError::ExternalStorage)?;
+        self.media
+            .delete_external_connection_link(profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?;
+        self.token_manager
+            .invalidate(link.external_connection_id)
+            .await;
+        Ok(())
+    }
+
+    async fn is_family_admin(
+        &self,
+        user_id: UserId,
+        family_id: FamilyId,
+    ) -> Result<bool, TraktError> {
+        let families = self
+            .families
+            .list_families(user_id)
+            .await
+            .map_err(|error| TraktError::Family(error.to_string()))?;
+        if !families.iter().any(|family| family.id == family_id) {
+            return Ok(false);
+        }
+        let members = self
+            .families
+            .list_members(family_id)
+            .await
+            .map_err(|error| TraktError::Family(error.to_string()))?;
+        Ok(members.iter().any(|member| {
+            member.user_id == user_id
+                && matches!(member.role, FamilyRole::Owner | FamilyRole::Admin)
+        }))
+    }
+
+    /// Validate an authenticated family owner/admin for an existing profile.
+    pub async fn validate_profile_admin(
+        &self,
+        owner_id: UserId,
+        family_id: FamilyId,
+        profile_id: MediaProfileId,
+    ) -> Result<(), TraktError> {
+        self.require_profile_admin(owner_id, family_id, profile_id)
+            .await
     }
 
     /// Access-token manager used by Trakt history and rating synchronization.
@@ -704,7 +803,9 @@ mod tests {
             "durable-refresh"
         );
         assert!(matches!(
-            service.complete_link(&state, "one-time-code").await,
+            service
+                .complete_link(user_id, &state, "one-time-code")
+                .await,
             Err(TraktError::MediaStorage(MediaStoreError::PendingNotFound))
         ));
         drop(service);

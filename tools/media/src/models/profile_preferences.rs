@@ -5,6 +5,7 @@ use super::MediaProfileId;
 
 /// User-maintained preferences; synchronized viewing activity is not stored here.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ProfilePreferences {
     pub profile_id: MediaProfileId,
     pub liked_genres: Vec<String>,
@@ -24,5 +25,11 @@ impl ProfilePreferences {
             liked_themes: Vec::new(),
             disliked_themes: Vec::new(),
         }
+    }
+}
+
+impl Default for ProfilePreferences {
+    fn default() -> Self {
+        Self::new(MediaProfileId::new())
     }
 }

@@ -388,6 +388,33 @@ impl MediaStore {
         Ok(())
     }
 
+    pub async fn get_pending_trakt_link(
+        &self,
+        state: &str,
+    ) -> Result<PendingTraktLink, MediaStoreError> {
+        let state_hash = hash_state(state);
+        let connection = self.connection.lock().await;
+        let row = connection
+            .query_row(
+                "SELECT payload,expires_at FROM pending_media_connections
+                 WHERE state_hash=?1 AND provider='trakt'",
+                [state_hash.as_str()],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            )
+            .optional()
+            .map_err(storage)?;
+        let Some((payload, expires_at)) = row else {
+            return Err(MediaStoreError::PendingNotFound);
+        };
+        let expires_at = DateTime::parse_from_rfc3339(&expires_at)
+            .map(|value| value.with_timezone(&Utc))
+            .map_err(|error| MediaStoreError::Storage(error.to_string()))?;
+        if Utc::now() > expires_at {
+            return Err(MediaStoreError::PendingExpired);
+        }
+        decode(&payload)
+    }
+
     /// Consume a pending Trakt state exactly once and reject expired attempts.
     pub async fn consume_pending_trakt_link(
         &self,
@@ -441,6 +468,24 @@ impl MediaStore {
             .map_err(storage)?;
         if !profile_exists {
             return Err(MediaStoreError::NotFound);
+        }
+        let already_linked: bool = connection
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM media_external_connections
+                    WHERE external_connection_id=?1 AND profile_id<>?2
+                 )",
+                params![
+                    link.external_connection_id.to_string(),
+                    link.profile_id.to_string()
+                ],
+                |row| row.get(0),
+            )
+            .map_err(storage)?;
+        if already_linked {
+            return Err(MediaStoreError::Invalid(
+                "an external connection can only be linked to one media profile".into(),
+            ));
         }
         connection
             .execute(

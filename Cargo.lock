@@ -264,6 +264,7 @@ dependencies = [
  "common-tools",
  "google-tool",
  "meal-planner",
+ "media-tools",
  "mercadona-tool",
  "meteosource-tool",
  "notes-tools",
@@ -275,6 +276,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "toml",
  "uuid",
 ]
 
@@ -2068,7 +2070,9 @@ dependencies = [
 name = "media-tools"
 version = "0.1.0"
 dependencies = [
+ "agent-runtime",
  "agent-storage",
+ "async-trait",
  "base64",
  "chrono",
  "reqwest",

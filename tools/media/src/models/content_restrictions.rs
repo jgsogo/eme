@@ -5,6 +5,7 @@ use super::MediaProfileId;
 
 /// Restrictions applied before recommendation ranking, not soft preferences.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ContentRestrictions {
     pub profile_id: MediaProfileId,
     /// Maximum certification accepted for this profile (provider-normalized value).
@@ -23,5 +24,11 @@ impl ContentRestrictions {
             disallowed_genres: Vec::new(),
             allow_unrated: false,
         }
+    }
+}
+
+impl Default for ContentRestrictions {
+    fn default() -> Self {
+        Self::new(MediaProfileId::new())
     }
 }
