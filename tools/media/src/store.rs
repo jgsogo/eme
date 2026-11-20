@@ -505,7 +505,6 @@ impl MediaStore {
         Ok(())
     }
 
-
     pub async fn save_watchlist_item(
         &self,
         item: &MediaWatchlistItem,
@@ -608,7 +607,10 @@ impl MediaStore {
         transaction
             .execute(
                 "DELETE FROM media_ratings WHERE profile_id=?1 AND source=?2",
-                params![profile_id.to_string(), format!("{:?}", source).to_lowercase()],
+                params![
+                    profile_id.to_string(),
+                    format!("{:?}", source).to_lowercase()
+                ],
             )
             .map_err(storage)?;
         for rating in ratings {
