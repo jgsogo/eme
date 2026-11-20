@@ -10,7 +10,8 @@ use tokio::sync::Mutex;
 
 use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaItem, MediaProfile, MediaProfileId,
-    MediaRating, MediaWatchEvent, MediaWatchlistItem, ProfilePreferences, ProviderSyncState, StreamingOffer,
+    MediaRating, MediaWatchEvent, MediaWatchlistItem, ProfilePreferences, ProviderSyncState,
+    StreamingOffer,
 };
 
 /// SQLite-backed persistence for media data.
@@ -547,7 +548,10 @@ impl MediaStore {
         source: crate::WatchHistorySource,
         items: &[MediaWatchlistItem],
     ) -> Result<(), MediaStoreError> {
-        if items.iter().any(|item| item.profile_id != profile_id || item.source != source) {
+        if items
+            .iter()
+            .any(|item| item.profile_id != profile_id || item.source != source)
+        {
             return Err(MediaStoreError::Invalid(
                 "watchlist items must match the target profile and source".into(),
             ));
@@ -557,7 +561,10 @@ impl MediaStore {
         transaction
             .execute(
                 "DELETE FROM media_watchlist WHERE profile_id=?1 AND source=?2",
-                params![profile_id.to_string(), format!("{:?}", source).to_lowercase()],
+                params![
+                    profile_id.to_string(),
+                    format!("{:?}", source).to_lowercase()
+                ],
             )
             .map_err(storage)?;
         for item in items {
@@ -946,11 +953,18 @@ mod tests {
             .await
             .unwrap();
         store
-            .replace_watchlist(profile.id, WatchHistorySource::Trakt, &[second_entry.clone()])
+            .replace_watchlist(
+                profile.id,
+                WatchHistorySource::Trakt,
+                &[second_entry.clone()],
+            )
             .await
             .unwrap();
 
-        assert_eq!(store.list_watchlist(profile.id).await.unwrap(), vec![second_entry]);
+        assert_eq!(
+            store.list_watchlist(profile.id).await.unwrap(),
+            vec![second_entry]
+        );
     }
 
     #[tokio::test]
