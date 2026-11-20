@@ -48,7 +48,7 @@ jobs:
               if path.is_dir() and (path / "index.html").is_file()
           )
 
-          links = "\\n".join(
+          links = "\n".join(
               f'<li><a href="{escape(crate.name)}/">{escape(crate.name)}</a></li>'
               for crate in crates
           )
