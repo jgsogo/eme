@@ -594,7 +594,9 @@ fn score_item(
             .any(|disliked| normalize(disliked) == theme)
         {
             score -= weights.family_theme_dislike_penalty as f32;
-            reasons.push(format!("Conflicts with shared family theme dislike: {theme}"));
+            reasons.push(format!(
+                "Conflicts with shared family theme dislike: {theme}"
+            ));
         }
         let dislikers = participants
             .iter()
@@ -744,7 +746,10 @@ fn apply_diversity(
                     .iter()
                     .filter(|genre| used_genres.contains(&normalize(genre)))
                     .count() as i32;
-                (index, recommendation.score - overlap as f32 * diversity_penalty as f32)
+                (
+                    index,
+                    recommendation.score - overlap as f32 * diversity_penalty as f32,
+                )
             })
             .max_by(|left, right| {
                 left.1.cmp(&right.1).then_with(|| {
@@ -1049,7 +1054,6 @@ mod tests {
         assert!(passes_restrictions(&item, &restrictions));
     }
 
-
     #[test]
     fn one_selected_participants_dislike_is_not_cancelled_by_another_profiles_like() {
         let family_id = agent_storage::FamilyId::new();
@@ -1116,7 +1120,6 @@ mod tests {
         assert!(passes_restrictions(&item, &restrictions));
     }
 
-
     #[test]
     fn theme_criteria_and_restrictions_match_title_and_overview() {
         let mut candidate = item();
@@ -1167,7 +1170,11 @@ mod tests {
                 .iter()
                 .any(|reason| reason.contains("shared family theme"))
         );
-        assert!(reasons.iter().any(|reason| reason.contains("theme preference")));
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| reason.contains("theme preference"))
+        );
         assert!(score > 900.0);
     }
 
