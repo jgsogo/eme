@@ -1,6 +1,9 @@
 use super::*;
 use crate::RunId;
-use agent_runtime::{CancellationToken, EventSink, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind, ToolContext};
+use agent_runtime::{
+    CancellationToken, EventSink, Message, RunEvent as RuntimeEvent,
+    RunEventKind as RuntimeEventKind, ToolContext,
+};
 use agent_storage::{
     ConversationMessageStore, RunEventStore, RunStore, SqliteConversationStore,
     SqliteExecutionStore,
@@ -201,36 +204,50 @@ async fn runtime_events_are_durable_before_the_run_finishes() {
         }),
         1,
         2,
-    ).unwrap().with_storage(execution.clone());
-    let run_id = manager.submit(
-        "assistant",
-        "prompt",
-        Vec::new(),
-        ToolContext {
-            conversation_id: Some(conversation.id.to_string()),
-            ..ToolContext::default()
-        },
-    ).await.unwrap();
+    )
+    .unwrap()
+    .with_storage(execution.clone());
+    let run_id = manager
+        .submit(
+            "assistant",
+            "prompt",
+            Vec::new(),
+            ToolContext {
+                conversation_id: Some(conversation.id.to_string()),
+                ..ToolContext::default()
+            },
+        )
+        .await
+        .unwrap();
 
     tokio::time::timeout(Duration::from_secs(2), started.notified())
-        .await.expect("executor should start");
+        .await
+        .expect("executor should start");
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
             let events = execution.list_events(run_id.as_uuid(), None).await.unwrap();
             if events.len() >= 3 {
                 assert_eq!(events[2].kind, "tool_execution_started");
                 assert_eq!(events[2].tool_name.as_deref(), Some("slow_tool"));
-                assert_eq!(manager.get(run_id).await.unwrap().status, crate::RunStatus::Running);
+                assert_eq!(
+                    manager.get(run_id).await.unwrap().status,
+                    crate::RunStatus::Running
+                );
                 break;
             }
             tokio::task::yield_now().await;
         }
-    }).await.expect("runtime event should be persisted while execution is blocked");
+    })
+    .await
+    .expect("runtime event should be persisted while execution is blocked");
 
     release.notify_one();
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            let completed = manager.get(run_id).await.is_some_and(|run| run.status == crate::RunStatus::Completed);
+            let completed = manager
+                .get(run_id)
+                .await
+                .is_some_and(|run| run.status == crate::RunStatus::Completed);
             let events = execution.list_events(run_id.as_uuid(), None).await.unwrap();
             if completed && events.last().is_some_and(|event| event.kind == "completed") {
                 assert_eq!(events.last().unwrap().sequence, 3);
@@ -238,7 +255,9 @@ async fn runtime_events_are_durable_before_the_run_finishes() {
             }
             tokio::task::yield_now().await;
         }
-    }).await.expect("run should complete after releasing the executor");
+    })
+    .await
+    .expect("run should complete after releasing the executor");
 
     drop(manager);
     drop(execution);
