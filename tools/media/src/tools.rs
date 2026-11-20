@@ -121,7 +121,7 @@ pub fn register_media_tools(
         ),
         (
             "media_availability",
-            "Find Spanish streaming offers on configured subscription services.",
+            "Find Spanish streaming offers, including subscription, rent, buy and free options.",
             json!({
                 "type":"object",
                 "properties":{
@@ -402,18 +402,29 @@ impl MediaTool {
     }
 
     async fn availability(&self, args: &Value) -> Result<Value, String> {
-        let watchmode = self
-            .services
-            .watchmode
-            .as_ref()
-            .ok_or_else(|| "Watchmode is not configured".to_owned())?;
         let id = required_u64(args, "tmdb_id")?;
         let kind = parse_kind(required_string(args, "kind")?)?;
-        let offers = watchmode
-            .offers_for_tmdb_id(id, kind, &self.services.config.country)
-            .await
-            .map_err(display)?;
-        let offers = crate::filter_subscription_offers(offers, &self.services.config.subscriptions);
+        let mut offers = if let Some(watchmode) = &self.services.watchmode {
+            match watchmode
+                .offers_for_tmdb_id(id, kind, &self.services.config.country)
+                .await
+            {
+                Ok(offers) => offers,
+                Err(error) => {
+                    tracing::warn!(provider = "watchmode", error = %error, "falling back to TMDB watch providers");
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
+        if offers.is_empty() {
+            offers = self
+                .tmdb()?
+                .watch_providers(id, kind, &self.services.config.country)
+                .await
+                .map_err(display)?;
+        }
         serde_json::to_value(offers).map_err(display)
     }
 
