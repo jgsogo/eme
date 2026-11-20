@@ -646,6 +646,64 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn falls_back_to_tmdb_when_watchmode_has_no_title_match() {
+        use std::time::Duration;
+
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        let tmdb_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42/watch/providers"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "results": {
+                    "ES": {
+                        "link": "https://www.themoviedb.org/movie/42/watch",
+                        "flatrate": [{"provider_id": 8, "provider_name": "Netflix"}]
+                    }
+                }
+            })))
+            .mount(&tmdb_server)
+            .await;
+        let watchmode_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/search/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "title_results": []
+            })))
+            .mount(&watchmode_server)
+            .await;
+
+        let tmdb =
+            TmdbClient::with_base_url("tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
+        let watchmode = WatchmodeClient::with_options(
+            "watchmode-key",
+            watchmode_server.uri(),
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        let service = RecommendationService::new(
+            MediaStore::open_in_memory().unwrap(),
+            tmdb,
+            Some(watchmode),
+            MediaConfig::default(),
+        )
+        .unwrap();
+        let mut item = item();
+        item.external_ids.push(crate::ExternalId {
+            provider: "tmdb".into(),
+            value: "42".into(),
+        });
+
+        let offers = service.availability(&item).await.unwrap();
+        assert_eq!(offers.len(), 1);
+        assert_eq!(offers[0].service_name, "Netflix");
+        assert_eq!(offers[0].offer_type, crate::OfferType::Subscription);
+    }
+
+    #[tokio::test]
     async fn recommendation_e2e_uses_only_selected_profiles_and_requires_subscription_offer() {
         use std::time::Duration;
 
