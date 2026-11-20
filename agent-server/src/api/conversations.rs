@@ -19,13 +19,13 @@ use actix_web::{
     web::{self, Data, Json, Path},
 };
 use agent_runtime::{Message, ToolContext};
-use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
+use agent_service::{FamilyService, FamilyServiceError, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{
     Conversation, ConversationId, SqliteConversationStore, ConversationStoreError, FamilyId,
     FileUserIdentityStore, UserId, UserIdentityStore,
 };
 
-use super::types::{AgentCatalog, SubmitRunResponse};
+use super::types::{AgentCatalog, GetRunResponse, SubmitRunResponse};
 
 fn conversation_history_for_submission(
     mut history: Vec<Message>,
@@ -384,6 +384,49 @@ async fn select_conversation_family(
     }
 }
 
+#[get("/{conversation_id}/runs")]
+async fn list_conversation_runs(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<SqliteConversationStore>>,
+    manager: Data<RunManager>,
+    conversation_id: Path<String>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+    match store.get(id) {
+        Ok(conversation) if conversation.owner == owner => {}
+        Ok(_) => return HttpResponse::NotFound().finish(),
+        Err(error) => return conversation_error(error),
+    }
+
+    let runs = manager.list().await.into_iter()
+        .filter(|run| run.conversation_id == Some(uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID")))
+        .map(|run| GetRunResponse {
+            run_id: run.id.to_string(),
+            agent: run.agent,
+            status: match run.status {
+                RunStatus::Queued => "queued",
+                RunStatus::Running => "running",
+                RunStatus::Completed => "completed",
+                RunStatus::Failed => "failed",
+                RunStatus::Cancelled => "cancelled",
+                RunStatus::TimedOut => "timed_out",
+                RunStatus::MaxIterationsReached => "max_iterations_reached",
+            },
+            response: run.response,
+            error: run.error,
+        })
+        .collect::<Vec<_>>();
+    HttpResponse::Ok().json(runs)
+}
+
 #[post("/{conversation_id}/runs")]
 async fn continue_conversation(
     request_http: HttpRequest,
@@ -519,6 +562,7 @@ pub fn conversations_api() -> Scope {
         .service(get_conversation)
         .service(rename_conversation)
         .service(delete_conversation)
+        .service(list_conversation_runs)
         .service(select_conversation_family)
         .service(continue_conversation)
 }
