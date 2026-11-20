@@ -397,7 +397,7 @@ impl MediaStore {
             .query_row(
                 "SELECT payload,expires_at FROM pending_media_connections
                  WHERE state_hash=?1 AND provider='trakt'",
-                [state_hash],
+                [state_hash.as_str()],
                 |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
             )
             .optional()
@@ -411,7 +411,7 @@ impl MediaStore {
         transaction
             .execute(
                 "DELETE FROM pending_media_connections WHERE state_hash=?1",
-                [state_hash],
+                [state_hash.as_str()],
             )
             .map_err(storage)?;
         transaction.commit().map_err(storage)?;
