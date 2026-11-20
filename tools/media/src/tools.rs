@@ -491,7 +491,7 @@ impl MediaTool {
     async fn preferences(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
         let action = required_string(args, "action")?;
         let scope = required_string(args, "scope")?;
-        let (user_id, family_id, role) = family_scope(context)?;
+        let (_user_id, family_id, role) = family_scope(context)?;
         match (scope, action) {
             ("family", "get") => {
                 let preferences = self
@@ -797,7 +797,7 @@ mod tests {
             .await
             .unwrap();
         let profiles: Vec<MediaProfile> = serde_json::from_str(&output).unwrap();
-        assert_eq!(profiles, vec![profile]);
+        assert_eq!(profiles, vec![profile.clone()]);
 
         let error = registry
             .execute(
