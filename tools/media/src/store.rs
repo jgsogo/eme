@@ -358,7 +358,6 @@ impl MediaStore {
         rows.map(|row| decode(&row.map_err(storage)?)).collect()
     }
 
-
     /// Persist a short-lived, hashed OAuth state bound to the initiating user and profile.
     pub async fn create_pending_trakt_link(
         &self,
@@ -528,7 +527,6 @@ impl MediaStore {
         rows.map(|row| decode(&row.map_err(storage)?)).collect()
     }
 }
-
 
 /// Pending profile association carried through a provider OAuth callback.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
