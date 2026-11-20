@@ -18,7 +18,7 @@ use actix_web::{App, HttpServer, middleware, web};
 use agent_server::{LanInvitationConfig, auth::TelegramAuth};
 use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager};
 use agent_storage::{
-    ConversationStore, FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteFamilyStore,
+    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore, SqliteFamilyStore,
 };
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -145,10 +145,33 @@ async fn main() -> Result<()> {
         FileUserIdentityStore::open(args.data_dir.join("users.json"))
             .context("opening persistent user identity storage")?,
     );
+    let conversation_database = args
+        .conversation_database
+        .clone()
+        .unwrap_or_else(|| args.data_dir.join("agent-storage.sqlite"));
     let conversation_store = Arc::new(
-        ConversationStore::open(args.data_dir.join("conversations"))
-            .context("opening conversation storage")?,
+        SqliteConversationStore::open(&conversation_database)
+            .context("opening SQLite conversation storage")?,
     );
+    let import_report = conversation_store
+        .import_legacy(args.data_dir.join("conversations"))
+        .context("importing legacy conversations into SQLite")?;
+    info!(
+        database = %conversation_database.display(),
+        imported = import_report.imported,
+        already_present = import_report.already_present,
+        active_mappings_imported = import_report.active_mappings_imported,
+        "conversation storage initialized"
+    );
+    if !import_report.invalid_documents.is_empty()
+        || !import_report.invalid_active_entries.is_empty()
+    {
+        anyhow::bail!(
+            "legacy conversation import found {} invalid documents and {} invalid active mappings; fix the legacy data and restart (legacy files were preserved)",
+            import_report.invalid_documents.len(),
+            import_report.invalid_active_entries.len()
+        );
+    }
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
         let updates = gateway.subscribe();
