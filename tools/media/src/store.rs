@@ -442,7 +442,7 @@ impl MediaStore {
         transaction
             .execute(
                 "DELETE FROM pending_media_connections WHERE state_hash=?1",
-                [state_hash],
+                [state_hash.as_str()],
             )
             .map_err(storage)?;
         transaction.commit().map_err(storage)?;
