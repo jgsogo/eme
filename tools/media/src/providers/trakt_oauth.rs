@@ -455,7 +455,8 @@ impl TraktTokenManager {
             ]))
             .send()
             .await?;
-        ensure_success(response).await?
+        ensure_success(response)
+            .await?
             .json()
             .await
             .map_err(TraktError::Request)
