@@ -1,4 +1,5 @@
 use super::*;
+use crate::RunId;
 use agent_runtime::{CancellationToken, Message, ToolContext};
 use agent_storage::{
     ConversationMessageStore, RunEventStore, RunStore, SqliteConversationStore,
