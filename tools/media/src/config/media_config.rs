@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::WatchedPolicy;
 
-use super::{MediaConfigError, StreamingService};
+use super::{MediaConfigError, RecommendationWeights, StreamingService};
 
 /// Media feature defaults loaded by the host application.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +21,8 @@ pub struct MediaConfig {
     pub require_subscription: bool,
     /// Watchmode availability cache lifetime in seconds.
     pub availability_cache_ttl_seconds: u64,
+    /// Independent family/profile scoring weights and ranking bonuses.
+    pub recommendation_weights: RecommendationWeights,
     /// Default policy for excluding watched titles.
     pub watched_policy: WatchedPolicy,
 }
@@ -39,6 +41,7 @@ impl Default for MediaConfig {
             recommendation_limit: 5,
             require_subscription: true,
             availability_cache_ttl_seconds: 6 * 60 * 60,
+            recommendation_weights: RecommendationWeights::default(),
             watched_policy: WatchedPolicy::AnyParticipant,
         }
     }
@@ -58,6 +61,9 @@ impl MediaConfig {
         }
         if self.availability_cache_ttl_seconds == 0 {
             return Err(MediaConfigError::ZeroAvailabilityCacheTtl);
+        }
+        if !self.recommendation_weights.is_valid() {
+            return Err(MediaConfigError::InvalidRecommendationWeights);
         }
         Ok(())
     }
