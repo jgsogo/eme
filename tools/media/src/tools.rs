@@ -307,7 +307,11 @@ impl MediaTool {
                 if let Some(user_id) = args.get("user_id") {
                     profile.user_id = parse_profile_user(context, user_id)?;
                 }
-                self.services.store.save_profile(&profile).await.map_err(display)?;
+                self.services
+                    .store
+                    .save_profile(&profile)
+                    .await
+                    .map_err(display)?;
                 serde_json::to_value(profile).map_err(display)
             }
             "delete" => {
@@ -433,7 +437,9 @@ impl MediaTool {
     }
 
     async fn watchlist(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
-        let profile_id = self.require_profile(context, required_string(args, "profile_id")?, false).await?;
+        let profile_id = self
+            .require_profile(context, required_string(args, "profile_id")?, false)
+            .await?;
         let items = self
             .services
             .store
@@ -815,13 +821,8 @@ mod tests {
         let mut profile = MediaProfile::new(family_id, "Viewer");
         profile.user_id = Some(user_id);
         store.save_profile(&profile).await.unwrap();
-        let services = MediaToolServices::new(
-            store.clone(),
-            MediaConfig::default(),
-            None,
-            None,
-            None,
-        );
+        let services =
+            MediaToolServices::new(store.clone(), MediaConfig::default(), None, None, None);
         let mut registry = ToolRegistry::new();
         register_media_tools(&mut registry, services).unwrap();
         let context = ToolContext {
