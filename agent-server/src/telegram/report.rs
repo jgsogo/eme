@@ -3,7 +3,7 @@
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use agent_service::{RunId, RunManager, RunStatus};
-use agent_storage::{ConversationId, ConversationStore};
+use agent_storage::{ConversationId, SqliteConversationStore};
 use telegram_tool::TelegramGateway;
 use tokio::sync::Mutex;
 
@@ -13,7 +13,7 @@ pub(super) async fn report(
     gateway: Arc<TelegramGateway>,
     chat_id: i64,
     manager: RunManager,
-    store: Arc<ConversationStore>,
+    store: Arc<SqliteConversationStore>,
     conversation_id: ConversationId,
     active_conversations: Arc<Mutex<HashSet<ConversationId>>>,
     id: RunId,
