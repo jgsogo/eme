@@ -314,6 +314,16 @@ impl MediaTool {
                 require_family_admin(role)?;
                 let profile_id = MediaProfileId::from_str(required_string(args, "profile_id")?)
                     .map_err(display)?;
+                if self
+                    .services
+                    .store
+                    .get_external_connection_link(profile_id, "trakt")
+                    .await
+                    .map_err(display)?
+                    .is_some()
+                {
+                    return Err("unlink the profile's Trakt account before deleting it".into());
+                }
                 self.services
                     .store
                     .delete_profile(family_id, profile_id)
