@@ -178,6 +178,13 @@ pub(super) async fn mobile_tasks_page() -> impl Responder {
         .body(include_str!("../../static/mobile_tasks.html"))
 }
 
+#[get("/assets/desktop-header.js")]
+pub(super) async fn desktop_header_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/desktop-header.js"))
+}
+
 #[get("/assets/console.css")]
 pub(super) async fn console_stylesheet() -> impl Responder {
     HttpResponse::Ok()
