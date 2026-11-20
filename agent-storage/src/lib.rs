@@ -41,5 +41,5 @@ pub use identity::{
     UserIdentity, UserIdentityStore,
 };
 pub use memory::InMemoryStorage;
-pub use sqlite_conversation::SqliteConversationStore;
+pub use sqlite_conversation::{LegacyImportReport, SqliteConversationStore};
 pub use sqlite_family::SqliteFamilyStore;
