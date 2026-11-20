@@ -29,27 +29,38 @@ async fn persists_runs_events_and_structured_messages_across_reopen() {
         error: None,
     };
     store.insert_run(run.clone()).await.unwrap();
-    store.append_event(StoredRunEvent {
-        run_id: run.id,
-        sequence: 0,
-        kind: "queued".into(),
-        iteration: None,
-        tool_name: None,
-        error_category: None,
-        occurred_at: Utc::now(),
-    }).await.unwrap();
-    store.append_message(StoredMessage {
-        conversation_id,
-        run_id: Some(run.id),
-        sequence: 0,
-        message: Message::User { content: "hello".into() },
-        created_at: Utc::now(),
-    }).await.unwrap();
+    store
+        .append_event(StoredRunEvent {
+            run_id: run.id,
+            sequence: 0,
+            kind: "queued".into(),
+            iteration: None,
+            tool_name: None,
+            error_category: None,
+            occurred_at: Utc::now(),
+        })
+        .await
+        .unwrap();
+    store
+        .append_message(StoredMessage {
+            conversation_id,
+            run_id: Some(run.id),
+            sequence: 0,
+            message: Message::User {
+                content: "hello".into(),
+            },
+            created_at: Utc::now(),
+        })
+        .await
+        .unwrap();
     drop(store);
 
     let reopened = SqliteExecutionStore::open(&path).unwrap();
     assert_eq!(reopened.get_run(run.id).await.unwrap(), Some(run));
     assert_eq!(reopened.list_events(run.id, None).await.unwrap().len(), 1);
-    assert_eq!(reopened.list_messages(conversation_id).await.unwrap().len(), 1);
+    assert_eq!(
+        reopened.list_messages(conversation_id).await.unwrap().len(),
+        1
+    );
     let _ = std::fs::remove_file(&path);
 }
