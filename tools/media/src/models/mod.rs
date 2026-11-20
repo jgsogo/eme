@@ -1,6 +1,4 @@
 //! Provider-independent domain models used throughout the media feature.
-#[cfg(test)]
-mod tests;
 mod content_restrictions;
 mod external_id;
 mod family_media_preferences;
@@ -17,8 +15,11 @@ mod profile_preferences;
 mod recommendation_context;
 mod recommendation_criteria;
 mod streaming_offer;
-mod watched_policy;
 mod watch_history_source;
+mod watched_policy;
+
+#[cfg(test)]
+mod tests;
 
 pub use content_restrictions::ContentRestrictions;
 pub use external_id::ExternalId;
@@ -36,5 +37,5 @@ pub use profile_preferences::ProfilePreferences;
 pub use recommendation_context::RecommendationContext;
 pub use recommendation_criteria::RecommendationCriteria;
 pub use streaming_offer::StreamingOffer;
-pub use watched_policy::WatchedPolicy;
 pub use watch_history_source::WatchHistorySource;
+pub use watched_policy::WatchedPolicy;
