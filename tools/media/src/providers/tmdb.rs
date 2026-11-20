@@ -9,7 +9,7 @@ use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
-use crate::{ExternalId, MediaItem, MediaItemId, MediaKind};
+use crate::{ExternalId, MediaItem, MediaItemId, MediaKind, OfferType, StreamingOffer};
 
 const DEFAULT_BASE_URL: &str = "https://api.themoviedb.org/3";
 
