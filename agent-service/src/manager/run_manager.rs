@@ -5,7 +5,7 @@ use super::{
     RunManagerConfigError, SubmitRunError,
 };
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
-use agent_runtime::{CancellationToken, Message, ToolContext};
+use agent_runtime::{CancellationToken, EventSink, Message, ToolContext};
 use agent_storage::{ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus};
 use chrono::{DateTime, Utc};
 use std::{
@@ -101,16 +101,37 @@ impl RunManager {
                     }
 
                     info!(run_id = %run.id, agent = %run.agent, "agent run started");
-                    let result = executor
-                        .execute(
-                            run.id,
-                            run.agent.clone(),
-                            run.input.clone(),
-                            history,
-                            context,
-                            cancellation,
-                        )
-                        .await;
+                    let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
+                    let event_sink: Arc<dyn EventSink> = Arc::new(RuntimeEventChannel(event_sender));
+                    let execution = executor.execute_with_event_sink(
+                        run.id, run.agent.clone(), run.input.clone(), history,
+                        context, cancellation, event_sink,
+                    );
+                    tokio::pin!(execution);
+                    let mut events_open = true;
+                    let result = loop {
+                        tokio::select! {
+                            runtime_event = event_receiver.recv(), if events_open => {
+                                match runtime_event {
+                                    Some(event) => persist_runtime_event(
+                                        &runs, &persistence, run_id, &event
+                                    ).await,
+                                    None => events_open = false,
+                                }
+                            }
+                            result = &mut execution => break result,
+                        }
+                    };
+                    // Drain events emitted immediately before the executor returned.
+                    while let Ok(event) = event_receiver.try_recv() {
+                        persist_runtime_event(&runs, &persistence, run_id, &event).await;
+                    }
+                    // Executors using the default adapter may only return a batch.
+                    if let Ok(report) = &result {
+                        for event in &report.runtime_events {
+                            persist_runtime_event(&runs, &persistence, run_id, event).await;
+                        }
+                    }
 
                     let persisted = {
                         let mut runs = runs.lock().await;
@@ -119,9 +140,6 @@ impl RunManager {
                                 None
                             } else {
                                 if let Ok(report) = &result {
-                                    for runtime_event in &report.runtime_events {
-                                        entry.record_runtime(runtime_event);
-                                    }
                                     if let Some(messages) = &report.messages {
                                         entry.history = messages.clone();
                                     }
@@ -171,7 +189,7 @@ impl RunManager {
                                 info!(run_id = %run_id, agent = %entry.run.agent, status = ?entry.run.status, "agent run finished");
                                 Some((
                                     entry.run.clone(),
-                                    entry.events.iter().skip(2).cloned().collect::<Vec<_>>(),
+                                    entry.events.last().cloned().expect("terminal event was recorded"),
                                     entry.history.clone(),
                                     entry.persisted_message_count,
                                 ))
@@ -181,7 +199,7 @@ impl RunManager {
                         }
                     };
 
-                    if let (Some(storage), Some((snapshot, events, messages, message_count))) =
+                    if let (Some(storage), Some((snapshot, terminal_event, messages, message_count))) =
                         (current_storage(&persistence), persisted)
                     {
                         if let Err(storage_error) =
@@ -189,13 +207,10 @@ impl RunManager {
                         {
                             error!(run_id = %run_id, %storage_error, "failed to persist terminal run state");
                         }
-                        for event in events {
-                            if let Err(storage_error) =
-                                storage.append_event(to_stored_event(run_id, &event)).await
-                            {
-                                error!(run_id = %run_id, sequence = event.sequence, %storage_error, "failed to persist run event");
-                                break;
-                            }
+                        if let Err(storage_error) =
+                            storage.append_event(to_stored_event(run_id, &terminal_event)).await
+                        {
+                            error!(run_id = %run_id, sequence = terminal_event.sequence, %storage_error, "failed to persist terminal run event");
                         }
                         // Runtime results carry the complete transcript. The initial
                         // history and submitted user message are already durable.
@@ -466,6 +481,33 @@ impl RunManager {
                     .map(|message| message.message)
                     .collect()
             })
+    }
+}
+
+struct RuntimeEventChannel(mpsc::UnboundedSender<agent_runtime::RunEvent>);
+
+impl EventSink for RuntimeEventChannel {
+    fn emit(&self, event: &agent_runtime::RunEvent) {
+        let _ = self.0.send(event.clone());
+    }
+}
+
+async fn persist_runtime_event(
+    runs: &Arc<Mutex<HashMap<RunId, ManagedRun>>>,
+    persistence: &RwLock<Option<Arc<dyn ExecutionStore>>>,
+    run_id: RunId,
+    runtime_event: &agent_runtime::RunEvent,
+) {
+    let event = {
+        let mut runs = runs.lock().await;
+        let Some(entry) = runs.get_mut(&run_id) else { return; };
+        entry.record_runtime(runtime_event);
+        entry.events.last().cloned()
+    };
+    if let (Some(storage), Some(event)) = (current_storage(persistence), event) {
+        if let Err(error) = storage.append_event(to_stored_event(run_id, &event)).await {
+            error!(run_id = %run_id, sequence = event.sequence, %error, "failed to persist live runtime event");
+        }
     }
 }
 
