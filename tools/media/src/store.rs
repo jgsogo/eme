@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 
 use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaItem, MediaProfile, MediaProfileId,
-    MediaRating, MediaWatchEvent, ProfilePreferences, StreamingOffer,
+    MediaRating, MediaWatchEvent, MediaWatchlistItem, ProfilePreferences, ProviderSyncState, StreamingOffer,
 };
 
 /// SQLite-backed persistence for media data.
@@ -45,6 +45,9 @@ impl MediaStore {
             .execute_batch(include_str!(
                 "../migrations/0002_media_external_connections.sql"
             ))
+            .map_err(storage)?;
+        connection
+            .execute_batch(include_str!("../migrations/0003_media_watchlist.sql"))
             .map_err(storage)?;
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
@@ -397,7 +400,7 @@ impl MediaStore {
             .query_row(
                 "SELECT payload,expires_at FROM pending_media_connections
                  WHERE state_hash=?1 AND provider='trakt'",
-                [state_hash.as_str()],
+                [state_hash],
                 |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
             )
             .optional()
@@ -411,7 +414,7 @@ impl MediaStore {
         transaction
             .execute(
                 "DELETE FROM pending_media_connections WHERE state_hash=?1",
-                [state_hash.as_str()],
+                [state_hash],
             )
             .map_err(storage)?;
         transaction.commit().map_err(storage)?;
@@ -496,6 +499,189 @@ impl MediaStore {
             .execute(
                 "DELETE FROM media_external_connections WHERE profile_id=?1 AND provider=?2",
                 params![profile_id.to_string(), provider],
+            )
+            .map_err(storage)?;
+        Ok(())
+    }
+
+
+    pub async fn save_watchlist_item(
+        &self,
+        item: &MediaWatchlistItem,
+    ) -> Result<(), MediaStoreError> {
+        let payload = encode(item)?;
+        let connection = self.connection.lock().await;
+        connection
+            .execute(
+                "INSERT INTO media_watchlist(profile_id,media_item_id,source,added_at,payload)
+                 VALUES(?1,?2,?3,?4,?5)
+                 ON CONFLICT(profile_id,media_item_id,source) DO UPDATE SET
+                    added_at=excluded.added_at,payload=excluded.payload",
+                params![
+                    item.profile_id.to_string(),
+                    item.media_item_id.to_string(),
+                    format!("{:?}", item.source).to_lowercase(),
+                    item.added_at.to_rfc3339(),
+                    payload,
+                ],
+            )
+            .map_err(storage)?;
+        Ok(())
+    }
+
+    pub async fn list_watchlist(
+        &self,
+        profile_id: MediaProfileId,
+    ) -> Result<Vec<MediaWatchlistItem>, MediaStoreError> {
+        self.list_payloads(
+            "SELECT payload FROM media_watchlist WHERE profile_id=?1 ORDER BY added_at DESC",
+            profile_id.to_string(),
+        )
+        .await
+    }
+
+    /// Replace a provider's watchlist atomically so removals are reflected locally.
+    pub async fn replace_watchlist(
+        &self,
+        profile_id: MediaProfileId,
+        source: crate::WatchHistorySource,
+        items: &[MediaWatchlistItem],
+    ) -> Result<(), MediaStoreError> {
+        if items.iter().any(|item| item.profile_id != profile_id || item.source != source) {
+            return Err(MediaStoreError::Invalid(
+                "watchlist items must match the target profile and source".into(),
+            ));
+        }
+        let mut connection = self.connection.lock().await;
+        let transaction = connection.transaction().map_err(storage)?;
+        transaction
+            .execute(
+                "DELETE FROM media_watchlist WHERE profile_id=?1 AND source=?2",
+                params![profile_id.to_string(), format!("{:?}", source).to_lowercase()],
+            )
+            .map_err(storage)?;
+        for item in items {
+            transaction
+                .execute(
+                    "INSERT INTO media_watchlist(profile_id,media_item_id,source,added_at,payload)
+                     VALUES(?1,?2,?3,?4,?5)",
+                    params![
+                        item.profile_id.to_string(),
+                        item.media_item_id.to_string(),
+                        format!("{:?}", item.source).to_lowercase(),
+                        item.added_at.to_rfc3339(),
+                        encode(item)?,
+                    ],
+                )
+                .map_err(storage)?;
+        }
+        transaction.commit().map_err(storage)?;
+        Ok(())
+    }
+
+    /// Replace all ratings from one provider after a full provider snapshot.
+    pub async fn replace_ratings(
+        &self,
+        profile_id: MediaProfileId,
+        source: crate::WatchHistorySource,
+        ratings: &[MediaRating],
+    ) -> Result<(), MediaStoreError> {
+        if ratings.iter().any(|rating| {
+            rating.profile_id != profile_id
+                || rating.source != source
+                || !rating.value.is_finite()
+                || !(0.0..=5.0).contains(&rating.value)
+        }) {
+            return Err(MediaStoreError::Invalid(
+                "ratings must match the target profile/source and use the 0–5 scale".into(),
+            ));
+        }
+        let mut connection = self.connection.lock().await;
+        let transaction = connection.transaction().map_err(storage)?;
+        transaction
+            .execute(
+                "DELETE FROM media_ratings WHERE profile_id=?1 AND source=?2",
+                params![profile_id.to_string(), format!("{:?}", source).to_lowercase()],
+            )
+            .map_err(storage)?;
+        for rating in ratings {
+            transaction
+                .execute(
+                    "INSERT INTO media_ratings(profile_id,media_item_id,source,value,rated_at,payload)
+                     VALUES(?1,?2,?3,?4,?5,?6)",
+                    params![
+                        rating.profile_id.to_string(),
+                        rating.media_item_id.to_string(),
+                        format!("{:?}", rating.source).to_lowercase(),
+                        rating.value,
+                        rating.rated_at.to_rfc3339(),
+                        encode(rating)?,
+                    ],
+                )
+                .map_err(storage)?;
+        }
+        transaction.commit().map_err(storage)?;
+        Ok(())
+    }
+
+    pub async fn get_provider_sync_state(
+        &self,
+        profile_id: MediaProfileId,
+        provider: &str,
+    ) -> Result<Option<ProviderSyncState>, MediaStoreError> {
+        let connection = self.connection.lock().await;
+        let row = connection
+            .query_row(
+                "SELECT cursor,last_synced_at,status FROM provider_sync_state
+                 WHERE profile_id=?1 AND provider=?2",
+                params![profile_id.to_string(), provider],
+                |row| {
+                    Ok((
+                        row.get::<_, Option<String>>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(storage)?;
+        row.map(|(cursor, last_synced_at, status)| {
+            let last_synced_at = last_synced_at
+                .map(|value| {
+                    DateTime::parse_from_rfc3339(&value)
+                        .map(|date| date.with_timezone(&Utc))
+                        .map_err(|error| MediaStoreError::Storage(error.to_string()))
+                })
+                .transpose()?;
+            Ok(ProviderSyncState {
+                profile_id,
+                provider: provider.to_owned(),
+                cursor,
+                last_synced_at,
+                status,
+            })
+        })
+        .transpose()
+    }
+
+    pub async fn save_provider_sync_state(
+        &self,
+        state: &ProviderSyncState,
+    ) -> Result<(), MediaStoreError> {
+        let connection = self.connection.lock().await;
+        connection
+            .execute(
+                "INSERT INTO provider_sync_state(profile_id,provider,cursor,last_synced_at,status)
+                 VALUES(?1,?2,?3,?4,?5)
+                 ON CONFLICT(profile_id,provider) DO UPDATE SET
+                    cursor=excluded.cursor,last_synced_at=excluded.last_synced_at,status=excluded.status",
+                params![
+                    state.profile_id.to_string(),
+                    state.provider,
+                    state.cursor,
+                    state.last_synced_at.as_ref().map(|value| value.to_rfc3339()),
+                    state.status,
+                ],
             )
             .map_err(storage)?;
         Ok(())
@@ -726,6 +912,66 @@ mod tests {
                 .await
                 .unwrap()
                 .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn watchlist_replacement_removes_items_no_longer_present_at_provider() {
+        let store = MediaStore::open_in_memory().unwrap();
+        let profile = MediaProfile::new(FamilyId::new(), "Viewer");
+        store.save_profile(&profile).await.unwrap();
+        let first = item();
+        let second = item();
+        store.save_media_item(&first).await.unwrap();
+        store.save_media_item(&second).await.unwrap();
+        let first_entry = MediaWatchlistItem {
+            profile_id: profile.id,
+            media_item_id: first.id,
+            added_at: Utc::now(),
+            source: WatchHistorySource::Trakt,
+        };
+        let second_entry = MediaWatchlistItem {
+            profile_id: profile.id,
+            media_item_id: second.id,
+            added_at: Utc::now(),
+            source: WatchHistorySource::Trakt,
+        };
+
+        store
+            .replace_watchlist(
+                profile.id,
+                WatchHistorySource::Trakt,
+                &[first_entry, second_entry.clone()],
+            )
+            .await
+            .unwrap();
+        store
+            .replace_watchlist(profile.id, WatchHistorySource::Trakt, &[second_entry.clone()])
+            .await
+            .unwrap();
+
+        assert_eq!(store.list_watchlist(profile.id).await.unwrap(), vec![second_entry]);
+    }
+
+    #[tokio::test]
+    async fn provider_sync_cursor_round_trips() {
+        let store = MediaStore::open_in_memory().unwrap();
+        let profile = MediaProfile::new(FamilyId::new(), "Viewer");
+        store.save_profile(&profile).await.unwrap();
+        let state = ProviderSyncState {
+            profile_id: profile.id,
+            provider: "trakt".into(),
+            cursor: Some("{\"movies_watched_at\":\"2026-01-01T00:00:00Z\"}".into()),
+            last_synced_at: Some(Utc::now()),
+            status: "complete".into(),
+        };
+        store.save_provider_sync_state(&state).await.unwrap();
+        assert_eq!(
+            store
+                .get_provider_sync_state(profile.id, "trakt")
+                .await
+                .unwrap(),
+            Some(state)
         );
     }
 
