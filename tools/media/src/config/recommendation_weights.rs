@@ -11,9 +11,13 @@ pub struct RecommendationWeights {
     pub audience_rating_scale: i32,
     pub family_genre_preference: i32,
     pub family_genre_dislike_penalty: i32,
+    pub family_theme_preference: i32,
+    pub family_theme_dislike_penalty: i32,
     pub family_language_preference: i32,
     pub profile_genre_preference: i32,
     pub profile_genre_dislike_penalty: i32,
+    pub profile_theme_preference: i32,
+    pub profile_theme_dislike_penalty: i32,
     pub profile_language_preference: i32,
     pub rating_affinity_scale: i32,
     pub audience_quality_bonus: i32,
@@ -31,9 +35,13 @@ impl Default for RecommendationWeights {
             audience_rating_scale: 100,
             family_genre_preference: 100,
             family_genre_dislike_penalty: 100,
+            family_theme_preference: 60,
+            family_theme_dislike_penalty: 60,
             family_language_preference: 40,
             profile_genre_preference: 60,
             profile_genre_dislike_penalty: 150,
+            profile_theme_preference: 40,
+            profile_theme_dislike_penalty: 100,
             profile_language_preference: 30,
             rating_affinity_scale: 30,
             audience_quality_bonus: 40,
@@ -52,9 +60,13 @@ impl RecommendationWeights {
         self.audience_rating_scale >= 0
             && self.family_genre_preference >= 0
             && self.family_genre_dislike_penalty >= 0
+            && self.family_theme_preference >= 0
+            && self.family_theme_dislike_penalty >= 0
             && self.family_language_preference >= 0
             && self.profile_genre_preference >= 0
             && self.profile_genre_dislike_penalty >= 0
+            && self.profile_theme_preference >= 0
+            && self.profile_theme_dislike_penalty >= 0
             && self.profile_language_preference >= 0
             && self.rating_affinity_scale >= 0
             && self.audience_quality_bonus >= 0
