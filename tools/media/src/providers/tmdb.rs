@@ -289,6 +289,11 @@ impl TmdbClient {
             "media provider request completed"
         );
         if !status.is_success() {
+            tracing::warn!(
+                provider = "tmdb",
+                status = status.as_u16(),
+                "media provider request failed"
+            );
             let message = response
                 .json::<TmdbApiError>()
                 .await
