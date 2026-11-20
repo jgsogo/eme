@@ -447,12 +447,13 @@ impl SqliteConversationStore {
             return Ok(false);
         }
         tx.execute(
-            "INSERT INTO conversations(id, owner, agent, title, selected_family_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO conversations(id, owner, agent, title, archived, selected_family_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 conversation.id.to_string(),
                 conversation.owner,
                 conversation.agent,
                 conversation.title,
+                conversation.archived,
                 conversation.selected_family_id.map(|id| id.to_string()),
                 conversation.created_at.to_rfc3339(),
                 conversation.updated_at.to_rfc3339()
@@ -585,3 +586,6 @@ pub struct LegacyImportReport {
     pub invalid_documents: Vec<String>,
     pub invalid_active_entries: Vec<String>,
 }
+
+#[cfg(test)]
+mod tests;

@@ -20,6 +20,7 @@ fn imports_legacy_history_and_active_selection_idempotently() {
         owner: "telegram:42".into(),
         agent: "assistant".into(),
         title: "Existing conversation".into(),
+        archived: false,
         selected_family_id: None,
         created_at: Utc::now(),
         updated_at: Utc::now(),
@@ -79,9 +80,11 @@ fn imports_legacy_history_and_active_selection_idempotently() {
     assert_eq!(reopened.get(conversation.id).unwrap().messages.len(), 2);
 
     // Import is read-only with respect to the legacy source.
-    assert!(conversations_dir
-        .join(format!("{}.json", conversation.id))
-        .exists());
+    assert!(
+        conversations_dir
+            .join(format!("{}.json", conversation.id))
+            .exists()
+    );
     assert!(root.join("active-conversations.json").exists());
     drop(reopened);
     let _ = fs::remove_dir_all(root);
