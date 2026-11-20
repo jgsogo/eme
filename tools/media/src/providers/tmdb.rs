@@ -177,7 +177,7 @@ impl TmdbClient {
         Ok(genres)
     }
 
-    async fn map_details(&self, kind: MediaKind, dto: TmdbDetails) -> Result<MediaItem, TmdbError> {
+    fn map_details(&self, kind: MediaKind, dto: TmdbDetails) -> Result<MediaItem, TmdbError> {
         let release_date = parse_date(dto.release_date.or(dto.first_air_date))?;
         let genres = dto.genres.into_iter().map(|genre| genre.name).collect();
         let runtime_minutes = dto
