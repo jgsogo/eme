@@ -112,7 +112,9 @@ impl WatchmodeClient {
         };
 
         let media_item_id = crate::MediaItemId::from_external_id("tmdb", &tmdb_id.to_string());
-        let offers = self.sources_for_title(title.id, media_item_id, &region).await?;
+        let offers = self
+            .sources_for_title(title.id, media_item_id, &region)
+            .await?;
         self.offers_cache
             .write()
             .await
@@ -147,10 +149,7 @@ impl WatchmodeClient {
     }
 
     /// List source metadata for a region. IDs and names come from Watchmode.
-    pub async fn list_sources(
-        &self,
-        region: &str,
-    ) -> Result<Vec<WatchmodeSource>, WatchmodeError> {
+    pub async fn list_sources(&self, region: &str) -> Result<Vec<WatchmodeSource>, WatchmodeError> {
         let region = normalize_region(region)?;
         let rows: Vec<WatchmodeSourceDto> = self
             .request_json("/sources/", &[("regions", region)])
@@ -171,10 +170,7 @@ impl WatchmodeClient {
         extra: &[(&str, String)],
     ) -> Result<T, WatchmodeError> {
         let url = format!("{}{}", self.base_url, path);
-        let mut request = self
-            .http
-            .get(url)
-            .header("X-API-Key", &self.api_key);
+        let mut request = self.http.get(url).header("X-API-Key", &self.api_key);
         for (key, value) in extra {
             request = request.query(&[(key, value)]);
         }
@@ -191,7 +187,10 @@ impl WatchmodeClient {
             });
         }
         if !status.is_success() {
-            let message = response.text().await.unwrap_or_else(|_| "request failed".into());
+            let message = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "request failed".into());
             return Err(WatchmodeError::Api { status, message });
         }
         response.json().await.map_err(WatchmodeError::Request)
@@ -329,12 +328,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client = WatchmodeClient::with_options(
-            "test-key",
-            server.uri(),
-            Duration::from_secs(60),
-        )
-        .unwrap();
+        let client =
+            WatchmodeClient::with_options("test-key", server.uri(), Duration::from_secs(60))
+                .unwrap();
         let offers = client
             .offers_for_tmdb_id(42, MediaKind::Movie, "es")
             .await
@@ -360,18 +356,19 @@ mod tests {
             .await;
         let client = WatchmodeClient::new("test-key").unwrap();
         assert!(matches!(
-            client.sources_for_title(1, crate::MediaItemId::new(), "Spain").await,
+            client
+                .sources_for_title(1, crate::MediaItemId::new(), "Spain")
+                .await,
             Err(WatchmodeError::InvalidResponse(_))
         ));
 
-        let client = WatchmodeClient::with_options(
-            "test-key",
-            server.uri(),
-            Duration::from_secs(0),
-        )
-        .unwrap();
+        let client =
+            WatchmodeClient::with_options("test-key", server.uri(), Duration::from_secs(0))
+                .unwrap();
         assert!(matches!(
-            client.sources_for_title(1, crate::MediaItemId::new(), "ES").await,
+            client
+                .sources_for_title(1, crate::MediaItemId::new(), "ES")
+                .await,
             Err(WatchmodeError::RateLimited {
                 retry_after_seconds: Some(30)
             })
