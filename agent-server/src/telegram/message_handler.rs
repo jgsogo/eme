@@ -6,8 +6,8 @@ use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, SqliteConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
-    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore, UserId,
+    ConversationId, FamilyInvitationStore, FamilyRelationship, FamilyStore, FileUserIdentityStore,
+    InvitationTargetIdentity, InvitationToken, SqliteConversationStore, SqliteFamilyStore, UserId,
     UserIdentityStore,
 };
 use telegram_tool::{IncomingMessage, TelegramGateway};
