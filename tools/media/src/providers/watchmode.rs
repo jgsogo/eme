@@ -57,6 +57,14 @@ impl WatchmodeClient {
         Self::with_options(api_key, DEFAULT_BASE_URL, Duration::from_secs(6 * 60 * 60))
     }
 
+    /// Configure the in-memory availability cache lifetime using the default API endpoint.
+    pub fn with_cache_ttl(
+        api_key: impl Into<String>,
+        cache_ttl: Duration,
+    ) -> Result<Self, WatchmodeError> {
+        Self::with_options(api_key, DEFAULT_BASE_URL, cache_ttl)
+    }
+
     /// Configure the endpoint and in-memory availability cache lifetime.
     pub fn with_options(
         api_key: impl Into<String>,
