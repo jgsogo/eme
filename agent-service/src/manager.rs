@@ -5,6 +5,8 @@ mod cancel_run_outcome;
 mod execution_outcome;
 mod execution_report;
 mod managed_run;
+#[cfg(test)]
+mod persistence_tests;
 mod run_executor;
 mod run_manager;
 mod run_manager_config_error;
