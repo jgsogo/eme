@@ -19,6 +19,8 @@ pub struct MediaConfig {
     pub recommendation_limit: usize,
     /// Whether recommendations must be available on a configured subscription.
     pub require_subscription: bool,
+    /// Watchmode availability cache lifetime in seconds.
+    pub availability_cache_ttl_seconds: u64,
     /// Default policy for excluding watched titles.
     pub watched_policy: WatchedPolicy,
 }
@@ -36,6 +38,7 @@ impl Default for MediaConfig {
             ],
             recommendation_limit: 5,
             require_subscription: true,
+            availability_cache_ttl_seconds: 6 * 60 * 60,
             watched_policy: WatchedPolicy::AnyParticipant,
         }
     }
@@ -52,6 +55,9 @@ impl MediaConfig {
         }
         if self.recommendation_limit == 0 {
             return Err(MediaConfigError::ZeroRecommendationLimit);
+        }
+        if self.availability_cache_ttl_seconds == 0 {
+            return Err(MediaConfigError::ZeroAvailabilityCacheTtl);
         }
         Ok(())
     }
