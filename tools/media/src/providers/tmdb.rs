@@ -174,7 +174,10 @@ impl TmdbClient {
                     service_name: provider.provider_name.clone(),
                     offer_type,
                     region: region.clone(),
-                    url: country.link.clone().filter(|value| !value.trim().is_empty()),
+                    url: country
+                        .link
+                        .clone()
+                        .filter(|value| !value.trim().is_empty()),
                 });
             }
         }
@@ -687,9 +690,12 @@ mod tests {
         assert_eq!(offers[0].offer_type, OfferType::Subscription);
         assert_eq!(offers[1].offer_type, OfferType::Rent);
         assert_eq!(offers[2].offer_type, OfferType::AdSupported);
-        assert!(offers
-            .iter()
-            .all(|offer| offer.url.as_deref() == Some("https://www.themoviedb.org/movie/42/watch")));
+        assert!(
+            offers
+                .iter()
+                .all(|offer| offer.url.as_deref()
+                    == Some("https://www.themoviedb.org/movie/42/watch"))
+        );
     }
 
     #[tokio::test]
