@@ -526,20 +526,6 @@ fn score_item(
     }
 
     for participant in participants {
-        for genre in &participant.preferences.liked_genres {
-            if genres.contains(&normalize(genre)) {
-                score += weights.profile_genre_preference as f32;
-                reasons.push(format!(
-                    "Matches {}'s preference: {genre}",
-                    participant.profile.name
-                ));
-            }
-        }
-        for genre in &participant.preferences.disliked_genres {
-            if genres.contains(&normalize(genre)) {
-                score -= weights.profile_genre_dislike_penalty as f32;
-            }
-        }
         if item.original_language.as_ref().is_some_and(|language| {
             participant
                 .preferences
@@ -549,7 +535,37 @@ fn score_item(
         }) {
             score += weights.profile_language_preference as f32;
         }
-        for genre in &genres {
+    }
+    for genre in &genres {
+        let dislikers = participants
+            .iter()
+            .filter(|participant| {
+                participant
+                    .preferences
+                    .disliked_genres
+                    .iter()
+                    .any(|disliked| normalize(disliked) == *genre)
+            })
+            .count();
+        if dislikers > 0 {
+            // A selected participant's explicit dislike must not be cancelled
+            // by another participant's positive preference or inferred affinity.
+            score -= weights.profile_genre_dislike_penalty as f32 * dislikers as f32;
+            continue;
+        }
+        for participant in participants {
+            if participant
+                .preferences
+                .liked_genres
+                .iter()
+                .any(|liked| normalize(liked) == *genre)
+            {
+                score += weights.profile_genre_preference as f32;
+                reasons.push(format!(
+                    "Matches {}'s preference: {}",
+                    participant.profile.name, genre
+                ));
+            }
             if let Some(average) = participant.genre_affinity.get(genre) {
                 score += (average - 2.5) * weights.rating_affinity_scale as f32;
             }
