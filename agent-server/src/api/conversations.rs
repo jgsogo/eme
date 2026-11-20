@@ -562,6 +562,7 @@ mod tests {
     #[actix_web::test]
     async fn conversation_family_selection_requires_membership_and_can_be_cleared() {
         let directory = env::temp_dir().join(format!("eme-conversation-family-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
         let store = Arc::new(
             SqliteConversationStore::open(directory.join("conversations.sqlite")).unwrap(),
         );
