@@ -6,8 +6,8 @@ use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, SqliteConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
-    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore, UserId,
+    ConversationId, FamilyInvitationStore, FamilyRelationship, FamilyStore, FileUserIdentityStore,
+    InvitationTargetIdentity, InvitationToken, SqliteConversationStore, SqliteFamilyStore, UserId,
     UserIdentityStore,
 };
 use telegram_tool::{IncomingMessage, TelegramGateway};
@@ -376,7 +376,12 @@ pub(super) async fn handle_message(
         Err(SubmitRunError::Storage(error)) => {
             active_conversations.lock().await.remove(&conversation.id);
             tracing::error!(%error, conversation_id = %conversation.id, "failed to persist Telegram run");
-            let _ = gateway.send_message(message.chat_id, "Could not persist this run; please try again.").await;
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "Could not persist this run; please try again.",
+                )
+                .await;
         }
         Err(SubmitRunError::QueueFull) => {
             active_conversations.lock().await.remove(&conversation.id);

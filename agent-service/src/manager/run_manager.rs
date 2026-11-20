@@ -6,11 +6,14 @@ use super::{
 };
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
 use agent_runtime::{CancellationToken, Message, ToolContext};
-use agent_storage::{
-    ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus,
-};
+use agent_storage::{ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus};
 use chrono::{DateTime, Utc};
-use std::{collections::HashMap, str::FromStr, sync::{Arc, RwLock}, time::SystemTime};
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, RwLock},
+    time::SystemTime,
+};
 use tokio::sync::{Mutex, mpsc};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -38,8 +41,7 @@ impl RunManager {
         }
 
         let runs = Arc::new(Mutex::new(HashMap::<RunId, ManagedRun>::new()));
-        let persistence: Arc<RwLock<Option<Arc<dyn ExecutionStore>>>> =
-            Arc::new(RwLock::new(None));
+        let persistence: Arc<RwLock<Option<Arc<dyn ExecutionStore>>>> = Arc::new(RwLock::new(None));
         let (sender, receiver) = mpsc::channel(max_queued_runs);
         let receiver = Arc::new(Mutex::new(receiver));
 
@@ -59,8 +61,12 @@ impl RunManager {
 
                     let (run, cancellation, history, context, history_len) = {
                         let mut runs = runs.lock().await;
-                        let Some(entry) = runs.get_mut(&run_id) else { continue };
-                        if entry.run.mark_running().is_err() { continue; }
+                        let Some(entry) = runs.get_mut(&run_id) else {
+                            continue;
+                        };
+                        if entry.run.mark_running().is_err() {
+                            continue;
+                        }
                         entry.record(RunEventKind::Started);
                         (
                             entry.run.clone(),
@@ -73,24 +79,38 @@ impl RunManager {
 
                     if let Some(storage) = current_storage(&persistence) {
                         if let Err(storage_error) = persist_snapshot_and_event(
-                            storage.as_ref(), &run, &RunEvent {
+                            storage.as_ref(),
+                            &run,
+                            &RunEvent {
                                 sequence: 1,
                                 kind: RunEventKind::Started,
-                                iteration: None, tool_name: None, model_id: None,
-                                next_model_id: None, model_candidates: None,
-                                attempted_candidates: None, error_category: None,
+                                iteration: None,
+                                tool_name: None,
+                                model_id: None,
+                                next_model_id: None,
+                                model_candidates: None,
+                                attempted_candidates: None,
+                                error_category: None,
                                 occurred_at: SystemTime::now(),
-                            }
-                        ).await {
+                            },
+                        )
+                        .await
+                        {
                             error!(run_id = %run_id, %storage_error, "failed to persist run start");
                         }
                     }
 
                     info!(run_id = %run.id, agent = %run.agent, "agent run started");
-                    let result = executor.execute(
-                        run.id, run.agent.clone(), run.input.clone(), history,
-                        context, cancellation,
-                    ).await;
+                    let result = executor
+                        .execute(
+                            run.id,
+                            run.agent.clone(),
+                            run.input.clone(),
+                            history,
+                            context,
+                            cancellation,
+                        )
+                        .await;
 
                     let persisted = {
                         let mut runs = runs.lock().await;
@@ -107,23 +127,38 @@ impl RunManager {
                                     }
                                 }
                                 let event = match result {
-                                    Ok(ExecutionReport { outcome: ExecutionOutcome::Completed(response), .. }) => {
+                                    Ok(ExecutionReport {
+                                        outcome: ExecutionOutcome::Completed(response),
+                                        ..
+                                    }) => {
                                         let _ = entry.run.complete(response);
                                         RunEventKind::Completed
                                     }
-                                    Ok(ExecutionReport { outcome: ExecutionOutcome::Cancelled, .. }) => {
+                                    Ok(ExecutionReport {
+                                        outcome: ExecutionOutcome::Cancelled,
+                                        ..
+                                    }) => {
                                         let _ = entry.run.cancel();
                                         RunEventKind::Cancelled
                                     }
-                                    Ok(ExecutionReport { outcome: ExecutionOutcome::TimedOut, .. }) => {
+                                    Ok(ExecutionReport {
+                                        outcome: ExecutionOutcome::TimedOut,
+                                        ..
+                                    }) => {
                                         let _ = entry.run.time_out();
                                         RunEventKind::TimedOut
                                     }
-                                    Ok(ExecutionReport { outcome: ExecutionOutcome::MaxIterationsReached, .. }) => {
+                                    Ok(ExecutionReport {
+                                        outcome: ExecutionOutcome::MaxIterationsReached,
+                                        ..
+                                    }) => {
                                         let _ = entry.run.reach_max_iterations();
                                         RunEventKind::MaxIterationsReached
                                     }
-                                    Ok(ExecutionReport { outcome: ExecutionOutcome::Failed(error), .. }) => {
+                                    Ok(ExecutionReport {
+                                        outcome: ExecutionOutcome::Failed(error),
+                                        ..
+                                    }) => {
                                         let _ = entry.run.fail(error);
                                         RunEventKind::Failed
                                     }
@@ -141,17 +176,23 @@ impl RunManager {
                                     entry.persisted_message_count,
                                 ))
                             }
-                        } else { None }
+                        } else {
+                            None
+                        }
                     };
 
                     if let (Some(storage), Some((snapshot, events, messages, message_count))) =
                         (current_storage(&persistence), persisted)
                     {
-                        if let Err(storage_error) = storage.update_run(to_stored_run(&snapshot)).await {
+                        if let Err(storage_error) =
+                            storage.update_run(to_stored_run(&snapshot)).await
+                        {
                             error!(run_id = %run_id, %storage_error, "failed to persist terminal run state");
                         }
                         for event in events {
-                            if let Err(storage_error) = storage.append_event(to_stored_event(run_id, &event)).await {
+                            if let Err(storage_error) =
+                                storage.append_event(to_stored_event(run_id, &event)).await
+                            {
                                 error!(run_id = %run_id, sequence = event.sequence, %storage_error, "failed to persist run event");
                                 break;
                             }
@@ -184,7 +225,11 @@ impl RunManager {
             });
         }
 
-        Ok(Self { runs, sender, persistence })
+        Ok(Self {
+            runs,
+            sender,
+            persistence,
+        })
     }
 
     /// Enables durable run, event, and conversation-message persistence.
@@ -192,7 +237,10 @@ impl RunManager {
         // Workers share this slot, so attaching storage immediately after
         // construction is safe before the manager is handed to request handlers.
         // No work should be submitted before this builder is called.
-        let mut guard = self.persistence.write().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut guard = self
+            .persistence
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         *guard = Some(storage);
         drop(guard);
         self
@@ -207,15 +255,22 @@ impl RunManager {
     ) -> Result<RunId, SubmitRunError> {
         // Reserve queue capacity before touching durable state. This avoids
         // leaving a persisted queued run behind when admission is rejected.
-        let permit = self.sender.try_reserve().map_err(|_| SubmitRunError::QueueFull)?;
+        let permit = self
+            .sender
+            .try_reserve()
+            .map_err(|_| SubmitRunError::QueueFull)?;
         let mut run = Run::new(agent, input);
         let run_id = run.id;
         let storage = current_storage(&self.persistence);
         let conversation_id = if storage.is_some() {
-            context.conversation_id.as_deref()
+            context
+                .conversation_id
+                .as_deref()
                 .map(Uuid::from_str)
                 .transpose()
-                .map_err(|error| SubmitRunError::Storage(format!("invalid conversation identifier: {error}")))?
+                .map_err(|error| {
+                    SubmitRunError::Storage(format!("invalid conversation identifier: {error}"))
+                })?
         } else {
             None
         };
@@ -224,12 +279,15 @@ impl RunManager {
         let mut persisted_message_count = None;
         if let Some(storage) = storage {
             if let Some(conversation_id) = conversation_id {
-                let existing = storage.list_messages(conversation_id).await
+                let existing = storage
+                    .list_messages(conversation_id)
+                    .await
                     .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
                 if existing.len() != history.len() {
                     return Err(SubmitRunError::Storage(format!(
                         "conversation history mismatch: storage has {} messages but caller supplied {}",
-                        existing.len(), history.len()
+                        existing.len(),
+                        history.len()
                     )));
                 }
                 // Compare the exact structured transcript, not only its length.
@@ -247,30 +305,42 @@ impl RunManager {
                 persisted_message_count = Some(existing.len() as u64 + 1);
             }
 
-            storage.insert_run(to_stored_run(&run)).await
+            storage
+                .insert_run(to_stored_run(&run))
+                .await
                 .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
-            storage.append_event(to_stored_event(run_id, &queued_event())).await
+            storage
+                .append_event(to_stored_event(run_id, &queued_event()))
+                .await
                 .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
             if let Some(conversation_id) = conversation_id {
-                storage.append_message(StoredMessage {
-                    conversation_id,
-                    run_id: Some(run_id.as_uuid()),
-                    sequence: persisted_message_count.unwrap() - 1,
-                    message: Message::User { content: run.input.clone() },
-                    created_at: Utc::now(),
-                }).await.map_err(|error| SubmitRunError::Storage(error.to_string()))?;
+                storage
+                    .append_message(StoredMessage {
+                        conversation_id,
+                        run_id: Some(run_id.as_uuid()),
+                        sequence: persisted_message_count.unwrap() - 1,
+                        message: Message::User {
+                            content: run.input.clone(),
+                        },
+                        created_at: Utc::now(),
+                    })
+                    .await
+                    .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
             }
         }
 
         let initial_event = queued_event();
-        self.runs.lock().await.insert(run_id, ManagedRun {
-            run,
-            cancellation: CancellationToken::new(),
-            events: vec![initial_event],
-            history,
-            context,
-            persisted_message_count,
-        });
+        self.runs.lock().await.insert(
+            run_id,
+            ManagedRun {
+                run,
+                cancellation: CancellationToken::new(),
+                events: vec![initial_event],
+                history,
+                context,
+                persisted_message_count,
+            },
+        );
         permit.send(run_id);
         info!(run_id = %run_id, "agent conversation run queued");
         Ok(run_id)
@@ -296,10 +366,16 @@ impl RunManager {
                 }
                 _ => return Ok(CancelRunOutcome::AlreadyFinished),
             };
-            (outcome, entry.run.clone(), entry.events.last().cloned().unwrap())
+            (
+                outcome,
+                entry.run.clone(),
+                entry.events.last().cloned().unwrap(),
+            )
         };
         if let Some(storage) = current_storage(&self.persistence) {
-            if let Err(error) = persist_snapshot_and_event(storage.as_ref(), &snapshot, &event).await {
+            if let Err(error) =
+                persist_snapshot_and_event(storage.as_ref(), &snapshot, &event).await
+            {
                 error!(run_id = %run_id, %error, "failed to persist queued-run cancellation");
             }
         }
@@ -310,7 +386,11 @@ impl RunManager {
         let mut by_id = HashMap::new();
         if let Some(storage) = current_storage(&self.persistence) {
             match storage.list_runs(None).await {
-                Ok(stored) => for run in stored { by_id.insert(run.id, from_stored_run(run)); },
+                Ok(stored) => {
+                    for run in stored {
+                        by_id.insert(run.id, from_stored_run(run));
+                    }
+                }
                 Err(error) => error!(%error, "failed to load persisted runs"),
             }
         }
@@ -323,7 +403,13 @@ impl RunManager {
     }
 
     pub async fn events(&self, run_id: RunId) -> Option<Vec<RunEvent>> {
-        if let Some(events) = self.runs.lock().await.get(&run_id).map(|entry| entry.events.clone()) {
+        if let Some(events) = self
+            .runs
+            .lock()
+            .await
+            .get(&run_id)
+            .map(|entry| entry.events.clone())
+        {
             return Some(events);
         }
         let storage = current_storage(&self.persistence)?;
@@ -337,7 +423,13 @@ impl RunManager {
     }
 
     pub async fn get(&self, run_id: RunId) -> Option<Run> {
-        if let Some(run) = self.runs.lock().await.get(&run_id).map(|entry| entry.run.clone()) {
+        if let Some(run) = self
+            .runs
+            .lock()
+            .await
+            .get(&run_id)
+            .map(|entry| entry.run.clone())
+        {
             return Some(run);
         }
         let storage = current_storage(&self.persistence)?;
@@ -352,27 +444,51 @@ impl RunManager {
     }
 
     pub async fn history(&self, run_id: RunId) -> Option<Vec<Message>> {
-        if let Some(history) = self.runs.lock().await.get(&run_id).map(|entry| entry.history.clone()) {
+        if let Some(history) = self
+            .runs
+            .lock()
+            .await
+            .get(&run_id)
+            .map(|entry| entry.history.clone())
+        {
             return Some(history);
         }
         let storage = current_storage(&self.persistence)?;
         let run = storage.get_run(run_id.as_uuid()).await.ok()??;
         let conversation_id = run.conversation_id?;
-        storage.list_messages(conversation_id).await.ok().map(|messages| {
-            messages.into_iter().map(|message| message.message).collect()
-        })
+        storage
+            .list_messages(conversation_id)
+            .await
+            .ok()
+            .map(|messages| {
+                messages
+                    .into_iter()
+                    .map(|message| message.message)
+                    .collect()
+            })
     }
 }
 
-fn current_storage(slot: &RwLock<Option<Arc<dyn ExecutionStore>>>) -> Option<Arc<dyn ExecutionStore>> {
-    slot.read().unwrap_or_else(|poisoned| poisoned.into_inner()).clone()
+fn current_storage(
+    slot: &RwLock<Option<Arc<dyn ExecutionStore>>>,
+) -> Option<Arc<dyn ExecutionStore>> {
+    slot.read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
 }
 
 fn queued_event() -> RunEvent {
     RunEvent {
-        sequence: 0, kind: RunEventKind::Queued, iteration: None, tool_name: None,
-        model_id: None, next_model_id: None, model_candidates: None,
-        attempted_candidates: None, error_category: None, occurred_at: SystemTime::now(),
+        sequence: 0,
+        kind: RunEventKind::Queued,
+        iteration: None,
+        tool_name: None,
+        model_id: None,
+        next_model_id: None,
+        model_candidates: None,
+        attempted_candidates: None,
+        error_category: None,
+        occurred_at: SystemTime::now(),
     }
 }
 
@@ -464,49 +580,67 @@ fn from_stored_event(event: StoredRunEvent) -> RunEvent {
 
 fn static_category(value: &str) -> Option<&'static str> {
     Some(match value {
-        "configuration" => "configuration", "authorization" => "authorization",
-        "model" => "model", "tool" => "tool", "timeout" => "timeout",
-        "cancellation" => "cancellation", "rate_limited" => "rate_limited",
-        "quota_exceeded" => "quota_exceeded", "transient" => "transient",
-        "candidate_unavailable" => "candidate_unavailable", "permanent" => "permanent",
+        "configuration" => "configuration",
+        "authorization" => "authorization",
+        "model" => "model",
+        "tool" => "tool",
+        "timeout" => "timeout",
+        "cancellation" => "cancellation",
+        "rate_limited" => "rate_limited",
+        "quota_exceeded" => "quota_exceeded",
+        "transient" => "transient",
+        "candidate_unavailable" => "candidate_unavailable",
+        "permanent" => "permanent",
         _ => return None,
     })
 }
 
 fn event_kind_name(kind: RunEventKind) -> &'static str {
     match kind {
-        RunEventKind::Queued => "queued", RunEventKind::Started => "started",
-        RunEventKind::Completed => "completed", RunEventKind::Failed => "failed",
-        RunEventKind::Cancelled => "cancelled", RunEventKind::TimedOut => "timed_out",
+        RunEventKind::Queued => "queued",
+        RunEventKind::Started => "started",
+        RunEventKind::Completed => "completed",
+        RunEventKind::Failed => "failed",
+        RunEventKind::Cancelled => "cancelled",
+        RunEventKind::TimedOut => "timed_out",
         RunEventKind::MaxIterationsReached => "max_iterations_reached",
         RunEventKind::ModelRequested => "model_requested",
         RunEventKind::ModelCandidatesDiscovered => "model_candidates_discovered",
         RunEventKind::ModelCandidateAttemptStarted => "model_candidate_attempt_started",
         RunEventKind::ModelCandidateAttemptFailed => "model_candidate_attempt_failed",
-        RunEventKind::ModelFallback => "model_fallback", RunEventKind::ModelSelected => "model_selected",
-        RunEventKind::ModelRoutingFailed => "model_routing_failed", RunEventKind::ModelResponded => "model_responded",
+        RunEventKind::ModelFallback => "model_fallback",
+        RunEventKind::ModelSelected => "model_selected",
+        RunEventKind::ModelRoutingFailed => "model_routing_failed",
+        RunEventKind::ModelResponded => "model_responded",
         RunEventKind::ToolExecutionStarted => "tool_execution_started",
         RunEventKind::ToolExecutionFinished => "tool_execution_finished",
-        RunEventKind::ModelFailed => "model_failed", RunEventKind::RuntimeCancelled => "runtime_cancelled",
+        RunEventKind::ModelFailed => "model_failed",
+        RunEventKind::RuntimeCancelled => "runtime_cancelled",
         RunEventKind::RuntimeTimedOut => "runtime_timed_out",
     }
 }
 
 fn parse_event_kind(value: &str) -> Option<RunEventKind> {
     Some(match value {
-        "queued" => RunEventKind::Queued, "started" => RunEventKind::Started,
-        "completed" => RunEventKind::Completed, "failed" => RunEventKind::Failed,
-        "cancelled" => RunEventKind::Cancelled, "timed_out" => RunEventKind::TimedOut,
+        "queued" => RunEventKind::Queued,
+        "started" => RunEventKind::Started,
+        "completed" => RunEventKind::Completed,
+        "failed" => RunEventKind::Failed,
+        "cancelled" => RunEventKind::Cancelled,
+        "timed_out" => RunEventKind::TimedOut,
         "max_iterations_reached" => RunEventKind::MaxIterationsReached,
         "model_requested" => RunEventKind::ModelRequested,
         "model_candidates_discovered" => RunEventKind::ModelCandidatesDiscovered,
         "model_candidate_attempt_started" => RunEventKind::ModelCandidateAttemptStarted,
         "model_candidate_attempt_failed" => RunEventKind::ModelCandidateAttemptFailed,
-        "model_fallback" => RunEventKind::ModelFallback, "model_selected" => RunEventKind::ModelSelected,
-        "model_routing_failed" => RunEventKind::ModelRoutingFailed, "model_responded" => RunEventKind::ModelResponded,
+        "model_fallback" => RunEventKind::ModelFallback,
+        "model_selected" => RunEventKind::ModelSelected,
+        "model_routing_failed" => RunEventKind::ModelRoutingFailed,
+        "model_responded" => RunEventKind::ModelResponded,
         "tool_execution_started" => RunEventKind::ToolExecutionStarted,
         "tool_execution_finished" => RunEventKind::ToolExecutionFinished,
-        "model_failed" => RunEventKind::ModelFailed, "runtime_cancelled" => RunEventKind::RuntimeCancelled,
+        "model_failed" => RunEventKind::ModelFailed,
+        "runtime_cancelled" => RunEventKind::RuntimeCancelled,
         "runtime_timed_out" => RunEventKind::RuntimeTimedOut,
         _ => return None,
     })
