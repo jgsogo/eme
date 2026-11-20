@@ -21,8 +21,8 @@ use actix_web::{
 use agent_runtime::{Message, ToolContext};
 use agent_service::{FamilyService, FamilyServiceError, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{
-    Conversation, ConversationId, SqliteConversationStore, ConversationStoreError, FamilyId,
-    FileUserIdentityStore, UserId, UserIdentityStore,
+    Conversation, ConversationId, ConversationStoreError, FamilyId, FileUserIdentityStore,
+    SqliteConversationStore, UserId, UserIdentityStore,
 };
 
 use super::types::{AgentCatalog, GetRunResponse, SubmitRunResponse};
@@ -114,7 +114,7 @@ async fn list_conversations(
 async fn list_archived_conversations(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
         Ok(owner) => owner,
@@ -135,7 +135,7 @@ async fn list_archived_conversations(
 async fn archive_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     set_conversation_archived(request, auth, store, conversation_id, true)
@@ -145,7 +145,7 @@ async fn archive_conversation(
 async fn unarchive_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     set_conversation_archived(request, auth, store, conversation_id, false)
@@ -154,7 +154,7 @@ async fn unarchive_conversation(
 fn set_conversation_archived(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
     archived: bool,
 ) -> HttpResponse {
@@ -578,8 +578,8 @@ mod tests {
     };
     use agent_service::FamilyService;
     use agent_storage::{
-        SqliteConversationStore, FamilyRelationship, FileUserIdentityStore,
-        InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore,
+        FamilyRelationship, FileUserIdentityStore, InMemoryFamilyInvitationStore,
+        InMemoryFamilyStore, SqliteConversationStore, UserIdentityStore,
     };
     use serde_json::{Value, json};
     use uuid::Uuid;
@@ -589,7 +589,10 @@ mod tests {
     #[actix_web::test]
     async fn conversation_family_selection_requires_membership_and_can_be_cleared() {
         let directory = env::temp_dir().join(format!("eme-conversation-family-{}", Uuid::new_v4()));
-        let store = Arc::new(SqliteConversationStore::open(directory.join("conversations.sqlite")).unwrap());
+        std::fs::create_dir_all(&directory).expect("create conversation test directory");
+        let store = Arc::new(
+            SqliteConversationStore::open(directory.join("conversations.sqlite")).unwrap(),
+        );
         let identities =
             Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
         let (user, _) = identities
