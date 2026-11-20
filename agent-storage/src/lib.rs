@@ -10,6 +10,7 @@ mod family_memory;
 mod identity;
 mod memory;
 mod sqlite_conversation;
+mod sqlite_execution;
 mod sqlite_family;
 
 pub use connected_calendar::{
@@ -42,4 +43,5 @@ pub use identity::{
 };
 pub use memory::InMemoryStorage;
 pub use sqlite_conversation::{LegacyImportReport, SqliteConversationStore};
+pub use sqlite_execution::SqliteExecutionStore;
 pub use sqlite_family::SqliteFamilyStore;
