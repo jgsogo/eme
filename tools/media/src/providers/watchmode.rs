@@ -184,6 +184,7 @@ impl WatchmodeClient {
             "media provider request completed"
         );
         if status == StatusCode::TOO_MANY_REQUESTS {
+            tracing::warn!(provider = "watchmode", "media provider rate limit reached");
             let retry_after_seconds = response
                 .headers()
                 .get(reqwest::header::RETRY_AFTER)
