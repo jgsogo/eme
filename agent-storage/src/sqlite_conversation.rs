@@ -371,3 +371,5 @@ pub struct LegacyImportReport {
     pub invalid_active_entries: Vec<String>,
 }
 
+#[cfg(test)]
+mod tests;
