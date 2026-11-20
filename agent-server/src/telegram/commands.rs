@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use agent_storage::{ConversationId, ConversationStore};
+use agent_storage::{ConversationId, SqliteConversationStore};
 use telegram_tool::TelegramGateway;
 
 use super::formatting::{send_error, truncate};
@@ -12,7 +12,7 @@ pub(super) async fn handle_command(
     owner: &str,
     default_agent: &str,
     agents: &[String],
-    store: &Arc<ConversationStore>,
+    store: &Arc<SqliteConversationStore>,
     chat_id: i64,
     command: &str,
     arguments: &str,
