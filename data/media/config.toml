@@ -6,5 +6,6 @@ language = "es-ES"
 subscriptions = ["netflix", "prime_video", "disney_plus", "hbo_max"]
 
 recommendation_limit = 5
+availability_cache_ttl_seconds = 21600
 require_subscription = true
 watched_policy = "any_participant"
