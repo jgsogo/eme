@@ -1,9 +1,8 @@
 name: Deploy GitHub Pages
 
 on:
-  pull_request:
+  push:
     branches: [main]
-    types: [closed]
 
 permissions:
   contents: read
@@ -16,17 +15,13 @@ concurrency:
 
 jobs:
   deploy:
-    # Deploy only after a PR has actually been merged into main.
-    if: github.event.pull_request.merged == true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check out main
+      - name: Check out triggering commit
         uses: actions/checkout@v4
-        with:
-          ref: main
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
