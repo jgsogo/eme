@@ -372,6 +372,7 @@ impl RecommendationService {
     }
 }
 
+#[derive(Clone)]
 struct ParticipantData {
     profile: MediaProfile,
     preferences: ProfilePreferences,
