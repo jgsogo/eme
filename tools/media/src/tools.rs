@@ -956,7 +956,7 @@ mod tests {
         );
         assert_eq!(
             recommendations[0]["history_unknown_for"][0],
-            profile.id.to_string()
+            json!(profile.id.to_string())
         );
     }
 
