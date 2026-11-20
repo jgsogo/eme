@@ -9,9 +9,11 @@
 //! require an EME user account.
 mod config;
 mod models;
+mod providers;
 mod store;
 
 pub use config::{MediaConfig, MediaConfigError, StreamingService};
+pub use providers::{TmdbClient, TmdbError, TmdbPage};
 pub use store::{MediaStore, MediaStoreError};
 
 pub use models::{
