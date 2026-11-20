@@ -121,7 +121,7 @@ pub fn register_media_tools(
         ),
         (
             "media_availability",
-            "Find Spanish streaming offers, including subscription, rent, buy and free options.",
+            "Find Spanish streaming offers, including subscription, rent, buy, free and ad-supported options.",
             json!({
                 "type":"object",
                 "properties":{
