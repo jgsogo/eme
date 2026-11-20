@@ -322,8 +322,11 @@ impl RecommendationService {
                 .await
             {
                 Ok(offers) => offers,
-                Err(error) => {
-                    tracing::warn!(provider = "watchmode", error = %error, "falling back to TMDB watch providers");
+                Err(_) => {
+                    tracing::warn!(
+                        provider = "watchmode",
+                        "availability lookup failed; falling back to TMDB watch providers"
+                    );
                     Vec::new()
                 }
             }
