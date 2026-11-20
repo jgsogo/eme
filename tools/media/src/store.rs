@@ -47,7 +47,9 @@ impl MediaStore {
     /// Insert or update a family-managed media profile without changing its family.
     pub async fn save_profile(&self, profile: &MediaProfile) -> Result<(), MediaStoreError> {
         if profile.name.trim().is_empty() {
-            return Err(MediaStoreError::Invalid("profile name must not be empty".into()));
+            return Err(MediaStoreError::Invalid(
+                "profile name must not be empty".into(),
+            ));
         }
         let payload = encode(profile)?;
         let now = Utc::now().to_rfc3339();
@@ -92,8 +94,7 @@ impl MediaStore {
         let rows = statement
             .query_map([family_id.to_string()], |row| row.get::<_, String>(0))
             .map_err(storage)?;
-        rows.map(|row| decode(&row.map_err(storage)?))
-            .collect()
+        rows.map(|row| decode(&row.map_err(storage)?)).collect()
     }
 
     /// Load a profile only within the requested family boundary.
@@ -231,15 +232,15 @@ impl MediaStore {
         &self,
         id: crate::MediaItemId,
     ) -> Result<Option<MediaItem>, MediaStoreError> {
-        self.get_payload("SELECT payload FROM media_items WHERE id=?1", id.to_string())
-            .await
+        self.get_payload(
+            "SELECT payload FROM media_items WHERE id=?1",
+            id.to_string(),
+        )
+        .await
     }
 
     /// Record a viewing event idempotently (same profile, item, timestamp and source).
-    pub async fn record_watch_event(
-        &self,
-        event: &MediaWatchEvent,
-    ) -> Result<(), MediaStoreError> {
+    pub async fn record_watch_event(&self, event: &MediaWatchEvent) -> Result<(), MediaStoreError> {
         let payload = encode(event)?;
         let connection = self.connection.lock().await;
         connection
@@ -272,7 +273,9 @@ impl MediaStore {
     /// Store a profile rating, replacing the previous rating from the same source.
     pub async fn save_rating(&self, rating: &MediaRating) -> Result<(), MediaStoreError> {
         if !rating.value.is_finite() || !(0.0..=5.0).contains(&rating.value) {
-            return Err(MediaStoreError::Invalid("rating must be between 0 and 5".into()));
+            return Err(MediaStoreError::Invalid(
+                "rating must be between 0 and 5".into(),
+            ));
         }
         let payload = encode(rating)?;
         let connection = self.connection.lock().await;
@@ -341,7 +344,9 @@ impl MediaStore {
             .prepare("SELECT payload FROM streaming_offers WHERE media_item_id=?1 AND region=?2 ORDER BY service_id,offer_type")
             .map_err(storage)?;
         let rows = statement
-            .query_map(params![item_id.to_string(), region], |row| row.get::<_, String>(0))
+            .query_map(params![item_id.to_string(), region], |row| {
+                row.get::<_, String>(0)
+            })
             .map_err(storage)?;
         rows.map(|row| decode(&row.map_err(storage)?)).collect()
     }
@@ -405,9 +410,7 @@ mod tests {
     use chrono::Utc;
 
     use super::*;
-    use crate::{
-        ExternalId, MediaItemId, MediaKind, OfferType, WatchHistorySource,
-    };
+    use crate::{ExternalId, MediaItemId, MediaKind, OfferType, WatchHistorySource};
 
     fn item() -> MediaItem {
         MediaItem {
@@ -436,9 +439,18 @@ mod tests {
         store.save_profile(&profile).await.unwrap();
 
         assert!(profile.user_id.is_none());
-        assert_eq!(store.list_profiles(family).await.unwrap(), vec![profile.clone()]);
+        assert_eq!(
+            store.list_profiles(family).await.unwrap(),
+            vec![profile.clone()]
+        );
         assert!(store.list_profiles(other_family).await.unwrap().is_empty());
-        assert!(store.get_profile(other_family, profile.id).await.unwrap().is_none());
+        assert!(
+            store
+                .get_profile(other_family, profile.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -450,12 +462,21 @@ mod tests {
         let mut preferences = ProfilePreferences::new(profile.id);
         preferences.liked_genres.push("Science Fiction".into());
         store.save_profile_preferences(&preferences).await.unwrap();
-        assert_eq!(store.get_profile_preferences(profile.id).await.unwrap(), Some(preferences));
+        assert_eq!(
+            store.get_profile_preferences(profile.id).await.unwrap(),
+            Some(preferences)
+        );
 
         let mut restrictions = ContentRestrictions::new(profile.id);
         restrictions.maximum_certification = Some("12".into());
-        store.save_content_restrictions(&restrictions).await.unwrap();
-        assert_eq!(store.get_content_restrictions(profile.id).await.unwrap(), Some(restrictions));
+        store
+            .save_content_restrictions(&restrictions)
+            .await
+            .unwrap();
+        assert_eq!(
+            store.get_content_restrictions(profile.id).await.unwrap(),
+            Some(restrictions)
+        );
     }
 
     #[tokio::test]
@@ -465,7 +486,10 @@ mod tests {
         let mut preferences = FamilyMediaPreferences::new(family_id);
         preferences.liked_genres.push("Comedy".into());
         store.save_family_preferences(&preferences).await.unwrap();
-        assert_eq!(store.get_family_preferences(family_id).await.unwrap(), Some(preferences));
+        assert_eq!(
+            store.get_family_preferences(family_id).await.unwrap(),
+            Some(preferences)
+        );
     }
 
     #[tokio::test]
@@ -510,8 +534,17 @@ mod tests {
             url: Some("https://example.invalid/watch".into()),
         };
         store.save_streaming_offer(&offer).await.unwrap();
-        assert_eq!(store.list_streaming_offers(item.id, "ES").await.unwrap(), vec![offer]);
-        assert!(store.list_streaming_offers(item.id, "US").await.unwrap().is_empty());
+        assert_eq!(
+            store.list_streaming_offers(item.id, "ES").await.unwrap(),
+            vec![offer]
+        );
+        assert!(
+            store
+                .list_streaming_offers(item.id, "US")
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[tokio::test]
@@ -528,6 +561,9 @@ mod tests {
             rated_at: Utc::now(),
             source: WatchHistorySource::Eme,
         };
-        assert!(matches!(store.save_rating(&rating).await, Err(MediaStoreError::Invalid(_))));
+        assert!(matches!(
+            store.save_rating(&rating).await,
+            Err(MediaStoreError::Invalid(_))
+        ));
     }
 }
