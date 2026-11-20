@@ -9,6 +9,19 @@ use actix_web::{
 };
 use agent_server::auth::TelegramAuth;
 
+fn is_public_path(path: &str) -> bool {
+    path == "/"
+        || path == "/mobile"
+        || path.starts_with("/mobile/")
+        // Desktop HTML routes must be reachable before the browser can run
+        // console-auth.js. Keep the data APIs protected below.
+        || path.starts_with("/console/")
+        || path.starts_with("/assets/")
+        || path == "/favicon.ico"
+        || path.starts_with("/auth/")
+        || path.starts_with("/invite/")
+}
+
 pub(super) async fn require_telegram_session<B>(
     request: ServiceRequest,
     next: Next<B>,
@@ -17,20 +30,7 @@ where
     B: MessageBody + 'static,
 {
     let path = request.path();
-    if path == "/"
-        || path == "/mobile"
-        || path.starts_with("/mobile/")
-        || path == "/console/conversations"
-        || path == "/console/families"
-        || path == "/console/notes"
-        || path == "/console/profile"
-        || path == "/console/integrations"
-        || path == "/console/tasks"
-        || path.starts_with("/assets/")
-        || path == "/favicon.ico"
-        || path.starts_with("/auth/")
-        || path.starts_with("/invite/")
-    {
+    if is_public_path(path) {
         return Ok(next.call(request).await?.map_into_left_body());
     }
 
@@ -55,4 +55,41 @@ where
     }
 
     Ok(next.call(request).await?.map_into_left_body())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_public_path;
+
+    #[test]
+    fn all_desktop_console_pages_are_public_shells() {
+        for path in [
+            "/console/conversations",
+            "/console/meals",
+            "/console/recipes",
+            "/console/families",
+            "/console/notes",
+            "/console/profile",
+            "/console/integrations",
+            "/console/tasks",
+            "/console/school-menus",
+            "/console/meal-planner",
+            "/console/shopping-list",
+        ] {
+            assert!(is_public_path(path), "{path} should serve the login shell");
+        }
+    }
+
+    #[test]
+    fn application_apis_remain_protected() {
+        for path in [
+            "/conversations",
+            "/meal-planner/recipes",
+            "/school-menus",
+            "/tasks",
+            "/runs/123",
+        ] {
+            assert!(!is_public_path(path), "{path} must require authentication");
+        }
+    }
 }
