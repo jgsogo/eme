@@ -10,4 +10,6 @@ pub enum MediaConfigError {
     EmptyLanguage,
     #[error("recommendation limit must be greater than zero")]
     ZeroRecommendationLimit,
+    #[error("availability cache TTL must be greater than zero")]
+    ZeroAvailabilityCacheTtl,
 }
