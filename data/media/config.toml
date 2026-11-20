@@ -1,0 +1,10 @@
+# Catalogue and metadata defaults.
+country = "ES"
+language = "es-ES"
+
+# These are configured subscriptions, not streaming-service credentials.
+subscriptions = ["netflix", "prime_video", "disney_plus", "hbo_max"]
+
+recommendation_limit = 5
+require_subscription = true
+watched_policy = "any_participant"

@@ -1,0 +1,15 @@
+[package]
+name = "media-tools"
+version = "0.1.0"
+edition = "2024"
+description = "Media discovery and recommendation domain for the EME platform."
+
+[dependencies]
+agent-storage = { path = "../../agent-storage" }
+chrono = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
