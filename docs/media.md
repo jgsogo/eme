@@ -132,6 +132,18 @@ Media data is stored in `data/media/media.sqlite`. Encrypted provider credential
 
 Tracing records provider request status and latency, recommendation candidate/eligibility/return counts, exclusion counts by criteria/restriction/watched/availability, history uncertainty counts and Trakt sync category counts. Access tokens, refresh tokens, API keys and authorization codes are never included in tracing fields.
 
+## Reproducible smoke test
+
+The mocked provider pipeline can be exercised without API keys or external accounts:
+
+```sh
+cargo test -p media-tools recommendation_e2e_uses_only_selected_profiles_and_requires_subscription_offer
+cargo test -p media-tools recommendation_tool_executes_the_provider_pipeline_for_selected_profiles
+cargo test -p media-tools falls_back_to_tmdb_when_watchmode_has_no_title_match
+```
+
+For a live assistant smoke test, create a managed profile with `media_profiles` (`action = "create"`), then pass the returned profile ID as the sole entry in `media_recommend.participant_ids`. The tool will use the configured Spanish catalogue and subscription set.
+
 ## Current boundaries
 
 - Catalogue region defaults to Spain; metadata language defaults to `es-ES`, while original-language metadata is retained.
