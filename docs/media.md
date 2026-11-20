@@ -15,6 +15,8 @@ It is implemented in the single Rust crate `tools/media` (`media-tools`). Provid
 
 EME does not log in to Netflix, Prime Video, Disney+ or Max. Household subscriptions are configuration used to filter Watchmode offers; they are not streaming-service credentials.
 
+Keep provider names, offer types and provider URLs intact when presenting results. Before production rollout, verify the current attribution, caching and rate-limit requirements for the TMDB and Watchmode API plans in use; this implementation uses a configurable six-hour Watchmode cache and respects provider-supplied retry information.
+
 ## Configuration
 
 The server reads `data/media/config.toml`. If the file is absent, the Rust defaults are used.
