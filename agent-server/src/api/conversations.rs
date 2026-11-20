@@ -406,8 +406,14 @@ async fn list_conversation_runs(
         Err(error) => return conversation_error(error),
     }
 
-    let runs = manager.list().await.into_iter()
-        .filter(|run| run.conversation_id == Some(uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID")))
+    let runs = manager
+        .list()
+        .await
+        .into_iter()
+        .filter(|run| {
+            run.conversation_id
+                == Some(uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID"))
+        })
         .map(|run| GetRunResponse {
             run_id: run.id.to_string(),
             agent: run.agent,
