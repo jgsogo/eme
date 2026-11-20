@@ -3,8 +3,8 @@
 use super::ExecutionReport;
 use crate::RunId;
 use agent_runtime::{CancellationToken, EventSink, Message, ToolContext};
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 /// Executes an accepted agent run with its conversation history and trusted context.
 #[async_trait]
@@ -32,6 +32,7 @@ pub trait RunExecutor: Send + Sync + 'static {
         event_sink: Arc<dyn EventSink>,
     ) -> Result<ExecutionReport, String> {
         drop(event_sink);
-        self.execute(run_id, agent, input, history, context, cancellation).await
+        self.execute(run_id, agent, input, history, context, cancellation)
+            .await
     }
 }
