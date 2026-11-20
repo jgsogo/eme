@@ -5,6 +5,8 @@ use thiserror::Error;
 /// Errors shared by storage contracts and their implementations.
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum StorageError {
+    #[error("storage backend operation failed: {0}")]
+    Backend(String),
     #[error("record already exists: {0}")]
     AlreadyExists(String),
     #[error("record not found: {0}")]
