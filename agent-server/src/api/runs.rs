@@ -172,7 +172,7 @@ async fn get_run(
             if owns_run(
                 &run,
                 &request,
-                auth.as_deref(),
+                auth.as_deref().map(|v| &**v),
                 store.as_ref().map(|store| store.get_ref().as_ref()),
             ) =>
         {
@@ -207,7 +207,7 @@ async fn get_run_events(
     if !owns_run(
         &run,
         &request,
-        auth.as_deref(),
+        auth.as_deref().map(|v| &**v),
         store.as_ref().map(|store| store.get_ref().as_ref()),
     ) {
         return HttpResponse::NotFound().finish();
@@ -242,7 +242,7 @@ async fn cancel_run(
     if !owns_run(
         &run,
         &request,
-        auth.as_deref(),
+        auth.as_deref().map(|v| &**v),
         store.as_ref().map(|store| store.get_ref().as_ref()),
     ) {
         return HttpResponse::NotFound().finish();
