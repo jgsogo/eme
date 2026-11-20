@@ -905,8 +905,7 @@ mod tests {
         let family_id = FamilyId::new();
         let profile = MediaProfile::new(family_id, "Selected viewer");
         store.save_profile(&profile).await.unwrap();
-        let tmdb =
-            TmdbClient::with_base_url("tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
+        let tmdb = TmdbClient::with_base_url("tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
         let watchmode = WatchmodeClient::with_options(
             "watchmode-key",
             watchmode_server.uri(),
@@ -950,10 +949,7 @@ mod tests {
             .unwrap();
         let recommendations: Value = serde_json::from_str(&output).unwrap();
         assert_eq!(recommendations.as_array().unwrap().len(), 1);
-        assert_eq!(
-            recommendations[0]["offers"][0]["service_name"],
-            "Netflix"
-        );
+        assert_eq!(recommendations[0]["offers"][0]["service_name"], "Netflix");
         assert_eq!(
             recommendations[0]["history_unknown_for"][0],
             json!(profile.id.to_string())
