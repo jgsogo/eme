@@ -1,9 +1,11 @@
 //! SQLite persistence for media profiles, preferences, catalogue and viewing activity.
 use std::{path::Path, sync::Arc};
 
-use agent_storage::FamilyId;
-use chrono::Utc;
+use agent_storage::{ExternalConnectionId, FamilyId, UserId};
+use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -38,6 +40,11 @@ impl MediaStore {
             .map_err(storage)?;
         connection
             .execute_batch(include_str!("../migrations/0001_media.sql"))
+            .map_err(storage)?;
+        connection
+            .execute_batch(include_str!(
+                "../migrations/0002_media_external_connections.sql"
+            ))
             .map_err(storage)?;
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
@@ -351,6 +358,149 @@ impl MediaStore {
         rows.map(|row| decode(&row.map_err(storage)?)).collect()
     }
 
+    /// Persist a short-lived, hashed OAuth state bound to the initiating user and profile.
+    pub async fn create_pending_trakt_link(
+        &self,
+        state: &str,
+        pending: &PendingTraktLink,
+        expires_at: DateTime<Utc>,
+    ) -> Result<(), MediaStoreError> {
+        if state.trim().is_empty() {
+            return Err(MediaStoreError::Invalid(
+                "OAuth state must not be empty".into(),
+            ));
+        }
+        let state_hash = hash_state(state);
+        let payload = encode(pending)?;
+        let now = Utc::now().to_rfc3339();
+        let connection = self.connection.lock().await;
+        connection
+            .execute(
+                "INSERT INTO pending_media_connections(state_hash,provider,payload,expires_at,created_at)
+                 VALUES(?1,'trakt',?2,?3,?4)",
+                params![state_hash, payload, expires_at.to_rfc3339(), now],
+            )
+            .map_err(storage)?;
+        Ok(())
+    }
+
+    /// Consume a pending Trakt state exactly once and reject expired attempts.
+    pub async fn consume_pending_trakt_link(
+        &self,
+        state: &str,
+        now: DateTime<Utc>,
+    ) -> Result<PendingTraktLink, MediaStoreError> {
+        let state_hash = hash_state(state);
+        let mut connection = self.connection.lock().await;
+        let transaction = connection.transaction().map_err(storage)?;
+        let row = transaction
+            .query_row(
+                "SELECT payload,expires_at FROM pending_media_connections
+                 WHERE state_hash=?1 AND provider='trakt'",
+                [state_hash.as_str()],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            )
+            .optional()
+            .map_err(storage)?;
+        let Some((payload, expires_at)) = row else {
+            return Err(MediaStoreError::PendingNotFound);
+        };
+        let expires_at = DateTime::parse_from_rfc3339(&expires_at)
+            .map(|value| value.with_timezone(&Utc))
+            .map_err(|error| MediaStoreError::Storage(error.to_string()))?;
+        transaction
+            .execute(
+                "DELETE FROM pending_media_connections WHERE state_hash=?1",
+                [state_hash.as_str()],
+            )
+            .map_err(storage)?;
+        transaction.commit().map_err(storage)?;
+        if now > expires_at {
+            return Err(MediaStoreError::PendingExpired);
+        }
+        decode(&payload)
+    }
+
+    /// Associate a profile with an existing encrypted EME external connection.
+    pub async fn save_external_connection_link(
+        &self,
+        link: &MediaExternalConnectionLink,
+    ) -> Result<(), MediaStoreError> {
+        let payload = encode(link)?;
+        let connection = self.connection.lock().await;
+        let profile_exists: bool = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM media_profiles WHERE id=?1 AND family_id=?2)",
+                params![link.profile_id.to_string(), link.family_id.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(storage)?;
+        if !profile_exists {
+            return Err(MediaStoreError::NotFound);
+        }
+        connection
+            .execute(
+                "INSERT INTO media_external_connections(
+                    profile_id,family_id,provider,external_connection_id,owner_id,
+                    provider_subject,display_name,linked_at,payload
+                 ) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)
+                 ON CONFLICT(profile_id,provider) DO UPDATE SET
+                    family_id=excluded.family_id,
+                    external_connection_id=excluded.external_connection_id,
+                    owner_id=excluded.owner_id,
+                    provider_subject=excluded.provider_subject,
+                    display_name=excluded.display_name,
+                    linked_at=excluded.linked_at,
+                    payload=excluded.payload",
+                params![
+                    link.profile_id.to_string(),
+                    link.family_id.to_string(),
+                    link.provider,
+                    link.external_connection_id.to_string(),
+                    link.owner_id.to_string(),
+                    link.provider_subject,
+                    link.display_name,
+                    link.linked_at.to_rfc3339(),
+                    payload,
+                ],
+            )
+            .map_err(storage)?;
+        Ok(())
+    }
+
+    pub async fn get_external_connection_link(
+        &self,
+        profile_id: MediaProfileId,
+        provider: &str,
+    ) -> Result<Option<MediaExternalConnectionLink>, MediaStoreError> {
+        let connection = self.connection.lock().await;
+        let payload = connection
+            .query_row(
+                "SELECT payload FROM media_external_connections WHERE profile_id=?1 AND provider=?2",
+                params![profile_id.to_string(), provider],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(storage)?;
+        payload.as_deref().map(decode).transpose()
+    }
+
+    /// Remove a profile's provider link; token revocation remains the caller's responsibility.
+    pub async fn delete_external_connection_link(
+        &self,
+        profile_id: MediaProfileId,
+        provider: &str,
+    ) -> Result<(), MediaStoreError> {
+        let connection = self.connection.lock().await;
+        connection
+            .execute(
+                "DELETE FROM media_external_connections WHERE profile_id=?1 AND provider=?2",
+                params![profile_id.to_string(), provider],
+            )
+            .map_err(storage)?;
+        Ok(())
+    }
+
     async fn get_payload<T: serde::de::DeserializeOwned>(
         &self,
         sql: &str,
@@ -378,6 +528,34 @@ impl MediaStore {
     }
 }
 
+/// Pending profile association carried through a provider OAuth callback.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PendingTraktLink {
+    pub owner_id: UserId,
+    pub family_id: FamilyId,
+    pub profile_id: MediaProfileId,
+}
+
+/// Link from a media profile to a credential stored by agent-storage.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaExternalConnectionLink {
+    pub owner_id: UserId,
+    pub family_id: FamilyId,
+    pub profile_id: MediaProfileId,
+    pub provider: String,
+    pub external_connection_id: ExternalConnectionId,
+    pub provider_subject: String,
+    pub display_name: Option<String>,
+    pub linked_at: DateTime<Utc>,
+}
+
+fn hash_state(state: &str) -> String {
+    Sha256::digest(state.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 fn encode<T: serde::Serialize>(value: &T) -> Result<String, MediaStoreError> {
     serde_json::to_string(value).map_err(|error| MediaStoreError::Serialization(error.to_string()))
 }
@@ -403,6 +581,10 @@ pub enum MediaStoreError {
     Storage(String),
     #[error("media serialization failed: {0}")]
     Serialization(String),
+    #[error("pending provider authorization was not found or was already consumed")]
+    PendingNotFound,
+    #[error("pending provider authorization has expired")]
+    PendingExpired,
 }
 
 #[cfg(test)]
@@ -545,6 +727,73 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[tokio::test]
+    async fn pending_trakt_authorization_is_hashed_and_consumed_once() {
+        let store = MediaStore::open_in_memory().unwrap();
+        let owner_id = UserId::new();
+        let family_id = FamilyId::new();
+        let profile = MediaProfile::new(family_id, "Child");
+        store.save_profile(&profile).await.unwrap();
+        let pending = PendingTraktLink {
+            owner_id,
+            family_id,
+            profile_id: profile.id,
+        };
+        let now = Utc::now();
+        store
+            .create_pending_trakt_link(
+                "one-time-state",
+                &pending,
+                now + chrono::Duration::minutes(5),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            store
+                .consume_pending_trakt_link("one-time-state", now)
+                .await
+                .unwrap(),
+            pending
+        );
+        assert!(matches!(
+            store
+                .consume_pending_trakt_link("one-time-state", now)
+                .await,
+            Err(MediaStoreError::PendingNotFound)
+        ));
+    }
+
+    #[tokio::test]
+    async fn expired_trakt_authorization_state_is_rejected_and_removed() {
+        let store = MediaStore::open_in_memory().unwrap();
+        let family_id = FamilyId::new();
+        let profile = MediaProfile::new(family_id, "Child");
+        store.save_profile(&profile).await.unwrap();
+        let now = Utc::now();
+        store
+            .create_pending_trakt_link(
+                "expired-state",
+                &PendingTraktLink {
+                    owner_id: UserId::new(),
+                    family_id,
+                    profile_id: profile.id,
+                },
+                now - chrono::Duration::seconds(1),
+            )
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            store.consume_pending_trakt_link("expired-state", now).await,
+            Err(MediaStoreError::PendingExpired)
+        ));
+        assert!(matches!(
+            store.consume_pending_trakt_link("expired-state", now).await,
+            Err(MediaStoreError::PendingNotFound)
+        ));
     }
 
     #[tokio::test]
