@@ -515,7 +515,7 @@ on("google-connections","change",handleGoogleCalendarChange);
 
 async function showConsole(){
  document.body.classList.remove("login-active");
- $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
+ $("invite-screen").hidden=true;$("logout").hidden=false;
  if(pendingInviteToken){document.querySelector("main").hidden=true;$("invite-screen").hidden=false;$("connection").textContent="Accept invitation";return}
  document.querySelector("main").hidden=false;
  if(page==="conversations"){
@@ -536,32 +536,6 @@ async function showConsole(){
  }
  $("connection").textContent="Connected";
 }
-async function showLogin(){
- document.body.classList.add("login-active");
- if($("rename-conversation"))$("rename-conversation").disabled=true;$("invite-screen").hidden=true;
- document.querySelector("main").hidden=true;$("login-screen").hidden=false;$("logout").hidden=true;$("connection").textContent="Sign in";
- const title=$("login-screen").querySelector("h2"),description=$("login-screen").querySelector("p");
- title.textContent=pendingInviteToken?"Sign in to accept invitation":"Sign in with Telegram";
- description.textContent=pendingInviteToken?"Sign in with Telegram to accept your family invitation.":"Use your Telegram account to sign in to the EME web console."
-}
-on("login-start","click",async()=>{
- const popup=window.open("about:blank","_blank");
- const status=$("login-status"),link=$("login-link");$("login-start").disabled=true;status.textContent="Creating a one-time login link…";link.hidden=true;
- try{
-  const login=await api("/auth/telegram/start",{method:"POST"});
-  if(!login.bot_url)throw new Error("Set TELEGRAM_BOT_USERNAME on agent-server to enable Telegram login links.");
-  link.href=login.bot_url;link.textContent=login.bot_url;link.hidden=false;
-  if(popup)popup.location.href=login.bot_url;
-  status.textContent="Open the Telegram URL in the new tab and press Start in your private chat with the bot. Waiting for confirmation…";
-  const deadline=Date.now()+login.expires_in_seconds*1000;
-  while(Date.now()<deadline){
-   const result=await api("/auth/telegram/status",{method:"POST",body:JSON.stringify({token:login.token})});
-   if(result.authenticated){await showConsole();return}
-   await new Promise(resolve=>setTimeout(resolve,1000))
-  }
-  status.textContent="This login link expired. Please try again."
- }catch(e){if(popup&&!popup.closed)popup.close();status.textContent=e.message}finally{$("login-start").disabled=false}
-});
 on("invite-accept","click",async()=>{
  if(!pendingInviteToken)return;const button=$("invite-accept"),status=$("invite-status");button.disabled=true;status.textContent="Validating and accepting invitation…";
  try{await api("/invitations/accept",{method:"POST",body:JSON.stringify({token:pendingInviteToken,relationship:$("invite-relationship").value})});pendingInviteToken=null;window.history.replaceState({},"", consoleBase+"/families");$("invite-screen").hidden=true;await showConsole();setStatus("Family invitation accepted","ok")}catch(e){status.textContent=e.message;button.disabled=false}
@@ -569,19 +543,16 @@ on("invite-accept","click",async()=>{
 on("show-archived","change",async e=>{state.showArchived=e.target.checked;try{await loadConversations()}catch(e){setStatus(e.message,"error")}});
 on("conversation-search","input",e=>{state.conversationSearch=e.target.value;renderConversations()});
 on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFamilies()]);if(state.managedFamilyId)await loadFamilyDetails(state.managedFamilyId)}catch(e){setStatus(e.message,"error")}});
-on("logout","click",async()=>{
- try{await api("/auth/logout",{method:"POST"})}finally{state.selected=null;state.conversations=[];state.notes=[];state.selectedNote=null;state.tasks=[];state.selectedTask=null;if(page==="conversations")renderConversations();if(page==="notes")renderNotes();if(page==="tasks")renderTasks();await showLogin()}
+window.emeConsoleReady.then(async () => {
+  try {
+    await showConsole();
+  } catch (error) {
+    document.body.classList.remove("login-active");
+    $("invite-screen").hidden = true;
+    $("logout").hidden = false;
+    document.querySelector("main").hidden = false;
+    $("connection").textContent = "Error loading page: " + error.message;
+    $("connection").className = "hint error";
+    console.error("Failed to initialize console page", error);
+  }
 });
-(async()=>{
- try{await api("/auth/session")}
- catch{await showLogin();return}
- try{await showConsole()}
- catch(error){
-  document.body.classList.remove("login-active");
-  $("login-screen").hidden=true;$("invite-screen").hidden=true;$("logout").hidden=false;
-  document.querySelector("main").hidden=false;
-  $("connection").textContent="Error loading page: "+error.message;
-  $("connection").className="hint error";
-  console.error("Failed to initialize console page",error);
- }
-})();
