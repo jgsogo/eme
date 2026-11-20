@@ -544,7 +544,7 @@ fn score_item(
                     .preferences
                     .disliked_genres
                     .iter()
-                    .any(|disliked| normalize(disliked) == *genre)
+                    .any(|disliked| normalize(disliked).as_str() == genre.as_str())
             })
             .count();
         if dislikers > 0 {
@@ -558,7 +558,7 @@ fn score_item(
                 .preferences
                 .liked_genres
                 .iter()
-                .any(|liked| normalize(liked) == *genre)
+                .any(|liked| normalize(liked).as_str() == genre.as_str())
             {
                 score += weights.profile_genre_preference as f32;
                 reasons.push(format!(
