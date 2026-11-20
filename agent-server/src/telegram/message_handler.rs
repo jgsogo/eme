@@ -383,6 +383,16 @@ pub(super) async fn handle_message(
                 )
                 .await;
         }
+        Err(SubmitRunError::Storage(error)) => {
+            active_conversations.lock().await.remove(&conversation.id);
+            tracing::error!(%error, conversation_id = %conversation.id, "failed to persist Telegram run");
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "Could not persist this run; please try again.",
+                )
+                .await;
+        }
         Err(SubmitRunError::QueueFull) => {
             active_conversations.lock().await.remove(&conversation.id);
             let _ = gateway
