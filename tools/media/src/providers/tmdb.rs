@@ -140,6 +140,47 @@ impl TmdbClient {
         })
     }
 
+    /// Fetch regional streaming offers from TMDB as a fallback when Watchmode
+    /// has no usable offers. Provider IDs and URLs are returned by TMDB.
+    pub async fn watch_providers(
+        &self,
+        tmdb_id: u64,
+        kind: MediaKind,
+        region: &str,
+    ) -> Result<Vec<StreamingOffer>, TmdbError> {
+        let path = match kind {
+            MediaKind::Movie => format!("/movie/{tmdb_id}/watch/providers"),
+            MediaKind::TvShow => format!("/tv/{tmdb_id}/watch/providers"),
+        };
+        let response: TmdbWatchProviderResponse = self.request_json(&path, &[]).await?;
+        let region = region.trim().to_ascii_uppercase();
+        let Some(country) = response.results.get(&region) else {
+            return Ok(Vec::new());
+        };
+        let media_item_id = MediaItemId::from_external_id("tmdb", &tmdb_id.to_string());
+        let mut offers = Vec::new();
+        let groups = [
+            (OfferType::Subscription, &country.flatrate),
+            (OfferType::Rent, &country.rent),
+            (OfferType::Buy, &country.buy),
+            (OfferType::Free, &country.free),
+            (OfferType::AdSupported, &country.ads),
+        ];
+        for (offer_type, providers) in groups {
+            for provider in providers {
+                offers.push(StreamingOffer {
+                    media_item_id,
+                    service_id: provider.provider_id.to_string(),
+                    service_name: provider.provider_name.clone(),
+                    offer_type,
+                    region: region.clone(),
+                    url: country.link.clone().filter(|value| !value.trim().is_empty()),
+                });
+            }
+        }
+        Ok(offers)
+    }
+
     /// Fetch TMDB's recommendations for a movie or TV show.
     pub async fn recommendations(
         &self,
@@ -407,6 +448,33 @@ struct TmdbDetails {
     vote_count: Option<u32>,
     release_dates: Option<TmdbReleaseDates>,
     content_ratings: Option<TmdbContentRatings>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbWatchProviderResponse {
+    #[serde(default)]
+    results: HashMap<String, TmdbWatchProviderCountry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbWatchProviderCountry {
+    link: Option<String>,
+    #[serde(default)]
+    flatrate: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    rent: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    buy: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    free: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    ads: Vec<TmdbWatchProvider>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbWatchProvider {
+    provider_id: u64,
+    provider_name: String,
 }
 
 #[derive(Debug, Deserialize)]
