@@ -44,9 +44,7 @@ impl Default for MediaConfig {
 impl MediaConfig {
     /// Validate values that would otherwise make provider requests ambiguous.
     pub fn validate(&self) -> Result<(), MediaConfigError> {
-        if self.country.len() != 2
-            || !self.country.bytes().all(|byte| byte.is_ascii_uppercase())
-        {
+        if self.country.len() != 2 || !self.country.bytes().all(|byte| byte.is_ascii_uppercase()) {
             return Err(MediaConfigError::InvalidCountry(self.country.clone()));
         }
         if self.language.trim().is_empty() {
