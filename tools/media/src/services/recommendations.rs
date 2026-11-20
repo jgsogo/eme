@@ -970,8 +970,8 @@ mod tests {
         };
 
         let weights = RecommendationWeights::default();
-        let (likes_only, _) = score_item(&item(), &family, &[liked], &weights);
-        let (conflicting, reasons) = score_item(&item(), &family, &[disliked.clone(), liked], &weights);
+        let (likes_only, _) = score_item(&item(), &family, &[liked.clone()], &weights);
+        let (conflicting, reasons) = score_item(&item(), &family, &[disliked, liked], &weights);
 
         assert!(conflicting < likes_only);
         assert!(
