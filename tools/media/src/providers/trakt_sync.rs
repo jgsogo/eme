@@ -88,8 +88,9 @@ impl TraktSyncService {
             .access_token(owner_id, link.external_connection_id)
             .await?;
 
-        let activities: TraktLastActivities =
-            self.get_json("/sync/last_activities", &access_token).await?;
+        let activities: TraktLastActivities = self
+            .get_json("/sync/last_activities", &access_token)
+            .await?;
         let cursor = TraktSyncCursor::from(&activities);
         let previous = self
             .media
@@ -171,7 +172,12 @@ impl TraktSyncService {
             for row in movies {
                 let item = row.movie.into_media_item(MediaKind::Movie)?;
                 self.media.save_media_item(&item).await?;
-                ratings.push(normalize_rating(profile_id, item.id, row.rating, row.rated_at)?);
+                ratings.push(normalize_rating(
+                    profile_id,
+                    item.id,
+                    row.rating,
+                    row.rated_at,
+                )?);
             }
             for row in shows {
                 let item = row.show.into_media_item(MediaKind::TvShow)?;
@@ -186,10 +192,12 @@ impl TraktSyncService {
         }
 
         if watchlist_changed {
-            let movies: Vec<TraktWatchlistMovie> =
-                self.get_json("/sync/watchlist/movies", &access_token).await?;
-            let shows: Vec<TraktWatchlistShow> =
-                self.get_json("/sync/watchlist/shows", &access_token).await?;
+            let movies: Vec<TraktWatchlistMovie> = self
+                .get_json("/sync/watchlist/movies", &access_token)
+                .await?;
+            let shows: Vec<TraktWatchlistShow> = self
+                .get_json("/sync/watchlist/shows", &access_token)
+                .await?;
             let mut items = Vec::with_capacity(movies.len() + shows.len());
             for row in movies {
                 let item = row.movie.into_media_item(MediaKind::Movie)?;
@@ -474,7 +482,9 @@ impl TraktMedia {
 mod tests {
     use std::{fs, sync::Arc};
 
-    use agent_storage::{ExternalConnectionStore, NewExternalConnection, SqliteExternalConnectionStore};
+    use agent_storage::{
+        ExternalConnectionStore, NewExternalConnection, SqliteExternalConnectionStore,
+    };
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
         matchers::{header, method, path},
@@ -530,48 +540,58 @@ mod tests {
             .await;
         Mock::given(method("GET"))
             .and(path("/sync/watched/shows"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
-                "last_watched_at": "2025-01-06T00:00:00Z",
-                "show": {"title": "Show", "ids": {"trakt": 2, "tmdb": 200}}
-            }])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "last_watched_at": "2025-01-06T00:00:00Z",
+                    "show": {"title": "Show", "ids": {"trakt": 2, "tmdb": 200}}
+                }])),
+            )
             .expect(1)
             .mount(&server)
             .await;
         Mock::given(method("GET"))
             .and(path("/sync/ratings/movies"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
-                "rating": 8,
-                "rated_at": "2025-01-02T00:00:00Z",
-                "movie": {"title": "Movie", "ids": {"trakt": 1, "tmdb": 100}}
-            }])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "rating": 8,
+                    "rated_at": "2025-01-02T00:00:00Z",
+                    "movie": {"title": "Movie", "ids": {"trakt": 1, "tmdb": 100}}
+                }])),
+            )
             .expect(1)
             .mount(&server)
             .await;
         Mock::given(method("GET"))
             .and(path("/sync/ratings/shows"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
-                "rating": 10,
-                "rated_at": "2025-01-04T00:00:00Z",
-                "show": {"title": "Show", "ids": {"trakt": 2, "tmdb": 200}}
-            }])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "rating": 10,
+                    "rated_at": "2025-01-04T00:00:00Z",
+                    "show": {"title": "Show", "ids": {"trakt": 2, "tmdb": 200}}
+                }])),
+            )
             .expect(1)
             .mount(&server)
             .await;
         Mock::given(method("GET"))
             .and(path("/sync/watchlist/movies"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
-                "listed_at": "2025-01-03T00:00:00Z",
-                "movie": {"title": "Movie", "ids": {"trakt": 1, "tmdb": 100}}
-            }])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "listed_at": "2025-01-03T00:00:00Z",
+                    "movie": {"title": "Movie", "ids": {"trakt": 1, "tmdb": 100}}
+                }])),
+            )
             .expect(1)
             .mount(&server)
             .await;
         Mock::given(method("GET"))
             .and(path("/sync/watchlist/shows"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([{
-                "listed_at": "2025-01-05T00:00:00Z",
-                "show": {"title": "Show", "ids": {"trakt": 2, "tmdb": 200}}
-            }])))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "listed_at": "2025-01-05T00:00:00Z",
+                    "show": {"title": "Show", "ids": {"trakt": 2, "tmdb": 200}}
+                }])),
+            )
             .expect(1)
             .mount(&server)
             .await;
@@ -581,10 +601,9 @@ mod tests {
         let profile = crate::MediaProfile::new(family_id, "Viewer");
         media.save_profile(&profile).await.unwrap();
 
-        let db_path = std::env::temp_dir().join(format!("media-trakt-sync-{}.db", uuid::Uuid::new_v4()));
-        let external = Arc::new(
-            SqliteExternalConnectionStore::open(&db_path, [10; 32]).unwrap(),
-        );
+        let db_path =
+            std::env::temp_dir().join(format!("media-trakt-sync-{}.db", uuid::Uuid::new_v4()));
+        let external = Arc::new(SqliteExternalConnectionStore::open(&db_path, [10; 32]).unwrap());
         let owner_id = UserId::new();
         let connection = external
             .create_connection(NewExternalConnection {
@@ -621,7 +640,9 @@ mod tests {
         )
         .unwrap();
         let token_manager = TraktTokenManager::new(oauth_config, external_trait).unwrap();
-        let sync = TraktSyncService::with_base_url(media.clone(), token_manager, "client", server.uri()).unwrap();
+        let sync =
+            TraktSyncService::with_base_url(media.clone(), token_manager, "client", server.uri())
+                .unwrap();
 
         let first = sync.sync_profile(owner_id, profile.id).await.unwrap();
         assert_eq!(first.watched_movies, 1);
