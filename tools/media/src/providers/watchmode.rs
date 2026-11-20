@@ -195,6 +195,11 @@ impl WatchmodeClient {
             });
         }
         if !status.is_success() {
+            tracing::warn!(
+                provider = "watchmode",
+                status = status.as_u16(),
+                "media provider request failed"
+            );
             let message = response
                 .text()
                 .await
