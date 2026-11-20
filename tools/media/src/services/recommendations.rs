@@ -1,5 +1,5 @@
 //! Deterministic family-aware recommendation pipeline.
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, time::Instant};
 
 use chrono::Datelike;
 
@@ -82,6 +82,11 @@ impl RecommendationService {
         &self,
         context: &RecommendationContext,
     ) -> Result<Vec<MediaRecommendation>, RecommendationError> {
+        let started = Instant::now();
+        tracing::debug!(
+            participant_count = context.participants.len(),
+            "starting media recommendation"
+        );
         if context.participants.is_empty() {
             return Err(RecommendationError::NoParticipants);
         }
@@ -107,26 +112,37 @@ impl RecommendationService {
         }
 
         let candidates = self.discover_candidates(&context.criteria).await?;
+        let discovered_count = candidates.len();
         let watched_policy = context.watched_policy.unwrap_or(self.config.watched_policy);
 
         let mut recommendations = Vec::new();
+        let mut excluded_by_criteria = 0;
+        let mut excluded_by_restrictions = 0;
+        let mut excluded_as_watched = 0;
+        let mut excluded_by_availability = 0;
         for candidate in candidates {
             let item = self.enrich(candidate).await?;
-            if !matches_criteria(&item, &context.criteria)
-                || !participants
-                    .iter()
-                    .all(|participant| passes_restrictions(&item, &participant.restrictions))
+            if !matches_criteria(&item, &context.criteria) {
+                excluded_by_criteria += 1;
+                continue;
+            }
+            if !participants
+                .iter()
+                .all(|participant| passes_restrictions(&item, &participant.restrictions))
             {
+                excluded_by_restrictions += 1;
                 continue;
             }
 
             let (watched_by, history_unknown_for) = watched_evidence(item.id, &participants);
             if should_exclude_watched(watched_policy, participants.len(), watched_by.len()) {
+                excluded_as_watched += 1;
                 continue;
             }
 
             let offers = self.availability(&item).await?;
             if self.config.require_subscription && offers.is_empty() {
+                excluded_by_availability += 1;
                 continue;
             }
 
@@ -150,10 +166,26 @@ impl RecommendationService {
             });
         }
 
-        Ok(apply_diversity(
-            recommendations,
-            self.config.recommendation_limit,
-        ))
+        let eligible_count = recommendations.len();
+        let recommendations =
+            apply_diversity(recommendations, self.config.recommendation_limit);
+        let uncertain_profile_count = recommendations
+            .iter()
+            .map(|recommendation| recommendation.history_unknown_for.len())
+            .sum::<usize>();
+        tracing::info!(
+            discovered = discovered_count,
+            eligible = eligible_count,
+            returned = recommendations.len(),
+            excluded_by_criteria,
+            excluded_by_restrictions,
+            excluded_as_watched,
+            excluded_by_availability,
+            history_uncertain_profiles = uncertain_profile_count,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media recommendation completed"
+        );
+        Ok(recommendations)
     }
 
     async fn load_participant(
@@ -587,6 +619,185 @@ mod tests {
             vote_count: Some(500),
             external_ids: vec![],
         }
+    }
+
+    #[tokio::test]
+    async fn recommendation_e2e_uses_only_selected_profiles_and_requires_subscription_offer() {
+        use std::time::Duration;
+
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path, query_param},
+        };
+
+        let tmdb_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/genre/movie/list"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "genres": [{"id": 35, "name": "Comedy"}]
+            })))
+            .mount(&tmdb_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/search/movie"))
+            .and(query_param("query", "comedy"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "page": 1,
+                "total_pages": 1,
+                "total_results": 1,
+                "results": [{
+                    "id": 42,
+                    "title": "Family Comedy",
+                    "genre_ids": [35],
+                    "original_language": "en",
+                    "release_date": "2025-01-01",
+                    "popularity": 50.0,
+                    "vote_average": 8.0,
+                    "vote_count": 500
+                }]
+            })))
+            .mount(&tmdb_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": 42,
+                "title": "Family Comedy",
+                "release_date": "2025-01-01",
+                "original_language": "en",
+                "genres": [{"id": 35, "name": "Comedy"}],
+                "runtime": 100,
+                "popularity": 50.0,
+                "vote_average": 8.0,
+                "vote_count": 500,
+                "release_dates": {
+                    "results": [{
+                        "iso_3166_1": "ES",
+                        "release_dates": [{"certification": "7"}]
+                    }]
+                }
+            })))
+            .mount(&tmdb_server)
+            .await;
+
+        let watchmode_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/search/"))
+            .and(query_param("search_field", "tmdb_movie_id"))
+            .and(query_param("search_value", "42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "title_results": [{"id": 9001}]
+            })))
+            .mount(&watchmode_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/title/9001/sources/"))
+            .and(query_param("regions", "ES"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+                {"source_id": 203, "name": "Netflix", "type": "sub", "region": "ES", "web_url": "https://example.invalid/title"}
+            ])))
+            .mount(&watchmode_server)
+            .await;
+
+        let media = MediaStore::open_in_memory().unwrap();
+        let family_id = agent_storage::FamilyId::new();
+        let selected = MediaProfile::new(family_id, "Selected viewer");
+        let non_selected = MediaProfile::new(family_id, "Not watching");
+        media.save_profile(&selected).await.unwrap();
+        media.save_profile(&non_selected).await.unwrap();
+
+        let mut family_preferences = FamilyMediaPreferences::new(family_id);
+        family_preferences.liked_genres.push("Comedy".into());
+        media
+            .save_family_preferences(&family_preferences)
+            .await
+            .unwrap();
+
+        let mut non_selected_preferences = ProfilePreferences::new(non_selected.id);
+        non_selected_preferences.disliked_genres.push("Comedy".into());
+        media
+            .save_profile_preferences(&non_selected_preferences)
+            .await
+            .unwrap();
+
+        let candidate_id = MediaItemId::from_external_id("tmdb", "42");
+        let non_selected_watch = MediaWatchEvent {
+            profile_id: non_selected.id,
+            media_item_id: candidate_id,
+            watched_at: chrono::Utc::now(),
+            source: WatchHistorySource::Eme,
+        };
+        let minimal_item = MediaItem {
+            id: candidate_id,
+            kind: MediaKind::Movie,
+            title: "Family Comedy".into(),
+            original_title: None,
+            overview: None,
+            release_date: None,
+            original_language: None,
+            genres: Vec::new(),
+            runtime_minutes: None,
+            certification: None,
+            popularity: None,
+            vote_average: None,
+            vote_count: None,
+            external_ids: vec![],
+        };
+        media.save_media_item(&minimal_item).await.unwrap();
+        media.record_watch_event(&non_selected_watch).await.unwrap();
+
+        let tmdb = TmdbClient::with_base_url(
+            "test-tmdb-key",
+            "es-ES",
+            "ES",
+            tmdb_server.uri(),
+        )
+        .unwrap();
+        let watchmode = WatchmodeClient::with_options(
+            "test-watchmode-key",
+            watchmode_server.uri(),
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        let service = RecommendationService::new(
+            media,
+            tmdb,
+            Some(watchmode),
+            MediaConfig::default(),
+        )
+        .unwrap();
+
+        let recommendations = service
+            .recommend(&RecommendationContext {
+                family_id,
+                participants: vec![selected.id],
+                criteria: RecommendationCriteria {
+                    kinds: vec![MediaKind::Movie],
+                    genres: vec!["Comedy".into()],
+                    query: Some("comedy".into()),
+                    ..RecommendationCriteria::default()
+                },
+                watched_policy: None,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(recommendations.len(), 1);
+        let recommendation = &recommendations[0];
+        assert_eq!(recommendation.item.title, "Family Comedy");
+        assert!(recommendation.watched_by.is_empty());
+        assert_eq!(recommendation.history_unknown_for, vec![selected.id]);
+        assert_eq!(recommendation.offers.len(), 1);
+        assert_eq!(recommendation.offers[0].service_name, "Netflix");
+        assert!(recommendation.score >= 950);
+        assert!(recommendation
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("shared family")));
+        assert!(!recommendation
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("Not watching")));
     }
 
     #[test]

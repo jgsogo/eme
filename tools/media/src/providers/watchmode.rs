@@ -174,8 +174,15 @@ impl WatchmodeClient {
         for (key, value) in extra {
             request = request.query(&[(key, value)]);
         }
+        let started = Instant::now();
         let response = request.send().await?;
         let status = response.status();
+        tracing::debug!(
+            provider = "watchmode",
+            status = status.as_u16(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media provider request completed"
+        );
         if status == StatusCode::TOO_MANY_REQUESTS {
             let retry_after_seconds = response
                 .headers()

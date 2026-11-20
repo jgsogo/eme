@@ -279,8 +279,15 @@ impl TmdbClient {
         for (key, value) in extra {
             request = request.query(&[(key, value)]);
         }
+        let started = std::time::Instant::now();
         let response = request.send().await?;
         let status = response.status();
+        tracing::debug!(
+            provider = "tmdb",
+            status = status.as_u16(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media provider request completed"
+        );
         if !status.is_success() {
             let message = response
                 .json::<TmdbApiError>()
