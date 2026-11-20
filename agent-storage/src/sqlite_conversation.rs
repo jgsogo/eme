@@ -59,6 +59,7 @@ impl SqliteConversationStore {
             owner: owner.clone(),
             agent,
             title: "New conversation".to_owned(),
+            archived: false,
             selected_family_id: None,
             created_at: now,
             updated_at: now,
@@ -67,7 +68,7 @@ impl SqliteConversationStore {
         let mut connection = self.lock();
         let tx = connection.transaction().map_err(sqlite_error)?;
         tx.execute(
-            "INSERT INTO conversations(id, owner, agent, title, selected_family_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?5)",
+            "INSERT INTO conversations(id, owner, agent, title, archived, selected_family_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, NULL, ?5, ?5)",
             params![
                 conversation.id.to_string(),
                 owner,
@@ -106,15 +107,29 @@ impl SqliteConversationStore {
         .transpose()
     }
 
+    /// Lists non-archived conversations belonging to owner, newest activity first.
     pub fn list(&self, owner: &str) -> Result<Vec<Conversation>, ConversationStoreError> {
+        self.list_with_archive_state(owner, false)
+    }
+
+    /// Lists archived conversations belonging to owner, newest activity first.
+    pub fn list_archived(&self, owner: &str) -> Result<Vec<Conversation>, ConversationStoreError> {
+        self.list_with_archive_state(owner, true)
+    }
+
+    fn list_with_archive_state(
+        &self,
+        owner: &str,
+        archived: bool,
+    ) -> Result<Vec<Conversation>, ConversationStoreError> {
         let connection = self.lock();
         let mut statement = connection
             .prepare(
-                "SELECT id FROM conversations WHERE owner = ?1 ORDER BY updated_at DESC, id DESC",
+                "SELECT id FROM conversations WHERE owner = ?1 AND archived = ?2 ORDER BY updated_at DESC, id DESC",
             )
             .map_err(sqlite_error)?;
         let ids = statement
-            .query_map([owner], |row| row.get::<_, String>(0))
+            .query_map(params![owner, archived], |row| row.get::<_, String>(0))
             .map_err(sqlite_error)?;
         let mut result = Vec::new();
         for id in ids {
@@ -204,6 +219,53 @@ impl SqliteConversationStore {
                 .map_err(sqlite_error)?;
             Ok(())
         })?;
+        self.get(id)
+    }
+
+    /// Archives or restores a conversation belonging to owner.
+    ///
+    /// Archiving also clears the active pointer when it refers to this
+    /// conversation. The conversation and its message history remain intact.
+    pub fn set_archived(
+        &self,
+        owner: &str,
+        id: ConversationId,
+        archived: bool,
+    ) -> Result<Conversation, ConversationStoreError> {
+        let mut connection = self.lock();
+        let tx = connection.transaction().map_err(sqlite_error)?;
+        let actual_owner: Option<String> = tx
+            .query_row(
+                "SELECT owner FROM conversations WHERE id = ?1",
+                [id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sqlite_error)?;
+        match actual_owner {
+            None => return Err(ConversationStoreError::NotFound(id)),
+            Some(actual) if actual != owner => {
+                return Err(ConversationStoreError::OwnerMismatch {
+                    conversation_id: id,
+                    owner: owner.to_owned(),
+                });
+            }
+            _ => {}
+        }
+
+        tx.execute(
+            "UPDATE conversations SET archived = ?1, updated_at = ?2 WHERE id = ?3",
+            params![archived, Utc::now().to_rfc3339(), id.to_string()],
+        )
+        .map_err(sqlite_error)?;
+        if archived {
+            tx.execute(
+                "DELETE FROM active_conversations WHERE owner = ?1 AND conversation_id = ?2",
+                params![owner, id.to_string()],
+            )
+            .map_err(sqlite_error)?;
+        }
+        tx.commit().map_err(sqlite_error)?;
         self.get(id)
     }
 
@@ -314,22 +376,23 @@ impl SqliteConversationStore {
     ) -> Result<Conversation, ConversationStoreError> {
         let row = connection
             .query_row(
-                "SELECT owner, agent, title, selected_family_id, created_at, updated_at FROM conversations WHERE id = ?1",
+                "SELECT owner, agent, title, archived, selected_family_id, created_at, updated_at FROM conversations WHERE id = ?1",
                 [id.to_string()],
                 |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, String>(1)?,
                         row.get::<_, String>(2)?,
-                        row.get::<_, Option<String>>(3)?,
-                        row.get::<_, String>(4)?,
+                        row.get::<_, bool>(3)?,
+                        row.get::<_, Option<String>>(4)?,
                         row.get::<_, String>(5)?,
+                        row.get::<_, String>(6)?,
                     ))
                 },
             )
             .optional()
             .map_err(sqlite_error)?;
-        let Some((owner, agent, title, family, created, updated)) = row else {
+        let Some((owner, agent, title, archived, family, created, updated)) = row else {
             return Err(ConversationStoreError::NotFound(id));
         };
         let mut statement = connection
@@ -349,6 +412,7 @@ impl SqliteConversationStore {
             owner,
             agent,
             title,
+            archived,
             selected_family_id: family
                 .map(|value| {
                     FamilyId::from_str(&value)
