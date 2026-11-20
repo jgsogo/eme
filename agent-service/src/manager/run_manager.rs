@@ -102,10 +102,16 @@ impl RunManager {
 
                     info!(run_id = %run.id, agent = %run.agent, "agent run started");
                     let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
-                    let event_sink: Arc<dyn EventSink> = Arc::new(RuntimeEventChannel(event_sender));
+                    let event_sink: Arc<dyn EventSink> =
+                        Arc::new(RuntimeEventChannel(event_sender));
                     let execution = executor.execute_with_event_sink(
-                        run.id, run.agent.clone(), run.input.clone(), history,
-                        context, cancellation, event_sink,
+                        run.id,
+                        run.agent.clone(),
+                        run.input.clone(),
+                        history,
+                        context,
+                        cancellation,
+                        event_sink,
                     );
                     tokio::pin!(execution);
                     let mut events_open = true;
@@ -189,7 +195,11 @@ impl RunManager {
                                 info!(run_id = %run_id, agent = %entry.run.agent, status = ?entry.run.status, "agent run finished");
                                 Some((
                                     entry.run.clone(),
-                                    entry.events.last().cloned().expect("terminal event was recorded"),
+                                    entry
+                                        .events
+                                        .last()
+                                        .cloned()
+                                        .expect("terminal event was recorded"),
                                     entry.history.clone(),
                                     entry.persisted_message_count,
                                 ))
@@ -199,16 +209,19 @@ impl RunManager {
                         }
                     };
 
-                    if let (Some(storage), Some((snapshot, terminal_event, messages, message_count))) =
-                        (current_storage(&persistence), persisted)
+                    if let (
+                        Some(storage),
+                        Some((snapshot, terminal_event, messages, message_count)),
+                    ) = (current_storage(&persistence), persisted)
                     {
                         if let Err(storage_error) =
                             storage.update_run(to_stored_run(&snapshot)).await
                         {
                             error!(run_id = %run_id, %storage_error, "failed to persist terminal run state");
                         }
-                        if let Err(storage_error) =
-                            storage.append_event(to_stored_event(run_id, &terminal_event)).await
+                        if let Err(storage_error) = storage
+                            .append_event(to_stored_event(run_id, &terminal_event))
+                            .await
                         {
                             error!(run_id = %run_id, sequence = terminal_event.sequence, %storage_error, "failed to persist terminal run event");
                         }
@@ -500,7 +513,9 @@ async fn persist_runtime_event(
 ) {
     let event = {
         let mut runs = runs.lock().await;
-        let Some(entry) = runs.get_mut(&run_id) else { return; };
+        let Some(entry) = runs.get_mut(&run_id) else {
+            return;
+        };
         entry.record_runtime(runtime_event);
         entry.events.last().cloned()
     };
