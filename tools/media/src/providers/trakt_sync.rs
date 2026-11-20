@@ -289,6 +289,11 @@ impl TraktSyncService {
             });
         }
         if !status.is_success() {
+            tracing::warn!(
+                provider = "trakt",
+                status = status.as_u16(),
+                "media provider request failed"
+            );
             let message = response
                 .text()
                 .await
