@@ -31,12 +31,13 @@ use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
-    console_auth_script, console_root, console_script, console_stylesheet, desktop_header_script, conversations_page,
-    families_page, favicon, integrations_page, invitation_page, meals_family_script, meals_page,
-    mobile_conversations_page, mobile_families_page, mobile_notes_page, mobile_profile_page,
-    mobile_root, mobile_script, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
-    recipes_page, recipes_script, school_menus_page, school_menus_script, shopping_list_page,
-    shopping_list_script, tasks_page, weekly_planner_page, weekly_planner_script,
+    console_auth_script, console_root, console_script, console_stylesheet, conversations_page,
+    desktop_header_script, families_page, favicon, integrations_page, invitation_page,
+    meals_family_script, meals_page, mobile_conversations_page, mobile_families_page,
+    mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
+    mobile_tasks_page, notes_page, profile_page, recipes_page, recipes_script, school_menus_page,
+    school_menus_script, shopping_list_page, shopping_list_script, tasks_page, weekly_planner_page,
+    weekly_planner_script,
 };
 
 #[actix_web::main]
