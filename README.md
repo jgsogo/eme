@@ -1,5 +1,9 @@
 # EME — AI Agent Platform
 
+[![CI](https://github.com/jgsogo/eme/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jgsogo/eme/actions/workflows/ci.yml?query=branch%3Amain)
+
+**Project:** [Landing page](https://jgsogo.es/eme/) · [Rust API documentation](https://jgsogo.es/eme/docs/rust/)
+
 A Rust-based platform for building and running AI agents, with a focus on reliable execution, deterministic tool authorization, and provider-independent model integration.
 
 The goal is to build more than an application that calls an LLM: a foundation for agents that can interact with external systems through controlled capabilities, execute multi-step workflows, and eventually recover from failures and resume work.
