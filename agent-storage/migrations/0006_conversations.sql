@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     owner TEXT NOT NULL,
     agent TEXT NOT NULL,
     title TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0, 1)),
     selected_family_id TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
