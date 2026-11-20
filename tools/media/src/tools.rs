@@ -827,7 +827,6 @@ mod tests {
         assert!(matches!(error, ToolError::InvalidArguments { .. }));
     }
 
-
     #[tokio::test]
     async fn recommendation_tool_executes_the_provider_pipeline_for_selected_profiles() {
         use std::time::Duration;
