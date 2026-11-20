@@ -12,8 +12,8 @@ mod models;
 
 pub use config::{MediaConfig, MediaConfigError, StreamingService};
 pub use models::{
-    ContentRestrictions, ExternalId, FamilyMediaPreferences, HistoryCompleteness,
-    MediaItem, MediaItemId, MediaKind, MediaProfile, MediaProfileId, MediaRating,
-    MediaWatchEvent, OfferType, ProfilePreferences, RecommendationCriteria,
-    RecommendationContext, WatchedPolicy, WatchHistorySource, StreamingOffer,
+    ContentRestrictions, ExternalId, FamilyMediaPreferences, HistoryCompleteness, MediaItem,
+    MediaItemId, MediaKind, MediaProfile, MediaProfileId, MediaRating, MediaWatchEvent, OfferType,
+    ProfilePreferences, RecommendationContext, RecommendationCriteria, StreamingOffer,
+    WatchHistorySource, WatchedPolicy,
 };
