@@ -101,7 +101,7 @@ The API does not delete calendars or events from Google. Deselecting a calendar 
 
 ## Conversation persistence
 
-Conversations are stored in `data/agent-storage.sqlite` by default. Override
+Conversations are stored in `data/conversations.sqlite` by default. Override
 the path with `--conversation-database`. On startup, the server imports
 existing files from `data/conversations` before accepting requests. The
 import is idempotent and leaves the legacy directory untouched. Back up that
