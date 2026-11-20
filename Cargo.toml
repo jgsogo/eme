@@ -17,6 +17,7 @@ members = [
     "tools/notes",
     "tools/meal-planner",
     "tools/mercadona",
+    "tools/media",
 ]
 
 [workspace.dependencies]
