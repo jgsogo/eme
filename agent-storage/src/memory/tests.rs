@@ -73,6 +73,10 @@ async fn event_store_enforces_contiguous_sequences_and_supports_cursors() {
         kind: "started".into(),
         iteration: None,
         tool_name: None,
+        model_id: None,
+        next_model_id: None,
+        model_candidates: None,
+        attempted_candidates: None,
         error_category: None,
         occurred_at: Utc::now(),
     };
