@@ -33,7 +33,7 @@ impl Default for RecommendationWeights {
             family_genre_dislike_penalty: 100,
             family_language_preference: 40,
             profile_genre_preference: 60,
-            profile_genre_dislike_penalty: 60,
+            profile_genre_dislike_penalty: 150,
             profile_language_preference: 30,
             rating_affinity_scale: 30,
             audience_quality_bonus: 40,
