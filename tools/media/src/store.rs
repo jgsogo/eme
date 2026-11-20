@@ -3,9 +3,9 @@ use std::{path::Path, sync::Arc};
 
 use agent_storage::{ExternalConnectionId, FamilyId, UserId};
 use chrono::{DateTime, Utc};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use rusqlite::{Connection, OptionalExtension, params};
 use tokio::sync::Mutex;
 
 use crate::{
@@ -42,7 +42,9 @@ impl MediaStore {
             .execute_batch(include_str!("../migrations/0001_media.sql"))
             .map_err(storage)?;
         connection
-            .execute_batch(include_str!("../migrations/0002_media_external_connections.sql"))
+            .execute_batch(include_str!(
+                "../migrations/0002_media_external_connections.sql"
+            ))
             .map_err(storage)?;
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
@@ -365,7 +367,9 @@ impl MediaStore {
         expires_at: DateTime<Utc>,
     ) -> Result<(), MediaStoreError> {
         if state.trim().is_empty() {
-            return Err(MediaStoreError::Invalid("OAuth state must not be empty".into()));
+            return Err(MediaStoreError::Invalid(
+                "OAuth state must not be empty".into(),
+            ));
         }
         let state_hash = hash_state(state);
         let payload = encode(pending)?;
@@ -741,16 +745,25 @@ mod tests {
         };
         let now = Utc::now();
         store
-            .create_pending_trakt_link("one-time-state", &pending, now + chrono::Duration::minutes(5))
+            .create_pending_trakt_link(
+                "one-time-state",
+                &pending,
+                now + chrono::Duration::minutes(5),
+            )
             .await
             .unwrap();
 
         assert_eq!(
-            store.consume_pending_trakt_link("one-time-state", now).await.unwrap(),
+            store
+                .consume_pending_trakt_link("one-time-state", now)
+                .await
+                .unwrap(),
             pending
         );
         assert!(matches!(
-            store.consume_pending_trakt_link("one-time-state", now).await,
+            store
+                .consume_pending_trakt_link("one-time-state", now)
+                .await,
             Err(MediaStoreError::PendingNotFound)
         ));
     }
