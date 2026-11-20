@@ -415,6 +415,14 @@ fn matches_criteria(item: &MediaItem, criteria: &RecommendationCriteria) -> bool
     {
         return false;
     }
+    if !criteria.themes.is_empty()
+        && !criteria
+            .themes
+            .iter()
+            .any(|theme| theme_matches(item, theme))
+    {
+        return false;
+    }
     if let Some(maximum_runtime) = criteria.maximum_runtime_minutes
         && !item
             .runtime_minutes
@@ -431,6 +439,13 @@ fn passes_restrictions(item: &MediaItem, restrictions: &ContentRestrictions) -> 
             .iter()
             .any(|item_genre| normalize(item_genre) == normalize(genre))
     }) {
+        return false;
+    }
+    if restrictions
+        .disallowed_themes
+        .iter()
+        .any(|theme| theme_matches(item, theme))
+    {
         return false;
     }
     let Some(maximum) = restrictions.maximum_certification.as_deref() else {
@@ -457,6 +472,41 @@ fn certification_rank(value: &str) -> Option<u8> {
         "18" | "nc-17" => Some(4),
         _ => None,
     }
+}
+
+fn theme_matches(item: &MediaItem, theme: &str) -> bool {
+    let theme = normalize(theme);
+    if theme.is_empty() {
+        return false;
+    }
+    let title = normalize(&item.title);
+    let overview = normalize(item.overview.as_deref().unwrap_or_default());
+    title.contains(&theme) || overview.contains(&theme)
+}
+
+fn preference_themes(
+    family: &FamilyMediaPreferences,
+    participants: &[ParticipantData],
+) -> Vec<String> {
+    let mut themes = family
+        .liked_themes
+        .iter()
+        .chain(&family.disliked_themes)
+        .chain(
+            participants
+                .iter()
+                .flat_map(|participant| participant.preferences.liked_themes.iter()),
+        )
+        .chain(
+            participants
+                .iter()
+                .flat_map(|participant| participant.preferences.disliked_themes.iter()),
+        )
+        .map(|theme| normalize(theme))
+        .collect::<Vec<_>>();
+    themes.sort();
+    themes.dedup();
+    themes
 }
 
 fn watched_evidence(
@@ -523,6 +573,55 @@ fn score_item(
     }) {
         score += weights.family_language_preference as f32;
         reasons.push("Matches a shared family language preference".into());
+    }
+
+    for theme in preference_themes(family, participants) {
+        if !theme_matches(item, &theme) {
+            continue;
+        }
+        if family
+            .liked_themes
+            .iter()
+            .any(|liked| normalize(liked) == theme)
+        {
+            score += weights.family_theme_preference as f32;
+            reasons.push(format!("Matches shared family theme: {theme}"));
+        }
+        if family
+            .disliked_themes
+            .iter()
+            .any(|disliked| normalize(disliked) == theme)
+        {
+            score -= weights.family_theme_dislike_penalty as f32;
+        }
+        let dislikers = participants
+            .iter()
+            .filter(|participant| {
+                participant
+                    .preferences
+                    .disliked_themes
+                    .iter()
+                    .any(|disliked| normalize(disliked) == theme)
+            })
+            .count();
+        if dislikers > 0 {
+            score -= weights.profile_theme_dislike_penalty as f32 * dislikers as f32;
+            continue;
+        }
+        for participant in participants {
+            if participant
+                .preferences
+                .liked_themes
+                .iter()
+                .any(|liked| normalize(liked) == theme)
+            {
+                score += weights.profile_theme_preference as f32;
+                reasons.push(format!(
+                    "Matches {}'s theme preference: {theme}",
+                    participant.profile.name
+                ));
+            }
+        }
     }
 
     for participant in participants {
