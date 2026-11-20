@@ -36,6 +36,53 @@ jobs:
           cp -R target/doc/. _site/docs/rust/
           touch _site/.nojekyll
 
+      - name: Generate Rust documentation index
+        run: |
+          python3 - <<'PY'
+          from html import escape
+          from pathlib import Path
+
+          docs = Path("_site/docs/rust")
+          crates = sorted(
+              path for path in docs.iterdir()
+              if path.is_dir() and (path / "index.html").is_file()
+          )
+
+          links = "\n".join(
+              f'<li><a href="{escape(crate.name)}/">{escape(crate.name)}</a></li>'
+              for crate in crates
+          )
+          if not links:
+              links = "<li>No workspace crate documentation was generated.</li>"
+
+          page = f"""<!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>EME Rust API documentation</title>
+            <style>
+              :root {{ color-scheme: dark; font-family: system-ui, sans-serif; }}
+              body {{ max-width: 56rem; margin: 4rem auto; padding: 0 1.5rem; background: #101b2d; color: #e8eef5; }}
+              a {{ color: #79e0bd; }}
+              li {{ margin: .65rem 0; }}
+              .muted {{ color: #aab8c8; }}
+            </style>
+          </head>
+          <body>
+            <p class="muted">EME · AI Agent Platform</p>
+            <h1>Rust API documentation</h1>
+            <p class="muted">Workspace crate documentation generated from the current main branch.</p>
+            <ul>
+          {links}
+            </ul>
+            <p><a href="../../">Back to the EME project page</a></p>
+          </body>
+          </html>
+          """
+          (docs / "index.html").write_text(page, encoding="utf-8")
+          PY
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
