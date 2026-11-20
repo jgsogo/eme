@@ -6,7 +6,7 @@ use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, ConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
+    ConversationId, SqliteConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
     FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore, UserId,
     UserIdentityStore,
 };
@@ -22,7 +22,7 @@ pub(super) async fn handle_message(
     default_agent: &str,
     agents: &[String],
     manager: &RunManager,
-    store: &Arc<ConversationStore>,
+    store: &Arc<SqliteConversationStore>,
     identities: &Arc<FileUserIdentityStore>,
     families: &Arc<SqliteFamilyStore>,
     family_service: &Arc<FamilyService>,
