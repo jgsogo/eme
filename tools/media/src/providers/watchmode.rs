@@ -278,6 +278,7 @@ fn parse_offer_type(value: &str) -> Result<OfferType, WatchmodeError> {
         "rent" => Ok(OfferType::Rent),
         "buy" | "purchase" => Ok(OfferType::Buy),
         "free" => Ok(OfferType::Free),
+        "ads" | "ad_supported" => Ok(OfferType::AdSupported),
         "tv" | "tve" | "tv_provider" => Ok(OfferType::TvProvider),
         other => Err(WatchmodeError::UnsupportedOfferType(other.to_owned())),
     }
