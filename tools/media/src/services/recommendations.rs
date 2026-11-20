@@ -978,7 +978,12 @@ mod tests {
             genre_affinity: HashMap::new(),
         };
 
-        let (score, reasons) = score_item(&item(), &family, &[participant]);
+        let (score, reasons) = score_item(
+            &item(),
+            &family,
+            &[participant],
+            &RecommendationWeights::default(),
+        );
         assert!(score > 600.0);
         assert!(
             reasons
