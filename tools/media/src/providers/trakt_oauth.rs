@@ -782,7 +782,7 @@ mod tests {
         );
         assert!(query.contains_key("code_challenge"));
         let link = service
-            .complete_link(&state, "one-time-code")
+            .complete_link(user_id, &state, "one-time-code")
             .await
             .unwrap();
 
