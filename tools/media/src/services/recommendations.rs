@@ -1,13 +1,16 @@
 //! Deterministic family-aware recommendation pipeline.
-use std::{collections::{HashMap, HashSet}, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 use chrono::Datelike;
 
 use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaConfig, MediaItem, MediaItemId, MediaKind,
     MediaProfile, MediaProfileId, MediaRating, MediaStore, MediaStoreError, MediaWatchEvent,
-    ProfilePreferences, RecommendationContext, RecommendationCriteria, RecommendationWeights, StreamingOffer, TmdbClient,
-    TmdbError, WatchedPolicy, WatchmodeClient, WatchmodeError,
+    ProfilePreferences, RecommendationContext, RecommendationCriteria, RecommendationWeights,
+    StreamingOffer, TmdbClient, TmdbError, WatchedPolicy, WatchmodeClient, WatchmodeError,
 };
 
 /// One ranked candidate with the evidence used to recommend it.
