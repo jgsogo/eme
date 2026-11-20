@@ -12,7 +12,7 @@ use std::{
 
 use agent_runtime::Message;
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{Conversation, ConversationId, ConversationStoreError, FamilyId};
 
@@ -233,11 +233,8 @@ impl SqliteConversationStore {
             params![owner, id.to_string()],
         )
         .map_err(sqlite_error)?;
-        tx.execute(
-            "DELETE FROM conversations WHERE id = ?1",
-            [id.to_string()],
-        )
-        .map_err(sqlite_error)?;
+        tx.execute("DELETE FROM conversations WHERE id = ?1", [id.to_string()])
+            .map_err(sqlite_error)?;
         tx.commit().map_err(sqlite_error)
     }
 
