@@ -827,6 +827,139 @@ mod tests {
         assert!(matches!(error, ToolError::InvalidArguments { .. }));
     }
 
+
+    #[tokio::test]
+    async fn recommendation_tool_executes_the_provider_pipeline_for_selected_profiles() {
+        use std::time::Duration;
+
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path, query_param},
+        };
+
+        let tmdb_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/genre/movie/list"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "genres": [{"id": 35, "name": "Comedy"}]
+            })))
+            .mount(&tmdb_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/search/movie"))
+            .and(query_param("query", "comedy"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "page": 1,
+                "total_pages": 1,
+                "total_results": 1,
+                "results": [{
+                    "id": 42,
+                    "title": "Tool Recommendation",
+                    "genre_ids": [35],
+                    "release_date": "2025-01-01",
+                    "popularity": 30.0,
+                    "vote_average": 8.0,
+                    "vote_count": 500
+                }]
+            })))
+            .mount(&tmdb_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 42,
+                "title": "Tool Recommendation",
+                "release_date": "2025-01-01",
+                "genres": [{"id": 35, "name": "Comedy"}],
+                "runtime": 95,
+                "vote_average": 8.0,
+                "vote_count": 500,
+                "release_dates": {
+                    "results": [{
+                        "iso_3166_1": "ES",
+                        "release_dates": [{"certification": "7"}]
+                    }]
+                }
+            })))
+            .mount(&tmdb_server)
+            .await;
+
+        let watchmode_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/search/"))
+            .and(query_param("search_value", "42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "title_results": [{"id": 9001}]
+            })))
+            .mount(&watchmode_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/title/9001/sources/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([
+                {"source_id": 203, "name": "Netflix", "type": "sub", "region": "ES", "web_url": "https://example.invalid/title"}
+            ])))
+            .mount(&watchmode_server)
+            .await;
+
+        let store = MediaStore::open_in_memory().unwrap();
+        let family_id = FamilyId::new();
+        let profile = MediaProfile::new(family_id, "Selected viewer");
+        store.save_profile(&profile).await.unwrap();
+        let tmdb =
+            TmdbClient::with_base_url("tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
+        let watchmode = WatchmodeClient::with_options(
+            "watchmode-key",
+            watchmode_server.uri(),
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        let services = MediaToolServices::new(
+            store,
+            MediaConfig::default(),
+            Some(tmdb),
+            Some(watchmode),
+            None,
+        );
+        let mut registry = ToolRegistry::new();
+        register_media_tools(&mut registry, services).unwrap();
+        let context = ToolContext {
+            user_id: Some(UserId::new().to_string()),
+            family: Some(FamilyContext {
+                family_id: family_id.to_string(),
+                family_name: "Home".into(),
+                family_role: "member".into(),
+                relationship: "parent".into(),
+                members: Vec::new(),
+            }),
+            ..ToolContext::default()
+        };
+
+        let output = registry
+            .execute(
+                &context,
+                "media_recommend",
+                json!({
+                    "participant_ids": [profile.id.to_string()],
+                    "criteria": {
+                        "kinds": ["movie"],
+                        "query": "comedy"
+                    }
+                }),
+            )
+            .await
+            .unwrap();
+        let recommendations: Value = serde_json::from_str(&output).unwrap();
+        assert_eq!(recommendations.as_array().unwrap().len(), 1);
+        assert_eq!(
+            recommendations[0]["offers"][0]["service_name"],
+            "Netflix"
+        );
+        assert_eq!(
+            recommendations[0]["history_unknown_for"][0],
+            profile.id.to_string()
+        );
+    }
+
     #[tokio::test]
     async fn preference_updates_bind_ids_to_authenticated_family_and_profile() {
         let store = MediaStore::open_in_memory().unwrap();
