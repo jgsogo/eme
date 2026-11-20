@@ -563,6 +563,7 @@ fn score_item(
     for genre in &family.disliked_genres {
         if genres.contains(&normalize(genre)) {
             score -= weights.family_genre_dislike_penalty as f32;
+            reasons.push(format!("Conflicts with shared family dislike: {genre}"));
         }
     }
     if item.original_language.as_ref().is_some_and(|language| {
@@ -593,6 +594,7 @@ fn score_item(
             .any(|disliked| normalize(disliked) == theme)
         {
             score -= weights.family_theme_dislike_penalty as f32;
+            reasons.push(format!("Conflicts with shared family theme dislike: {theme}"));
         }
         let dislikers = participants
             .iter()
@@ -606,6 +608,19 @@ fn score_item(
             .count();
         if dislikers > 0 {
             score -= weights.profile_theme_dislike_penalty as f32 * dislikers as f32;
+            for participant in participants {
+                if participant
+                    .preferences
+                    .disliked_themes
+                    .iter()
+                    .any(|disliked| normalize(disliked) == theme)
+                {
+                    reasons.push(format!(
+                        "Conflicts with {}'s theme dislike: {theme}",
+                        participant.profile.name
+                    ));
+                }
+            }
             continue;
         }
         for participant in participants {
@@ -650,6 +665,19 @@ fn score_item(
             // A selected participant's explicit dislike must not be cancelled
             // by another participant's positive preference or inferred affinity.
             score -= weights.profile_genre_dislike_penalty as f32 * dislikers as f32;
+            for participant in participants {
+                if participant
+                    .preferences
+                    .disliked_genres
+                    .iter()
+                    .any(|disliked| normalize(disliked).as_str() == genre.as_str())
+                {
+                    reasons.push(format!(
+                        "Conflicts with {}'s genre dislike: {genre}",
+                        participant.profile.name
+                    ));
+                }
+            }
             continue;
         }
         for participant in participants {
