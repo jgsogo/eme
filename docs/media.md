@@ -82,7 +82,7 @@ These are deliberately separate:
 4. **Trakt history and ratings** are observed activity with source provenance; they do not overwrite explicit preferences.
 5. **Inferred genre affinity** is calculated dynamically from selected participants' ratings and catalogue metadata. The inferred result is not persisted as an explicit preference.
 
-Ordinary dislikes are ranking penalties, not hard exclusions. Unknown history is not treated as a confirmed unwatched state.
+Ordinary dislikes are ranking penalties, not hard exclusions. A selected participant's explicit genre dislike suppresses positive profile-preference and inferred-affinity bonuses for that same genre from other selected participants, so one person's strong negative is not cancelled by another person's positive. Unknown history is not treated as a confirmed unwatched state.
 
 ### Watched-title policy
 
