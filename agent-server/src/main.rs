@@ -18,7 +18,8 @@ use actix_web::{App, HttpServer, middleware, web};
 use agent_server::{LanInvitationConfig, auth::TelegramAuth};
 use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager};
 use agent_storage::{
-    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore, SqliteExecutionStore, SqliteFamilyStore,
+    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore,
+    SqliteExecutionStore, SqliteFamilyStore,
 };
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -32,11 +33,12 @@ use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_auth_script, console_root, console_script, console_stylesheet, conversations_page,
-    families_page, favicon, integrations_page, invitation_page, meals_family_script, meals_page,
-    mobile_conversations_page, mobile_families_page, mobile_notes_page, mobile_profile_page,
-    mobile_root, mobile_script, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
-    recipes_page, recipes_script, school_menus_page, school_menus_script, shopping_list_page,
-    shopping_list_script, tasks_page, weekly_planner_page, weekly_planner_script,
+    desktop_header_script, families_page, favicon, integrations_page, invitation_page,
+    meals_family_script, meals_page, mobile_conversations_page, mobile_families_page,
+    mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
+    mobile_tasks_page, notes_page, profile_page, recipes_page, recipes_script, school_menus_page,
+    school_menus_script, shopping_list_page, shopping_list_script, tasks_page, weekly_planner_page,
+    weekly_planner_script,
 };
 
 #[actix_web::main]
@@ -140,16 +142,13 @@ async fn main() -> Result<()> {
         FileUserIdentityStore::open(args.data_dir.join("users.json"))
             .context("opening persistent user identity storage")?,
     );
-    let conversation_database = args.conversation_database
+    let conversation_database = args
+        .conversation_database
         .clone()
         .unwrap_or_else(|| args.data_dir.join("agent-storage.sqlite"));
     let conversation_store = Arc::new(
         SqliteConversationStore::open(&conversation_database)
             .context("opening SQLite conversation storage")?,
-    );
-    let execution_store = Arc::new(
-        SqliteExecutionStore::open(&conversation_database)
-            .context("opening SQLite execution history storage")?,
     );
     let import_report = conversation_store
         .import_legacy(args.data_dir.join("conversations"))
@@ -170,12 +169,15 @@ async fn main() -> Result<()> {
             import_report.invalid_active_entries.len()
         );
     }
+    let execution_store = Arc::new(
+        SqliteExecutionStore::open(&conversation_database)
+            .context("opening SQLite execution history storage")?,
+    );
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?
         .with_storage(execution_store);
     let task_scheduler = TaskScheduler::start(task_registry.clone(), manager.clone());
     info!("task scheduler started");
-
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.
         let updates = gateway.subscribe();
@@ -255,6 +257,7 @@ async fn main() -> Result<()> {
             .service(shopping_list_page)
             .service(shopping_list_script)
             .service(console_stylesheet)
+            .service(desktop_header_script)
             .service(console_auth_script)
             .service(console_script)
             .service(mobile_stylesheet)

@@ -1,9 +1,16 @@
 //! SQLite-backed conversation persistence.
- //!
- //! Conversation metadata and complete structured messages are committed in
- //! transactions. The public API intentionally mirrors the legacy
- //! ConversationStore so callers can be migrated independently.
-use std::{collections::HashMap, fs, path::Path, str::FromStr, sync::{Arc, Mutex, MutexGuard}};
+//!
+//! Conversation metadata and complete structured messages are committed in
+//! transactions. The public API intentionally mirrors the legacy
+//! ConversationStore so callers can be migrated independently.
+
+use std::{
+    collections::HashMap,
+    fs,
+    path::Path,
+    str::FromStr,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use agent_runtime::Message;
 use chrono::{DateTime, Utc};
@@ -336,111 +343,6 @@ impl SqliteConversationStore {
         self.get(id)
     }
 
-
-    /// Import the legacy file store without changing or deleting its files.
-    ///
-    /// Existing SQLite rows always win, making repeated or interrupted imports
-    /// safe. Each conversation and its ordered messages are inserted atomically.
-    pub fn import_legacy(
-        &self,
-        legacy_root: impl AsRef<Path>,
-    ) -> Result<LegacyImportReport, ConversationStoreError> {
-        let legacy_root = legacy_root.as_ref();
-        let conversations_dir = legacy_root.join("conversations");
-        let mut report = LegacyImportReport::default();
-
-        if conversations_dir.exists() {
-            let mut paths = fs::read_dir(&conversations_dir)
-                .map_err(|error| ConversationStoreError::Io(error))?
-                .filter_map(Result::ok)
-                .map(|entry| entry.path())
-                .filter(|path| path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json"))
-                .collect::<Vec<_>>();
-            paths.sort();
-
-            for path in paths {
-                let parsed = fs::read(&path)
-                    .map_err(ConversationStoreError::Io)
-                    .and_then(|bytes| serde_json::from_slice::<Conversation>(&bytes)
-                        .map_err(ConversationStoreError::Serialization));
-                let conversation = match parsed {
-                    Ok(conversation) => conversation,
-                    Err(error) => {
-                        report.invalid_documents.push(format!("{}: {error}", path.display()));
-                        continue;
-                    }
-                };
-                match self.import_conversation(&conversation) {
-                    Ok(true) => report.imported += 1,
-                    Ok(false) => report.already_present += 1,
-                    Err(error) => report.invalid_documents.push(format!("{}: {error}", path.display())),
-                }
-            }
-        }
-
-        let active_path = legacy_root.join("active-conversations.json");
-        if active_path.exists() {
-            let bytes = fs::read(&active_path).map_err(ConversationStoreError::Io)?;
-            let active: HashMap<String, ConversationId> =
-                serde_json::from_slice(&bytes).map_err(ConversationStoreError::Serialization)?;
-            let connection = self.lock();
-            for (owner, id) in active {
-                let actual_owner: Option<String> = connection.query_row(
-                    "SELECT owner FROM conversations WHERE id = ?1",
-                    [id.to_string()], |row| row.get(0),
-                ).optional().map_err(sqlite_error)?;
-                match actual_owner {
-                    Some(actual) if actual == owner => {
-                        let inserted = connection.execute(
-                            "INSERT OR IGNORE INTO active_conversations(owner, conversation_id) VALUES (?1, ?2)",
-                            params![owner, id.to_string()],
-                        ).map_err(sqlite_error)?;
-                        report.active_mappings_imported += inserted;
-                    }
-                    Some(_) => report.invalid_active_entries.push(format!(
-                        "owner mapping does not match conversation {id}"
-                    )),
-                    None => report.invalid_active_entries.push(format!(
-                        "active conversation {id} does not exist"
-                    )),
-                }
-            }
-        }
-        Ok(report)
-    }
-
-    fn import_conversation(&self, conversation: &Conversation) -> Result<bool, ConversationStoreError> {
-        let mut connection = self.lock();
-        let tx = connection.transaction().map_err(sqlite_error)?;
-        let exists: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?1)",
-            [conversation.id.to_string()], |row| row.get(0),
-        ).map_err(sqlite_error)?;
-        if exists {
-            tx.rollback().map_err(sqlite_error)?;
-            return Ok(false);
-        }
-        tx.execute(
-            "INSERT INTO conversations(id, owner, agent, title, selected_family_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                conversation.id.to_string(), conversation.owner, conversation.agent,
-                conversation.title, conversation.selected_family_id.map(|id| id.to_string()),
-                conversation.created_at.to_rfc3339(), conversation.updated_at.to_rfc3339()
-            ],
-        ).map_err(sqlite_error)?;
-        for (sequence, message) in conversation.messages.iter().enumerate() {
-            tx.execute(
-                "INSERT INTO conversation_messages(conversation_id, sequence, message_json) VALUES (?1, ?2, ?3)",
-                params![
-                    conversation.id.to_string(), sequence as i64,
-                    serde_json::to_string(message)?
-                ],
-            ).map_err(sqlite_error)?;
-        }
-        tx.commit().map_err(sqlite_error)?;
-        Ok(true)
-    }
-
     /// Import the legacy file store without changing or deleting its files.
     ///
     /// Existing SQLite rows always win, making repeated or interrupted imports
@@ -683,4 +585,3 @@ pub struct LegacyImportReport {
     pub invalid_documents: Vec<String>,
     pub invalid_active_entries: Vec<String>,
 }
-
