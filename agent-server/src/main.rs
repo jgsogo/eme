@@ -18,7 +18,8 @@ use actix_web::{App, HttpServer, middleware, web};
 use agent_server::{LanInvitationConfig, auth::TelegramAuth};
 use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager};
 use agent_storage::{
-    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore, SqliteFamilyStore,
+    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore,
+    SqliteFamilyStore,
 };
 use anyhow::{Context, Result};
 use clap::Parser;
