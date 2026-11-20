@@ -5,14 +5,14 @@ mod cancel_run_outcome;
 mod execution_outcome;
 mod execution_report;
 mod managed_run;
+#[cfg(test)]
+mod persistence_tests;
 mod run_executor;
 mod run_manager;
 mod run_manager_config_error;
 mod submit_run_error;
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod persistence_tests;
 
 pub use cancel_run_error::CancelRunError;
 pub use cancel_run_outcome::CancelRunOutcome;

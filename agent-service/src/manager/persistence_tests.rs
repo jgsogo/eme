@@ -38,8 +38,7 @@ impl RunExecutor for TranscriptExecutor {
 
 #[tokio::test]
 async fn run_and_conversation_transcript_survive_manager_restart() {
-    let directory =
-        std::env::temp_dir().join(format!("eme-run-resume-{}", Uuid::new_v4()));
+    let directory = std::env::temp_dir().join(format!("eme-run-resume-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&directory).unwrap();
     let database = directory.join("conversations.sqlite");
     let conversations = Arc::new(SqliteConversationStore::open(&database).unwrap());
@@ -82,7 +81,10 @@ async fn run_and_conversation_transcript_survive_manager_restart() {
     assert_eq!(run.status, agent_storage::StoredRunStatus::Completed);
     let events = execution.list_events(run_id.as_uuid(), None).await.unwrap();
     assert_eq!(
-        events.iter().map(|event| event.sequence).collect::<Vec<_>>(),
+        events
+            .iter()
+            .map(|event| event.sequence)
+            .collect::<Vec<_>>(),
         vec![0, 1, 2]
     );
     assert_eq!(events[0].kind, "queued");
@@ -116,7 +118,10 @@ async fn run_and_conversation_transcript_survive_manager_restart() {
             .status,
         agent_storage::StoredRunStatus::Completed
     );
-    assert_eq!(reopened.list_messages(conversation_id).await.unwrap().len(), 2);
+    assert_eq!(
+        reopened.list_messages(conversation_id).await.unwrap().len(),
+        2
+    );
     drop(reopened);
     let _ = std::fs::remove_dir_all(directory);
 }
