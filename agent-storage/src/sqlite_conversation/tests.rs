@@ -20,6 +20,7 @@ fn imports_legacy_history_and_active_selection_idempotently() {
         owner: "telegram:42".into(),
         agent: "assistant".into(),
         title: "Existing conversation".into(),
+        archived: false,
         selected_family_id: None,
         created_at: Utc::now(),
         updated_at: Utc::now(),
