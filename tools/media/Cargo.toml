@@ -7,9 +7,9 @@ description = "Media discovery and recommendation domain for the EME platform."
 [dependencies]
 agent-storage = { path = "../../agent-storage" }
 chrono = { workspace = true }
+rusqlite = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
-uuid = { workspace = true }
-
-[dev-dependencies]
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
