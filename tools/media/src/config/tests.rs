@@ -36,3 +36,21 @@ fn rejects_invalid_country_and_zero_limit() {
         Err(MediaConfigError::ZeroAvailabilityCacheTtl)
     );
 }
+
+#[test]
+fn validates_recommendation_weights() {
+    let mut config = MediaConfig::default();
+    config.recommendation_weights.family_genre_preference = -1;
+    assert_eq!(
+        config.validate(),
+        Err(MediaConfigError::InvalidRecommendationWeights)
+    );
+
+    config.recommendation_weights.family_genre_preference = 100;
+    config.recommendation_weights.recent_release_years = 5;
+    config.recommendation_weights.older_release_years = 2;
+    assert_eq!(
+        config.validate(),
+        Err(MediaConfigError::InvalidRecommendationWeights)
+    );
+}
