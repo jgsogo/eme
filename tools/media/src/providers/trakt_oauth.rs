@@ -6,8 +6,8 @@ use std::{
 };
 
 use agent_storage::{
-    ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore, FamilyId, FamilyRole, FamilyStore,
-    NewExternalAuthorization, NewExternalConnection, UserId,
+    ExternalConnectionId, ExternalConnectionStatus, ExternalConnectionStore, FamilyId, FamilyRole,
+    FamilyStore, NewExternalAuthorization, NewExternalConnection, UserId,
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
@@ -65,9 +65,7 @@ impl TraktOAuthConfig {
             token_url: token_url.into(),
             api_base_url: api_base_url.into().trim_end_matches('/').to_owned(),
         };
-        if config.client_id.trim().is_empty()
-            || config.redirect_uri.trim().is_empty()
-        {
+        if config.client_id.trim().is_empty() || config.redirect_uri.trim().is_empty() {
             return Err(TraktError::Configuration(
                 "client ID and redirect URI are required".into(),
             ));
@@ -109,8 +107,7 @@ impl TraktOAuthService {
         external_connections: Arc<dyn ExternalConnectionStore>,
     ) -> Result<Self, TraktError> {
         let http = http_client()?;
-        let token_manager =
-            TraktTokenManager::new(config.clone(), external_connections.clone())?;
+        let token_manager = TraktTokenManager::new(config.clone(), external_connections.clone())?;
         Ok(Self {
             config,
             http,
@@ -220,7 +217,11 @@ impl TraktOAuthService {
                 provider_subject: user.username.clone(),
                 display_email: None,
                 refresh_token,
-                granted_scopes: if tokens.scopes().is_empty() { authorization.requested_scopes } else { tokens.scopes() },
+                granted_scopes: if tokens.scopes().is_empty() {
+                    authorization.requested_scopes
+                } else {
+                    tokens.scopes()
+                },
             })
             .await
             .map_err(TraktError::ExternalStorage)?;
@@ -328,7 +329,8 @@ impl TraktOAuthService {
             .json(&TokenRequest(fields))
             .send()
             .await?;
-        ensure_success(response).await?
+        ensure_success(response)
+            .await?
             .json()
             .await
             .map_err(TraktError::Request)
@@ -383,8 +385,7 @@ impl TraktTokenManager {
             .refresh_token(owner_id, connection_id)
             .await
             .map_err(TraktError::ExternalStorage)?;
-        let refresh_token_hash: [u8; 32] =
-            Sha256::digest(refresh_token.as_bytes()).into();
+        let refresh_token_hash: [u8; 32] = Sha256::digest(refresh_token.as_bytes()).into();
         let connection = {
             let mut connections = self.connections.lock().await;
             connections
@@ -419,7 +420,11 @@ impl TraktTokenManager {
             )
             .await
             .map_err(TraktError::ExternalStorage)?;
-        let lifetime = token.expires_in_seconds().unwrap_or(300).saturating_sub(30).max(1);
+        let lifetime = token
+            .expires_in_seconds()
+            .unwrap_or(300)
+            .saturating_sub(30)
+            .max(1);
         let access_token = token.access_token;
         let effective_refresh_token_hash: [u8; 32] =
             Sha256::digest(new_refresh_token.as_bytes()).into();
@@ -501,7 +506,10 @@ async fn ensure_success(response: reqwest::Response) -> Result<reqwest::Response
     if status.is_success() {
         return Ok(response);
     }
-    let message = response.text().await.unwrap_or_else(|_| "request failed".into());
+    let message = response
+        .text()
+        .await
+        .unwrap_or_else(|_| "request failed".into());
     Err(TraktError::Api { status, message })
 }
 
@@ -560,9 +568,7 @@ struct TraktUser {
 mod tests {
     use std::{fs, sync::Arc};
 
-    use agent_storage::{
-        Family, FamilyMember, InMemoryFamilyStore, SqliteExternalConnectionStore,
-    };
+    use agent_storage::{Family, FamilyMember, InMemoryFamilyStore, SqliteExternalConnectionStore};
     use chrono::Utc;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -571,7 +577,13 @@ mod tests {
 
     use super::*;
 
-    async fn family_and_profile() -> (Arc<InMemoryFamilyStore>, UserId, FamilyId, MediaStore, MediaProfileId) {
+    async fn family_and_profile() -> (
+        Arc<InMemoryFamilyStore>,
+        UserId,
+        FamilyId,
+        MediaStore,
+        MediaProfileId,
+    ) {
         let families = Arc::new(InMemoryFamilyStore::default());
         let user_id = UserId::new();
         let family_id = FamilyId::new();
@@ -644,7 +656,10 @@ mod tests {
         )
         .unwrap();
 
-        let authorization = service.begin_link(user_id, family_id, profile_id).await.unwrap();
+        let authorization = service
+            .begin_link(user_id, family_id, profile_id)
+            .await
+            .unwrap();
         let url = Url::parse(&authorization.authorization_url).unwrap();
         let state = url
             .query_pairs()
@@ -652,16 +667,32 @@ mod tests {
             .unwrap()
             .1
             .into_owned();
-        let query = url.query_pairs().collect::<std::collections::HashMap<_, _>>();
-        assert_eq!(query.get("code_challenge_method").map(|value| value.as_ref()), Some("S256"));
-        assert_eq!(query.get("scope").map(|value| value.as_ref()), Some("private"));
+        let query = url
+            .query_pairs()
+            .collect::<std::collections::HashMap<_, _>>();
+        assert_eq!(
+            query
+                .get("code_challenge_method")
+                .map(|value| value.as_ref()),
+            Some("S256")
+        );
+        assert_eq!(
+            query.get("scope").map(|value| value.as_ref()),
+            Some("private")
+        );
         assert!(query.contains_key("code_challenge"));
-        let link = service.complete_link(&state, "one-time-code").await.unwrap();
+        let link = service
+            .complete_link(&state, "one-time-code")
+            .await
+            .unwrap();
 
         assert_eq!(link.provider_subject, "example-user");
         assert_eq!(link.display_name.as_deref(), Some("Example"));
         assert_eq!(
-            media.get_external_connection_link(profile_id, "trakt").await.unwrap(),
+            media
+                .get_external_connection_link(profile_id, "trakt")
+                .await
+                .unwrap(),
             Some(link.clone())
         );
         assert_eq!(
@@ -732,7 +763,10 @@ mod tests {
             "cached-access"
         );
         assert_eq!(
-            external.refresh_token(owner_id, connection.id).await.unwrap(),
+            external
+                .refresh_token(owner_id, connection.id)
+                .await
+                .unwrap(),
             "rotated-refresh"
         );
 
