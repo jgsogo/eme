@@ -15,14 +15,14 @@ mod store;
 pub use config::{MediaConfig, MediaConfigError, StreamingService};
 pub use providers::{
     TmdbClient, TmdbError, TmdbPage, TraktAuthorization, TraktError, TraktOAuthConfig,
-    TraktOAuthService, TraktTokenManager, WatchmodeClient, WatchmodeError, WatchmodeSource,
-    filter_subscription_offers,
+    TraktOAuthService, TraktSyncError, TraktSyncService, TraktSyncSummary, TraktTokenManager,
+    WatchmodeClient, WatchmodeError, WatchmodeSource, filter_subscription_offers,
 };
 pub use store::{MediaExternalConnectionLink, MediaStore, MediaStoreError, PendingTraktLink};
 
 pub use models::{
     ContentRestrictions, ExternalId, FamilyMediaPreferences, HistoryCompleteness, MediaItem,
-    MediaItemId, MediaKind, MediaProfile, MediaProfileId, MediaRating, MediaWatchEvent, OfferType,
-    ProfilePreferences, RecommendationContext, RecommendationCriteria, StreamingOffer,
-    WatchHistorySource, WatchedPolicy,
+    MediaItemId, MediaKind, MediaProfile, MediaProfileId, MediaRating, MediaWatchEvent,
+    MediaWatchlistItem, OfferType, ProfilePreferences, ProviderSyncState, RecommendationContext,
+    RecommendationCriteria, StreamingOffer, WatchHistorySource, WatchedPolicy,
 };
