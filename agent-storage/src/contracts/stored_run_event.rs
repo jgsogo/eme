@@ -1,4 +1,4 @@
-//! An immutable event
+//! An immutable event in a run's ordered event stream.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,14 @@ pub struct StoredRunEvent {
     pub kind: String,
     pub iteration: Option<usize>,
     pub tool_name: Option<String>,
+    #[serde(default)]
+    pub model_id: Option<String>,
+    #[serde(default)]
+    pub next_model_id: Option<String>,
+    #[serde(default)]
+    pub model_candidates: Option<Vec<String>>,
+    #[serde(default)]
+    pub attempted_candidates: Option<usize>,
     pub error_category: Option<String>,
     pub occurred_at: DateTime<Utc>,
 }

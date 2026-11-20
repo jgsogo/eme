@@ -10,11 +10,40 @@ use actix_web::{
     web::{self, Data, Json, Path},
 };
 use agent_runtime::ToolContext;
+use agent_service::Run;
 use agent_service::{
     CancelRunError, CancelRunOutcome, RunId, RunManager, RunStatus, SubmitRunError,
 };
-use agent_storage::{FileUserIdentityStore, UserIdentityStore};
+use agent_storage::{
+    ConversationId, FileUserIdentityStore, SqliteConversationStore, UserIdentityStore,
+};
 use std::sync::Arc;
+
+fn owns_run(
+    run: &Run,
+    request: &HttpRequest,
+    auth: Option<&crate::auth::TelegramAuth>,
+    store: Option<&SqliteConversationStore>,
+) -> bool {
+    let Some(auth) = auth else {
+        return true;
+    };
+    let Some(owner) = auth.owner_for_request(request) else {
+        return false;
+    };
+    if let Some(conversation_id) = run.conversation_id {
+        let Ok(id) = ConversationId::from_str(&conversation_id.to_string()) else {
+            return false;
+        };
+        store.is_some_and(|store| {
+            store
+                .get(id)
+                .is_ok_and(|conversation| conversation.owner == owner)
+        })
+    } else {
+        auth.runs_for_owner(&owner).contains(&run.id.to_string())
+    }
+}
 
 fn status_name(status: RunStatus) -> &'static str {
     match status {
@@ -33,24 +62,20 @@ async fn list_runs(
     request: HttpRequest,
     auth: Option<Data<crate::auth::TelegramAuth>>,
     manager: Data<RunManager>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
 ) -> impl Responder {
-    let owner = auth
-        .as_ref()
-        .and_then(|auth| auth.owner_for_request(&request));
-    let allowed = auth.as_ref().map(|auth| {
-        owner
-            .as_ref()
-            .map(|owner| auth.runs_for_owner(owner))
-            .unwrap_or_default()
-    });
     let runs = manager
         .list()
         .await
         .into_iter()
-        .filter(|run| {
-            allowed
-                .as_ref()
-                .is_none_or(|ids| ids.contains(&run.id.to_string()))
+        .filter(|run| match auth.as_ref() {
+            Some(auth) => owns_run(
+                run,
+                &request,
+                Some(auth.get_ref()),
+                store.as_ref().map(|store| store.get_ref().as_ref()),
+            ),
+            None => true,
         })
         .collect::<Vec<_>>();
     let body = runs
@@ -122,35 +147,71 @@ async fn submit_run(
         Err(SubmitRunError::QueueFull) => {
             HttpResponse::ServiceUnavailable().body("run queue is full")
         }
+        Err(SubmitRunError::Storage(error)) => {
+            tracing::error!(%error, "failed to persist submitted run");
+            HttpResponse::InternalServerError().body("could not persist run")
+        }
     }
 }
 
 #[get("/{run_id}")]
-async fn get_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Responder {
+async fn get_run(
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
+    manager: Data<RunManager>,
+    run_id: Path<String>,
+) -> impl Responder {
     let run_id = match RunId::from_str(&run_id) {
         Ok(run_id) => run_id,
         Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
     };
 
     match manager.get(run_id).await {
-        Some(run) => HttpResponse::Ok().json(GetRunResponse {
-            run_id: run.id.to_string(),
-            agent: run.agent,
-            status: status_name(run.status),
-            response: run.response,
-            error: run.error,
-        }),
-        None => HttpResponse::NotFound().finish(),
+        Some(run)
+            if owns_run(
+                &run,
+                &request,
+                auth.as_deref().map(|v| &**v),
+                store.as_ref().map(|store| store.get_ref().as_ref()),
+            ) =>
+        {
+            HttpResponse::Ok().json(GetRunResponse {
+                run_id: run.id.to_string(),
+                agent: run.agent,
+                status: status_name(run.status),
+                response: run.response,
+                error: run.error,
+            })
+        }
+        Some(_) | None => HttpResponse::NotFound().finish(),
     }
 }
 
 #[get("/{run_id}/events")]
-async fn get_run_events(manager: Data<RunManager>, run_id: Path<String>) -> impl Responder {
+async fn get_run_events(
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
+    manager: Data<RunManager>,
+    run_id: Path<String>,
+) -> impl Responder {
     let run_id = match RunId::from_str(&run_id) {
         Ok(run_id) => run_id,
         Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
     };
 
+    let Some(run) = manager.get(run_id).await else {
+        return HttpResponse::NotFound().finish();
+    };
+    if !owns_run(
+        &run,
+        &request,
+        auth.as_deref().map(|v| &**v),
+        store.as_ref().map(|store| store.get_ref().as_ref()),
+    ) {
+        return HttpResponse::NotFound().finish();
+    }
     match manager.events(run_id).await {
         Some(events) => HttpResponse::Ok().json(
             events
@@ -163,12 +224,29 @@ async fn get_run_events(manager: Data<RunManager>, run_id: Path<String>) -> impl
 }
 
 #[post("/{run_id}/cancel")]
-async fn cancel_run(manager: Data<RunManager>, run_id: Path<String>) -> impl Responder {
+async fn cancel_run(
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
+    manager: Data<RunManager>,
+    run_id: Path<String>,
+) -> impl Responder {
     let run_id = match RunId::from_str(&run_id) {
         Ok(run_id) => run_id,
         Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
     };
 
+    let Some(run) = manager.get(run_id).await else {
+        return HttpResponse::NotFound().finish();
+    };
+    if !owns_run(
+        &run,
+        &request,
+        auth.as_deref().map(|v| &**v),
+        store.as_ref().map(|store| store.get_ref().as_ref()),
+    ) {
+        return HttpResponse::NotFound().finish();
+    }
     match manager.cancel(run_id).await {
         Ok(outcome) => {
             let run = manager

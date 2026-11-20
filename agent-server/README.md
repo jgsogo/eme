@@ -98,3 +98,11 @@ Content-Type: application/json
 
 The API does not delete calendars or events from Google. Deselecting a calendar only removes it from EME's future allowlist. Agent tools can access only selected calendars and re-check authorization on every invocation.
 
+
+## Conversation persistence
+
+Conversations are stored in `data/conversations.sqlite` by default. Override
+the path with `--conversation-database`. On startup, the server imports
+existing files from `data/conversations` before accepting requests. The
+import is idempotent and leaves the legacy directory untouched. Back up that
+directory and the SQLite database before manually retiring the legacy files.

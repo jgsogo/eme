@@ -12,22 +12,20 @@ pub use create_conversation_request::CreateConversationRequest;
 use select_conversation_family_request::SelectConversationFamilyRequest;
 pub use update_conversation_request::UpdateConversationRequest;
 
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc};
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path},
 };
 use agent_runtime::{Message, ToolContext};
-use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
+use agent_service::{FamilyService, FamilyServiceError, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{
-    Conversation, ConversationId, ConversationStore, ConversationStoreError, FamilyId,
-    FileUserIdentityStore, UserId, UserIdentityStore,
+    Conversation, ConversationId, ConversationStoreError, FamilyId, FileUserIdentityStore,
+    SqliteConversationStore, UserId, UserIdentityStore,
 };
 
-use tokio::time::sleep;
-
-use super::types::{AgentCatalog, SubmitRunResponse};
+use super::types::{AgentCatalog, GetRunResponse, SubmitRunResponse};
 
 fn conversation_history_for_submission(
     mut history: Vec<Message>,
@@ -95,7 +93,7 @@ fn conversation_error(error: ConversationStoreError) -> HttpResponse {
 async fn list_conversations(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
         Ok(owner) => owner,
@@ -116,7 +114,7 @@ async fn list_conversations(
 async fn list_archived_conversations(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
         Ok(owner) => owner,
@@ -137,7 +135,7 @@ async fn list_archived_conversations(
 async fn archive_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     set_conversation_archived(request, auth, store, conversation_id, true)
@@ -147,7 +145,7 @@ async fn archive_conversation(
 async fn unarchive_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     set_conversation_archived(request, auth, store, conversation_id, false)
@@ -156,7 +154,7 @@ async fn unarchive_conversation(
 fn set_conversation_archived(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
     archived: bool,
 ) -> HttpResponse {
@@ -179,7 +177,7 @@ fn set_conversation_archived(
 async fn create_conversation(
     request_http: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     catalog: Data<AgentCatalog>,
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
@@ -247,7 +245,7 @@ async fn create_conversation(
 async fn get_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
@@ -278,7 +276,7 @@ async fn get_conversation(
 async fn rename_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
     request_body: Json<UpdateConversationRequest>,
 ) -> impl Responder {
@@ -309,7 +307,7 @@ async fn rename_conversation(
 async fn delete_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
@@ -331,7 +329,7 @@ async fn delete_conversation(
 async fn select_conversation_family(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
     conversation_id: Path<String>,
@@ -386,11 +384,60 @@ async fn select_conversation_family(
     }
 }
 
+#[get("/{conversation_id}/runs")]
+async fn list_conversation_runs(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    store: Data<Arc<SqliteConversationStore>>,
+    manager: Data<RunManager>,
+    conversation_id: Path<String>,
+) -> impl Responder {
+    let owner = match authenticated_owner(&request, &auth) {
+        Ok(owner) => owner,
+        Err(response) => return response,
+    };
+    let id = match ConversationId::from_str(conversation_id.as_str()) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
+    };
+    match store.get(id) {
+        Ok(conversation) if conversation.owner == owner => {}
+        Ok(_) => return HttpResponse::NotFound().finish(),
+        Err(error) => return conversation_error(error),
+    }
+
+    let runs = manager
+        .list()
+        .await
+        .into_iter()
+        .filter(|run| {
+            run.conversation_id
+                == Some(uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID"))
+        })
+        .map(|run| GetRunResponse {
+            run_id: run.id.to_string(),
+            agent: run.agent,
+            status: match run.status {
+                RunStatus::Queued => "queued",
+                RunStatus::Running => "running",
+                RunStatus::Completed => "completed",
+                RunStatus::Failed => "failed",
+                RunStatus::Cancelled => "cancelled",
+                RunStatus::TimedOut => "timed_out",
+                RunStatus::MaxIterationsReached => "max_iterations_reached",
+            },
+            response: run.response,
+            error: run.error,
+        })
+        .collect::<Vec<_>>();
+    HttpResponse::Ok().json(runs)
+}
+
 #[post("/{conversation_id}/runs")]
 async fn continue_conversation(
     request_http: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     manager: Data<RunManager>,
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
@@ -496,25 +543,6 @@ async fn continue_conversation(
     {
         Ok(run_id) => {
             auth.register_run(run_id.to_string(), &owner);
-            let manager = manager.get_ref().clone();
-            let store = store.get_ref().clone();
-            tokio::spawn(async move {
-                loop {
-                    match manager.get(run_id).await {
-                        Some(run) if run.status.is_terminal() => {
-                            if let Some(messages) = manager.history(run_id).await {
-                                if let Err(error) = store.save_messages(id, messages) {
-                                    eprintln!("failed to persist conversation {id}: {error}");
-                                }
-                            }
-                            break;
-                        }
-                        Some(_) => sleep(Duration::from_millis(250)).await,
-                        None => break,
-                    }
-                }
-            });
-
             HttpResponse::Accepted().json(SubmitRunResponse {
                 run_id: run_id.to_string(),
                 status: "queued",
@@ -522,6 +550,10 @@ async fn continue_conversation(
         }
         Err(SubmitRunError::QueueFull) => {
             HttpResponse::ServiceUnavailable().body("run queue is full")
+        }
+        Err(SubmitRunError::Storage(error)) => {
+            tracing::error!(%error, "failed to persist submitted run");
+            HttpResponse::InternalServerError().body("could not persist run")
         }
     }
 }
@@ -536,6 +568,7 @@ pub fn conversations_api() -> Scope {
         .service(get_conversation)
         .service(rename_conversation)
         .service(delete_conversation)
+        .service(list_conversation_runs)
         .service(select_conversation_family)
         .service(continue_conversation)
 }
@@ -551,8 +584,8 @@ mod tests {
     };
     use agent_service::FamilyService;
     use agent_storage::{
-        ConversationStore, FamilyRelationship, FileUserIdentityStore,
-        InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore,
+        FamilyRelationship, FileUserIdentityStore, InMemoryFamilyInvitationStore,
+        InMemoryFamilyStore, SqliteConversationStore, UserIdentityStore,
     };
     use serde_json::{Value, json};
     use uuid::Uuid;
@@ -562,7 +595,10 @@ mod tests {
     #[actix_web::test]
     async fn conversation_family_selection_requires_membership_and_can_be_cleared() {
         let directory = env::temp_dir().join(format!("eme-conversation-family-{}", Uuid::new_v4()));
-        let store = Arc::new(ConversationStore::open(directory.join("conversations")).unwrap());
+        std::fs::create_dir_all(&directory).expect("create conversation test directory");
+        let store = Arc::new(
+            SqliteConversationStore::open(directory.join("conversations.sqlite")).unwrap(),
+        );
         let identities =
             Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
         let (user, _) = identities

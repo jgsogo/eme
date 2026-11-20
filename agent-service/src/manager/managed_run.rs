@@ -12,6 +12,7 @@ pub(super) struct ManagedRun {
     pub(super) events: Vec<RunEvent>,
     pub(super) history: Vec<Message>,
     pub(super) context: ToolContext,
+    pub(super) persisted_message_count: Option<u64>,
 }
 
 impl ManagedRun {

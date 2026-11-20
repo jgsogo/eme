@@ -6,8 +6,8 @@ use agent_runtime::ToolContext;
 use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, ConversationStore, FamilyInvitationStore, FamilyRelationship, FamilyStore,
-    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteFamilyStore, UserId,
+    ConversationId, FamilyInvitationStore, FamilyRelationship, FamilyStore, FileUserIdentityStore,
+    InvitationTargetIdentity, InvitationToken, SqliteConversationStore, SqliteFamilyStore, UserId,
     UserIdentityStore,
 };
 use telegram_tool::{IncomingMessage, TelegramGateway};
@@ -22,7 +22,7 @@ pub(super) async fn handle_message(
     default_agent: &str,
     agents: &[String],
     manager: &RunManager,
-    store: &Arc<ConversationStore>,
+    store: &Arc<SqliteConversationStore>,
     identities: &Arc<FileUserIdentityStore>,
     families: &Arc<SqliteFamilyStore>,
     family_service: &Arc<FamilyService>,
@@ -372,6 +372,26 @@ pub(super) async fn handle_message(
                 active_conversations.clone(),
                 id,
             ));
+        }
+        Err(SubmitRunError::Storage(error)) => {
+            active_conversations.lock().await.remove(&conversation.id);
+            tracing::error!(%error, conversation_id = %conversation.id, "failed to persist Telegram run");
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "Could not persist this run; please try again.",
+                )
+                .await;
+        }
+        Err(SubmitRunError::Storage(error)) => {
+            active_conversations.lock().await.remove(&conversation.id);
+            tracing::error!(%error, conversation_id = %conversation.id, "failed to persist Telegram run");
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "Could not persist this run; please try again.",
+                )
+                .await;
         }
         Err(SubmitRunError::QueueFull) => {
             active_conversations.lock().await.remove(&conversation.id);

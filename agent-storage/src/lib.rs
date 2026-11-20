@@ -9,6 +9,8 @@ mod family_invitation_memory;
 mod family_memory;
 mod identity;
 mod memory;
+mod sqlite_conversation;
+mod sqlite_execution;
 mod sqlite_family;
 
 pub use connected_calendar::{
@@ -17,8 +19,8 @@ pub use connected_calendar::{
     SqliteConnectedCalendarStore,
 };
 pub use contracts::{
-    ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
-    StoredRunEvent, StoredRunStatus,
+    ConversationMessageStore, ExecutionStore, RunEventStore, RunStore, StorageError, StoredMessage,
+    StoredRun, StoredRunEvent, StoredRunStatus,
 };
 pub use conversation::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
 pub use external_connection::{
@@ -40,4 +42,6 @@ pub use identity::{
     UserIdentity, UserIdentityStore,
 };
 pub use memory::InMemoryStorage;
+pub use sqlite_conversation::{LegacyImportReport, SqliteConversationStore};
+pub use sqlite_execution::SqliteExecutionStore;
 pub use sqlite_family::SqliteFamilyStore;
