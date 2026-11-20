@@ -116,6 +116,10 @@ impl WatchmodeClient {
             )
             .await?;
         let Some(title) = search.title_results.into_iter().next() else {
+            self.offers_cache
+                .write()
+                .await
+                .insert(cache_key, (Instant::now(), Vec::new()));
             return Ok(Vec::new());
         };
 
