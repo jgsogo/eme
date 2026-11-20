@@ -6,7 +6,7 @@ use chrono::Datelike;
 use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaConfig, MediaItem, MediaItemId, MediaKind,
     MediaProfile, MediaProfileId, MediaRating, MediaStore, MediaStoreError, MediaWatchEvent,
-    ProfilePreferences, RecommendationContext, RecommendationCriteria, StreamingOffer, TmdbClient,
+    ProfilePreferences, RecommendationContext, RecommendationCriteria, RecommendationWeights, StreamingOffer, TmdbClient,
     TmdbError, WatchedPolicy, WatchmodeClient, WatchmodeError,
 };
 
@@ -141,7 +141,12 @@ impl RecommendationService {
                 continue;
             }
 
-            let (score, mut reasons) = score_item(&item, &family_preferences, &participants);
+            let (score, mut reasons) = score_item(
+                &item,
+                &family_preferences,
+                &participants,
+                &self.config.recommendation_weights,
+            );
             for offer in &offers {
                 reasons.push(format!("Available on {}", offer.service_name));
             }
@@ -163,7 +168,11 @@ impl RecommendationService {
 
         let eligible_count = recommendations.len();
         let recommendations =
-            apply_diversity(recommendations, self.config.recommendation_limit);
+            apply_diversity(
+                recommendations,
+                self.config.recommendation_limit,
+                self.config.recommendation_weights.diversity_penalty,
+            );
         let uncertain_profile_count = recommendations
             .iter()
             .map(|recommendation| recommendation.history_unknown_for.len())
@@ -485,8 +494,9 @@ fn score_item(
     item: &MediaItem,
     family: &FamilyMediaPreferences,
     participants: &[ParticipantData],
+    weights: &RecommendationWeights,
 ) -> (f32, Vec<String>) {
-    let mut score = item.vote_average.unwrap_or(5.0) * 100.0;
+    let mut score = item.vote_average.unwrap_or(5.0) * weights.audience_rating_scale as f32;
     let mut reasons = Vec::new();
     let genres = item
         .genres
@@ -496,13 +506,13 @@ fn score_item(
 
     for genre in &family.liked_genres {
         if genres.contains(&normalize(genre)) {
-            score += 100.0;
+            score += weights.family_genre_preference as f32;
             reasons.push(format!("Matches shared family preference: {genre}"));
         }
     }
     for genre in &family.disliked_genres {
         if genres.contains(&normalize(genre)) {
-            score -= 100.0;
+            score -= weights.family_genre_dislike_penalty as f32;
         }
     }
     if item.original_language.as_ref().is_some_and(|language| {
@@ -511,14 +521,14 @@ fn score_item(
             .iter()
             .any(|value| normalize(value) == normalize(language))
     }) {
-        score += 40.0;
+        score += weights.family_language_preference as f32;
         reasons.push("Matches a shared family language preference".into());
     }
 
     for participant in participants {
         for genre in &participant.preferences.liked_genres {
             if genres.contains(&normalize(genre)) {
-                score += 60.0;
+                score += weights.profile_genre_preference as f32;
                 reasons.push(format!(
                     "Matches {}'s preference: {genre}",
                     participant.profile.name
@@ -527,7 +537,7 @@ fn score_item(
         }
         for genre in &participant.preferences.disliked_genres {
             if genres.contains(&normalize(genre)) {
-                score -= 60.0;
+                score -= weights.profile_genre_dislike_penalty as f32;
             }
         }
         if item.original_language.as_ref().is_some_and(|language| {
@@ -537,11 +547,11 @@ fn score_item(
                 .iter()
                 .any(|value| normalize(value) == normalize(language))
         }) {
-            score += 30.0;
+            score += weights.profile_language_preference as f32;
         }
         for genre in &genres {
             if let Some(average) = participant.genre_affinity.get(genre) {
-                score += (average - 2.5) * 30.0;
+                score += (average - 2.5) * weights.rating_affinity_scale as f32;
             }
         }
     }
@@ -549,19 +559,19 @@ fn score_item(
     if item.vote_average.is_some_and(|rating| rating >= 7.5)
         && item.vote_count.is_some_and(|count| count >= 100)
     {
-        score += 40.0;
+        score += weights.audience_quality_bonus as f32;
         reasons.push("Strong TMDB audience rating".into());
     }
     if let Some(popularity) = item.popularity.filter(|popularity| *popularity > 0.0) {
-        score += popularity.log10().max(0.0) * 10.0;
+        score += popularity.log10().max(0.0) * weights.popularity_scale as f32;
     }
     if let Some(release_date) = item.release_date {
         let age = chrono::Utc::now().year() - release_date.year();
-        if (0..=2).contains(&age) {
-            score += 30.0;
+        if (0..=i32::from(weights.recent_release_years)).contains(&age) {
+            score += weights.recent_release_bonus as f32;
             reasons.push("Recent release".into());
-        } else if (0..=5).contains(&age) {
-            score += 15.0;
+        } else if (0..=i32::from(weights.older_release_years)).contains(&age) {
+            score += weights.older_release_bonus as f32;
         }
     }
     (score, reasons)
@@ -570,6 +580,7 @@ fn score_item(
 fn apply_diversity(
     mut recommendations: Vec<MediaRecommendation>,
     limit: usize,
+    diversity_penalty: i32,
 ) -> Vec<MediaRecommendation> {
     recommendations.sort_by(|left, right| {
         right
@@ -590,7 +601,7 @@ fn apply_diversity(
                     .iter()
                     .filter(|genre| used_genres.contains(&normalize(genre)))
                     .count() as i32;
-                (index, recommendation.score - overlap * 25)
+                (index, recommendation.score - overlap * diversity_penalty as f32)
             })
             .max_by(|left, right| {
                 left.1.cmp(&right.1).then_with(|| {
@@ -608,7 +619,7 @@ fn apply_diversity(
             .iter()
             .filter(|genre| used_genres.contains(&normalize(genre)))
             .count() as i32;
-        recommendation.score -= overlap * 25;
+        recommendation.score -= overlap * diversity_penalty as f32;
         used_genres.extend(
             recommendation
                 .item
