@@ -41,7 +41,7 @@ fn imports_legacy_history_and_active_selection_idempotently() {
     let active = HashMap::from([(conversation.owner.clone(), conversation.id)]);
     fs::write(root.join("active-conversations.json"), serde_json::to_vec(&active).unwrap()).unwrap();
 
-    let database = root.join("agent-storage.sqlite");
+    let database = root.join("conversations.sqlite");
     let store = SqliteConversationStore::open(&database).unwrap();
     let first = store.import_legacy(&root).unwrap();
     assert_eq!(first.imported, 1);
