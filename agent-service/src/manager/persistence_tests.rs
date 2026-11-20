@@ -39,7 +39,7 @@ impl RunExecutor for TranscriptExecutor {
 async fn run_and_conversation_transcript_survive_manager_restart() {
     let directory = std::env::temp_dir().join(format!("eme-run-resume-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&directory).unwrap();
-    let database = directory.join("agent-storage.sqlite");
+    let database = directory.join("conversations.sqlite");
     let conversations = Arc::new(SqliteConversationStore::open(&database).unwrap());
     let conversation = conversations.create("owner", "assistant").unwrap();
     let execution = Arc::new(SqliteExecutionStore::open(&database).unwrap());
@@ -150,7 +150,7 @@ impl RunExecutor for LiveEventExecutor {
 async fn runtime_events_are_durable_before_the_run_finishes() {
     let directory = std::env::temp_dir().join(format!("eme-live-events-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&directory).unwrap();
-    let database = directory.join("agent-storage.sqlite");
+    let database = directory.join("conversations.sqlite");
     let conversations = Arc::new(SqliteConversationStore::open(&database).unwrap());
     let conversation = conversations.create("owner", "assistant").unwrap();
     let execution = Arc::new(SqliteExecutionStore::open(&database).unwrap());
