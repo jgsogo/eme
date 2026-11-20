@@ -926,6 +926,66 @@ mod tests {
         assert!(passes_restrictions(&item, &restrictions));
     }
 
+
+    #[test]
+    fn one_selected_participants_dislike_is_not_cancelled_by_another_profiles_like() {
+        let family_id = agent_storage::FamilyId::new();
+        let mut family = FamilyMediaPreferences::new(family_id);
+        family.liked_genres.push("Comedy".into());
+
+        let liked_id = MediaProfileId::new();
+        let mut liked_preferences = ProfilePreferences::new(liked_id);
+        liked_preferences.liked_genres.push("Comedy".into());
+        let liked = ParticipantData {
+            profile: MediaProfile {
+                id: liked_id,
+                family_id,
+                name: "Likes comedy".into(),
+                user_id: None,
+                active: true,
+            },
+            preferences: liked_preferences,
+            restrictions: ContentRestrictions::new(liked_id),
+            watched_items: HashSet::new(),
+            history_complete: true,
+            genre_affinity: HashMap::new(),
+        };
+
+        let disliked_id = MediaProfileId::new();
+        let mut disliked_preferences = ProfilePreferences::new(disliked_id);
+        disliked_preferences.disliked_genres.push("Comedy".into());
+        let disliked = ParticipantData {
+            profile: MediaProfile {
+                id: disliked_id,
+                family_id,
+                name: "Dislikes comedy".into(),
+                user_id: None,
+                active: true,
+            },
+            preferences: disliked_preferences,
+            restrictions: ContentRestrictions::new(disliked_id),
+            watched_items: HashSet::new(),
+            history_complete: true,
+            genre_affinity: HashMap::new(),
+        };
+
+        let weights = RecommendationWeights::default();
+        let (likes_only, _) = score_item(&item(), &family, &[liked], &weights);
+        let (conflicting, reasons) = score_item(&item(), &family, &[disliked.clone(), liked], &weights);
+
+        assert!(conflicting < likes_only);
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| reason.contains("shared family"))
+        );
+        assert!(
+            !reasons
+                .iter()
+                .any(|reason| reason.contains("Likes comedy"))
+        );
+    }
+
     #[test]
     fn unknown_certification_is_not_silently_treated_as_safe() {
         let mut item = item();
