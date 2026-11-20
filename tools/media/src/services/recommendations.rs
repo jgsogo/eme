@@ -601,7 +601,7 @@ fn apply_diversity(
                     .iter()
                     .filter(|genre| used_genres.contains(&normalize(genre)))
                     .count() as i32;
-                (index, recommendation.score - overlap * diversity_penalty as f32)
+                (index, recommendation.score - overlap as f32 * diversity_penalty as f32)
             })
             .max_by(|left, right| {
                 left.1.cmp(&right.1).then_with(|| {
