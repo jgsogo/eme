@@ -12,4 +12,6 @@ pub enum MediaConfigError {
     ZeroRecommendationLimit,
     #[error("availability cache TTL must be greater than zero")]
     ZeroAvailabilityCacheTtl,
+    #[error("recommendation weights must be non-negative and the older release window must not be shorter than the recent window")]
+    InvalidRecommendationWeights,
 }
