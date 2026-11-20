@@ -1088,6 +1088,61 @@ mod tests {
         assert!(passes_restrictions(&item, &restrictions));
     }
 
+
+    #[test]
+    fn theme_criteria_and_restrictions_match_title_and_overview() {
+        let mut candidate = item();
+        candidate.overview = Some("A story about space exploration".into());
+        let criteria = RecommendationCriteria {
+            themes: vec!["space".into()],
+            ..RecommendationCriteria::default()
+        };
+        assert!(matches_criteria(&candidate, &criteria));
+
+        let mut restrictions = ContentRestrictions::new(MediaProfileId::new());
+        restrictions.disallowed_themes.push("space".into());
+        assert!(!passes_restrictions(&candidate, &restrictions));
+    }
+
+    #[test]
+    fn shared_and_profile_theme_preferences_contribute_to_score() {
+        let family_id = agent_storage::FamilyId::new();
+        let mut family = FamilyMediaPreferences::new(family_id);
+        family.liked_themes.push("space".into());
+        let profile_id = MediaProfileId::new();
+        let mut preferences = ProfilePreferences::new(profile_id);
+        preferences.liked_themes.push("space".into());
+        let participant = ParticipantData {
+            profile: MediaProfile {
+                id: profile_id,
+                family_id,
+                name: "Selected".into(),
+                user_id: None,
+                active: true,
+            },
+            preferences,
+            restrictions: ContentRestrictions::new(profile_id),
+            watched_items: HashSet::new(),
+            history_complete: true,
+            genre_affinity: HashMap::new(),
+        };
+        let mut candidate = item();
+        candidate.overview = Some("A story about space exploration".into());
+        let (score, reasons) = score_item(
+            &candidate,
+            &family,
+            &[participant],
+            &RecommendationWeights::default(),
+        );
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| reason.contains("shared family theme"))
+        );
+        assert!(reasons.iter().any(|reason| reason.contains("theme preference")));
+        assert!(score > 900.0);
+    }
+
     #[test]
     fn watched_policies_have_distinct_semantics() {
         assert!(should_exclude_watched(WatchedPolicy::AnyParticipant, 3, 1));
