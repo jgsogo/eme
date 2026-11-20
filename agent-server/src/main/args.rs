@@ -20,6 +20,10 @@ pub(super) struct Args {
     #[arg(long, default_value_t = 8080)]
     pub(super) port: u16,
 
+    /// Optional override for the conversation and run-history SQLite database path.
+    #[arg(long)]
+    pub(super) conversation_database: Option<PathBuf>,
+
     /// Optional override for the Meal Planner SQLite database path.
     #[arg(long)]
     pub(super) meal_planner_database: Option<PathBuf>,
