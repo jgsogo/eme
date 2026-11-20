@@ -9,8 +9,11 @@
 //! require an EME user account.
 mod config;
 mod models;
+mod store;
 
 pub use config::{MediaConfig, MediaConfigError, StreamingService};
+pub use store::{MediaStore, MediaStoreError};
+
 pub use models::{
     ContentRestrictions, ExternalId, FamilyMediaPreferences, HistoryCompleteness, MediaItem,
     MediaItemId, MediaKind, MediaProfile, MediaProfileId, MediaRating, MediaWatchEvent, OfferType,
