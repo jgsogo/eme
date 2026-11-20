@@ -21,8 +21,8 @@ use actix_web::{
 use agent_runtime::{Message, ToolContext};
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    Conversation, ConversationId, SqliteConversationStore, ConversationStoreError, FamilyId,
-    FileUserIdentityStore, UserId, UserIdentityStore,
+    Conversation, ConversationId, ConversationStoreError, FamilyId, FileUserIdentityStore,
+    SqliteConversationStore, UserId, UserIdentityStore,
 };
 
 use tokio::time::sleep;
@@ -551,8 +551,8 @@ mod tests {
     };
     use agent_service::FamilyService;
     use agent_storage::{
-        SqliteConversationStore, FamilyRelationship, FileUserIdentityStore,
-        InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore,
+        FamilyRelationship, FileUserIdentityStore, InMemoryFamilyInvitationStore,
+        InMemoryFamilyStore, SqliteConversationStore, UserIdentityStore,
     };
     use serde_json::{Value, json};
     use uuid::Uuid;
@@ -562,7 +562,9 @@ mod tests {
     #[actix_web::test]
     async fn conversation_family_selection_requires_membership_and_can_be_cleared() {
         let directory = env::temp_dir().join(format!("eme-conversation-family-{}", Uuid::new_v4()));
-        let store = Arc::new(SqliteConversationStore::open(directory.join("conversations.sqlite")).unwrap());
+        let store = Arc::new(
+            SqliteConversationStore::open(directory.join("conversations.sqlite")).unwrap(),
+        );
         let identities =
             Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
         let (user, _) = identities
