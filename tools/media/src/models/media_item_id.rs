@@ -11,6 +11,16 @@ impl MediaItemId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
+
+    /// Build a stable EME identifier from a provider namespace and provider ID.
+    pub fn from_external_id(provider: &str, value: &str) -> Self {
+        let name = format!(
+            "eme:media:{}:{}",
+            provider.trim().to_lowercase(),
+            value.trim()
+        );
+        Self(Uuid::new_v5(&Uuid::NAMESPACE_URL, name.as_bytes()))
+    }
 }
 
 impl Default for MediaItemId {
