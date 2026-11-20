@@ -114,7 +114,7 @@ async fn list_conversations(
 async fn list_archived_conversations(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
         Ok(owner) => owner,
@@ -135,7 +135,7 @@ async fn list_archived_conversations(
 async fn archive_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     set_conversation_archived(request, auth, store, conversation_id, true)
@@ -145,7 +145,7 @@ async fn archive_conversation(
 async fn unarchive_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     set_conversation_archived(request, auth, store, conversation_id, false)
@@ -154,7 +154,7 @@ async fn unarchive_conversation(
 fn set_conversation_archived(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
-    store: Data<Arc<ConversationStore>>,
+    store: Data<Arc<SqliteConversationStore>>,
     conversation_id: Path<String>,
     archived: bool,
 ) -> HttpResponse {
