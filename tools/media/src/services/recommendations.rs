@@ -31,8 +31,6 @@ pub enum RecommendationError {
     NoParticipants,
     #[error("profile {0} is not an active member of the requested family")]
     InvalidParticipant(MediaProfileId),
-    #[error("subscription filtering is enabled but Watchmode is not configured")]
-    MissingAvailabilityProvider,
     #[error("catalogue request failed: {0}")]
     Catalogue(#[from] TmdbError),
     #[error("availability request failed: {0}")]
@@ -61,9 +59,6 @@ impl RecommendationService {
         config
             .validate()
             .map_err(|error| RecommendationError::Configuration(error.to_string()))?;
-        if config.require_subscription && watchmode.is_none() {
-            return Err(RecommendationError::MissingAvailabilityProvider);
-        }
         Ok(Self {
             media,
             tmdb,
@@ -312,9 +307,6 @@ impl RecommendationService {
         &self,
         item: &MediaItem,
     ) -> Result<Vec<StreamingOffer>, RecommendationError> {
-        let Some(watchmode) = &self.watchmode else {
-            return Ok(Vec::new());
-        };
         let Some(tmdb_id) = item
             .external_ids
             .iter()
@@ -323,13 +315,45 @@ impl RecommendationService {
         else {
             return Ok(Vec::new());
         };
-        let offers = watchmode
-            .offers_for_tmdb_id(tmdb_id, item.kind, &self.config.country)
+
+        let watchmode_offers = if let Some(watchmode) = &self.watchmode {
+            match watchmode
+                .offers_for_tmdb_id(tmdb_id, item.kind, &self.config.country)
+                .await
+            {
+                Ok(offers) => offers,
+                Err(error) => {
+                    tracing::warn!(provider = "watchmode", error = %error, "falling back to TMDB watch providers");
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
+        let usable_watchmode = if self.config.require_subscription {
+            crate::filter_subscription_offers(
+                watchmode_offers,
+                &self.config.subscriptions,
+            )
+        } else {
+            watchmode_offers
+        };
+        if !usable_watchmode.is_empty() {
+            return Ok(usable_watchmode);
+        }
+
+        let tmdb_offers = self
+            .tmdb
+            .watch_providers(tmdb_id, item.kind, &self.config.country)
             .await?;
-        Ok(crate::filter_subscription_offers(
-            offers,
-            &self.config.subscriptions,
-        ))
+        if self.config.require_subscription {
+            Ok(crate::filter_subscription_offers(
+                tmdb_offers,
+                &self.config.subscriptions,
+            ))
+        } else {
+            Ok(tmdb_offers)
+        }
     }
 }
 
