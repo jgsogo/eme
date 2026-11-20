@@ -278,6 +278,7 @@ impl TraktSyncService {
             "media provider request completed"
         );
         if status == StatusCode::TOO_MANY_REQUESTS {
+            tracing::warn!(provider = "trakt", "media provider rate limit reached");
             let retry_after_seconds = response
                 .headers()
                 .get(reqwest::header::RETRY_AFTER)
