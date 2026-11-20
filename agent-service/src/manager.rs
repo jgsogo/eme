@@ -11,6 +11,8 @@ mod run_manager_config_error;
 mod submit_run_error;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod persistence_tests;
 
 pub use cancel_run_error::CancelRunError;
 pub use cancel_run_outcome::CancelRunOutcome;
