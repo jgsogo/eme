@@ -29,6 +29,23 @@ recommendation_limit = 5
 require_subscription = true
 availability_cache_ttl_seconds = 21600
 watched_policy = "any_participant"
+
+[recommendation_weights]
+audience_rating_scale = 100
+family_genre_preference = 100
+family_genre_dislike_penalty = 100
+family_language_preference = 40
+profile_genre_preference = 60
+profile_genre_dislike_penalty = 60
+profile_language_preference = 30
+rating_affinity_scale = 30
+audience_quality_bonus = 40
+popularity_scale = 10
+recent_release_bonus = 30
+older_release_bonus = 15
+recent_release_years = 2
+older_release_years = 5
+diversity_penalty = 25
 ```
 
 Provider credentials are environment variables, never TOML values:
@@ -69,7 +86,7 @@ Ordinary dislikes are ranking penalties, not hard exclusions. Unknown history is
 
 ### Watched-title policy
 
-The global default is `any_participant`; a recommendation request may override it.
+The global default is `any_participant`; a recommendation request may override it. Family preference weights and selected-profile weights are independently configurable under `[recommendation_weights]`. The listed values are starting defaults, not fixed product policy; set any weight to zero to disable that signal.
 
 - `any_participant`: exclude a title if any selected participant is known to have watched it.
 - `all_participants`: exclude only if every selected participant is known to have watched it.
