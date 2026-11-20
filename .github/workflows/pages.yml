@@ -1,12 +1,9 @@
 name: Deploy GitHub Pages
 
 on:
-  push:
+  pull_request:
     branches: [main]
-    paths:
-      - "website/**"
-      - ".github/workflows/pages.yml"
-  workflow_dispatch:
+    types: [closed]
 
 permissions:
   contents: read
@@ -19,13 +16,30 @@ concurrency:
 
 jobs:
   deploy:
+    # Deploy only after a PR has actually been merged into main.
+    if: github.event.pull_request.merged == true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Check out main
         uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build workspace Rust documentation
+        run: cargo doc --workspace --no-deps
+
+      - name: Assemble GitHub Pages site
+        run: |
+          mkdir -p _site/docs/rust
+          cp -R website/. _site/
+          cp -R target/doc/. _site/docs/rust/
+          touch _site/.nojekyll
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
@@ -33,7 +47,7 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: website
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
