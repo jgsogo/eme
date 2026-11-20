@@ -170,12 +170,11 @@ impl RecommendationService {
         }
 
         let eligible_count = recommendations.len();
-        let recommendations =
-            apply_diversity(
-                recommendations,
-                self.config.recommendation_limit,
-                self.config.recommendation_weights.diversity_penalty,
-            );
+        let recommendations = apply_diversity(
+            recommendations,
+            self.config.recommendation_limit,
+            self.config.recommendation_weights.diversity_penalty,
+        );
         let uncertain_profile_count = recommendations
             .iter()
             .map(|recommendation| recommendation.history_unknown_for.len())
@@ -346,10 +345,7 @@ impl RecommendationService {
             Vec::new()
         };
         let usable_watchmode = if self.config.require_subscription {
-            crate::filter_subscription_offers(
-                watchmode_offers,
-                &self.config.subscriptions,
-            )
+            crate::filter_subscription_offers(watchmode_offers, &self.config.subscriptions)
         } else {
             watchmode_offers
         };
@@ -710,8 +706,7 @@ mod tests {
             .mount(&watchmode_server)
             .await;
 
-        let tmdb =
-            TmdbClient::with_base_url("tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
+        let tmdb = TmdbClient::with_base_url("tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
         let watchmode = WatchmodeClient::with_options(
             "watchmode-key",
             watchmode_server.uri(),
@@ -830,7 +825,9 @@ mod tests {
             .unwrap();
 
         let mut non_selected_preferences = ProfilePreferences::new(non_selected.id);
-        non_selected_preferences.disliked_genres.push("Comedy".into());
+        non_selected_preferences
+            .disliked_genres
+            .push("Comedy".into());
         media
             .save_profile_preferences(&non_selected_preferences)
             .await
@@ -862,26 +859,17 @@ mod tests {
         media.save_media_item(&minimal_item).await.unwrap();
         media.record_watch_event(&non_selected_watch).await.unwrap();
 
-        let tmdb = TmdbClient::with_base_url(
-            "test-tmdb-key",
-            "es-ES",
-            "ES",
-            tmdb_server.uri(),
-        )
-        .unwrap();
+        let tmdb =
+            TmdbClient::with_base_url("test-tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
         let watchmode = WatchmodeClient::with_options(
             "test-watchmode-key",
             watchmode_server.uri(),
             Duration::from_secs(60),
         )
         .unwrap();
-        let service = RecommendationService::new(
-            media,
-            tmdb,
-            Some(watchmode),
-            MediaConfig::default(),
-        )
-        .unwrap();
+        let service =
+            RecommendationService::new(media, tmdb, Some(watchmode), MediaConfig::default())
+                .unwrap();
 
         let recommendations = service
             .recommend(&RecommendationContext {
@@ -906,14 +894,18 @@ mod tests {
         assert_eq!(recommendation.offers.len(), 1);
         assert_eq!(recommendation.offers[0].service_name, "Netflix");
         assert!(recommendation.score >= 950);
-        assert!(recommendation
-            .reasons
-            .iter()
-            .any(|reason| reason.contains("shared family")));
-        assert!(!recommendation
-            .reasons
-            .iter()
-            .any(|reason| reason.contains("Not watching")));
+        assert!(
+            recommendation
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("shared family"))
+        );
+        assert!(
+            !recommendation
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("Not watching"))
+        );
     }
 
     #[test]
@@ -983,11 +975,7 @@ mod tests {
                 .iter()
                 .any(|reason| reason.contains("shared family"))
         );
-        assert!(
-            !reasons
-                .iter()
-                .any(|reason| reason.contains("Likes comedy"))
-        );
+        assert!(!reasons.iter().any(|reason| reason.contains("Likes comedy")));
     }
 
     #[test]
