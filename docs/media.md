@@ -9,7 +9,8 @@ It is implemented in the single Rust crate `tools/media` (`media-tools`). Provid
 | Provider | Responsibility |
 |---|---|
 | [TMDB](https://developer.themoviedb.org/docs) | Movie/TV search, popular discovery, normalized metadata, genres, runtime, audience ratings and regional certification |
-| [Watchmode](https://api.watchmode.com/docs/) | Resolve TMDB IDs to Watchmode titles and retrieve regional streaming offers |
+| [Watchmode](https://api.watchmode.com/docs/) | Primary availability source: resolve TMDB IDs to Watchmode titles and retrieve regional streaming offers |
+| TMDB watch providers | Fallback availability source when Watchmode has no usable offers |
 | [Trakt](https://trakt.docs.apiary.io/) | Optional OAuth account linking and import of watched movies/shows, ratings and watchlists |
 
 EME does not log in to Netflix, Prime Video, Disney+ or Max. Household subscriptions are configuration used to filter Watchmode offers; they are not streaming-service credentials.
@@ -100,6 +101,8 @@ The configured assistant registers:
 - `media_rate`
 - `media_preferences`
 - `media_sync_history`
+
+The availability tool returns all supported offer types (subscription, rent, buy, free and ad-supported). Recommendations require a configured subscription by default and therefore retain only matching subscription offers. If Watchmode has no usable offer, EME falls back to TMDB's regional watch-provider response.
 
 Recommendation output includes normalized catalogue metadata, score, reasons, matching subscription offers, known watched participants and profiles with incomplete history.
 
