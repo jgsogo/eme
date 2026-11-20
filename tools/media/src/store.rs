@@ -401,7 +401,7 @@ impl MediaStore {
             .query_row(
                 "SELECT payload,expires_at FROM pending_media_connections
                  WHERE state_hash=?1 AND provider='trakt'",
-                [state_hash.as_str()],
+                [state_hash],
                 |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
             )
             .optional()
@@ -800,6 +800,10 @@ mod tests {
             original_language: Some("en".into()),
             genres: vec!["Drama".into()],
             runtime_minutes: Some(100),
+            certification: None,
+            popularity: None,
+            vote_average: None,
+            vote_count: None,
             external_ids: vec![ExternalId {
                 provider: "tmdb".into(),
                 value: "42".into(),

@@ -14,7 +14,7 @@ use crate::{ExternalId, MediaItem, MediaItemId, MediaKind};
 const DEFAULT_BASE_URL: &str = "https://api.themoviedb.org/3";
 
 /// TMDB catalogue page normalized into EME media items.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TmdbPage {
     pub items: Vec<MediaItem>,
     pub page: u32,
@@ -89,14 +89,55 @@ impl TmdbClient {
 
     /// Fetch normalized movie details.
     pub async fn movie_details(&self, tmdb_id: u64) -> Result<MediaItem, TmdbError> {
-        let dto: TmdbDetails = self.request_json(&format!("/movie/{tmdb_id}"), &[]).await?;
+        let dto: TmdbDetails = self
+            .request_json(
+                &format!("/movie/{tmdb_id}"),
+                &[("append_to_response", "release_dates".into())],
+            )
+            .await?;
         self.map_details(MediaKind::Movie, dto)
     }
 
     /// Fetch normalized TV-show details.
     pub async fn tv_details(&self, tmdb_id: u64) -> Result<MediaItem, TmdbError> {
-        let dto: TmdbDetails = self.request_json(&format!("/tv/{tmdb_id}"), &[]).await?;
+        let dto: TmdbDetails = self
+            .request_json(
+                &format!("/tv/{tmdb_id}"),
+                &[("append_to_response", "content_ratings".into())],
+            )
+            .await?;
         self.map_details(MediaKind::TvShow, dto)
+    }
+
+    /// Fetch popular movies, used as a default discovery candidate pool.
+    pub async fn popular_movies(&self, page: u32) -> Result<TmdbPage, TmdbError> {
+        self.popular(MediaKind::Movie, page).await
+    }
+
+    /// Fetch popular TV shows, used as a default discovery candidate pool.
+    pub async fn popular_tv(&self, page: u32) -> Result<TmdbPage, TmdbError> {
+        self.popular(MediaKind::TvShow, page).await
+    }
+
+    async fn popular(&self, kind: MediaKind, page: u32) -> Result<TmdbPage, TmdbError> {
+        let path = match kind {
+            MediaKind::Movie => "/movie/popular",
+            MediaKind::TvShow => "/tv/popular",
+        };
+        let dto: TmdbListPage = self
+            .request_json(path, &[("page", page.max(1).to_string())])
+            .await?;
+        let genres = self.genre_map(kind).await?;
+        Ok(TmdbPage {
+            items: dto
+                .results
+                .into_iter()
+                .map(|item| item.into_media_item(kind, &genres))
+                .collect(),
+            page: dto.page,
+            total_pages: dto.total_pages,
+            total_results: dto.total_results,
+        })
     }
 
     /// Fetch TMDB's recommendations for a movie or TV show.
@@ -183,6 +224,27 @@ impl TmdbClient {
         let runtime_minutes = dto
             .runtime
             .or_else(|| dto.episode_run_time.first().copied());
+        let certification = match kind {
+            MediaKind::Movie => dto.release_dates.as_ref().and_then(|dates| {
+                dates
+                    .results
+                    .iter()
+                    .find(|country| country.iso_3166_1 == self.region)
+                    .and_then(|country| {
+                        country
+                            .release_dates
+                            .iter()
+                            .find_map(|release| non_empty(Some(release.certification.clone())))
+                    })
+            }),
+            MediaKind::TvShow => dto.content_ratings.as_ref().and_then(|ratings| {
+                ratings
+                    .results
+                    .iter()
+                    .find(|rating| rating.iso_3166_1 == self.region)
+                    .and_then(|rating| non_empty(Some(rating.rating.clone())))
+            }),
+        };
         Ok(MediaItem {
             id: MediaItemId::from_external_id("tmdb", &dto.id.to_string()),
             kind,
@@ -193,6 +255,10 @@ impl TmdbClient {
             original_language: non_empty(dto.original_language),
             genres,
             runtime_minutes,
+            certification,
+            popularity: dto.popularity,
+            vote_average: dto.vote_average,
+            vote_count: dto.vote_count,
             external_ids: vec![ExternalId {
                 provider: "tmdb".into(),
                 value: dto.id.to_string(),
@@ -272,6 +338,9 @@ struct TmdbListItem {
     original_language: Option<String>,
     #[serde(default)]
     genre_ids: Vec<i32>,
+    popularity: Option<f32>,
+    vote_average: Option<f32>,
+    vote_count: Option<u32>,
 }
 
 impl TmdbListItem {
@@ -293,6 +362,10 @@ impl TmdbListItem {
                 .filter_map(|id| genres.get(&id).cloned())
                 .collect(),
             runtime_minutes: None,
+            certification: None,
+            popularity: self.popularity,
+            vote_average: self.vote_average,
+            vote_count: self.vote_count,
             external_ids: vec![ExternalId {
                 provider: "tmdb".into(),
                 value: self.id.to_string(),
@@ -317,6 +390,43 @@ struct TmdbDetails {
     episode_run_time: Vec<u16>,
     #[serde(default)]
     genres: Vec<TmdbGenre>,
+    popularity: Option<f32>,
+    vote_average: Option<f32>,
+    vote_count: Option<u32>,
+    release_dates: Option<TmdbReleaseDates>,
+    content_ratings: Option<TmdbContentRatings>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbReleaseDates {
+    #[serde(default)]
+    results: Vec<TmdbReleaseCountry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbReleaseCountry {
+    iso_3166_1: String,
+    #[serde(default)]
+    release_dates: Vec<TmdbReleaseDate>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbReleaseDate {
+    #[serde(default)]
+    certification: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbContentRatings {
+    #[serde(default)]
+    results: Vec<TmdbContentRating>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbContentRating {
+    iso_3166_1: String,
+    #[serde(default)]
+    rating: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -394,7 +504,8 @@ mod tests {
                 "first_air_date": "2020-05-06",
                 "original_language": "es",
                 "episode_run_time": [44, 46],
-                "genres": [{"id": 18, "name": "Drama"}]
+                "genres": [{"id": 18, "name": "Drama"}],
+                "content_ratings": {"results": [{"iso_3166_1": "ES", "rating": "12"}]}
             })))
             .mount(&server)
             .await;
@@ -404,6 +515,67 @@ mod tests {
         assert_eq!(item.title, "Example Series");
         assert_eq!(item.runtime_minutes, Some(44));
         assert_eq!(item.genres, vec!["Drama"]);
+        assert_eq!(item.certification.as_deref(), Some("12"));
+    }
+
+    #[tokio::test]
+    async fn popular_movies_include_quality_signals_and_normalized_genres() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/genre/movie/list"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "genres": [{"id": 35, "name": "Comedy"}]
+            })))
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/movie/popular"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "page": 1,
+                "total_pages": 1,
+                "total_results": 1,
+                "results": [{
+                    "id": 42,
+                    "title": "Popular",
+                    "genre_ids": [35],
+                    "popularity": 80.0,
+                    "vote_average": 8.1,
+                    "vote_count": 900
+                }]
+            })))
+            .mount(&server)
+            .await;
+
+        let client = TmdbClient::with_base_url("test-key", "es-ES", "ES", server.uri()).unwrap();
+        let page = client.popular_movies(1).await.unwrap();
+        assert_eq!(page.items[0].genres, vec!["Comedy"]);
+        assert_eq!(page.items[0].vote_average, Some(8.1));
+        assert_eq!(page.items[0].vote_count, Some(900));
+    }
+
+    #[tokio::test]
+    async fn movie_details_extract_spanish_certification() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": 42,
+                "title": "Movie",
+                "release_date": "2024-01-02",
+                "genres": [{"id": 35, "name": "Comedy"}],
+                "release_dates": {
+                    "results": [{
+                        "iso_3166_1": "ES",
+                        "release_dates": [{"certification": "16"}]
+                    }]
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = TmdbClient::with_base_url("test-key", "es-ES", "ES", server.uri()).unwrap();
+        let item = client.movie_details(42).await.unwrap();
+        assert_eq!(item.certification.as_deref(), Some("16"));
     }
 
     #[tokio::test]

@@ -10,5 +10,6 @@ pub struct RecommendationContext {
     pub family_id: FamilyId,
     pub participants: Vec<MediaProfileId>,
     pub criteria: RecommendationCriteria,
-    pub watched_policy: WatchedPolicy,
+    /// Per-request override; `None` uses the global media configuration.
+    pub watched_policy: Option<WatchedPolicy>,
 }
