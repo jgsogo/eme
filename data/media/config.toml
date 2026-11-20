@@ -9,3 +9,20 @@ recommendation_limit = 5
 availability_cache_ttl_seconds = 21600
 require_subscription = true
 watched_policy = "any_participant"
+
+[recommendation_weights]
+audience_rating_scale = 100
+family_genre_preference = 100
+family_genre_dislike_penalty = 100
+family_language_preference = 40
+profile_genre_preference = 60
+profile_genre_dislike_penalty = 60
+profile_language_preference = 30
+rating_affinity_scale = 30
+audience_quality_bonus = 40
+popularity_scale = 10
+recent_release_bonus = 30
+older_release_bonus = 15
+recent_release_years = 2
+older_release_years = 5
+diversity_penalty = 25
