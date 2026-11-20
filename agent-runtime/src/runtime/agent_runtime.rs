@@ -266,7 +266,9 @@ impl AgentRuntime {
             }),
             ..self.clone()
         };
-        runtime.run(run_id, agent, context, messages, input, cancellation).await
+        runtime
+            .run(run_id, agent, context, messages, input, cancellation)
+            .await
     }
 
     /// Runs an agent with trusted platform context and optional conversation history.
