@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Shared household taste that contributes to every family recommendation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct FamilyMediaPreferences {
     pub family_id: FamilyId,
     pub liked_genres: Vec<String>,
@@ -23,5 +24,11 @@ impl FamilyMediaPreferences {
             liked_themes: Vec::new(),
             disliked_themes: Vec::new(),
         }
+    }
+}
+
+impl Default for FamilyMediaPreferences {
+    fn default() -> Self {
+        Self::new(FamilyId::new())
     }
 }

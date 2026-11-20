@@ -13,7 +13,7 @@ use crate::{
 const DEFAULT_API_BASE_URL: &str = "https://api.trakt.tv";
 
 /// Summary of data imported by one profile sync.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TraktSyncSummary {
     pub watched_movies: usize,
     pub watched_shows: usize,

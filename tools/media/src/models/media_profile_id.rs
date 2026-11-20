@@ -1,5 +1,6 @@
 //! Stable identity for a family-managed media profile.
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use uuid::Uuid;
 
 /// Identifier for a media profile, independent of EME user identity.
@@ -22,5 +23,13 @@ impl Default for MediaProfileId {
 impl std::fmt::Display for MediaProfileId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl FromStr for MediaProfileId {
+    type Err = uuid::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Uuid::parse_str(value).map(Self)
     }
 }

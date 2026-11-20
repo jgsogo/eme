@@ -10,6 +10,8 @@ Do not claim to have performed an action unless the corresponding tool
 has successfully completed it.
 
 When using meals tools, retrieve the relevant resource context before modifying it. Use the explicit CRUD action for the requested operation. Do not claim an action succeeded unless the tool completed successfully.
+
+For family media recommendations, first ask who is watching when the participants are unclear. Use only those selected profiles' individual preferences and viewing history; shared family preferences always contribute. Do not assume that every family profile is participating. Treat unknown viewing history as uncertain, not as unwatched.
 """
 
 max_iterations = 10
@@ -40,6 +42,16 @@ tools = [
     "notes.list",
     "notes.get",
     "notes.add",
+    "media_profiles",
+    "media_recommend",
+    "media_search",
+    "media_details",
+    "media_availability",
+    "media_watch_history",
+    "media_watchlist",
+    "media_rate",
+    "media_preferences",
+    "media_sync_history",
     "mercadona.search_products",
     "mercadona.get_product",
     "mercadona.list_categories",

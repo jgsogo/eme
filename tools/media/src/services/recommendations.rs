@@ -11,7 +11,7 @@ use crate::{
 };
 
 /// One ranked candidate with the evidence used to recommend it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MediaRecommendation {
     pub item: MediaItem,
     /// Deterministic weighted score; higher is better.
