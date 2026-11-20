@@ -274,9 +274,9 @@ dependencies = [
  "tavily-tool",
  "telegram-tool",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
- "toml",
  "uuid",
 ]
 
@@ -2081,8 +2081,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.21",
- "tracing",
  "tokio",
+ "tracing",
  "url",
  "uuid",
  "wiremock",
