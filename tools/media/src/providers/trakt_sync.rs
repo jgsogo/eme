@@ -182,7 +182,12 @@ impl TraktSyncService {
             for row in shows {
                 let item = row.show.into_media_item(MediaKind::TvShow)?;
                 self.media.save_media_item(&item).await?;
-                ratings.push(normalize_rating(profile_id, item.id, row.rating, row.rated_at)?);
+                ratings.push(normalize_rating(
+                    profile_id,
+                    item.id,
+                    row.rating,
+                    row.rated_at,
+                )?);
             }
             summary.ratings = ratings.len();
             self.media
