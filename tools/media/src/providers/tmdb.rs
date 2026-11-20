@@ -659,6 +659,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn watch_provider_fallback_preserves_offer_type_and_provider_link() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42/watch/providers"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "results": {
+                    "ES": {
+                        "link": "https://www.themoviedb.org/movie/42/watch",
+                        "flatrate": [{"provider_id": 8, "provider_name": "Netflix"}],
+                        "rent": [{"provider_id": 10, "provider_name": "Amazon Video"}],
+                        "buy": [],
+                        "free": [],
+                        "ads": [{"provider_id": 99, "provider_name": "Freevee"}]
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = TmdbClient::with_base_url("test-key", "es-ES", "ES", server.uri()).unwrap();
+        let offers = client
+            .watch_providers(42, MediaKind::Movie, "es")
+            .await
+            .unwrap();
+        assert_eq!(offers.len(), 3);
+        assert_eq!(offers[0].offer_type, OfferType::Subscription);
+        assert_eq!(offers[1].offer_type, OfferType::Rent);
+        assert_eq!(offers[2].offer_type, OfferType::AdSupported);
+        assert!(offers
+            .iter()
+            .all(|offer| offer.url.as_deref() == Some("https://www.themoviedb.org/movie/42/watch")));
+    }
+
+    #[tokio::test]
     async fn rejects_empty_search_query() {
         let client =
             TmdbClient::with_base_url("test-key", "es-ES", "ES", "http://localhost").unwrap();
