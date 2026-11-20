@@ -18,9 +18,7 @@ pub use providers::{
     TraktOAuthService, TraktTokenManager, WatchmodeClient, WatchmodeError, WatchmodeSource,
     filter_subscription_offers,
 };
-pub use store::{
-    MediaExternalConnectionLink, MediaStore, MediaStoreError, PendingTraktLink,
-};
+pub use store::{MediaExternalConnectionLink, MediaStore, MediaStoreError, PendingTraktLink};
 
 pub use models::{
     ContentRestrictions, ExternalId, FamilyMediaPreferences, HistoryCompleteness, MediaItem,
