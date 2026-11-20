@@ -142,7 +142,7 @@ async fn main() -> Result<()> {
     );
     let conversation_database = args.conversation_database
         .clone()
-        .unwrap_or_else(|| args.data_dir.join("agent-storage.sqlite"));
+        .unwrap_or_else(|| args.data_dir.join("conversations.sqlite"));
     let conversation_store = Arc::new(
         SqliteConversationStore::open(&conversation_database)
             .context("opening SQLite conversation storage")?,
