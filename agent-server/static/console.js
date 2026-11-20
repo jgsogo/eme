@@ -547,6 +547,9 @@ window.emeConsoleReady.then(async () => {
   try {
     await showConsole();
   } catch (error) {
+    // A protected API may have returned 401 while the view was initializing.
+    // In that case the shared auth gate owns the screen; do not reveal the view.
+    if (!$("login-screen").hidden) return;
     document.body.classList.remove("login-active");
     $("invite-screen").hidden = true;
     $("logout").hidden = false;
