@@ -343,7 +343,6 @@ impl SqliteConversationStore {
         self.get(id)
     }
 
-
     /// Import the legacy file store without changing or deleting its files.
     ///
     /// Existing SQLite rows always win, making repeated or interrupted imports
@@ -418,12 +417,12 @@ impl SqliteConversationStore {
                             .map_err(sqlite_error)?;
                         report.active_mappings_imported += inserted;
                     }
-                    Some(_) => report.invalid_active_entries.push(format!(
-                        "owner mapping does not match conversation {id}"
-                    )),
-                    None => report.invalid_active_entries.push(format!(
-                        "active conversation {id} does not exist"
-                    )),
+                    Some(_) => report
+                        .invalid_active_entries
+                        .push(format!("owner mapping does not match conversation {id}")),
+                    None => report
+                        .invalid_active_entries
+                        .push(format!("active conversation {id} does not exist")),
                 }
             }
         }
