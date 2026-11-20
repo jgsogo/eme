@@ -7,7 +7,7 @@ use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaConfig, MediaItem, MediaItemId, MediaKind,
     MediaProfile, MediaProfileId, MediaRating, MediaStore, MediaStoreError, MediaWatchEvent,
     ProfilePreferences, RecommendationContext, RecommendationCriteria, StreamingOffer, TmdbClient,
-    TmdbError, WatchHistorySource, WatchedPolicy, WatchmodeClient, WatchmodeError,
+    TmdbError, WatchedPolicy, WatchmodeClient, WatchmodeError,
 };
 
 /// One ranked candidate with the evidence used to recommend it.
