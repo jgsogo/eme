@@ -10,19 +10,36 @@ use actix_web::{
     web::{self, Data, Json, Path},
 };
 use agent_runtime::ToolContext;
+use agent_service::Run;
 use agent_service::{
     CancelRunError, CancelRunOutcome, RunId, RunManager, RunStatus, SubmitRunError,
 };
-use agent_storage::{ConversationId, FileUserIdentityStore, SqliteConversationStore, UserIdentityStore};
+use agent_storage::{
+    ConversationId, FileUserIdentityStore, SqliteConversationStore, UserIdentityStore,
+};
 use std::sync::Arc;
-use agent_service::Run;
 
-fn owns_run(run: &Run, request: &HttpRequest, auth: Option<&crate::auth::TelegramAuth>, store: Option<&SqliteConversationStore>) -> bool {
-    let Some(auth) = auth else { return true; };
-    let Some(owner) = auth.owner_for_request(request) else { return false; };
+fn owns_run(
+    run: &Run,
+    request: &HttpRequest,
+    auth: Option<&crate::auth::TelegramAuth>,
+    store: Option<&SqliteConversationStore>,
+) -> bool {
+    let Some(auth) = auth else {
+        return true;
+    };
+    let Some(owner) = auth.owner_for_request(request) else {
+        return false;
+    };
     if let Some(conversation_id) = run.conversation_id {
-        let Ok(id) = ConversationId::from_str(&conversation_id.to_string()) else { return false; };
-        store.is_some_and(|store| store.get(id).is_ok_and(|conversation| conversation.owner == owner))
+        let Ok(id) = ConversationId::from_str(&conversation_id.to_string()) else {
+            return false;
+        };
+        store.is_some_and(|store| {
+            store
+                .get(id)
+                .is_ok_and(|conversation| conversation.owner == owner)
+        })
     } else {
         auth.runs_for_owner(&owner).contains(&run.id.to_string())
     }
@@ -47,10 +64,15 @@ async fn list_runs(
     manager: Data<RunManager>,
     store: Option<Data<Arc<SqliteConversationStore>>>,
 ) -> impl Responder {
-    let runs = manager.list().await.into_iter()
+    let runs = manager
+        .list()
+        .await
+        .into_iter()
         .filter(|run| match auth.as_ref() {
             Some(auth) => owns_run(
-                run, &request, Some(auth.get_ref()),
+                run,
+                &request,
+                Some(auth.get_ref()),
                 store.as_ref().map(|store| store.get_ref().as_ref()),
             ),
             None => true,
@@ -146,13 +168,22 @@ async fn get_run(
     };
 
     match manager.get(run_id).await {
-        Some(run) if owns_run(&run, &request, auth.as_deref(), store.as_ref().map(|store| store.get_ref().as_ref())) => HttpResponse::Ok().json(GetRunResponse {
-            run_id: run.id.to_string(),
-            agent: run.agent,
-            status: status_name(run.status),
-            response: run.response,
-            error: run.error,
-        }),
+        Some(run)
+            if owns_run(
+                &run,
+                &request,
+                auth.as_deref(),
+                store.as_ref().map(|store| store.get_ref().as_ref()),
+            ) =>
+        {
+            HttpResponse::Ok().json(GetRunResponse {
+                run_id: run.id.to_string(),
+                agent: run.agent,
+                status: status_name(run.status),
+                response: run.response,
+                error: run.error,
+            })
+        }
         Some(_) | None => HttpResponse::NotFound().finish(),
     }
 }
@@ -170,8 +201,15 @@ async fn get_run_events(
         Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
     };
 
-    let Some(run) = manager.get(run_id).await else { return HttpResponse::NotFound().finish(); };
-    if !owns_run(&run, &request, auth.as_deref(), store.as_ref().map(|store| store.get_ref().as_ref())) {
+    let Some(run) = manager.get(run_id).await else {
+        return HttpResponse::NotFound().finish();
+    };
+    if !owns_run(
+        &run,
+        &request,
+        auth.as_deref(),
+        store.as_ref().map(|store| store.get_ref().as_ref()),
+    ) {
         return HttpResponse::NotFound().finish();
     }
     match manager.events(run_id).await {
@@ -198,8 +236,15 @@ async fn cancel_run(
         Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
     };
 
-    let Some(run) = manager.get(run_id).await else { return HttpResponse::NotFound().finish(); };
-    if !owns_run(&run, &request, auth.as_deref(), store.as_ref().map(|store| store.get_ref().as_ref())) {
+    let Some(run) = manager.get(run_id).await else {
+        return HttpResponse::NotFound().finish();
+    };
+    if !owns_run(
+        &run,
+        &request,
+        auth.as_deref(),
+        store.as_ref().map(|store| store.get_ref().as_ref()),
+    ) {
         return HttpResponse::NotFound().finish();
     }
     match manager.cancel(run_id).await {
