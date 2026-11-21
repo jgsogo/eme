@@ -10,7 +10,7 @@ use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaConfig, MediaItem, MediaItemId, MediaKind,
     MediaProfile, MediaProfileId, MediaRating, MediaStore, MediaStoreError, MediaWatchEvent,
     ProfilePreferences, RecommendationContext, RecommendationCriteria, RecommendationWeights,
-    StreamingOffer, TmdbClient, TmdbError, WatchedPolicy, WatchHistorySource, WatchmodeClient,
+    StreamingOffer, TmdbClient, TmdbError, WatchHistorySource, WatchedPolicy, WatchmodeClient,
     WatchmodeError,
 };
 
@@ -749,7 +749,8 @@ fn apply_diversity(
                     .count() as i32;
                 (
                     index,
-                    recommendation.score - (overlap as f32 * diversity_penalty as f32).round() as i32,
+                    recommendation.score
+                        - (overlap as f32 * diversity_penalty as f32).round() as i32,
                 )
             })
             .max_by(|left, right| {
