@@ -39,7 +39,7 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 url = "2"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
-cron = "0.15"
+cron = "0.17"
 
 # Test dependencies
 wiremock = "0.6"
