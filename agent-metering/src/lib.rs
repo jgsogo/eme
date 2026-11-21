@@ -12,9 +12,8 @@
 mod pricing;
 mod usage;
 
-pub use pricing::{
-    CostEstimate, CostOrigin, CostStatus, ModelPricing, PricingError, calculate_cost,
-};
+pub use pricing::{CostEstimate, CostOrigin, CostStatus, ModelPricing, PricingError, calculate_cost};
 pub use usage::{
-    InvocationOutcome, MeteredValue, ReportedCost, UsageDimensions, UsageRecord, UsageRecordError,
+    InvocationOutcome, MeteredValue, ReportedCost, UsageDimensions, UsageRecord,
+    UsageRecordError,
 };
