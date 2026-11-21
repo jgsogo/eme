@@ -5,7 +5,7 @@ const dimension=(record,name)=>record.usage?.dimensions?.[name]||{source:"unavai
 const quantity=(record,name)=>{const item=dimension(record,name);return typeof item.value==="number"?item.value:null};
 const money=(micros,currency)=>{try{return new Intl.NumberFormat(undefined,{style:"currency",currency:currency,maximumFractionDigits:4}).format(micros/1000000)}catch{return (micros/1000000).toFixed(4)+" "+currency}};
 const costLabel=cost=>cost?money(cost.amount_micros,cost.currency):"Unpriced";
-const state={records:[]};
+const state={records:[],pricing:[]};
 
 function selectedRecords(){
  const days=$("usage-period").value;
@@ -88,6 +88,75 @@ async function load(){
   $("usage-status").className="usage-status error";
  }
 }
-$("usage-refresh").addEventListener("click",load);
+function renderPricing(){
+ const rate=value=>value==null?"—":(value/1000000).toFixed(6);
+ const date=value=>value?new Date(value).toLocaleString():"No end date";
+ $("pricing-versions").innerHTML=state.pricing.length?'<table class="pricing-table"><thead><tr><th>Provider / model</th><th>Version</th><th>Currency</th><th>Effective</th><th>Input / 1M</th><th>Output / 1M</th><th>Cached / 1M</th><th>Reasoning / 1M</th></tr></thead><tbody>'+state.pricing.map(price=>{
+  const rates=price.rates_per_million||{};
+  return '<tr><td>'+escapeHtml(price.provider)+'<span class="usage-model-id">'+escapeHtml(price.model)+'</span></td><td>'+escapeHtml(price.version)+'</td><td>'+escapeHtml(price.currency)+'</td><td>'+escapeHtml(date(price.effective_from))+'<span class="usage-model-id">'+escapeHtml(price.effective_until?date(price.effective_until):"Open-ended")+'</span></td><td>'+rate(rates.input_tokens)+'</td><td>'+rate(rates.output_tokens)+'</td><td>'+rate(rates.cached_input_tokens)+'</td><td>'+rate(rates.reasoning_tokens)+'</td></tr>';
+ }).join("")+'</tbody></table>':'<p class="usage-empty">No pricing versions configured yet.</p>';
+}
+async function loadPricing(){
+ try{
+  const response=await fetch("/runs/pricing",{headers:{Accept:"application/json"}});
+  if(!response.ok)throw new Error(await response.text()||response.statusText);
+  state.pricing=await response.json();
+  renderPricing();
+ }catch(error){
+  $("pricing-versions").innerHTML='<p class="usage-empty">Could not load pricing catalogue: '+escapeHtml(error.message)+'</p>';
+ }
+}
+async function savePricing(event){
+ event.preventDefault();
+ const status=$("pricing-status");
+ const readRate=id=>{
+  const raw=$(id).value.trim();
+  if(!raw)return null;
+  const value=Number(raw);
+  if(!Number.isFinite(value)||value<0)throw new Error("Rates must be non-negative numbers.");
+  const micros=Math.round(value*1000000);
+  if(!Number.isSafeInteger(micros))throw new Error("Rate is too large.");
+  return micros;
+ };
+ try{
+  const effectiveFrom=new Date($("price-from").value);
+  if(Number.isNaN(effectiveFrom.getTime()))throw new Error("Choose a valid effective-from date.");
+  const untilValue=$("price-until").value;
+  const effectiveUntil=untilValue?new Date(untilValue):null;
+  if(effectiveUntil&&Number.isNaN(effectiveUntil.getTime()))throw new Error("Choose a valid effective-until date.");
+  const rates={
+   input_tokens:readRate("price-input"),
+   output_tokens:readRate("price-output"),
+   cached_input_tokens:readRate("price-cached"),
+   reasoning_tokens:readRate("price-reasoning")
+  };
+  if(Object.values(rates).every(value=>value===null))throw new Error("Enter at least one token rate.");
+  const payload={
+   provider:$("price-provider").value.trim(),
+   model:$("price-model").value.trim(),
+   version:$("price-version").value.trim(),
+   currency:$("price-currency").value.trim().toUpperCase(),
+   effective_from:effectiveFrom.toISOString(),
+   effective_until:effectiveUntil?effectiveUntil.toISOString():null,
+   rates_per_million:rates
+  };
+  status.textContent="Saving pricing version…";
+  const response=await fetch("/runs/pricing",{
+   method:"POST",
+   headers:{"Content-Type":"application/json",Accept:"application/json"},
+   body:JSON.stringify(payload)
+  });
+  if(!response.ok)throw new Error(await response.text()||response.statusText);
+  status.textContent="Pricing version saved.";
+  $("pricing-form").reset();
+  $("price-currency").value="USD";
+  await Promise.all([loadPricing(),load()]);
+ }catch(error){
+  status.textContent="Could not save pricing: "+error.message;
+ }
+}
+$("usage-refresh").addEventListener("click",()=>{load();loadPricing()});
 $("usage-period").addEventListener("change",render);
+$("pricing-form").addEventListener("submit",savePricing);
 load();
+loadPricing();

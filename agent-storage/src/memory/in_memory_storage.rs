@@ -189,8 +189,8 @@ impl UsageStore for InMemoryStorage {
         pricing.validate().map_err(|error| StorageError::Backend(error.to_string()))?;
         let mut state = self.state.write().await;
         let key = (pricing.provider.clone(), pricing.model.clone(), pricing.version.clone());
-        if state.pricing.contains_key(&key) {
-            return Err(StorageError::AlreadyExists(format!("pricing {}:{}:{}", key.0, key.1, key.2)));
+        if state.pricing.contains_key(&key) || state.pricing.values().any(|existing| existing.overlaps(&pricing)) {
+            return Err(StorageError::AlreadyExists(format!("pricing version or effective period already exists for {}:{}", key.0, key.1)));
         }
         state.pricing.insert(key, pricing);
         Ok(())
@@ -207,6 +207,16 @@ impl UsageStore for InMemoryStorage {
             .filter(|price| price.provider == provider && price.model == model)
             .cloned().collect::<Vec<_>>();
         prices.sort_by(|left, right| left.effective_from.cmp(&right.effective_from)
+            .then_with(|| left.version.cmp(&right.version)));
+        Ok(prices)
+    }
+
+    async fn list_all_pricing(&self) -> Result<Vec<ModelPricing>, StorageError> {
+        let state = self.state.read().await;
+        let mut prices = state.pricing.values().cloned().collect::<Vec<_>>();
+        prices.sort_by(|left, right| left.provider.cmp(&right.provider)
+            .then_with(|| left.model.cmp(&right.model))
+            .then_with(|| left.effective_from.cmp(&right.effective_from))
             .then_with(|| left.version.cmp(&right.version)));
         Ok(prices)
     }
