@@ -18,7 +18,15 @@ impl InvitationToken {
     }
 
     pub(crate) fn hash(&self) -> String {
-        format!("{:x}", Sha256::digest(self.0.as_bytes()))
+        use std::fmt::Write as _;
+
+        let digest = Sha256::digest(self.0.as_bytes());
+        let mut hash = String::with_capacity(digest.len() * 2);
+        for byte in digest.iter() {
+            // Writing to a String is infallible.
+            write!(&mut hash, "{byte:02x}").expect("writing to String cannot fail");
+        }
+        hash
     }
 
     /// Parse a token received from an untrusted transport. Tokens are fixed-length
