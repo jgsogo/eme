@@ -49,6 +49,7 @@ async fn usage_is_durable_and_idempotent_by_invocation_id() {
 #[tokio::test]
 async fn pricing_versions_are_immutable_and_queryable() {
     let path = std::env::temp_dir().join(format!("eme-pricing-{}.sqlite", Uuid::new_v4()));
+    let _conversations = crate::SqliteConversationStore::open(&path).unwrap();
     let store = SqliteExecutionStore::open(&path).unwrap();
     let pricing = ModelPricing {
         provider: "openai".into(),
@@ -64,6 +65,10 @@ async fn pricing_versions_are_immutable_and_queryable() {
     store.insert_pricing(pricing.clone()).await.unwrap();
     assert_eq!(store.get_pricing("openai", "gpt-test", "2026-01").await.unwrap(), Some(pricing.clone()));
     assert_eq!(store.list_pricing("openai", "gpt-test").await.unwrap(), vec![pricing.clone()]);
+    assert_eq!(store.list_all_pricing().await.unwrap(), vec![pricing.clone()]);
+    let mut overlapping = pricing.clone();
+    overlapping.version = "2026-02".into();
+    assert!(matches!(store.insert_pricing(overlapping).await, Err(StorageError::AlreadyExists(_))));
     assert!(matches!(store.insert_pricing(pricing).await, Err(StorageError::AlreadyExists(_))));
     drop(store);
     let _ = std::fs::remove_file(path);

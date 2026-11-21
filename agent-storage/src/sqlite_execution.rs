@@ -202,6 +202,22 @@ impl UsageStore for SqliteExecutionStore {
     async fn insert_pricing(&self, pricing: ModelPricing) -> Result<(), StorageError> {
         pricing.validate().map_err(|error| StorageError::Backend(error.to_string()))?;
         let connection = self.connection.lock().await;
+        let mut statement = connection.prepare(
+            "SELECT pricing_json FROM model_pricing WHERE provider = ?1 AND model = ?2"
+        ).map_err(backend)?;
+        let rows = statement.query_map(params![pricing.provider, pricing.model], |row| row.get::<_, String>(0)).map_err(backend)?;
+        for row in rows {
+            let json = row.map_err(backend)?;
+            let existing: ModelPricing = serde_json::from_str(&json)
+                .map_err(|error| StorageError::Backend(error.to_string()))?;
+            if existing.overlaps(&pricing) {
+                return Err(StorageError::AlreadyExists(format!(
+                    "pricing period overlaps existing version {} for {}:{}",
+                    existing.version, pricing.provider, pricing.model
+                )));
+            }
+        }
+        drop(statement);
         let json = serde_json::to_string(&pricing).map_err(|error| StorageError::Backend(error.to_string()))?;
         connection.execute(
             "INSERT INTO model_pricing(provider, model, version, effective_from, effective_until, pricing_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -229,6 +245,18 @@ impl UsageStore for SqliteExecutionStore {
             "SELECT pricing_json FROM model_pricing WHERE provider = ?1 AND model = ?2 ORDER BY effective_from, version"
         ).map_err(backend)?;
         let rows = statement.query_map(params![provider, model], |row| row.get::<_, String>(0)).map_err(backend)?;
+        rows.map(|row| {
+            let json = row.map_err(backend)?;
+            serde_json::from_str(&json).map_err(|error| StorageError::Backend(error.to_string()))
+        }).collect()
+    }
+
+    async fn list_all_pricing(&self) -> Result<Vec<ModelPricing>, StorageError> {
+        let connection = self.connection.lock().await;
+        let mut statement = connection.prepare(
+            "SELECT pricing_json FROM model_pricing ORDER BY provider, model, effective_from, version"
+        ).map_err(backend)?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0)).map_err(backend)?;
         rows.map(|row| {
             let json = row.map_err(backend)?;
             serde_json::from_str(&json).map_err(|error| StorageError::Backend(error.to_string()))
