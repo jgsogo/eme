@@ -26,6 +26,7 @@ impl ManagedRun {
             attempted_candidates,
             error_category,
         ) = match &event.kind {
+            RuntimeEventKind::ModelUsageRecorded { .. } => return,
             RuntimeEventKind::ModelRequested => (
                 RunEventKind::ModelRequested,
                 None,

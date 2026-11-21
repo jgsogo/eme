@@ -94,6 +94,7 @@ impl AgentModel for ModelAdapter {
         let response: ConversationResponse = self.client.complete_conversation(request).await?;
 
         Ok(ModelTurn {
+            usage: response.usage,
             content: response.content,
             tool_calls: response
                 .tool_calls

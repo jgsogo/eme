@@ -99,7 +99,7 @@ impl ReportedCost {
 /// Whether the provider invocation completed from the platform's perspective.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum InvocationOutcome { Succeeded, Failed, TimedOut }
+pub enum InvocationOutcome { Succeeded, Failed, TimedOut, Cancelled }
 
 /// Immutable accounting input for one model invocation.
 ///

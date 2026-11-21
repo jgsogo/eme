@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 agent-config = { path = "../agent-config" }
 agent-models = { path = "../agent-models" }
+agent-metering = { path = "../agent-metering" }
 chrono = { workspace = true }
 
 thiserror = { workspace = true }

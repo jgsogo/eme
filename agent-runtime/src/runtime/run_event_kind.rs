@@ -2,10 +2,13 @@
 
 use crate::ErrorCategory;
 use agent_models::ModelFailureCategory;
+use agent_metering::UsageRecord;
 
 #[derive(Debug, Clone)]
 pub enum RunEventKind {
     ModelRequested,
+    /// Durable usage and cost input for one model invocation.
+    ModelUsageRecorded { record: UsageRecord },
     ModelCandidatesDiscovered {
         model_ids: Vec<String>,
     },

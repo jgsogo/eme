@@ -31,6 +31,7 @@ fn record(run_id: Uuid) -> UsageRecord {
 #[tokio::test]
 async fn usage_is_durable_and_idempotent_by_invocation_id() {
     let path = std::env::temp_dir().join(format!("eme-metering-{}.sqlite", Uuid::new_v4()));
+    let _conversations = crate::SqliteConversationStore::open(&path).unwrap();
     let store = SqliteExecutionStore::open(&path).unwrap();
     let run = run();
     store.insert_run(run.clone()).await.unwrap();

@@ -181,6 +181,8 @@ impl ConversationClient for OpenAICompatibleClient {
         let usage = result.usage.map(|usage| TokenUsage {
             input_tokens: usage.prompt_tokens,
             output_tokens: usage.completion_tokens,
+            cached_input_tokens: usage.prompt_tokens_details.and_then(|details| details.cached_tokens),
+            reasoning_tokens: usage.completion_tokens_details.and_then(|details| details.reasoning_tokens),
         });
 
         Ok(ConversationResponse {
@@ -219,7 +221,9 @@ mod tests {
                 }],
                 "usage": {
                     "prompt_tokens": 10,
-                    "completion_tokens": 5
+                    "completion_tokens": 5,
+                    "prompt_tokens_details": { "cached_tokens": 2 },
+                    "completion_tokens_details": { "reasoning_tokens": 3 }
                 }
             })))
             .expect(1)
@@ -248,6 +252,8 @@ mod tests {
         let usage = response.usage.unwrap();
         assert_eq!(usage.input_tokens, 10);
         assert_eq!(usage.output_tokens, 5);
+        assert_eq!(usage.cached_input_tokens, Some(2));
+        assert_eq!(usage.reasoning_tokens, Some(3));
     }
 
     #[tokio::test]
