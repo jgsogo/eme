@@ -36,6 +36,27 @@ pub(super) async fn mobile_root() -> impl Responder {
         .finish()
 }
 
+#[get("/console/usage")]
+pub(super) async fn usage_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/usage.html"))
+}
+
+#[get("/assets/usage.js")]
+pub(super) async fn usage_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/usage.js"))
+}
+
+#[get("/assets/usage.css")]
+pub(super) async fn usage_stylesheet() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/css; charset=utf-8")
+        .body(include_str!("../../static/usage.css"))
+}
+
 #[get("/console/conversations")]
 pub(super) async fn conversations_page() -> impl Responder {
     HttpResponse::Ok()

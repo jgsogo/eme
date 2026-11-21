@@ -38,7 +38,7 @@ use console::{
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
     mobile_tasks_page, notes_page, profile_page, recipes_page, recipes_script, school_menus_page,
     school_menus_script, shopping_list_page, shopping_list_script, tasks_page, weekly_planner_page,
-    weekly_planner_script,
+    weekly_planner_script, usage_page, usage_script, usage_stylesheet,
 };
 
 #[actix_web::main]
@@ -241,6 +241,9 @@ async fn main() -> Result<()> {
             .service(mobile_profile_page)
             .service(mobile_tasks_page)
             .service(conversations_page)
+            .service(usage_page)
+            .service(usage_script)
+            .service(usage_stylesheet)
             .service(meals_page)
             .service(families_page)
             .service(notes_page)

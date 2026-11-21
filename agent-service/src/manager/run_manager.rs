@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
 use agent_runtime::{CancellationToken, EventSink, Message, RunEventKind as RuntimeRunEventKind, ToolContext};
-use agent_storage::{ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus, UsageStore};
+use agent_storage::{ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus};
 use chrono::{DateTime, Utc};
 use std::{
     collections::HashMap,
