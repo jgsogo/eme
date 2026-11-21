@@ -159,13 +159,16 @@ impl RunEventStore for SqliteExecutionStore {
         if !exists {
             return Err(StorageError::NotFound(format!("run {}", event.run_id)));
         }
-        let expected: u64 = connection
+        // SQLite COUNT(*) is an INTEGER, so decode it as i64 before converting.
+        let count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM run_events WHERE run_id = ?1",
                 [event.run_id.to_string()],
                 |row| row.get(0),
             )
             .map_err(backend)?;
+        let expected = u64::try_from(count)
+            .map_err(|error| StorageError::Backend(error.to_string()))?;
         if event.sequence < expected {
             return Err(StorageError::DuplicateSequence {
                 stream: format!("run {}", event.run_id),
@@ -258,13 +261,16 @@ impl ConversationMessageStore for SqliteExecutionStore {
                 _ => {}
             }
         }
-        let expected: u64 = connection
+        // SQLite COUNT(*) is an INTEGER, so decode it as i64 before converting.
+        let count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = ?1",
                 [message.conversation_id.to_string()],
                 |row| row.get(0),
             )
             .map_err(backend)?;
+        let expected = u64::try_from(count)
+            .map_err(|error| StorageError::Backend(error.to_string()))?;
         if message.sequence < expected {
             return Err(StorageError::DuplicateSequence {
                 stream: format!("conversation {}", message.conversation_id),
