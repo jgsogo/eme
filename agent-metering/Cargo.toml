@@ -1,0 +1,11 @@
+[package]
+name = "agent-metering"
+version = "0.1.0"
+edition = "2024"
+description = "Provider-independent usage records and versioned model cost calculation."
+
+[dependencies]
+chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }

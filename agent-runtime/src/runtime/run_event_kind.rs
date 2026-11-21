@@ -1,11 +1,16 @@
 //! Variants describing model routing, tool, timeout, and cancellation lifecycle events.
 
 use crate::ErrorCategory;
+use agent_metering::UsageRecord;
 use agent_models::ModelFailureCategory;
 
 #[derive(Debug, Clone)]
 pub enum RunEventKind {
     ModelRequested,
+    /// Durable usage and cost input for one model invocation.
+    ModelUsageRecorded {
+        record: UsageRecord,
+    },
     ModelCandidatesDiscovered {
         model_ids: Vec<String>,
     },

@@ -3,8 +3,9 @@
 use super::State;
 use crate::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
-    StoredRunEvent,
+    StoredRunEvent, UsageStore,
 };
+use agent_metering::{ModelPricing, UsageRecord};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -155,5 +156,116 @@ impl ConversationMessageStore for InMemoryStorage {
             .get(&conversation_id)
             .cloned()
             .unwrap_or_default())
+    }
+}
+
+#[async_trait]
+impl UsageStore for InMemoryStorage {
+    async fn append_usage(&self, record: UsageRecord) -> Result<(), StorageError> {
+        let mut state = self.state.write().await;
+        if !state.runs.contains_key(&record.run_id) {
+            return Err(StorageError::NotFound(format!("run {}", record.run_id)));
+        }
+        if let Some(existing) = state.usage.get(&record.invocation_id) {
+            return if existing == &record {
+                Ok(())
+            } else {
+                Err(StorageError::AlreadyExists(format!(
+                    "usage invocation {}",
+                    record.invocation_id
+                )))
+            };
+        }
+        state.usage.insert(record.invocation_id, record);
+        Ok(())
+    }
+
+    async fn list_usage(&self, run_id: Option<Uuid>) -> Result<Vec<UsageRecord>, StorageError> {
+        let state = self.state.read().await;
+        let mut records = state
+            .usage
+            .values()
+            .filter(|record| run_id.is_none_or(|id| record.run_id == id))
+            .cloned()
+            .collect::<Vec<_>>();
+        records.sort_by(|left, right| {
+            left.occurred_at
+                .cmp(&right.occurred_at)
+                .then_with(|| left.invocation_id.cmp(&right.invocation_id))
+        });
+        Ok(records)
+    }
+
+    async fn insert_pricing(&self, pricing: ModelPricing) -> Result<(), StorageError> {
+        pricing
+            .validate()
+            .map_err(|error| StorageError::Backend(error.to_string()))?;
+        let mut state = self.state.write().await;
+        let key = (
+            pricing.provider.clone(),
+            pricing.model.clone(),
+            pricing.version.clone(),
+        );
+        if state.pricing.contains_key(&key)
+            || state
+                .pricing
+                .values()
+                .any(|existing| existing.overlaps(&pricing))
+        {
+            return Err(StorageError::AlreadyExists(format!(
+                "pricing version or effective period already exists for {}:{}",
+                key.0, key.1
+            )));
+        }
+        state.pricing.insert(key, pricing);
+        Ok(())
+    }
+
+    async fn get_pricing(
+        &self,
+        provider: &str,
+        model: &str,
+        version: &str,
+    ) -> Result<Option<ModelPricing>, StorageError> {
+        Ok(self
+            .state
+            .read()
+            .await
+            .pricing
+            .get(&(provider.to_owned(), model.to_owned(), version.to_owned()))
+            .cloned())
+    }
+
+    async fn list_pricing(
+        &self,
+        provider: &str,
+        model: &str,
+    ) -> Result<Vec<ModelPricing>, StorageError> {
+        let state = self.state.read().await;
+        let mut prices = state
+            .pricing
+            .values()
+            .filter(|price| price.provider == provider && price.model == model)
+            .cloned()
+            .collect::<Vec<_>>();
+        prices.sort_by(|left, right| {
+            left.effective_from
+                .cmp(&right.effective_from)
+                .then_with(|| left.version.cmp(&right.version))
+        });
+        Ok(prices)
+    }
+
+    async fn list_all_pricing(&self) -> Result<Vec<ModelPricing>, StorageError> {
+        let state = self.state.read().await;
+        let mut prices = state.pricing.values().cloned().collect::<Vec<_>>();
+        prices.sort_by(|left, right| {
+            left.provider
+                .cmp(&right.provider)
+                .then_with(|| left.model.cmp(&right.model))
+                .then_with(|| left.effective_from.cmp(&right.effective_from))
+                .then_with(|| left.version.cmp(&right.version))
+        });
+        Ok(prices)
     }
 }

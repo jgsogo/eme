@@ -8,6 +8,7 @@ description = "Executable service exposing the AI agent platform to external cli
 actix-web = "4"
 agent-models = { path = "../agent-models" }
 agent-runtime = { path = "../agent-runtime" }
+agent-metering = { path = "../agent-metering" }
 agent-service = { path = "../agent-service" }
 agent-storage = { path = "../agent-storage" }
 alexa-tool = { path = "../tools/alexa" }

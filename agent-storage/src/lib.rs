@@ -1,4 +1,5 @@
 //! Persistence contracts and storage backends for the EME agent platform.
+
 mod connected_calendar;
 mod contracts;
 mod conversation;
@@ -20,7 +21,7 @@ pub use connected_calendar::{
 };
 pub use contracts::{
     ConversationMessageStore, ExecutionStore, RunEventStore, RunStore, StorageError, StoredMessage,
-    StoredRun, StoredRunEvent, StoredRunStatus,
+    StoredRun, StoredRunEvent, StoredRunStatus, UsageStore,
 };
 pub use conversation::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
 pub use external_connection::{
