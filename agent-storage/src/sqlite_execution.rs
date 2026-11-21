@@ -167,8 +167,8 @@ impl RunEventStore for SqliteExecutionStore {
                 |row| row.get(0),
             )
             .map_err(backend)?;
-        let expected = u64::try_from(count)
-            .map_err(|error| StorageError::Backend(error.to_string()))?;
+        let expected =
+            u64::try_from(count).map_err(|error| StorageError::Backend(error.to_string()))?;
         if event.sequence < expected {
             return Err(StorageError::DuplicateSequence {
                 stream: format!("run {}", event.run_id),
@@ -269,8 +269,8 @@ impl ConversationMessageStore for SqliteExecutionStore {
                 |row| row.get(0),
             )
             .map_err(backend)?;
-        let expected = u64::try_from(count)
-            .map_err(|error| StorageError::Backend(error.to_string()))?;
+        let expected =
+            u64::try_from(count).map_err(|error| StorageError::Backend(error.to_string()))?;
         if message.sequence < expected {
             return Err(StorageError::DuplicateSequence {
                 stream: format!("conversation {}", message.conversation_id),
