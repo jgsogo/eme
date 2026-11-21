@@ -9,6 +9,9 @@ pub(super) struct ConsoleEventSink;
 impl EventSink for ConsoleEventSink {
     fn emit(&self, event: &RunEvent) {
         match &event.kind {
+            RunEventKind::ModelUsageRecorded { record } => {
+                info!(run_id = %event.run_id, invocation_id = %record.invocation_id, provider = %record.provider, model = %record.model, outcome = ?record.outcome, "model usage recorded")
+            }
             RunEventKind::ModelRequested => {
                 debug!(run_id = %event.run_id, iteration = event.iteration, "model request started")
             }

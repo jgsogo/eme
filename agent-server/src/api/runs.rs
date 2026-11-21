@@ -1,6 +1,9 @@
 //! Run submission, inspection, cancellation, and event routes.
 
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
+
+use agent_metering::{CostEstimate, ModelPricing, calculate_cost};
 
 use super::types::{
     CancelRunResponse, GetRunResponse, RunEventResponse, SubmitRunRequest, SubmitRunResponse,
@@ -89,6 +92,67 @@ async fn list_runs(
         })
         .collect::<Vec<_>>();
     HttpResponse::Ok().json(body)
+}
+
+#[get("/usage")]
+async fn get_usage(
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
+    manager: Data<RunManager>,
+) -> impl Responder {
+    let visible_run_ids = manager.list().await.into_iter()
+        .filter(|run| owns_run(
+            run,
+            &request,
+            auth.as_deref().map(|value| &**value),
+            store.as_ref().map(|value| value.get_ref().as_ref()),
+        ))
+        .map(|run| run.id.as_uuid())
+        .collect::<HashSet<_>>();
+
+    let records = match manager.usage_records(None).await {
+        Ok(records) => records,
+        Err(error) => {
+            tracing::error!(%error, "failed to load usage records");
+            return HttpResponse::InternalServerError().body("could not load usage records");
+        }
+    };
+
+    let mut pricing_cache: HashMap<(String, String), Vec<ModelPricing>> = HashMap::new();
+    let mut response = Vec::new();
+    for record in records.into_iter().filter(|record| visible_run_ids.contains(&record.run_id)) {
+        let cost = if let Some(reported) = &record.reported_cost {
+            Some(CostEstimate::from_reported(reported))
+        } else {
+            let key = (record.provider.clone(), record.model.clone());
+            if !pricing_cache.contains_key(&key) {
+                match manager.pricing_for(&key.0, &key.1).await {
+                    Ok(pricing) => { pricing_cache.insert(key.clone(), pricing); }
+                    Err(error) => {
+                        tracing::error!(provider = %key.0, model = %key.1, %error, "failed to load model pricing");
+                        pricing_cache.insert(key.clone(), Vec::new());
+                    }
+                }
+            }
+            pricing_cache.get(&key).and_then(|versions| {
+                versions.iter().find(|pricing| pricing.applies_to(&record))
+                    .and_then(|pricing| calculate_cost(&record, pricing).ok())
+            })
+        };
+
+        let mut item = match serde_json::to_value(&record) {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::error!(%error, "failed to serialize usage record");
+                return HttpResponse::InternalServerError().body("could not serialize usage records");
+            }
+        };
+        item["cost"] = serde_json::to_value(cost).unwrap_or(serde_json::Value::Null);
+        response.push(item);
+    }
+
+    HttpResponse::Ok().json(response)
 }
 
 #[post("")]
@@ -276,6 +340,7 @@ async fn cancel_run(
 pub fn runs_api() -> Scope {
     web::scope("/runs")
         .service(list_runs)
+        .service(get_usage)
         .service(submit_run)
         .service(get_run)
         .service(get_run_events)
