@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Usage &amp; Costs · EME</title>
+  <link rel="stylesheet" href="/assets/console.css">
+  <link rel="stylesheet" href="/assets/usage.css">
+  <script src="/assets/desktop-header.js" defer></script>
+  <script src="/assets/console-auth.js" defer></script>
+  <script src="/assets/usage.js" defer></script>
+</head>
+<body data-page="usage">
+  <header></header>
+  <main class="usage-main">
+    <div class="usage-heading">
+      <div>
+        <p class="eyebrow">OBSERVABILITY</p>
+        <h2>Model usage &amp; costs</h2>
+        <p class="usage-intro">Invocation-level accounting across agents, providers and model fallbacks.</p>
+      </div>
+      <div class="usage-actions">
+        <label for="usage-period">Period</label>
+        <select id="usage-period">
+          <option value="all">All time</option>
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+        <button class="secondary" id="usage-refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <p id="usage-status" class="usage-status" role="status">Loading usage…</p>
+    <section class="usage-kpis" aria-label="Usage overview">
+      <article class="usage-card"><span>Total invocations</span><strong id="metric-invocations">—</strong><small id="metric-outcomes">Successful · failed · timed out</small></article>
+      <article class="usage-card"><span>Input tokens</span><strong id="metric-input">—</strong><small id="metric-cached">Cached input: —</small></article>
+      <article class="usage-card"><span>Output tokens</span><strong id="metric-output">—</strong><small id="metric-reasoning">Reasoning: —</small></article>
+      <article class="usage-card"><span>Recorded cost</span><strong id="metric-cost">—</strong><small id="metric-cost-detail">Provider-reported and calculated totals</small></article>
+    </section>
+    <section class="usage-panels">
+      <article class="panel usage-panel">
+        <div class="usage-panel-heading"><div><h3>Usage by model</h3><p>Input and output tokens per provider/model</p></div></div>
+        <div id="usage-models" class="usage-models"><p class="usage-empty">No usage records for this period.</p></div>
+      </article>
+      <article class="panel usage-panel">
+        <div class="usage-panel-heading"><div><h3>Accounting quality</h3><p>Completeness and provenance of the totals</p></div></div>
+        <div class="quality-list">
+          <div><span>Provider-reported cost</span><strong id="quality-reported">—</strong></div>
+          <div><span>Calculated cost</span><strong id="quality-calculated">—</strong></div>
+          <div><span>Estimated cost</span><strong id="quality-estimated">—</strong></div>
+          <div><span>Partial / unavailable cost</span><strong id="quality-incomplete">—</strong></div>
+          <div><span>Failed or timed-out attempts</span><strong id="quality-failed">—</strong></div>
+        </div>
+        <p class="usage-footnote">Missing provider dimensions are shown as unavailable, not treated as zero. Pricing is applied only when a matching version is available for the invocation date.</p>
+      </article>
+    </section>
+    <section class="panel usage-history">
+      <div class="usage-panel-heading"><div><h3>Recent invocations</h3><p>Each fallback attempt is accounted for independently</p></div><span id="usage-record-count" class="usage-record-count">—</span></div>
+      <div class="usage-table-wrap">
+        <table class="usage-table">
+          <thead><tr><th>Time</th><th>Agent</th><th>Provider / model</th><th>Outcome</th><th>Input</th><th>Output</th><th>Cost</th></tr></thead>
+          <tbody id="usage-records"><tr><td colspan="7" class="usage-empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
