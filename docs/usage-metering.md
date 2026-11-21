@@ -40,3 +40,5 @@ The dashboard's Pricing catalogue lets an authenticated user add a new version. 
 - `POST /runs/pricing` registers a new pricing version. It requires an authenticated session and rejects invalid, duplicate, or overlapping versions.
 
 The Usage dashboard consumes these endpoints and provides date filtering, token totals, provider/model breakdowns, cost provenance, and invocation history. Invocation rows link to a run-specific drill-down with aggregate totals and the underlying attempts.
+
+<!-- rerun after runtime cost fix -->
