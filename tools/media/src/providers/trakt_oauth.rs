@@ -331,15 +331,40 @@ impl TraktOAuthService {
         }))
     }
 
-    /// Validate an authenticated family owner/admin for an existing profile.
-    pub async fn validate_profile_admin(
+    /// Validate that the actor is still a member of the family owning this profile.
+    pub async fn validate_profile_member(
         &self,
-        owner_id: UserId,
+        user_id: UserId,
         family_id: FamilyId,
         profile_id: MediaProfileId,
     ) -> Result<(), TraktError> {
-        self.require_profile_admin(owner_id, family_id, profile_id)
+        if self
+            .media
+            .get_profile(family_id, profile_id)
             .await
+            .map_err(TraktError::MediaStorage)?
+            .is_none()
+        {
+            return Err(TraktError::Forbidden);
+        }
+        let families = self
+            .families
+            .list_families(user_id)
+            .await
+            .map_err(|error| TraktError::Family(error.to_string()))?;
+        if !families.iter().any(|family| family.id == family_id) {
+            return Err(TraktError::Forbidden);
+        }
+        let members = self
+            .families
+            .list_members(family_id)
+            .await
+            .map_err(|error| TraktError::Family(error.to_string()))?;
+        if members.iter().any(|member| member.user_id == user_id) {
+            Ok(())
+        } else {
+            Err(TraktError::Forbidden)
+        }
     }
 
     /// Access-token manager used by Trakt history and rating synchronization.

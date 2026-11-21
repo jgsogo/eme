@@ -9,7 +9,7 @@ use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
-use crate::{ExternalId, MediaItem, MediaItemId, MediaKind};
+use crate::{ExternalId, MediaItem, MediaItemId, MediaKind, OfferType, StreamingOffer};
 
 const DEFAULT_BASE_URL: &str = "https://api.themoviedb.org/3";
 
@@ -138,6 +138,50 @@ impl TmdbClient {
             total_pages: dto.total_pages,
             total_results: dto.total_results,
         })
+    }
+
+    /// Fetch regional streaming offers from TMDB as a fallback when Watchmode
+    /// has no usable offers. Provider IDs and URLs are returned by TMDB.
+    pub async fn watch_providers(
+        &self,
+        tmdb_id: u64,
+        kind: MediaKind,
+        region: &str,
+    ) -> Result<Vec<StreamingOffer>, TmdbError> {
+        let path = match kind {
+            MediaKind::Movie => format!("/movie/{tmdb_id}/watch/providers"),
+            MediaKind::TvShow => format!("/tv/{tmdb_id}/watch/providers"),
+        };
+        let response: TmdbWatchProviderResponse = self.request_json(&path, &[]).await?;
+        let region = region.trim().to_ascii_uppercase();
+        let Some(country) = response.results.get(&region) else {
+            return Ok(Vec::new());
+        };
+        let media_item_id = MediaItemId::from_external_id("tmdb", &tmdb_id.to_string());
+        let mut offers = Vec::new();
+        let groups = [
+            (OfferType::Subscription, &country.flatrate),
+            (OfferType::Rent, &country.rent),
+            (OfferType::Buy, &country.buy),
+            (OfferType::Free, &country.free),
+            (OfferType::AdSupported, &country.ads),
+        ];
+        for (offer_type, providers) in groups {
+            for provider in providers {
+                offers.push(StreamingOffer {
+                    media_item_id,
+                    service_id: provider.provider_id.to_string(),
+                    service_name: provider.provider_name.clone(),
+                    offer_type,
+                    region: region.clone(),
+                    url: country
+                        .link
+                        .clone()
+                        .filter(|value| !value.trim().is_empty()),
+                });
+            }
+        }
+        Ok(offers)
     }
 
     /// Fetch TMDB's recommendations for a movie or TV show.
@@ -279,9 +323,21 @@ impl TmdbClient {
         for (key, value) in extra {
             request = request.query(&[(key, value)]);
         }
+        let started = std::time::Instant::now();
         let response = request.send().await?;
         let status = response.status();
+        tracing::debug!(
+            provider = "tmdb",
+            status = status.as_u16(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media provider request completed"
+        );
         if !status.is_success() {
+            tracing::warn!(
+                provider = "tmdb",
+                status = status.as_u16(),
+                "media provider request failed"
+            );
             let message = response
                 .json::<TmdbApiError>()
                 .await
@@ -395,6 +451,33 @@ struct TmdbDetails {
     vote_count: Option<u32>,
     release_dates: Option<TmdbReleaseDates>,
     content_ratings: Option<TmdbContentRatings>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbWatchProviderResponse {
+    #[serde(default)]
+    results: HashMap<String, TmdbWatchProviderCountry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbWatchProviderCountry {
+    link: Option<String>,
+    #[serde(default)]
+    flatrate: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    rent: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    buy: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    free: Vec<TmdbWatchProvider>,
+    #[serde(default)]
+    ads: Vec<TmdbWatchProvider>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TmdbWatchProvider {
+    provider_id: u64,
+    provider_name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -576,6 +659,43 @@ mod tests {
         let client = TmdbClient::with_base_url("test-key", "es-ES", "ES", server.uri()).unwrap();
         let item = client.movie_details(42).await.unwrap();
         assert_eq!(item.certification.as_deref(), Some("16"));
+    }
+
+    #[tokio::test]
+    async fn watch_provider_fallback_preserves_offer_type_and_provider_link() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42/watch/providers"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "results": {
+                    "ES": {
+                        "link": "https://www.themoviedb.org/movie/42/watch",
+                        "flatrate": [{"provider_id": 8, "provider_name": "Netflix"}],
+                        "rent": [{"provider_id": 10, "provider_name": "Amazon Video"}],
+                        "buy": [],
+                        "free": [],
+                        "ads": [{"provider_id": 99, "provider_name": "Freevee"}]
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = TmdbClient::with_base_url("test-key", "es-ES", "ES", server.uri()).unwrap();
+        let offers = client
+            .watch_providers(42, MediaKind::Movie, "es")
+            .await
+            .unwrap();
+        assert_eq!(offers.len(), 3);
+        assert_eq!(offers[0].offer_type, OfferType::Subscription);
+        assert_eq!(offers[1].offer_type, OfferType::Rent);
+        assert_eq!(offers[2].offer_type, OfferType::AdSupported);
+        assert!(
+            offers
+                .iter()
+                .all(|offer| offer.url.as_deref()
+                    == Some("https://www.themoviedb.org/movie/42/watch"))
+        );
     }
 
     #[tokio::test]

@@ -14,7 +14,7 @@ mod services;
 mod store;
 mod tools;
 
-pub use config::{MediaConfig, MediaConfigError, StreamingService};
+pub use config::{MediaConfig, MediaConfigError, RecommendationWeights, StreamingService};
 pub use providers::{
     TmdbClient, TmdbError, TmdbPage, TraktAuthorization, TraktError, TraktOAuthConfig,
     TraktOAuthService, TraktSyncError, TraktSyncService, TraktSyncSummary, TraktTokenManager,

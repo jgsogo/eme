@@ -9,6 +9,8 @@ pub enum OfferType {
     Rent,
     Buy,
     Free,
+    /// Free access supported by advertising.
+    AdSupported,
     /// Availability through a traditional TV provider or channel bundle.
     TvProvider,
 }
