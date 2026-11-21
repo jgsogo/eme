@@ -163,6 +163,7 @@ impl ConversationClient for GeminiClient {
             output_tokens: usage.candidates_token_count,
             cached_input_tokens: usage.cached_content_token_count,
             reasoning_tokens: usage.thoughts_token_count,
+            reported_cost: None,
         });
 
         Ok(ConversationResponse {

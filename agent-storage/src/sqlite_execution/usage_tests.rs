@@ -21,11 +21,18 @@ fn run() -> StoredRun {
 
 fn record(run_id: Uuid) -> UsageRecord {
     UsageRecord::new(
-        Uuid::from_u128(43), run_id, 1, "assistant", Some("user-1".into()),
-        "openai", "gpt-test", InvocationOutcome::Failed,
+        Uuid::from_u128(43),
+        run_id,
+        1,
+        "assistant",
+        Some("user-1".into()),
+        "openai",
+        "gpt-test",
+        InvocationOutcome::Failed,
         UsageDimensions::new().with(UsageDimensions::INPUT_TOKENS, MeteredValue::Reported(100)),
         Utc::now(),
-    ).unwrap()
+    )
+    .unwrap()
 }
 
 #[tokio::test]
@@ -38,11 +45,17 @@ async fn usage_is_durable_and_idempotent_by_invocation_id() {
     let record = record(run.id);
     store.append_usage(record.clone()).await.unwrap();
     store.append_usage(record.clone()).await.unwrap();
-    assert_eq!(store.list_usage(Some(run.id)).await.unwrap(), vec![record.clone()]);
+    assert_eq!(
+        store.list_usage(Some(run.id)).await.unwrap(),
+        vec![record.clone()]
+    );
     drop(store);
 
     let reopened = SqliteExecutionStore::open(&path).unwrap();
-    assert_eq!(reopened.list_usage(Some(run.id)).await.unwrap(), vec![record]);
+    assert_eq!(
+        reopened.list_usage(Some(run.id)).await.unwrap(),
+        vec![record]
+    );
     let _ = std::fs::remove_file(path);
 }
 
@@ -58,18 +71,37 @@ async fn pricing_versions_are_immutable_and_queryable() {
         currency: "USD".into(),
         effective_from: Utc::now(),
         effective_until: None,
-        rates_per_million: BTreeMap::from([
-            (UsageDimensions::INPUT_TOKENS.into(), Some(2_000_000)),
-        ]),
+        rates_per_million: BTreeMap::from([(
+            UsageDimensions::INPUT_TOKENS.into(),
+            Some(2_000_000),
+        )]),
     };
     store.insert_pricing(pricing.clone()).await.unwrap();
-    assert_eq!(store.get_pricing("openai", "gpt-test", "2026-01").await.unwrap(), Some(pricing.clone()));
-    assert_eq!(store.list_pricing("openai", "gpt-test").await.unwrap(), vec![pricing.clone()]);
-    assert_eq!(store.list_all_pricing().await.unwrap(), vec![pricing.clone()]);
+    assert_eq!(
+        store
+            .get_pricing("openai", "gpt-test", "2026-01")
+            .await
+            .unwrap(),
+        Some(pricing.clone())
+    );
+    assert_eq!(
+        store.list_pricing("openai", "gpt-test").await.unwrap(),
+        vec![pricing.clone()]
+    );
+    assert_eq!(
+        store.list_all_pricing().await.unwrap(),
+        vec![pricing.clone()]
+    );
     let mut overlapping = pricing.clone();
     overlapping.version = "2026-02".into();
-    assert!(matches!(store.insert_pricing(overlapping).await, Err(StorageError::AlreadyExists(_))));
-    assert!(matches!(store.insert_pricing(pricing).await, Err(StorageError::AlreadyExists(_))));
+    assert!(matches!(
+        store.insert_pricing(overlapping).await,
+        Err(StorageError::AlreadyExists(_))
+    ));
+    assert!(matches!(
+        store.insert_pricing(pricing).await,
+        Err(StorageError::AlreadyExists(_))
+    ));
     drop(store);
     let _ = std::fs::remove_file(path);
 }

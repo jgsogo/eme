@@ -3,8 +3,8 @@ use super::dto::*;
 use crate::client::ConversationClient;
 
 use crate::error::ModelError;
-use crate::types::TokenUsage;
 use crate::types::{ConversationMessage, ConversationRequest, ConversationResponse, ToolCall};
+use crate::types::{ProviderReportedCost, TokenUsage};
 use async_trait::async_trait;
 use reqwest::Client;
 
@@ -181,8 +181,20 @@ impl ConversationClient for OpenAICompatibleClient {
         let usage = result.usage.map(|usage| TokenUsage {
             input_tokens: usage.prompt_tokens,
             output_tokens: usage.completion_tokens,
-            cached_input_tokens: usage.prompt_tokens_details.and_then(|details| details.cached_tokens),
-            reasoning_tokens: usage.completion_tokens_details.and_then(|details| details.reasoning_tokens),
+            cached_input_tokens: usage
+                .prompt_tokens_details
+                .and_then(|details| details.cached_tokens),
+            reasoning_tokens: usage
+                .completion_tokens_details
+                .and_then(|details| details.reasoning_tokens),
+            reported_cost: usage
+                .cost
+                .as_ref()
+                .zip(usage.cost_currency.as_ref())
+                .and_then(|(amount, currency)| {
+                    decimal_to_micros(&amount.to_string())
+                        .and_then(|micros| ProviderReportedCost::new(micros, currency.clone()))
+                }),
         });
 
         Ok(ConversationResponse {
@@ -192,6 +204,20 @@ impl ConversationClient for OpenAICompatibleClient {
             usage,
         })
     }
+}
+
+fn decimal_to_micros(value: &str) -> Option<u64> {
+    let (whole, fraction) = value.split_once('.').unwrap_or((value, ""));
+    if whole.is_empty()
+        || !whole.bytes().all(|byte| byte.is_ascii_digit())
+        || fraction.len() > 6
+        || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    let whole = whole.parse::<u64>().ok()?;
+    let fraction = format!("{fraction:0<6}").parse::<u64>().ok()?;
+    whole.checked_mul(1_000_000)?.checked_add(fraction)
 }
 
 #[cfg(test)]
@@ -223,7 +249,9 @@ mod tests {
                     "prompt_tokens": 10,
                     "completion_tokens": 5,
                     "prompt_tokens_details": { "cached_tokens": 2 },
-                    "completion_tokens_details": { "reasoning_tokens": 3 }
+                    "completion_tokens_details": { "reasoning_tokens": 3 },
+                    "cost": 0.000123,
+                    "cost_currency": "USD"
                 }
             })))
             .expect(1)
@@ -254,6 +282,8 @@ mod tests {
         assert_eq!(usage.output_tokens, 5);
         assert_eq!(usage.cached_input_tokens, Some(2));
         assert_eq!(usage.reasoning_tokens, Some(3));
+        assert_eq!(usage.reported_cost.as_ref().unwrap().amount_micros, 123);
+        assert_eq!(usage.reported_cost.as_ref().unwrap().currency, "USD");
     }
 
     #[tokio::test]

@@ -7,7 +7,9 @@ use super::{
     RunManagerConfigError, SubmitRunError,
 };
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
-use agent_runtime::{CancellationToken, EventSink, Message, RunEventKind as RuntimeRunEventKind, ToolContext};
+use agent_runtime::{
+    CancellationToken, EventSink, Message, RunEventKind as RuntimeRunEventKind, ToolContext,
+};
 use agent_storage::{ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus};
 use chrono::{DateTime, Utc};
 use std::{
@@ -478,7 +480,10 @@ impl RunManager {
         let Some(storage) = current_storage(&self.persistence) else {
             return Ok(Vec::new());
         };
-        storage.list_usage(run_id.map(|id| id.as_uuid())).await.map_err(|error| error.to_string())
+        storage
+            .list_usage(run_id.map(|id| id.as_uuid()))
+            .await
+            .map_err(|error| error.to_string())
     }
 
     /// Lists all registered pricing versions for the dashboard catalogue.
@@ -486,7 +491,10 @@ impl RunManager {
         let Some(storage) = current_storage(&self.persistence) else {
             return Ok(Vec::new());
         };
-        storage.list_all_pricing().await.map_err(|error| error.to_string())
+        storage
+            .list_all_pricing()
+            .await
+            .map_err(|error| error.to_string())
     }
 
     /// Registers an immutable pricing version for future cost calculations.
@@ -494,15 +502,25 @@ impl RunManager {
         let Some(storage) = current_storage(&self.persistence) else {
             return Err("usage storage is not configured".into());
         };
-        storage.insert_pricing(pricing).await.map_err(|error| error.to_string())
+        storage
+            .insert_pricing(pricing)
+            .await
+            .map_err(|error| error.to_string())
     }
 
     /// Returns immutable pricing versions registered for one provider/model pair.
-    pub async fn pricing_for(&self, provider: &str, model: &str) -> Result<Vec<ModelPricing>, String> {
+    pub async fn pricing_for(
+        &self,
+        provider: &str,
+        model: &str,
+    ) -> Result<Vec<ModelPricing>, String> {
         let Some(storage) = current_storage(&self.persistence) else {
             return Ok(Vec::new());
         };
-        storage.list_pricing(provider, model).await.map_err(|error| error.to_string())
+        storage
+            .list_pricing(provider, model)
+            .await
+            .map_err(|error| error.to_string())
     }
 
     pub async fn history(&self, run_id: RunId) -> Option<Vec<Message>> {
@@ -555,7 +573,9 @@ async fn persist_runtime_event(
     }
     let event = {
         let mut runs = runs.lock().await;
-        let Some(entry) = runs.get_mut(&run_id) else { return; };
+        let Some(entry) = runs.get_mut(&run_id) else {
+            return;
+        };
         entry.record_runtime(runtime_event);
         entry.events.last().cloned()
     };

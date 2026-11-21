@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use agent_metering::{InvocationOutcome, MeteredValue, UsageDimensions, UsageRecord};
+use agent_metering::{InvocationOutcome, MeteredValue, ReportedCost, UsageDimensions, UsageRecord};
 use agent_models::TokenUsage;
 use std::time::Duration;
 use uuid::Uuid;
@@ -47,28 +47,56 @@ enum ModelTurnError {
 }
 
 fn usage_dimensions(usage: Option<&TokenUsage>) -> UsageDimensions {
-    let Some(usage) = usage else { return UsageDimensions::new(); };
+    let Some(usage) = usage else {
+        return UsageDimensions::new();
+    };
     let mut dimensions = UsageDimensions::new()
-        .with(UsageDimensions::INPUT_TOKENS, MeteredValue::Reported(u64::from(usage.input_tokens)))
-        .with(UsageDimensions::OUTPUT_TOKENS, MeteredValue::Reported(u64::from(usage.output_tokens)));
+        .with(
+            UsageDimensions::INPUT_TOKENS,
+            MeteredValue::Reported(u64::from(usage.input_tokens)),
+        )
+        .with(
+            UsageDimensions::OUTPUT_TOKENS,
+            MeteredValue::Reported(u64::from(usage.output_tokens)),
+        );
     if let Some(value) = usage.cached_input_tokens {
-        dimensions = dimensions.with(UsageDimensions::CACHED_INPUT_TOKENS, MeteredValue::Reported(u64::from(value)));
+        dimensions = dimensions.with(
+            UsageDimensions::CACHED_INPUT_TOKENS,
+            MeteredValue::Reported(u64::from(value)),
+        );
     }
     if let Some(value) = usage.reasoning_tokens {
-        dimensions = dimensions.with(UsageDimensions::REASONING_TOKENS, MeteredValue::Reported(u64::from(value)));
+        dimensions = dimensions.with(
+            UsageDimensions::REASONING_TOKENS,
+            MeteredValue::Reported(u64::from(value)),
+        );
     }
     dimensions
 }
 
 fn usage_record(
-    run_id: Uuid, iteration: usize, agent: &str, principal_id: Option<String>,
-    model_id: &str, outcome: InvocationOutcome, usage: UsageDimensions,
+    run_id: Uuid,
+    iteration: usize,
+    agent: &str,
+    principal_id: Option<String>,
+    model_id: &str,
+    outcome: InvocationOutcome,
+    usage: UsageDimensions,
 ) -> UsageRecord {
     let (provider, model) = model_id.split_once('/').unwrap_or(("unknown", model_id));
     UsageRecord::new(
-        Uuid::new_v4(), run_id, u32::try_from(iteration).unwrap_or(u32::MAX),
-        agent, principal_id, provider, model, outcome, usage, chrono::Utc::now(),
-    ).expect("runtime attribution is non-empty")
+        Uuid::new_v4(),
+        run_id,
+        u32::try_from(iteration).unwrap_or(u32::MAX),
+        agent,
+        principal_id,
+        provider,
+        model,
+        outcome,
+        usage,
+        chrono::Utc::now(),
+    )
+    .expect("runtime attribution is non-empty")
 }
 
 fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
@@ -154,14 +182,22 @@ impl AgentRuntime {
     }
 
     async fn complete_model_turn(
-        &self, run_id: Uuid, iteration: usize, agent: &str, principal_id: Option<String>,
-        required: &[agent_models::ModelCapability], request: ModelRequest,
-        cancellation: CancellationToken, deadline: Option<tokio::time::Instant>,
+        &self,
+        run_id: Uuid,
+        iteration: usize,
+        agent: &str,
+        principal_id: Option<String>,
+        required: &[agent_models::ModelCapability],
+        request: ModelRequest,
+        cancellation: CancellationToken,
+        deadline: Option<tokio::time::Instant>,
         events: &mut Vec<RunEvent>,
     ) -> Result<RoutedModelTurn, ModelTurnError> {
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let event_sink = Arc::new(ModelRoutingEventChannel(sender));
-        let completion = self.model_router.complete(required, request, cancellation, event_sink);
+        let completion = self
+            .model_router
+            .complete(required, request, cancellation, event_sink);
         let result = match deadline {
             Some(deadline) => match tokio::time::timeout_at(deadline, completion).await {
                 Ok(result) => Ok(result),
@@ -173,56 +209,142 @@ impl AgentRuntime {
         let mut pending_attempts = Vec::new();
         while let Ok(event) = receiver.try_recv() {
             let kind = match event {
-                ModelRoutingEvent::CandidatesDiscovered { model_ids } =>
-                    RunEventKind::ModelCandidatesDiscovered { model_ids },
+                ModelRoutingEvent::CandidatesDiscovered { model_ids } => {
+                    RunEventKind::ModelCandidatesDiscovered { model_ids }
+                }
                 ModelRoutingEvent::CandidateAttemptStarted { model_id } => {
                     pending_attempts.push(model_id.clone());
                     RunEventKind::ModelCandidateAttemptStarted { model_id }
                 }
                 ModelRoutingEvent::CandidateAttemptFailed { model_id, category } => {
                     pending_attempts.retain(|candidate| candidate != &model_id);
-                    let record = usage_record(run_id, iteration, agent, principal_id.clone(),
-                        &model_id, InvocationOutcome::Failed, UsageDimensions::new());
-                    self.emit_event(events, RunEvent { run_id, iteration,
-                        kind: RunEventKind::ModelUsageRecorded { record } });
+                    let record = usage_record(
+                        run_id,
+                        iteration,
+                        agent,
+                        principal_id.clone(),
+                        &model_id,
+                        InvocationOutcome::Failed,
+                        UsageDimensions::new(),
+                    );
+                    self.emit_event(
+                        events,
+                        RunEvent {
+                            run_id,
+                            iteration,
+                            kind: RunEventKind::ModelUsageRecorded { record },
+                        },
+                    );
                     RunEventKind::ModelCandidateAttemptFailed { model_id, category }
                 }
-                ModelRoutingEvent::Fallback { from_model_id, to_model_id, category } =>
-                    RunEventKind::ModelFallback { from_model_id, to_model_id, category },
-                ModelRoutingEvent::ModelSelected { model_id } =>
-                    RunEventKind::ModelSelected { model_id },
-                ModelRoutingEvent::RoutingFailed { attempted_candidates } =>
-                    RunEventKind::ModelRoutingFailed { attempted_candidates },
+                ModelRoutingEvent::Fallback {
+                    from_model_id,
+                    to_model_id,
+                    category,
+                } => RunEventKind::ModelFallback {
+                    from_model_id,
+                    to_model_id,
+                    category,
+                },
+                ModelRoutingEvent::ModelSelected { model_id } => {
+                    RunEventKind::ModelSelected { model_id }
+                }
+                ModelRoutingEvent::RoutingFailed {
+                    attempted_candidates,
+                } => RunEventKind::ModelRoutingFailed {
+                    attempted_candidates,
+                },
             };
-            self.emit_event(events, RunEvent { run_id, iteration, kind });
+            self.emit_event(
+                events,
+                RunEvent {
+                    run_id,
+                    iteration,
+                    kind,
+                },
+            );
         }
 
         match result {
             Ok(Ok(routed)) => {
-                let record = usage_record(run_id, iteration, agent, principal_id, &routed.model_id,
-                    InvocationOutcome::Succeeded, usage_dimensions(routed.turn.usage.as_ref()));
-                self.emit_event(events, RunEvent { run_id, iteration,
-                    kind: RunEventKind::ModelUsageRecorded { record } });
+                let mut record = usage_record(
+                    run_id,
+                    iteration,
+                    agent,
+                    principal_id,
+                    &routed.model_id,
+                    InvocationOutcome::Succeeded,
+                    usage_dimensions(routed.turn.usage.as_ref()),
+                );
+                if let Some(provider_cost) = routed
+                    .turn
+                    .usage
+                    .as_ref()
+                    .and_then(|usage| usage.reported_cost.as_ref())
+                {
+                    if let Ok(cost) = ReportedCost::new(
+                        provider_cost.amount_micros,
+                        provider_cost.currency.clone(),
+                    ) {
+                        record = record.with_reported_cost(cost);
+                    }
+                }
+                self.emit_event(
+                    events,
+                    RunEvent {
+                        run_id,
+                        iteration,
+                        kind: RunEventKind::ModelUsageRecorded { record },
+                    },
+                );
                 Ok(routed)
             }
             Ok(Err(error)) => {
                 let outcome = if matches!(error, ModelError::Cancelled) {
                     InvocationOutcome::Cancelled
-                } else { InvocationOutcome::Failed };
+                } else {
+                    InvocationOutcome::Failed
+                };
                 for model_id in pending_attempts {
-                    let record = usage_record(run_id, iteration, agent, principal_id.clone(),
-                        &model_id, outcome, UsageDimensions::new());
-                    self.emit_event(events, RunEvent { run_id, iteration,
-                        kind: RunEventKind::ModelUsageRecorded { record } });
+                    let record = usage_record(
+                        run_id,
+                        iteration,
+                        agent,
+                        principal_id.clone(),
+                        &model_id,
+                        outcome,
+                        UsageDimensions::new(),
+                    );
+                    self.emit_event(
+                        events,
+                        RunEvent {
+                            run_id,
+                            iteration,
+                            kind: RunEventKind::ModelUsageRecorded { record },
+                        },
+                    );
                 }
                 Err(ModelTurnError::Model(error))
             }
             Err(error) => {
                 for model_id in pending_attempts {
-                    let record = usage_record(run_id, iteration, agent, principal_id.clone(),
-                        &model_id, InvocationOutcome::TimedOut, UsageDimensions::new());
-                    self.emit_event(events, RunEvent { run_id, iteration,
-                        kind: RunEventKind::ModelUsageRecorded { record } });
+                    let record = usage_record(
+                        run_id,
+                        iteration,
+                        agent,
+                        principal_id.clone(),
+                        &model_id,
+                        InvocationOutcome::TimedOut,
+                        UsageDimensions::new(),
+                    );
+                    self.emit_event(
+                        events,
+                        RunEvent {
+                            run_id,
+                            iteration,
+                            kind: RunEventKind::ModelUsageRecorded { record },
+                        },
+                    );
                 }
                 Err(error)
             }

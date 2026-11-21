@@ -22,4 +22,7 @@ pub use usage_store::UsageStore;
 
 /// Combined persistence interface required by the run coordinator.
 pub trait ExecutionStore: RunStore + RunEventStore + ConversationMessageStore + UsageStore {}
-impl<T> ExecutionStore for T where T: RunStore + RunEventStore + ConversationMessageStore + UsageStore {}
+impl<T> ExecutionStore for T where
+    T: RunStore + RunEventStore + ConversationMessageStore + UsageStore
+{
+}
