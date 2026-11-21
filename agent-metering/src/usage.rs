@@ -58,7 +58,9 @@ impl UsageDimensions {
     pub const CACHED_INPUT_TOKENS: &'static str = "cached_input_tokens";
     pub const REASONING_TOKENS: &'static str = "reasoning_tokens";
 
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn with(mut self, name: impl Into<String>, value: MeteredValue) -> Self {
         self.dimensions.insert(name.into(), value);
@@ -66,15 +68,22 @@ impl UsageDimensions {
     }
 
     pub fn get(&self, name: &str) -> MeteredValue {
-        self.dimensions.get(name).copied().unwrap_or(MeteredValue::Unavailable)
+        self.dimensions
+            .get(name)
+            .copied()
+            .unwrap_or(MeteredValue::Unavailable)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, MeteredValue)> {
-        self.dimensions.iter().map(|(name, value)| (name.as_str(), *value))
+        self.dimensions
+            .iter()
+            .map(|(name, value)| (name.as_str(), *value))
     }
 
     pub fn is_empty(&self) -> bool {
-        self.dimensions.values().all(|value| *value == MeteredValue::Unavailable)
+        self.dimensions
+            .values()
+            .all(|value| *value == MeteredValue::Unavailable)
     }
 }
 
@@ -92,14 +101,22 @@ impl ReportedCost {
         if currency.len() != 3 || !currency.bytes().all(|byte| byte.is_ascii_uppercase()) {
             return Err(UsageRecordError::InvalidCurrency);
         }
-        Ok(Self { amount_micros, currency })
+        Ok(Self {
+            amount_micros,
+            currency,
+        })
     }
 }
 
 /// Whether the provider invocation completed from the platform's perspective.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum InvocationOutcome { Succeeded, Failed, TimedOut, Cancelled }
+pub enum InvocationOutcome {
+    Succeeded,
+    Failed,
+    TimedOut,
+    Cancelled,
+}
 
 /// Immutable accounting input for one model invocation.
 ///
@@ -125,19 +142,41 @@ pub struct UsageRecord {
 impl UsageRecord {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        invocation_id: Uuid, run_id: Uuid, iteration: u32, agent: impl Into<String>,
-        principal_id: Option<String>, provider: impl Into<String>, model: impl Into<String>,
-        outcome: InvocationOutcome, usage: UsageDimensions, occurred_at: DateTime<Utc>,
+        invocation_id: Uuid,
+        run_id: Uuid,
+        iteration: u32,
+        agent: impl Into<String>,
+        principal_id: Option<String>,
+        provider: impl Into<String>,
+        model: impl Into<String>,
+        outcome: InvocationOutcome,
+        usage: UsageDimensions,
+        occurred_at: DateTime<Utc>,
     ) -> Result<Self, UsageRecordError> {
         let agent = agent.into();
         let provider = provider.into();
         let model = model.into();
-        if agent.trim().is_empty() { return Err(UsageRecordError::EmptyAttribution("agent")); }
-        if provider.trim().is_empty() { return Err(UsageRecordError::EmptyAttribution("provider")); }
-        if model.trim().is_empty() { return Err(UsageRecordError::EmptyAttribution("model")); }
+        if agent.trim().is_empty() {
+            return Err(UsageRecordError::EmptyAttribution("agent"));
+        }
+        if provider.trim().is_empty() {
+            return Err(UsageRecordError::EmptyAttribution("provider"));
+        }
+        if model.trim().is_empty() {
+            return Err(UsageRecordError::EmptyAttribution("model"));
+        }
         Ok(Self {
-            invocation_id, run_id, iteration, agent, principal_id, provider, model,
-            outcome, usage, reported_cost: None, occurred_at,
+            invocation_id,
+            run_id,
+            iteration,
+            agent,
+            principal_id,
+            provider,
+            model,
+            outcome,
+            usage,
+            reported_cost: None,
+            occurred_at,
         })
     }
 

@@ -9,7 +9,7 @@ use std::{
 
 use tokio::sync::Notify;
 
-use agent_models::{ModelCapability, ModelError, TokenUsage};
+use agent_models::{ModelCapability, ModelError, ProviderReportedCost, TokenUsage};
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
     ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolContext, ToolDefinition, ToolDispatcher,
@@ -720,7 +720,6 @@ fn configuration_errors_have_a_stable_category() {
     );
 }
 
-
 #[tokio::test]
 async fn emits_usage_record_with_provider_dimensions_and_principal_attribution() {
     let model = Arc::new(MockModel::new(vec![ModelTurn {
@@ -729,13 +728,16 @@ async fn emits_usage_record_with_provider_dimensions_and_principal_attribution()
             output_tokens: 7,
             cached_input_tokens: Some(2),
             reasoning_tokens: Some(3),
+            reported_cost: Some(ProviderReportedCost::new(123, "USD").unwrap()),
         }),
         content: Some("done".into()),
         tool_calls: Vec::new(),
     }]));
     let runtime = AgentRuntime::new(
         model,
-        Arc::new(MockTools { calls: Mutex::new(Vec::new()) }),
+        Arc::new(MockTools {
+            calls: Mutex::new(Vec::new()),
+        }),
         Arc::new(AllowListPolicy::new(Vec::<String>::new())),
     );
     let agent = Agent {
@@ -746,19 +748,26 @@ async fn emits_usage_record_with_provider_dimensions_and_principal_attribution()
         max_iterations: 1,
     };
     let run_id = Uuid::new_v4();
-    let result = runtime.run(
-        run_id,
-        &agent,
-        ToolContext::new("user-123"),
-        Vec::new(),
-        "hello",
-        CancellationToken::new(),
-    ).await.unwrap();
+    let result = runtime
+        .run(
+            run_id,
+            &agent,
+            ToolContext::new("user-123"),
+            Vec::new(),
+            "hello",
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
 
-    let records = result.events.iter().filter_map(|event| match &event.kind {
-        agent_runtime::RunEventKind::ModelUsageRecorded { record } => Some(record),
-        _ => None,
-    }).collect::<Vec<_>>();
+    let records = result
+        .events
+        .iter()
+        .filter_map(|event| match &event.kind {
+            agent_runtime::RunEventKind::ModelUsageRecorded { record } => Some(record),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].run_id, run_id);
     assert_eq!(records[0].agent, "metered-agent");
@@ -767,4 +776,8 @@ async fn emits_usage_record_with_provider_dimensions_and_principal_attribution()
     assert_eq!(records[0].usage.get("output_tokens").value(), Some(7));
     assert_eq!(records[0].usage.get("cached_input_tokens").value(), Some(2));
     assert_eq!(records[0].usage.get("reasoning_tokens").value(), Some(3));
+    assert_eq!(
+        records[0].reported_cost.as_ref().unwrap().amount_micros,
+        123
+    );
 }

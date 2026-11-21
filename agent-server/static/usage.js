@@ -28,7 +28,13 @@ function render(){
  $("metric-reasoning").textContent="Reasoning: "+number(sum("reasoning_tokens"));
 
  const costs=new Map();
- let reported=0,calculated=0,estimated=0,incomplete=0,unpriced=0;
+ let reported=0,calculated=0,estimated=0,incomplete=0,unpriced=0,estimatedDimensions=0,unavailableDimensions=0;
+ for(const record of records){
+  for(const item of Object.values(record.usage?.dimensions||{})){
+   if(item.source==="estimated")estimatedDimensions++;
+   if(item.source==="unavailable")unavailableDimensions++;
+  }
+ }
  for(const record of records){
   const cost=record.cost;
   if(!cost){unpriced++;continue}
@@ -45,6 +51,8 @@ function render(){
  $("quality-calculated").textContent=number(calculated);
  $("quality-estimated").textContent=number(estimated);
  $("quality-incomplete").textContent=number(incomplete)+" partial · "+number(unpriced)+" unpriced";
+ $("quality-estimated-tokens").textContent=number(estimatedDimensions);
+ $("quality-unavailable-tokens").textContent=number(unavailableDimensions);
  $("quality-failed").textContent=number(failed+timedOut);
 
  const groups=new Map();
@@ -70,19 +78,27 @@ function render(){
  $("usage-record-count").textContent=number(recent.length)+" records";
  $("usage-records").innerHTML=recent.length?recent.map(record=>{
   const input=quantity(record,"input_tokens"),output=quantity(record,"output_tokens");
-  const source=record.cost?record.cost.origin.replaceAll("_"," ")+" · "+record.cost.status:"No matching price";
-  return '<tr><td>'+escapeHtml(new Date(record.occurred_at).toLocaleString())+'</td><td>'+escapeHtml(record.agent)+'</td><td>'+escapeHtml(record.provider)+'<span class="usage-model-id">'+escapeHtml(record.model)+'</span></td><td><span class="usage-outcome '+escapeHtml(record.outcome)+'">'+escapeHtml(record.outcome.replaceAll("_"," "))+'</span></td><td>'+(input===null?"—":number(input))+'</td><td>'+(output===null?"—":number(output))+'</td><td>'+escapeHtml(costLabel(record.cost))+'<span class="usage-cost-detail">'+escapeHtml(source)+'</span></td></tr>';
- }).join(""):'<tr><td colspan="7" class="usage-empty">No usage records for this period.</td></tr>';
+  const source=record.cost?record.cost.origin.replaceAll("_"," ")+" · "+record.cost.status+" · "+record.cost.pricing_version:"No matching price";
+  return '<tr><td>'+escapeHtml(new Date(record.occurred_at).toLocaleString())+'</td><td title="'+escapeHtml(record.run_id)+'"><a href="/console/usage?run_id='+encodeURIComponent(record.run_id)+'">'+escapeHtml(String(record.run_id).slice(0,8))+'</a></td><td>'+escapeHtml(record.agent)+'</td><td>'+escapeHtml(record.provider)+'<span class="usage-model-id">'+escapeHtml(record.model)+'</span></td><td><span class="usage-outcome '+escapeHtml(record.outcome)+'">'+escapeHtml(record.outcome.replaceAll("_"," "))+'</span></td><td>'+(input===null?"—":number(input))+'</td><td>'+(output===null?"—":number(output))+'</td><td>'+escapeHtml(costLabel(record.cost))+'<span class="usage-cost-detail">'+escapeHtml(source)+'</span></td></tr>';
+ }).join(""):'<tr><td colspan="8" class="usage-empty">No usage records for this period.</td></tr>';
 }
 async function load(){
- $("usage-status").textContent="Loading usage records…";
+ const runId=new URLSearchParams(window.location.search).get("run_id");
+ $("usage-status").textContent=runId?"Loading run usage…":"Loading usage records…";
  $("usage-status").className="usage-status";
  try{
-  const response=await fetch("/runs/usage",{headers:{Accept:"application/json"}});
+  const endpoint=runId?"/runs/"+encodeURIComponent(runId)+"/usage":"/runs/usage";
+  const response=await fetch(endpoint,{headers:{Accept:"application/json"}});
   if(!response.ok)throw new Error(await response.text()||response.statusText);
-  state.records=await response.json();
+  const payload=await response.json();
+  state.records=runId?(payload.invocations||[]):payload;
+  if(runId){
+   document.querySelector(".usage-heading h2").textContent="Run usage & costs";
+   document.querySelector(".usage-intro").textContent="Accounting for run "+runId;
+  }
   render();
-  $("usage-status").textContent="Updated "+new Date().toLocaleTimeString()+" · "+number(state.records.length)+" stored invocations";
+  const count=runId?(payload.summary?.invocation_count??state.records.length):state.records.length;
+  $("usage-status").textContent=(runId?"Run ":"Updated ")+new Date().toLocaleTimeString()+" · "+number(count)+" stored invocations";
  }catch(error){
   $("usage-status").textContent="Could not load usage: "+error.message;
   $("usage-status").className="usage-status error";

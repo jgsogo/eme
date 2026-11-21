@@ -23,6 +23,6 @@ pub use error::{ModelError, ModelFailureCategory};
 pub use models::{ModelCapability, ModelConfig};
 pub use registry::Registry;
 pub use types::{
-    ConversationMessage, ConversationRequest, ConversationResponse, TokenUsage, ToolCall,
-    ToolDefinition,
+    ConversationMessage, ConversationRequest, ConversationResponse, ProviderReportedCost,
+    TokenUsage, ToolCall, ToolDefinition,
 };
