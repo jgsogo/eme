@@ -135,6 +135,7 @@ async fn trusted_context_survives_queue_and_reaches_executor() {
             relationship: "father".into(),
             members: Vec::new(),
         }),
+        families: Vec::new(),
         conversation_id: Some("conversation-1".into()),
         run_id: None,
     };
