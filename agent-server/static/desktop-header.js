@@ -4,7 +4,7 @@
   if (!header) return;
 
   const path = window.location.pathname;
-  const section = path.startsWith("/console/usage") ? "usage"
+  const section = path.startsWith("/console/admin") ? "admin"
     : path.startsWith("/console/notes") ? "notes"
     : path.startsWith("/console/tasks") ? "tasks"
     : ["/console/meals", "/console/recipes", "/console/meal-planner", "/console/shopping-list", "/console/school-menus"].includes(path) ? "meals"
@@ -14,7 +14,7 @@
 
   const navItems = [
     ["conversations", "Conversations", "/console/conversations"],
-    ["usage", "Usage", "/console/usage"],
+    ["admin", "Admin", "/console/admin/usage"],
     ["notes", "Notes", "/console/notes"],
     ["tasks", "Tasks", "/console/tasks"],
     ["meals", "Meals", "/console/meals"],

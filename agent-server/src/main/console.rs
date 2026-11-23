@@ -36,7 +36,7 @@ pub(super) async fn mobile_root() -> impl Responder {
         .finish()
 }
 
-#[get("/console/usage")]
+#[get("/console/admin/usage")]
 pub(super) async fn usage_page() -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
