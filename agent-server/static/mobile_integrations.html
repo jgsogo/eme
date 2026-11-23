@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>EME Agent Console · Integrations</title><link rel="stylesheet" href="/assets/mobile-base.css"><script src="/assets/console-auth.js" defer></script><script src="/assets/mobile.js" defer></script><script src="/assets/console.js" defer></script></head>
+<body data-layout="mobile" data-page="integrations">
+<header><div class="header-title"><h1>EME Agent Console</h1><nav class="main-nav" aria-label="Main navigation"><a class="main-nav-link" href="/mobile/conversations">Conversations</a><a class="main-nav-link" href="/mobile/notes">Notes</a><a class="main-nav-link" href="/mobile/tasks">Tasks</a><a class="main-nav-link" href="/mobile/meals">Meals</a></nav></div><div class="header-actions"><a class="profile-link active" href="/mobile/profile" aria-label="Profile" title="Profile">◎</a><button class="secondary" id="logout" hidden>Sign out</button><span id="connection" class="hint">Connecting…</span></div></header>
+<section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
+<main hidden><section class="integrations-view"><nav class="profile-section-nav" aria-label="Profile settings"><a class="profile-section-link" href="/mobile/profile">Profile</a><a class="profile-section-link active" href="/mobile/integrations" aria-current="page">Integrations</a><a class="profile-section-link" href="/mobile/families">Families</a></nav>
+ <div class="integrations-heading"><div><h2>Integrations</h2><p class="hint">Connect external services and manage the data available to your agents.</p></div><button class="secondary" id="refresh-integrations">Refresh</button></div>
+ <div class="integrations-layout">
+  <aside id="integrations-sidebar" class="panel integrations-sidebar" aria-label="Available integrations">
+   <h3>Available integrations</h3>
+   <div class="integration-nav-list">
+    <button type="button" class="integration-nav-item active" data-integration="google" aria-current="page" aria-pressed="true">
+     <span class="integration-nav-icon" aria-hidden="true">G</span><span class="integration-nav-copy"><strong>Google Calendar</strong><small id="google-integration-summary">Calendar accounts and sync settings</small></span><span class="integration-nav-chevron" aria-hidden="true">›</span>
+    </button>
+    <button type="button" class="integration-nav-item" data-integration="trakt" aria-pressed="false">
+     <span class="integration-nav-icon trakt" aria-hidden="true">T</span><span class="integration-nav-copy"><strong>Trakt</strong><small id="trakt-integration-summary">Personal viewing history and ratings</small></span><span class="integration-nav-chevron" aria-hidden="true">›</span>
+    </button>
+   </div>
+  </aside>
+  <section class="panel integration-details" aria-label="Integration details">
+   <p id="integrations-status" class="hint" role="status" aria-live="polite"></p>
+   <section id="google-integration-panel" data-integration-panel="google">
+    <div class="integration-details-heading"><div><h3 id="google-integration-title">Google Calendar</h3><p class="hint">Manage connected Google accounts, choose calendars to sync, and configure EME access and family sharing.</p></div></div>
+    <div class="integration-actions">
+     <label class="integration-field" for="google-connect-access"><span>Google permission</span><select id="google-connect-access"><option value="read_only">Read events</option><option value="read_write">Read and write events</option></select></label>
+     <button type="button" id="google-connect">Connect Google</button>
+    </div>
+    <div id="google-connections" class="google-connections"><div class="empty">Loading Google accounts…</div></div>
+   </section>
+   <section id="trakt-integration-panel" data-integration-panel="trakt" hidden>
+    <div class="integration-details-heading"><div><h3 id="trakt-integration-title">Trakt</h3><p class="hint">Connect the Trakt account associated with your personal media profile. Watch history, ratings and watchlist remain scoped to that profile.</p></div></div>
+    <div class="integration-actions">
+     <label class="integration-field" for="trakt-connect-profile"><span>Media profile</span><select id="trakt-connect-profile" disabled><option value="">No unconnected profile available</option></select></label>
+     <button type="button" id="trakt-connect" disabled>Connect Trakt</button>
+    </div>
+    <div id="trakt-profiles" class="google-connections"><div class="empty">Loading your media profiles…</div></div>
+   </section>
+  </section>
+ </div>
+</section></main></body></html>

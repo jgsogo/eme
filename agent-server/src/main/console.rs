@@ -199,6 +199,44 @@ pub(super) async fn mobile_tasks_page() -> impl Responder {
         .body(include_str!("../../static/mobile_tasks.html"))
 }
 
+#[get("/mobile/integrations")]
+pub(super) async fn mobile_integrations_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/mobile_integrations.html"))
+}
+
+#[get("/mobile/meals")]
+pub(super) async fn mobile_meals_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/mobile_meals.html"))
+}
+#[get("/mobile/meal-planner")]
+pub(super) async fn mobile_meal_planner_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/mobile_meal_planner.html"))
+}
+#[get("/mobile/shopping-list")]
+pub(super) async fn mobile_shopping_list_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/mobile_shopping_list.html"))
+}
+#[get("/mobile/school-menus")]
+pub(super) async fn mobile_school_menus_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/mobile_school_menus.html"))
+}
+#[get("/assets/mobile-base.css")]
+pub(super) async fn mobile_base_stylesheet() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/css; charset=utf-8")
+        .body(include_str!("../../static/mobile-base.css"))
+}
+
 #[get("/assets/desktop-header.js")]
 pub(super) async fn desktop_header_script() -> impl Responder {
     HttpResponse::Ok()
