@@ -42,7 +42,7 @@ use console::{
     mobile_shopping_list_page, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
     recipes_page, recipes_script, school_menus_page, school_menus_script, shopping_list_page,
     shopping_list_script, tasks_page, usage_page, usage_script, usage_stylesheet,
-    weekly_planner_page, weekly_planner_script,
+    tools_page, tools_script, weekly_planner_page, weekly_planner_script,
 };
 use media_integration::MediaIntegration;
 
@@ -143,6 +143,7 @@ async fn main() -> Result<()> {
     }
 
     let agents = resolver.agent_catalog();
+    let tools_catalog = resolver.tool_catalog();
     let notes_store = resolver.notes.clone();
     let telegram_agents = resolver
         .agents
@@ -234,6 +235,7 @@ async fn main() -> Result<()> {
             .wrap(middleware::from_fn(require_telegram_session))
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
+            .app_data(web::Data::new(tools_catalog.clone()))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
@@ -261,6 +263,8 @@ async fn main() -> Result<()> {
             .service(mobile_integrations_page)
             .service(conversations_page)
             .service(usage_page)
+            .service(tools_page)
+            .service(tools_script)
             .service(usage_script)
             .service(usage_stylesheet)
             .service(meals_page)
