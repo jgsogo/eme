@@ -788,6 +788,7 @@ fn normalize(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::WatchHistorySource;
 
     fn item() -> MediaItem {
         MediaItem {
