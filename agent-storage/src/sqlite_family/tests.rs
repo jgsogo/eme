@@ -1,6 +1,5 @@
 //! Tests for SQLite family, membership, and invitation persistence.
 
-use chrono::Duration;
 
 use super::*;
 

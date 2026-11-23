@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{MeteredValue, ReportedCost, UsageRecord};
+use crate::{ReportedCost, UsageRecord};
 
 const UNITS_PER_MILLION: u128 = 1_000_000;
 
@@ -173,12 +173,12 @@ pub fn calculate_cost(
                     .checked_sub(cached)
                     .ok_or(PricingError::InconsistentUsage)?;
             }
-        } else if name == crate::UsageDimensions::OUTPUT_TOKENS {
-            if let Some(reasoning) = reasoning {
-                value = value
-                    .checked_sub(reasoning)
-                    .ok_or(PricingError::InconsistentUsage)?;
-            }
+        } else if name == crate::UsageDimensions::OUTPUT_TOKENS
+            && let Some(reasoning) = reasoning
+        {
+            value = value
+                .checked_sub(reasoning)
+                .ok_or(PricingError::InconsistentUsage)?;
         }
         contains_estimated_usage |= quantity.is_estimated();
         let dimension_cost = u128::from(value)
