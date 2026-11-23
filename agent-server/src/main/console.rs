@@ -44,6 +44,20 @@ pub(super) async fn usage_page() -> impl Responder {
         .body(include_str!("../../static/usage.html"))
 }
 
+#[get("/console/admin/agents")]
+pub(super) async fn agents_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/agents.html"))
+}
+
+#[get("/assets/agents.js")]
+pub(super) async fn agents_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/agents.js"))
+}
+
 #[get("/console/admin/tools")]
 pub(super) async fn tools_page() -> impl Responder {
     HttpResponse::Ok()
