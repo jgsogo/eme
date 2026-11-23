@@ -81,8 +81,8 @@ impl RunManager {
                         )
                     };
 
-                    if let Some(storage) = current_storage(&persistence) {
-                        if let Err(storage_error) = persist_snapshot_and_event(
+                    if let Some(storage) = current_storage(&persistence)
+                        && let Err(storage_error) = persist_snapshot_and_event(
                             storage.as_ref(),
                             &run,
                             &RunEvent {
@@ -99,9 +99,8 @@ impl RunManager {
                             },
                         )
                         .await
-                        {
-                            error!(run_id = %run_id, %storage_error, "failed to persist run start");
-                        }
+                    {
+                        error!(run_id = %run_id, %storage_error, "failed to persist run start");
                     }
 
                     info!(run_id = %run.id, agent = %run.agent, "agent run started");
@@ -149,10 +148,10 @@ impl RunManager {
                             if entry.run.status != RunStatus::Running {
                                 None
                             } else {
-                                if let Ok(report) = &result {
-                                    if let Some(messages) = &report.messages {
-                                        entry.history = messages.clone();
-                                    }
+                                if let Ok(report) = &result
+                                    && let Some(messages) = &report.messages
+                                {
+                                    entry.history = messages.clone();
                                 }
                                 let event = match result {
                                     Ok(ExecutionReport {
@@ -404,12 +403,11 @@ impl RunManager {
                 entry.events.last().cloned().unwrap(),
             )
         };
-        if let Some(storage) = current_storage(&self.persistence) {
-            if let Err(error) =
+        if let Some(storage) = current_storage(&self.persistence)
+            && let Err(error) =
                 persist_snapshot_and_event(storage.as_ref(), &snapshot, &event).await
-            {
-                error!(run_id = %run_id, %error, "failed to persist queued-run cancellation");
-            }
+        {
+            error!(run_id = %run_id, %error, "failed to persist queued-run cancellation");
         }
         Ok(outcome)
     }
@@ -430,7 +428,7 @@ impl RunManager {
             by_id.insert(entry.run.id.as_uuid(), entry.run.clone());
         }
         let mut result: Vec<_> = by_id.into_values().collect();
-        result.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+        result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
         result
     }
 
@@ -564,10 +562,10 @@ async fn persist_runtime_event(
     runtime_event: &agent_runtime::RunEvent,
 ) {
     if let RuntimeRunEventKind::ModelUsageRecorded { record } = &runtime_event.kind {
-        if let Some(storage) = current_storage(persistence) {
-            if let Err(error) = storage.append_usage(record.clone()).await {
-                error!(run_id = %run_id, invocation_id = %record.invocation_id, %error, "failed to persist model usage record");
-            }
+        if let Some(storage) = current_storage(persistence)
+            && let Err(error) = storage.append_usage(record.clone()).await
+        {
+            error!(run_id = %run_id, invocation_id = %record.invocation_id, %error, "failed to persist model usage record");
         }
         return;
     }
@@ -579,10 +577,10 @@ async fn persist_runtime_event(
         entry.record_runtime(runtime_event);
         entry.events.last().cloned()
     };
-    if let (Some(storage), Some(event)) = (current_storage(persistence), event) {
-        if let Err(error) = storage.append_event(to_stored_event(run_id, &event)).await {
-            error!(run_id = %run_id, sequence = event.sequence, %error, "failed to persist live runtime event");
-        }
+    if let (Some(storage), Some(event)) = (current_storage(persistence), event)
+        && let Err(error) = storage.append_event(to_stored_event(run_id, &event)).await
+    {
+        error!(run_id = %run_id, sequence = event.sequence, %error, "failed to persist live runtime event");
     }
 }
 

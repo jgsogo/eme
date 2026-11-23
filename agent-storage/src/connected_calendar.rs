@@ -199,9 +199,7 @@ fn backend(error: rusqlite::Error) -> ConnectedCalendarStorageError {
     ConnectedCalendarStorageError::Backend(error.to_string())
 }
 
-fn load_row(
-    row: &rusqlite::Row<'_>,
-) -> rusqlite::Result<(
+type CalendarRow = (
     String,
     String,
     String,
@@ -213,7 +211,9 @@ fn load_row(
     String,
     Option<String>,
     Option<String>,
-)> {
+);
+
+fn load_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CalendarRow> {
     Ok((
         row.get(0)?,
         row.get(1)?,
@@ -230,19 +230,7 @@ fn load_row(
 }
 
 fn parse_calendar(
-    row: (
-        String,
-        String,
-        String,
-        String,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        bool,
-        String,
-        Option<String>,
-        Option<String>,
-    ),
+    row: CalendarRow,
 ) -> Result<ConnectedCalendar, ConnectedCalendarStorageError> {
     let (
         id,
