@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
-use agent_metering::{CostEstimate, ModelPricing, calculate_cost};
+use agent_metering::{CostEstimate, CostStatus, ModelPricing, calculate_cost};
 
 use super::types::{
     CancelRunResponse, GetRunResponse, RunEventResponse, SubmitRunRequest, SubmitRunResponse,
@@ -152,6 +152,7 @@ async fn get_usage(
                     .iter()
                     .find(|pricing| pricing.applies_to(&record))
                     .and_then(|pricing| calculate_cost(&record, pricing).ok())
+                    .filter(|cost| cost.status != CostStatus::Unavailable)
             })
         };
 
@@ -168,6 +169,44 @@ async fn get_usage(
     }
 
     HttpResponse::Ok().json(response)
+}
+
+#[get("/pricing")]
+async fn list_pricing(manager: Data<RunManager>) -> impl Responder {
+    match manager.pricing_catalog().await {
+        Ok(pricing) => HttpResponse::Ok().json(pricing),
+        Err(error) => {
+            tracing::error!(%error, "failed to load pricing catalogue");
+            HttpResponse::InternalServerError().body("could not load pricing catalogue")
+        }
+    }
+}
+
+#[post("/pricing")]
+async fn create_pricing(
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    manager: Data<RunManager>,
+    pricing: Json<ModelPricing>,
+) -> impl Responder {
+    if auth
+        .as_ref()
+        .and_then(|auth| auth.owner_for_request(&request))
+        .is_none()
+    {
+        return HttpResponse::Unauthorized().finish();
+    }
+    if let Err(error) = pricing.validate() {
+        return HttpResponse::BadRequest().body(error.to_string());
+    }
+    match manager.register_pricing(pricing.into_inner()).await {
+        Ok(()) => HttpResponse::Created().finish(),
+        Err(error) if error.contains("already exists") => HttpResponse::Conflict().body(error),
+        Err(error) => {
+            tracing::error!(%error, "failed to register model pricing");
+            HttpResponse::InternalServerError().body("could not register model pricing")
+        }
+    }
 }
 
 #[post("")]
@@ -358,6 +397,8 @@ pub fn runs_api() -> Scope {
     web::scope("/runs")
         .service(list_runs)
         .service(get_usage)
+        .service(list_pricing)
+        .service(create_pricing)
         .service(submit_run)
         .service(get_run)
         .service(get_run_events)

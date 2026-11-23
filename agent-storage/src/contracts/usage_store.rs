@@ -26,4 +26,5 @@ pub trait UsageStore: Send + Sync {
         provider: &str,
         model: &str,
     ) -> Result<Vec<ModelPricing>, StorageError>;
+    async fn list_all_pricing(&self) -> Result<Vec<ModelPricing>, StorageError>;
 }

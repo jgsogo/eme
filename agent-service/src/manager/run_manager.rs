@@ -486,6 +486,28 @@ impl RunManager {
             .map_err(|error| error.to_string())
     }
 
+    /// Lists all registered pricing versions for the dashboard catalogue.
+    pub async fn pricing_catalog(&self) -> Result<Vec<ModelPricing>, String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Ok(Vec::new());
+        };
+        storage
+            .list_all_pricing()
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    /// Registers an immutable pricing version for future cost calculations.
+    pub async fn register_pricing(&self, pricing: ModelPricing) -> Result<(), String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Err("usage storage is not configured".into());
+        };
+        storage
+            .insert_pricing(pricing)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     /// Returns immutable pricing versions registered for one provider/model pair.
     pub async fn pricing_for(
         &self,

@@ -33,6 +33,17 @@ impl ModelPricing {
                 .is_none_or(|until| usage.occurred_at < until)
     }
 
+    pub fn overlaps(&self, other: &Self) -> bool {
+        self.provider == other.provider
+            && self.model == other.model
+            && !self
+                .effective_until
+                .is_some_and(|until| until <= other.effective_from)
+            && !other
+                .effective_until
+                .is_some_and(|until| until <= self.effective_from)
+    }
+
     pub fn validate(&self) -> Result<(), PricingError> {
         if self.provider.trim().is_empty() || self.model.trim().is_empty() {
             return Err(PricingError::EmptyModelIdentity);
@@ -49,6 +60,9 @@ impl ModelPricing {
             .is_some_and(|until| until <= self.effective_from)
         {
             return Err(PricingError::InvalidEffectiveRange);
+        }
+        if !self.rates_per_million.values().any(|rate| rate.is_some()) {
+            return Err(PricingError::NoRates);
         }
         Ok(())
     }
@@ -106,8 +120,12 @@ pub enum PricingError {
     InvalidCurrency,
     #[error("pricing effective_until must be later than effective_from")]
     InvalidEffectiveRange,
+    #[error("pricing must define at least one billable rate")]
+    NoRates,
     #[error("cost calculation overflowed the supported integer range")]
     Overflow,
+    #[error("cached input or reasoning tokens exceed their parent token dimension")]
+    InconsistentUsage,
     #[error("pricing does not apply to this usage record")]
     PricingDoesNotApply,
 }
@@ -128,15 +146,40 @@ pub fn calculate_cost(
     let mut contains_estimated_usage = false;
     let mut priced_dimensions = 0_usize;
 
+    // Cached input is a subset of input_tokens; reasoning tokens are a
+    // subset of output_tokens. Subtract those subsets before applying the
+    // standard rates, then bill them using their dedicated rates.
+    let cached_input = usage
+        .usage
+        .get(crate::UsageDimensions::CACHED_INPUT_TOKENS)
+        .value();
+    let reasoning = usage
+        .usage
+        .get(crate::UsageDimensions::REASONING_TOKENS)
+        .value();
+
     for (name, quantity) in usage.usage.iter() {
         let Some(rate) = pricing.rates_per_million.get(name).copied().flatten() else {
             complete = false;
             continue;
         };
-        let Some(value) = quantity.value() else {
+        let Some(mut value) = quantity.value() else {
             complete = false;
             continue;
         };
+        if name == crate::UsageDimensions::INPUT_TOKENS {
+            if let Some(cached) = cached_input {
+                value = value
+                    .checked_sub(cached)
+                    .ok_or(PricingError::InconsistentUsage)?;
+            }
+        } else if name == crate::UsageDimensions::OUTPUT_TOKENS {
+            if let Some(reasoning) = reasoning {
+                value = value
+                    .checked_sub(reasoning)
+                    .ok_or(PricingError::InconsistentUsage)?;
+            }
+        }
         contains_estimated_usage |= quantity.is_estimated();
         let dimension_cost = u128::from(value)
             .checked_mul(u128::from(rate))
@@ -248,6 +291,34 @@ mod tests {
     }
 
     #[test]
+    fn prices_cached_and_reasoning_subsets_without_double_counting() {
+        let record = usage(
+            UsageDimensions::new()
+                .with(UsageDimensions::INPUT_TOKENS, MeteredValue::Reported(1_000))
+                .with(UsageDimensions::OUTPUT_TOKENS, MeteredValue::Reported(600))
+                .with(
+                    UsageDimensions::CACHED_INPUT_TOKENS,
+                    MeteredValue::Reported(400),
+                )
+                .with(
+                    UsageDimensions::REASONING_TOKENS,
+                    MeteredValue::Reported(100),
+                ),
+        );
+        let mut price = pricing();
+        price
+            .rates_per_million
+            .insert(UsageDimensions::REASONING_TOKENS.into(), Some(10_000_000));
+
+        let cost = calculate_cost(&record, &price).unwrap();
+
+        // 600 regular input * 2 + 400 cached input * 0.5
+        // + 500 regular output * 8 + 100 reasoning * 10 = 6,400 micros.
+        assert_eq!(cost.amount_micros, 6_400);
+        assert_eq!(cost.status, CostStatus::Complete);
+    }
+
+    #[test]
     fn refuses_to_apply_a_different_model_price() {
         let record = usage(UsageDimensions::new());
         let mut price = pricing();
@@ -266,6 +337,15 @@ mod tests {
         let cost = calculate_cost(&record, &pricing()).unwrap();
         assert_eq!(cost.amount_micros, 20);
         assert_eq!(cost.status, CostStatus::Partial);
+    }
+
+    #[test]
+    fn rejects_pricing_without_any_billable_rates() {
+        let mut price = pricing();
+        for rate in price.rates_per_million.values_mut() {
+            *rate = None;
+        }
+        assert_eq!(price.validate(), Err(PricingError::NoRates));
     }
 
     #[test]
