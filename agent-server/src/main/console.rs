@@ -44,6 +44,25 @@ pub(super) async fn usage_page() -> impl Responder {
         .body(include_str!("../../static/usage.html"))
 }
 
+#[get("/console/admin/tools")]
+pub(super) async fn tools_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/tools.html"))
+}
+
+#[get("/assets/tools.js")]
+pub(super) async fn tools_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/tools.js"))
+}
+
+#[get("/tools")]
+pub(super) async fn list_registered_tools(tools: Data<Vec<ToolDefinition>>) -> impl Responder {
+    HttpResponse::Ok().json(tools.get_ref())
+}
+
 #[get("/assets/usage.js")]
 pub(super) async fn usage_script() -> impl Responder {
     HttpResponse::Ok()
