@@ -478,6 +478,10 @@ impl TraktMedia {
             original_language: None,
             genres: Vec::new(),
             runtime_minutes: None,
+            certification: None,
+            popularity: None,
+            vote_average: None,
+            vote_count: None,
             external_ids,
         })
     }

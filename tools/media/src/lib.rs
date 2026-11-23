@@ -10,6 +10,7 @@
 mod config;
 mod models;
 mod providers;
+mod services;
 mod store;
 
 pub use config::{MediaConfig, MediaConfigError, StreamingService};
@@ -18,6 +19,7 @@ pub use providers::{
     TraktOAuthService, TraktSyncError, TraktSyncService, TraktSyncSummary, TraktTokenManager,
     WatchmodeClient, WatchmodeError, WatchmodeSource, filter_subscription_offers,
 };
+pub use services::{MediaRecommendation, RecommendationError, RecommendationService};
 pub use store::{MediaExternalConnectionLink, MediaStore, MediaStoreError, PendingTraktLink};
 
 pub use models::{

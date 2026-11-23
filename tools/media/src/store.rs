@@ -415,7 +415,7 @@ impl MediaStore {
         transaction
             .execute(
                 "DELETE FROM pending_media_connections WHERE state_hash=?1",
-                [state_hash],
+                [state_hash.as_str()],
             )
             .map_err(storage)?;
         transaction.commit().map_err(storage)?;
@@ -800,6 +800,10 @@ mod tests {
             original_language: Some("en".into()),
             genres: vec!["Drama".into()],
             runtime_minutes: Some(100),
+            certification: None,
+            popularity: None,
+            vote_average: None,
+            vote_count: None,
             external_ids: vec![ExternalId {
                 provider: "tmdb".into(),
                 value: "42".into(),
