@@ -416,6 +416,8 @@ async fn list_conversation_runs(
         })
         .map(|run| GetRunResponse {
             run_id: run.id.to_string(),
+            conversation_id: run.conversation_id.map(|id| id.to_string()),
+            input: run.input,
             agent: run.agent,
             status: match run.status {
                 RunStatus::Queued => "queued",
