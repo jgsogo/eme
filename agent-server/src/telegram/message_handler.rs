@@ -343,6 +343,66 @@ pub(super) async fn handle_message(
         None => None,
     };
 
+    // Resolve all current family memberships, not just the family selected
+    // for this conversation, so the agent can notify any authorized relative.
+    let mut family_contexts = match family_service.contexts_for_member(user.id).await {
+        Ok(contexts) => contexts,
+        Err(error) => {
+            active_conversations.lock().await.remove(&conversation.id);
+            send_error(
+                gateway,
+                message.chat_id,
+                "resolve your family memberships",
+                error,
+            )
+            .await;
+            return;
+        }
+    };
+    for family_context in &mut family_contexts {
+        for member in &mut family_context.members {
+            let member_id = match member.user_id.parse::<UserId>() {
+                Ok(id) => id,
+                Err(_) => {
+                    active_conversations.lock().await.remove(&conversation.id);
+                    let _ = gateway
+                        .send_message(
+                            message.chat_id,
+                            "Could not resolve a family member identity.",
+                        )
+                        .await;
+                    return;
+                }
+            };
+            member.telegram_id = match identities.find_identity_for_user("telegram", member_id) {
+                Ok(identity) => identity.map(|identity| identity.subject),
+                Err(error) => {
+                    active_conversations.lock().await.remove(&conversation.id);
+                    send_error(
+                        gateway,
+                        message.chat_id,
+                        "load a family member Telegram identity",
+                        error,
+                    )
+                    .await;
+                    return;
+                }
+            };
+            let member_user = match identities.get_user(member_id) {
+                Ok(user) => user,
+                Err(error) => {
+                    active_conversations.lock().await.remove(&conversation.id);
+                    send_error(gateway, message.chat_id, "load a family member", error).await;
+                    return;
+                }
+            };
+            if let Some(member_user) = member_user {
+                member.name = member_user.display_name;
+                member.birthday = member_user.birthday;
+            }
+        }
+    }
+
     match manager
         .submit(
             conversation.agent.clone(),
@@ -353,6 +413,7 @@ pub(super) async fn handle_message(
                 telegram_id: Some(telegram_user_id.to_string()),
                 timezone: user.timezone.clone(),
                 family,
+                families: family_contexts,
                 conversation_id: Some(conversation.id.to_string()),
                 run_id: None,
             },

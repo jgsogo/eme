@@ -30,17 +30,13 @@ fn resolve_chat_id(context: &ToolContext, recipient: Option<&str>) -> Result<i64
         })?,
         Some(recipient_id) => {
             let member = context
-                .family
-                .as_ref()
-                .and_then(|family| {
-                    family
-                        .members
-                        .iter()
-                        .find(|member| member.user_id == recipient_id)
-                })
+                .families
+                .iter()
+                .flat_map(|family| family.members.iter())
+                .find(|member| member.user_id == recipient_id)
                 .ok_or_else(|| {
                     ToolError::Execution(format!(
-                        "Recipient '{recipient_id}' is not a member of the conversation family."
+                        "Recipient '{recipient_id}' is not a member of any family belonging to the authenticated user."
                     ))
                 })?;
             member.telegram_id.as_deref().ok_or_else(|| {
@@ -110,7 +106,35 @@ mod tests {
     fn resolves_only_members_of_the_trusted_family_context() {
         let context = ToolContext {
             telegram_id: Some("42".into()),
-            family: Some(family_context()),
+            families: vec![family_context()],
+            ..ToolContext::default()
+        };
+
+        assert_eq!(
+            resolve_chat_id(&context, Some("member-user-id")).unwrap(),
+            84
+        );
+    }
+
+    #[test]
+    fn resolves_members_from_any_trusted_family_context() {
+        let second_family = FamilyContext {
+            family_id: "family-2".into(),
+            family_name: "Other home".into(),
+            family_role: "member".into(),
+            relationship: "son".into(),
+            members: vec![FamilyMemberContext {
+                user_id: "member-user-id".into(),
+                name: Some("Member".into()),
+                birthday: None,
+                telegram_id: Some("84".into()),
+                role: "member".into(),
+                relationship: "daughter".into(),
+            }],
+        };
+        let context = ToolContext {
+            telegram_id: Some("42".into()),
+            families: vec![family_context(), second_family],
             ..ToolContext::default()
         };
 
@@ -124,7 +148,7 @@ mod tests {
     fn rejects_recipients_outside_the_trusted_family_context() {
         let context = ToolContext {
             telegram_id: Some("42".into()),
-            family: Some(family_context()),
+            families: vec![family_context()],
             ..ToolContext::default()
         };
 
@@ -132,11 +156,21 @@ mod tests {
     }
 
     #[test]
+    fn rejects_members_from_a_selected_family_not_in_the_current_authorized_rosters() {
+        let context = ToolContext {
+            family: Some(family_context()),
+            ..ToolContext::default()
+        };
+
+        assert!(resolve_chat_id(&context, Some("member-user-id")).is_err());
+    }
+
+    #[test]
     fn rejects_family_members_without_a_linked_telegram_account() {
         let mut family = family_context();
         family.members[1].telegram_id = None;
         let context = ToolContext {
-            family: Some(family),
+            families: vec![family],
             ..ToolContext::default()
         };
 

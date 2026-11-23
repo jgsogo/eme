@@ -1,5 +1,5 @@
 name = "telegram.ask_user"
-description = "Ask the conversation owner or a selected family member a question and wait for their Telegram reply. Use kind='text' for free-text answers, or kind='yes_no' for a Yes/No choice presented as inline buttons. Returns the user's answer (free text, or 'yes'/'no')."
+description = "Ask the conversation owner or a member of any family the conversation owner belongs to a question and wait for their Telegram reply. Use kind='text' for free-text answers, or kind='yes_no' for a Yes/No choice presented as inline buttons. Returns the user's answer (free text, or 'yes'/'no')."
 
 [parameters]
 type = "object"
@@ -12,7 +12,7 @@ description = "The question to show the user."
 
 [parameters.properties.recipient]
 type = "string"
-description = "Optional recipient_id from the trusted family context. Omit to ask the conversation owner."
+description = "Optional recipient_id from any trusted family context belonging to the conversation owner. Omit to ask the conversation owner."
 
 [parameters.properties.kind]
 type = "string"

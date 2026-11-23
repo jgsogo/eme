@@ -15,7 +15,7 @@ The crate also exposes a shared `TelegramGateway`. The server owns one gateway p
 
 - **Tool implementations:** model-facing definitions and argument schemas for each Telegram capability.
 - **Telegram Bot API integration:** one shared gateway authenticates with the bot token, owns the only update poller, and routes replies to waiting interactive requests or broadcasts normal messages.
-- **Recipient resolution:** derive the default recipient from trusted conversation identity, or resolve an explicit family `recipient_id` against the trusted family roster.
+- **Recipient resolution:** derive the default recipient from trusted conversation identity, or resolve an explicit family `recipient_id` against every trusted family roster belonging to the authenticated user.
 - **Error reporting:** translate Telegram API and timeout failures into tool errors for the runtime.
 
 ## Configuration
@@ -36,7 +36,7 @@ Sends a message and returns immediately.
 Arguments:
 
 - `message` (string, required)
-- `recipient` (string, optional): a `recipient_id` from the trusted family context; omitted means the conversation owner.
+- `recipient` (string, optional): a `recipient_id` from any trusted family context belonging to the authenticated user; omitted means the conversation owner. Use an ID exactly as provided in the trusted system context; do not invent or derive recipient IDs.
 
 ### `tg_ask_user`
 
@@ -58,7 +58,7 @@ Returns:
 - `telegram-tool` owns Telegram-specific integration code, the shared gateway, and the implementations of its tools.
 - `agent-runtime` owns registration, argument validation, authorization, and dispatch.
 - Telegram chat IDs are resolved by the host from authenticated identity records; the model never supplies raw Telegram IDs.
-- Explicit recipients must match a member of the conversation's trusted family context and have a linked Telegram account.
+- Explicit recipients must match a member of at least one family the authenticated user currently belongs to and have a linked Telegram account. The model receives EME `recipient_id` values, never raw Telegram IDs; the host resolves the Telegram ID again at execution time.
 
 ## Non-goals
 
