@@ -10,11 +10,13 @@
 //! this crate owns the accounting vocabulary and deterministic calculations.
 
 mod pricing;
+mod summary;
 mod usage;
 
 pub use pricing::{
     CostEstimate, CostOrigin, CostStatus, ModelPricing, PricingError, calculate_cost,
 };
+pub use summary::{CurrencyCostSummary, DimensionUsageSummary, UsageSummary, summarize_usage};
 pub use usage::{
     InvocationOutcome, MeteredValue, ReportedCost, UsageDimensions, UsageRecord, UsageRecordError,
 };

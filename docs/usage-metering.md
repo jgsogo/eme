@@ -25,7 +25,7 @@ The dashboard's Pricing catalogue lets an authenticated user add a new version. 
 
 ## Cost semantics
 
-- Provider-reported costs take precedence and are marked `provider_reported`.
+- Provider-reported costs take precedence and are marked `provider_reported`. The OpenAI-compatible adapter retains a reported cost only when the response also supplies an explicit currency; it does not guess the currency.
 - Otherwise, the matching effective pricing version is used to calculate cost.
 - If any reported usage dimension has no rate, or a dimension required by the pricing entry is unavailable, the calculated result is marked partial.
 - If no billable dimension can be calculated, cost is unavailable.
@@ -35,7 +35,8 @@ The dashboard's Pricing catalogue lets an authenticated user add a new version. 
 ## API
 
 - `GET /runs/usage` returns the authenticated user's invocation records with cost estimates.
+- `GET /runs/{run_id}/usage` returns invocation details and a run-level aggregate across all turns, retries, and fallbacks.
 - `GET /runs/pricing` returns registered immutable pricing versions.
 - `POST /runs/pricing` registers a new pricing version. It requires an authenticated session and rejects invalid, duplicate, or overlapping versions.
 
-The Usage dashboard consumes these endpoints and provides date filtering, token totals, provider/model breakdowns, cost provenance, and invocation history.
+The Usage dashboard consumes these endpoints and provides date filtering, token totals, provider/model breakdowns, cost provenance, and invocation history. Invocation rows link to a run-specific drill-down with aggregate totals and the underlying attempts.

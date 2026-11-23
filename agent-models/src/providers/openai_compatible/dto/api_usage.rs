@@ -6,6 +6,10 @@ pub(in crate::providers::openai_compatible) struct ApiUsage {
     pub(in crate::providers::openai_compatible) prompt_tokens: u32,
     pub(in crate::providers::openai_compatible) completion_tokens: u32,
     #[serde(default)]
+    pub(in crate::providers::openai_compatible) cost: Option<serde_json::Number>,
+    #[serde(default)]
+    pub(in crate::providers::openai_compatible) cost_currency: Option<String>,
+    #[serde(default)]
     pub(in crate::providers::openai_compatible) prompt_tokens_details:
         Option<ApiPromptTokensDetails>,
     #[serde(default)]

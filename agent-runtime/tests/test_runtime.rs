@@ -9,7 +9,7 @@ use std::{
 
 use tokio::sync::Notify;
 
-use agent_models::{ModelCapability, ModelError, TokenUsage};
+use agent_models::{ModelCapability, ModelError, ProviderReportedCost, TokenUsage};
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
     ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolContext, ToolDefinition, ToolDispatcher,
@@ -728,6 +728,7 @@ async fn emits_usage_record_with_provider_dimensions_and_principal_attribution()
             output_tokens: 7,
             cached_input_tokens: Some(2),
             reasoning_tokens: Some(3),
+            reported_cost: Some(ProviderReportedCost::new(123, "USD").unwrap()),
         }),
         content: Some("done".into()),
         tool_calls: Vec::new(),
@@ -775,4 +776,8 @@ async fn emits_usage_record_with_provider_dimensions_and_principal_attribution()
     assert_eq!(records[0].usage.get("output_tokens").value(), Some(7));
     assert_eq!(records[0].usage.get("cached_input_tokens").value(), Some(2));
     assert_eq!(records[0].usage.get("reasoning_tokens").value(), Some(3));
+    assert_eq!(
+        records[0].reported_cost.as_ref().unwrap().amount_micros,
+        123
+    );
 }

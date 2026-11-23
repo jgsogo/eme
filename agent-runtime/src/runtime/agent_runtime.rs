@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use agent_metering::{InvocationOutcome, MeteredValue, UsageDimensions, UsageRecord};
+use agent_metering::{InvocationOutcome, MeteredValue, ReportedCost, UsageDimensions, UsageRecord};
 use agent_models::TokenUsage;
 use std::time::Duration;
 use uuid::Uuid;
@@ -267,7 +267,7 @@ impl AgentRuntime {
 
         match result {
             Ok(Ok(routed)) => {
-                let record = usage_record(
+                let mut record = usage_record(
                     run_id,
                     iteration,
                     agent,
@@ -276,6 +276,19 @@ impl AgentRuntime {
                     InvocationOutcome::Succeeded,
                     usage_dimensions(routed.turn.usage.as_ref()),
                 );
+                if let Some(provider_cost) = routed
+                    .turn
+                    .usage
+                    .as_ref()
+                    .and_then(|usage| usage.reported_cost.as_ref())
+                {
+                    if let Ok(cost) = ReportedCost::new(
+                        provider_cost.amount_micros,
+                        provider_cost.currency.clone(),
+                    ) {
+                        record = record.with_reported_cost(cost);
+                    }
+                }
                 self.emit_event(
                     events,
                     RunEvent {

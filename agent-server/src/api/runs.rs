@@ -3,7 +3,9 @@
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
-use agent_metering::{CostEstimate, CostStatus, ModelPricing, calculate_cost};
+use agent_metering::{
+    CostEstimate, CostStatus, ModelPricing, UsageRecord, calculate_cost, summarize_usage,
+};
 
 use super::types::{
     CancelRunResponse, GetRunResponse, RunEventResponse, SubmitRunRequest, SubmitRunResponse,
@@ -169,6 +171,78 @@ async fn get_usage(
     }
 
     HttpResponse::Ok().json(response)
+}
+
+fn estimate_record_cost(record: &UsageRecord, pricing: &[ModelPricing]) -> Option<CostEstimate> {
+    if let Some(reported) = &record.reported_cost {
+        return Some(CostEstimate::from_reported(reported));
+    }
+    pricing
+        .iter()
+        .find(|price| price.applies_to(record))
+        .and_then(|price| calculate_cost(record, price).ok())
+        .filter(|cost| cost.status != CostStatus::Unavailable)
+}
+
+#[get("/{run_id}/usage")]
+async fn get_run_usage(
+    path: Path<String>,
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
+    manager: Data<RunManager>,
+) -> impl Responder {
+    let run_id = match RunId::from_str(&path) {
+        Ok(run_id) => run_id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid run ID"),
+    };
+    let run = manager
+        .list()
+        .await
+        .into_iter()
+        .find(|run| run.id == run_id);
+    let Some(run) = run else {
+        return HttpResponse::NotFound().finish();
+    };
+    if !owns_run(
+        &run,
+        &request,
+        auth.as_deref().map(|value| &**value),
+        store.as_ref().map(|value| value.get_ref().as_ref()),
+    ) {
+        return HttpResponse::Forbidden().finish();
+    }
+
+    let records = match manager.usage_records(Some(run_id)).await {
+        Ok(records) => records,
+        Err(error) => {
+            tracing::error!(%run_id, %error, "failed to load run usage records");
+            return HttpResponse::InternalServerError().body("could not load run usage");
+        }
+    };
+    let pricing = match manager.pricing_catalog().await {
+        Ok(pricing) => pricing,
+        Err(error) => {
+            tracing::error!(%run_id, %error, "failed to load pricing catalogue");
+            return HttpResponse::InternalServerError().body("could not load pricing catalogue");
+        }
+    };
+    let summary = summarize_usage(&records, &pricing);
+    let invocations = records
+        .iter()
+        .map(|record| {
+            let mut item = serde_json::to_value(record).unwrap_or(serde_json::Value::Null);
+            item["cost"] = serde_json::to_value(estimate_record_cost(record, &pricing))
+                .unwrap_or(serde_json::Value::Null);
+            item
+        })
+        .collect::<Vec<_>>();
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "run_id": run_id.to_string(),
+        "summary": summary,
+        "invocations": invocations
+    }))
 }
 
 #[get("/pricing")]
@@ -399,6 +473,7 @@ pub fn runs_api() -> Scope {
         .service(get_usage)
         .service(list_pricing)
         .service(create_pricing)
+        .service(get_run_usage)
         .service(submit_run)
         .service(get_run)
         .service(get_run_events)
