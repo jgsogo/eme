@@ -52,14 +52,21 @@ impl Registry {
 
     /// Returns the validated provider/model metadata without exposing credentials.
     pub fn catalog(&self) -> Vec<ProviderInfo> {
-        self.providers.values().map(|provider| ProviderInfo {
-            name: provider.name.clone(),
-            client: provider.client.clone(),
-            models: provider.models.iter().map(|model| ProviderModelInfo {
-                name: model.name.clone(),
-                capabilities: model.capabilities.clone(),
-            }).collect(),
-        }).collect()
+        self.providers
+            .values()
+            .map(|provider| ProviderInfo {
+                name: provider.name.clone(),
+                client: provider.client.clone(),
+                models: provider
+                    .models
+                    .iter()
+                    .map(|model| ProviderModelInfo {
+                        name: model.name.clone(),
+                        capabilities: model.capabilities.clone(),
+                    })
+                    .collect(),
+            })
+            .collect()
     }
 
     /// Returns whether a provider/model pair is declared in the loaded configuration.
