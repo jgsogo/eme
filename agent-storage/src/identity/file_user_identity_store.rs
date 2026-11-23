@@ -4,7 +4,6 @@ use super::{
     IdentityState, IdentityStoreError, User, UserId, UserIdentity, UserIdentityStore, identity_key,
 };
 use chrono::NaiveDate;
-use serde_json;
 use std::{
     fs::{self, OpenOptions},
     io::{self, Write},

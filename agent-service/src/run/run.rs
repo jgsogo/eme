@@ -76,18 +76,18 @@ impl Run {
     }
 
     fn transition(&mut self, to: RunStatus) -> Result<(), InvalidRunTransition> {
-        let valid = match (self.status, to) {
-            (RunStatus::Queued, RunStatus::Running | RunStatus::Cancelled) => true,
-            (
-                RunStatus::Running,
-                RunStatus::Completed
-                | RunStatus::Failed
-                | RunStatus::Cancelled
-                | RunStatus::TimedOut
-                | RunStatus::MaxIterationsReached,
-            ) => true,
-            _ => false,
-        };
+        let valid = matches!(
+            (self.status, to),
+            (RunStatus::Queued, RunStatus::Running | RunStatus::Cancelled)
+                | (
+                    RunStatus::Running,
+                    RunStatus::Completed
+                        | RunStatus::Failed
+                        | RunStatus::Cancelled
+                        | RunStatus::TimedOut
+                        | RunStatus::MaxIterationsReached
+                )
+        );
 
         if !valid {
             return Err(InvalidRunTransition {

@@ -2,10 +2,11 @@
 use serde::{Deserialize, Serialize};
 
 /// How a recommendation treats watched titles across its selected participants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WatchedPolicy {
     /// Exclude a title if any selected participant watched it.
+    #[default]
     AnyParticipant,
     /// Exclude a title only if every selected participant watched it.
     AllParticipants,
@@ -13,8 +14,3 @@ pub enum WatchedPolicy {
     IncludeAll,
 }
 
-impl Default for WatchedPolicy {
-    fn default() -> Self {
-        Self::AnyParticipant
-    }
-}

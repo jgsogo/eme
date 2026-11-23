@@ -3,7 +3,7 @@
 mod types;
 pub(crate) use types::{TaskAdd, TaskList, TaskRemove};
 
-use crate::{NewTask, TaskRegistry};
+use crate::NewTask;
 use agent_runtime::{Tool, ToolContext, ToolError};
 use async_trait::async_trait;
 use serde_json::{Value, json};

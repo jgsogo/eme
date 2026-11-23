@@ -4,7 +4,6 @@ use super::{Conversation, ConversationId, ConversationStoreError, default_conver
 use crate::FamilyId;
 use agent_runtime::Message;
 use chrono::Utc;
-use serde_json;
 use std::{
     collections::HashMap,
     fs::{self, OpenOptions},
