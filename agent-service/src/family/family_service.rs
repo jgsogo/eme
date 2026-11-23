@@ -124,6 +124,20 @@ impl FamilyService {
         self.families.list_families(actor).await.map_err(Into::into)
     }
 
+    /// Resolves every family context for which the actor currently has active membership.
+    /// Each context is independently revalidated by `context_for_member`.
+    pub async fn contexts_for_member(
+        &self,
+        actor: UserId,
+    ) -> Result<Vec<FamilyContext>, FamilyServiceError> {
+        let families = self.list_families(actor).await?;
+        let mut contexts = Vec::with_capacity(families.len());
+        for family in families {
+            contexts.push(self.context_for_member(actor, family.id).await?);
+        }
+        Ok(contexts)
+    }
+
     pub async fn get_family(
         &self,
         actor: UserId,
