@@ -36,7 +36,7 @@ Sends a message and returns immediately.
 Arguments:
 
 - `message` (string, required)
-- `recipient` (string, optional): a `recipient_id` from any trusted family context belonging to the authenticated user; omitted means the conversation owner.
+- `recipient` (string, optional): a `recipient_id` from any trusted family context belonging to the authenticated user; omitted means the conversation owner. Use an ID exactly as provided in the trusted system context; do not invent or derive recipient IDs.
 
 ### `tg_ask_user`
 
