@@ -42,7 +42,7 @@ use console::{
     mobile_shopping_list_page, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
     recipes_page, recipes_script, school_menus_page, school_menus_script, shopping_list_page,
     shopping_list_script, tasks_page, usage_page, usage_script, usage_stylesheet, agents_page, agents_script,
-    list_registered_tools, tools_page, tools_script, weekly_planner_page, weekly_planner_script,
+    list_registered_tools, tools_page, tools_script, providers_page, providers_script, list_configured_providers, weekly_planner_page, weekly_planner_script,
 };
 use media_integration::MediaIntegration;
 
@@ -144,6 +144,7 @@ async fn main() -> Result<()> {
 
     let agents = resolver.agent_catalog();
     let tools_catalog = resolver.tool_catalog();
+    let providers_catalog = resolver.provider_catalog();
     let notes_store = resolver.notes.clone();
     let telegram_agents = resolver
         .agents
@@ -236,6 +237,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(manager.clone()))
             .app_data(web::Data::new(agents.clone()))
             .app_data(web::Data::new(tools_catalog.clone()))
+            .app_data(web::Data::new(providers_catalog.clone()))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
@@ -266,6 +268,9 @@ async fn main() -> Result<()> {
             .service(tools_page)
             .service(agents_page)
             .service(agents_script)
+            .service(providers_page)
+            .service(providers_script)
+            .service(list_configured_providers)
             .service(tools_script)
             .service(list_registered_tools)
             .service(usage_script)
