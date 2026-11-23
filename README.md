@@ -206,6 +206,10 @@ cargo run -p agent-runtime --example basic_agent -- \
   "Ask Alexa to say Hello"
 ```
 
+## Media discovery
+
+EME includes an optional family-aware movie and TV discovery integration using TMDB, Watchmode and Trakt. See [Media discovery and family recommendations](docs/media.md) for provider configuration, Trakt linking, family profiles and recommendation behavior.
+
 ## Design principles
 
 ### The model is not the authority

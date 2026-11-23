@@ -91,40 +91,78 @@ select,textarea{width:100%;background:var(--panel2);border:1px solid var(--borde
 }
 
 /* Integrations master/detail layout */
+/* Keep inactive detail panes hidden even when component styles set display. */
+.integration-details>[data-integration-panel][hidden]{display:none!important}
+.integration-details>[data-integration-panel]:not([hidden]){display:block}
+
 .integrations-view{overflow:hidden}
-.integrations-layout{display:grid;grid-template-columns:minmax(250px,310px) minmax(0,1fr);gap:14px;flex:1;min-height:0}
+.integrations-layout{display:grid;grid-template-columns:minmax(230px,290px) minmax(0,1fr);gap:14px;flex:1;min-height:0}
 .integrations-sidebar,.integration-details{min-width:0;min-height:0;padding:16px;overflow:auto}
 .integrations-sidebar>h3{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
-.integration-nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:12px;text-align:left;background:var(--panel2);border:1px solid var(--border);border-radius:9px;color:var(--text);cursor:pointer}
-.integration-nav-item.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.integration-nav-list{display:grid;gap:8px}
+button.integration-nav-item{display:flex;align-items:center;gap:10px;width:100%;min-height:66px;margin:0;padding:10px 12px;text-align:left;background:var(--panel2);border:1px solid var(--border);border-radius:9px;color:var(--text);cursor:pointer}
+button.integration-nav-item:hover{border-color:var(--accent)}
+button.integration-nav-item.active{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .integration-nav-icon{display:grid;place-items:center;flex:none;width:34px;height:34px;border-radius:8px;background:#fff;color:#4285f4;font-weight:700;font-size:19px}
+.integration-nav-icon.trakt{background:#ed1c24;color:#fff}
 .integration-nav-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
 .integration-nav-copy strong{font-size:13px}
 .integration-nav-copy small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
 .integration-nav-chevron{font-size:20px;color:var(--muted)}
-.integrations-sidebar .integrations-connect{margin-top:18px;padding:14px 0 0;border:0;border-top:1px solid var(--border);border-radius:0;background:transparent}
-.integrations-connect h3{font-size:14px;color:var(--text);margin:0}
-.integrations-connect p{margin:5px 0 0}
-.integrations-sidebar .connect-controls{display:flex;flex-direction:column;align-items:stretch;gap:7px;margin-top:12px}
-.integrations-sidebar .connect-controls label{margin-top:2px}
-.integrations-sidebar .connect-controls select,.integrations-sidebar .connect-controls button{width:100%;margin:0}
-.integration-details-heading{padding-bottom:12px;border-bottom:1px solid var(--border)}
+.integration-details{padding:18px}
+.integration-details>#integrations-status{margin:0 0 12px;min-height:17px}
+.integration-details-heading{padding-bottom:14px;border-bottom:1px solid var(--border)}
 .integration-details-heading h3{font-size:17px;color:var(--text);margin:0}
 .integration-details-heading p{margin:5px 0 0}
-.integration-details>#integrations-status{margin:10px 0;min-height:17px}
-.integration-details .google-connections{gap:12px}
-.integration-details .google-account{padding:14px}
+.integration-actions{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin:16px 0}
+.integration-field{display:flex;flex-direction:column;gap:6px;min-width:190px;color:var(--muted);font-size:12px;font-weight:600}
+.integration-field select{box-sizing:border-box;width:100%;min-width:190px;height:38px;margin:0;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text);font:inherit;font-size:13px}
+.integration-details button:not(.integration-nav-item){box-sizing:border-box;min-height:38px;margin:0;padding:8px 14px;border-radius:8px;font:inherit;font-size:13px;font-weight:650;line-height:1.2}
+.integration-actions>button{min-width:132px}
+.integration-button-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.integration-button-row button{min-width:112px}
+.integration-details .google-connections{display:flex;flex-direction:column;gap:12px}
+.integration-details .google-account,.integration-details .integrations-empty{padding:14px}
+.trakt-data{padding-top:4px}
+.trakt-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.trakt-stats>div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;min-width:0}
+.trakt-stats strong{font-size:19px;line-height:1.2;color:var(--text);font-variant-numeric:tabular-nums}
+.trakt-stats span,.trakt-recent small{font-size:11px;color:var(--muted)}
+.trakt-no-data{margin:12px 0 4px}
+.trakt-recent{margin-top:16px}
+.trakt-recent h4{font-size:13px;margin:0 0 8px;color:var(--text)}
+.trakt-recent ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.trakt-recent li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.trakt-recent li span{font-size:12px;color:var(--text);overflow-wrap:anywhere}
+.trakt-recent li small{white-space:nowrap}
+@media(max-width:560px){.trakt-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.trakt-recent li{align-items:flex-start;flex-direction:column;gap:3px}}
+
+.integration-details .google-account h3{font-size:15px;color:var(--text);margin:0}
+.integration-details .google-account-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.integration-details .calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 8px}
+.integration-details .calendar-sharing-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.integration-details .calendar-sharing-controls button{min-width:112px}
+.integration-details .calendar-sharing-controls label{display:flex;flex-direction:column;gap:5px}
+.integration-details .calendar-sharing-controls select{min-width:130px}
 @media(max-width:760px){
  .integrations-view{overflow:auto}
  .integrations-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(360px,1fr);gap:8px}
  .integrations-sidebar,.integration-details{padding:12px;overflow:visible}
- .integrations-sidebar .integrations-connect{margin-top:12px}
- .integrations-sidebar .connect-controls{display:grid;grid-template-columns:1fr 1fr;align-items:end}
- .integrations-sidebar .connect-controls label{grid-column:1/-1}
- .integrations-sidebar .connect-controls select,.integrations-sidebar .connect-controls button{width:100%}
+ .integration-nav-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+ button.integration-nav-item{min-height:62px;padding:9px}
+ .integration-nav-icon{width:30px;height:30px}
  .integration-details{min-height:360px}
+ .integration-actions{align-items:stretch}
+ .integration-field{flex:1 1 100%;min-width:0}
+ .integration-field select{min-width:0}
+ .integration-actions>button{width:100%}
+ .integration-details .google-account-heading,.integration-details .calendar-toolbar{align-items:flex-start;flex-direction:column}
+ .integration-button-row{width:100%}
+ .integration-button-row button{flex:1}
+ .integration-details .calendar-sharing-controls{align-items:stretch;flex-direction:column}
+ .integration-details .calendar-sharing-controls label,.integration-details .calendar-sharing-controls select,.integration-details .calendar-sharing-controls button{width:100%}
 }
-
+ 
 /* Profile section navigation */
 .profile-section-nav{display:flex;align-items:center;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--border)}
 .profile-section-link{display:inline-block;padding:7px 11px;border-radius:7px;text-decoration:none;color:var(--muted);font-size:13px}

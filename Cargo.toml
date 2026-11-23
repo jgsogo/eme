@@ -17,6 +17,7 @@ members = [
     "tools/notes",
     "tools/meal-planner",
     "tools/mercadona",
+    "tools/media",
 ]
 
 [workspace.dependencies]
@@ -28,12 +29,13 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1.0.104"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "sync"] }
 reqwest = { version = "0.12", features = ["json", "cookies","rustls-tls"] }
+base64 = "0.22"
 oauth2 = "5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1.2"
 jsonschema = "0.61"
-uuid = { version = "1", features = ["v4", "serde"] }
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
 sha2 = "0.11"
 rusqlite = { version = "0.43", features = ["bundled"] }
 url = "2"
