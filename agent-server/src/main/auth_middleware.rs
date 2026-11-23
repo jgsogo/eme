@@ -35,7 +35,8 @@ where
     }
 
     let auth = request.app_data::<web::Data<TelegramAuth>>();
-    let authenticated = auth.is_some_and(|auth| auth.owner_for_request(request.request()).is_some());
+    let authenticated =
+        auth.is_some_and(|auth| auth.owner_for_request(request.request()).is_some());
     if !authenticated {
         return Ok(request
             .into_response(HttpResponse::Unauthorized().finish())
