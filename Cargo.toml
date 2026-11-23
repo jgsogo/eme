@@ -7,6 +7,7 @@ members = [
     "agent-service",
     "agent-storage",
     "agent-server",
+    "agent-metering",
     "tools/alexa",
     "tools/telegram",
     "tools/meteosource",

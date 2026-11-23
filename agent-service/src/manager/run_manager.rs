@@ -1,11 +1,15 @@
 //! Coordinates run admission, bounded execution, cancellation, and durable history.
 
+use agent_metering::{ModelPricing, UsageRecord};
+
 use super::{
     CancelRunError, CancelRunOutcome, ExecutionOutcome, ExecutionReport, ManagedRun, RunExecutor,
     RunManagerConfigError, SubmitRunError,
 };
 use crate::{Run, RunEvent, RunEventKind, RunId, RunStatus};
-use agent_runtime::{CancellationToken, EventSink, Message, ToolContext};
+use agent_runtime::{
+    CancellationToken, EventSink, Message, RunEventKind as RuntimeRunEventKind, ToolContext,
+};
 use agent_storage::{ExecutionStore, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus};
 use chrono::{DateTime, Utc};
 use std::{
@@ -471,6 +475,54 @@ impl RunManager {
         }
     }
 
+    /// Lists durable invocation usage, optionally restricted to one run.
+    pub async fn usage_records(&self, run_id: Option<RunId>) -> Result<Vec<UsageRecord>, String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Ok(Vec::new());
+        };
+        storage
+            .list_usage(run_id.map(|id| id.as_uuid()))
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    /// Lists all registered pricing versions for the dashboard catalogue.
+    pub async fn pricing_catalog(&self) -> Result<Vec<ModelPricing>, String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Ok(Vec::new());
+        };
+        storage
+            .list_all_pricing()
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    /// Registers an immutable pricing version for future cost calculations.
+    pub async fn register_pricing(&self, pricing: ModelPricing) -> Result<(), String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Err("usage storage is not configured".into());
+        };
+        storage
+            .insert_pricing(pricing)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
+    /// Returns immutable pricing versions registered for one provider/model pair.
+    pub async fn pricing_for(
+        &self,
+        provider: &str,
+        model: &str,
+    ) -> Result<Vec<ModelPricing>, String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Ok(Vec::new());
+        };
+        storage
+            .list_pricing(provider, model)
+            .await
+            .map_err(|error| error.to_string())
+    }
+
     pub async fn history(&self, run_id: RunId) -> Option<Vec<Message>> {
         if let Some(history) = self
             .runs
@@ -511,6 +563,14 @@ async fn persist_runtime_event(
     run_id: RunId,
     runtime_event: &agent_runtime::RunEvent,
 ) {
+    if let RuntimeRunEventKind::ModelUsageRecorded { record } = &runtime_event.kind {
+        if let Some(storage) = current_storage(persistence) {
+            if let Err(error) = storage.append_usage(record.clone()).await {
+                error!(run_id = %run_id, invocation_id = %record.invocation_id, %error, "failed to persist model usage record");
+            }
+        }
+        return;
+    }
     let event = {
         let mut runs = runs.lock().await;
         let Some(entry) = runs.get_mut(&run_id) else {

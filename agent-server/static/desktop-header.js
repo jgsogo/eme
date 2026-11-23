@@ -4,12 +4,14 @@
   if (!header) return;
 
   const path = window.location.pathname;
-  const section = path.startsWith("/console/notes") ? "notes"
+  const section = path.startsWith("/console/admin") ? "admin"
+    : path.startsWith("/console/notes") ? "notes"
     : path.startsWith("/console/tasks") ? "tasks"
     : ["/console/meals", "/console/recipes", "/console/meal-planner", "/console/shopping-list", "/console/school-menus"].includes(path) ? "meals"
     : path.startsWith("/console/profile") || path.startsWith("/console/integrations") || path.startsWith("/console/families") ? "profile"
     : "conversations";
   const profileActive = section === "profile";
+  const adminActive = section === "admin";
 
   const navItems = [
     ["conversations", "Conversations", "/console/conversations"],
@@ -28,6 +30,7 @@
       </nav>
     </div>
     <div class="header-actions">
+      <a class="admin-nav-link${adminActive ? " active" : ""}" href="/console/admin/usage"${adminActive ? ' aria-current="page"' : ""} style="display:inline-flex;align-items:center;padding:7px 12px;border:1px solid ${adminActive ? "var(--accent)" : "var(--border)"};border-radius:8px;background:${adminActive ? "rgba(104,169,220,.12)" : "var(--panel2)"};color:var(--text);font-weight:650;text-decoration:none">Admin</a>
       <div class="console-mode-switch" role="group" aria-label="Console layout">
         <a class="console-mode-link active" href="/console/conversations" aria-label="Desktop version" title="Desktop version" aria-current="page">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>

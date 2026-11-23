@@ -161,6 +161,9 @@ impl ConversationClient for GeminiClient {
         let usage = result.usage_metadata.map(|usage| TokenUsage {
             input_tokens: usage.prompt_token_count,
             output_tokens: usage.candidates_token_count,
+            cached_input_tokens: usage.cached_content_token_count,
+            reasoning_tokens: usage.thoughts_token_count,
+            reported_cost: None,
         });
 
         Ok(ConversationResponse {
@@ -384,7 +387,9 @@ mod tests {
                 }],
                 "usageMetadata": {
                     "promptTokenCount": 10,
-                    "candidatesTokenCount": 5
+                    "candidatesTokenCount": 5,
+                    "cachedContentTokenCount": 2,
+                    "thoughtsTokenCount": 3
                 }
             })))
             .mount(&server)
@@ -431,6 +436,9 @@ mod tests {
             call.provider_metadata.as_ref().unwrap()["provider_call_id"],
             "gemini-call-123"
         );
+        let usage = response.usage.as_ref().unwrap();
+        assert_eq!(usage.cached_input_tokens, Some(2));
+        assert_eq!(usage.reasoning_tokens, Some(3));
     }
 
     #[tokio::test]

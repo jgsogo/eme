@@ -122,6 +122,7 @@ mod tests {
     impl AgentModel for CompletedModel {
         async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, ModelError> {
             Ok(ModelTurn {
+                usage: None,
                 content: Some("done".into()),
                 tool_calls: Vec::new(),
             })
