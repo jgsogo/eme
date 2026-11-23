@@ -512,3 +512,8 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .tool-card pre{max-height:360px;overflow:auto;margin:10px 0 0;padding:12px;border-radius:8px;background:var(--panel2);color:var(--text);font:11px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
 .usage-actions input[type=search]{min-width:190px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text);font:inherit}
 @media(max-width:600px){.tool-card-heading{flex-direction:column}.usage-actions input[type=search]{min-width:0;width:100%}}
+
+.agent-metadata{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+.agent-metadata h4{margin:0 0 8px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.agent-tags{display:flex;flex-wrap:wrap;gap:6px}
+@media(max-width:600px){.agent-metadata{grid-template-columns:1fr}}
