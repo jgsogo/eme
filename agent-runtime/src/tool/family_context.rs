@@ -3,7 +3,7 @@
 use chrono::NaiveDate;
 use serde::Serialize;
 
-/// One member of the family selected for a conversation.
+/// One member of a family roster verified for the authenticated user.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FamilyMemberContext {
     /// Stable EME user identifier exposed as the model-facing `recipient_id`.
@@ -22,7 +22,7 @@ pub struct FamilyMemberContext {
     pub relationship: String,
 }
 
-/// Trusted family information resolved by the platform before a run.
+/// Trusted family information resolved by the platform for an authenticated user.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FamilyContext {
     pub family_id: String,
@@ -31,7 +31,7 @@ pub struct FamilyContext {
     pub family_role: String,
     /// The authenticated user's relationship within this family.
     pub relationship: String,
-    /// Complete active family roster.
+    /// Complete active family roster, exposed to the model using EME recipient IDs.
     pub members: Vec<FamilyMemberContext>,
 }
 

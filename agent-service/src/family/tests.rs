@@ -50,6 +50,38 @@ async fn trusted_context_contains_membership_details_and_rejects_non_members() {
 }
 
 #[tokio::test]
+async fn contexts_for_member_include_all_and_only_the_actors_families() {
+    let (service, owner, _, first_family_id) = setup().await;
+    let second_family = service
+        .create_family(owner, "Second home", FamilyRelationship::Mother)
+        .await
+        .unwrap();
+    let outsider = UserId::new();
+    let outsider_family = service
+        .create_family(outsider, "Private home", FamilyRelationship::Other)
+        .await
+        .unwrap();
+
+    let contexts = service.contexts_for_member(owner).await.unwrap();
+    let family_ids = contexts
+        .iter()
+        .map(|context| context.family_id.as_str())
+        .collect::<Vec<_>>();
+    let first_family_id = first_family_id.to_string();
+    let second_family_id = second_family.id.to_string();
+    let outsider_family_id = outsider_family.id.to_string();
+
+    assert_eq!(contexts.len(), 2);
+    assert!(family_ids.contains(&first_family_id.as_str()));
+    assert!(family_ids.contains(&second_family_id.as_str()));
+    assert!(!family_ids.contains(&outsider_family_id.as_str()));
+    assert!(matches!(
+        service.contexts_for_member(UserId::new()).await,
+        Ok(contexts) if contexts.is_empty()
+    ));
+}
+
+#[tokio::test]
 async fn creates_family_with_owner_and_lists_it() {
     let (service, owner, _, family_id) = setup().await;
     let (family, members) = service.get_family(owner, family_id).await.unwrap();

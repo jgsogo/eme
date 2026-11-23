@@ -518,6 +518,34 @@ async fn continue_conversation(
         None => None,
     };
 
+    // The selected family remains useful conversation context, but notification
+    // recipients may belong to any family the authenticated user is a member of.
+    let mut family_contexts = match families.contexts_for_member(identity.user_id).await {
+        Ok(contexts) => contexts,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    for family_context in &mut family_contexts {
+        for member in &mut family_context.members {
+            let member_id = match UserId::from_str(&member.user_id) {
+                Ok(id) => id,
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            };
+            member.telegram_id = match identities.find_identity_for_user("telegram", member_id) {
+                Ok(Some(identity)) => Some(identity.subject),
+                Ok(None) => None,
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            };
+            let user = match identities.get_user(member_id) {
+                Ok(user) => user,
+                Err(_) => return HttpResponse::InternalServerError().finish(),
+            };
+            if let Some(user) = user {
+                member.name = user.display_name;
+                member.birthday = user.birthday;
+            }
+        }
+    }
+
     let history =
         match conversation_history_for_submission(conversation.messages, input, request.retry) {
             Some(history) => history,
@@ -537,6 +565,7 @@ async fn continue_conversation(
                 timezone: user.timezone,
                 telegram_id: Some(identity.subject.clone()),
                 family,
+                families: family_contexts,
                 conversation_id: Some(id.to_string()),
                 run_id: None,
             },
