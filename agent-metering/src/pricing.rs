@@ -215,7 +215,7 @@ pub fn calculate_cost(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{InvocationOutcome, UsageDimensions};
+    use crate::{InvocationOutcome, MeteredValue, UsageDimensions};
     use uuid::Uuid;
 
     fn usage(dimensions: UsageDimensions) -> UsageRecord {
