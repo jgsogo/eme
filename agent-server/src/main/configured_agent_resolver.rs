@@ -30,6 +30,10 @@ pub(super) struct ConfiguredAgentResolver {
 }
 
 impl ConfiguredAgentResolver {
+    pub(super) fn tool_catalog(&self) -> Vec<agent_runtime::ToolDefinition> {
+        self.tools.definitions()
+    }
+
     pub(super) fn agent_catalog(&self) -> agent_server::AgentCatalog {
         agent_server::AgentCatalog::new(self.agents.definitions().map(|agent| {
             agent_server::AgentListItem {
