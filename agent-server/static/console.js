@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={googleConnections:[],googleCalendars:{},traktProfiles:[],activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -436,7 +436,7 @@ function renderIntegrationNav(){
  const traktSummary=$("trakt-integration-summary");
  if(traktSummary)traktSummary.textContent=state.traktProfiles.length
   ?state.traktProfiles.length+" personal media profile"+(state.traktProfiles.length===1?"":"s")
-  :"No personal media profile assigned";
+  :"Personal profile is provisioned automatically";
 }
 function renderIntegrationView(){
  document.querySelectorAll("[data-integration]").forEach(button=>{
@@ -485,15 +485,30 @@ function renderTraktProfiles(){
   selector.disabled=connectable.length===0;
  }
  if(connectButton)connectButton.disabled=connectable.length===0;
- if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No active media profile is assigned to your EME user. Ask a family admin to associate your EME account with your media profile before connecting Trakt.</div></div>';return}
+ if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet. Refresh to retry provisioning.</div></div>';return}
  target.innerHTML=state.traktProfiles.map(profile=>{
   const trakt=profile.trakt,sync=profile.sync||{},lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
   const account=trakt?'<strong>'+escapeHtml(trakt.display_name||trakt.username)+'</strong><small>Trakt account · @'+escapeHtml(trakt.username)+'</small>':'<span class="hint">No Trakt account connected</span>';
-  const actions=trakt?'<button type="button" data-trakt-action="sync" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id)+'">Sync now</button><button type="button" class="danger" data-trakt-action="disconnect" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id)+'">Disconnect</button>':'<span class="hint">Use the Connect Trakt action above to link this profile.</span>';
-  return '<section class="panel google-account"><div class="google-account-heading"><div><h3>'+escapeHtml(profile.profile_name)+'</h3><p class="hint">'+escapeHtml(profile.family_name)+' · '+(trakt?"Connected":"Not connected")+'</p></div></div><div class="calendar-toolbar"><div>'+account+'<p class="hint">'+(trakt?"Last synchronized: "+escapeHtml(lastSync):"Import watched movies and shows, ratings and watchlist.")+'</p></div><div class="integration-button-row">'+actions+'</div></div></section>';
+  const summary=state.traktSummaries[profile.profile_id]||{};
+  const actions=trakt?'<button type="button" data-trakt-action="sync" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id||"")+'">Sync now</button><button type="button" class="danger" data-trakt-action="disconnect" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id||"")+'">Disconnect</button>':'<span class="hint">Use the Connect Trakt action above to link this profile.</span>';
+  const hasImportedData=(summary.watched_movies||0)+(summary.watched_shows||0)+(summary.ratings||0)+(summary.watchlist_items||0)>0;
+  const stats=hasImportedData?'<div class="trakt-stats"><div><strong>'+Number(summary.watched_movies||0).toLocaleString()+'</strong><span>Movies watched</span></div><div><strong>'+Number(summary.watched_shows||0).toLocaleString()+'</strong><span>Shows watched</span></div><div><strong>'+Number(summary.ratings||0).toLocaleString()+'</strong><span>Ratings</span></div><div><strong>'+Number(summary.watchlist_items||0).toLocaleString()+'</strong><span>Watchlist</span></div></div>':'<p class="hint trakt-no-data">'+(trakt?"No imported Trakt activity yet. Select Sync now to import your history, ratings and watchlist.":"No imported Trakt data for this profile.")+'</p>';
+  const recent=(summary.recently_watched||[]).length?'<div class="trakt-recent"><h4>Recently watched</h4><ul>'+summary.recently_watched.map(item=>'<li><span>'+escapeHtml(item.title)+'</span><small>'+((item.kind==="movie")?"Movie":"TV show")+' · '+escapeHtml(new Date(item.watched_at).toLocaleDateString())+'</small></li>').join("")+'</ul></div>':'';
+  return '<section class="panel google-account"><div class="google-account-heading"><div><h3>'+escapeHtml(profile.profile_name)+'</h3><p class="hint">'+escapeHtml(profile.family_name)+' · '+(trakt?"Connected":"Not connected")+'</p></div></div><div class="calendar-toolbar"><div>'+account+'<p class="hint">'+(trakt?"Last synchronized: "+escapeHtml(lastSync):"Imported media data is retained when Trakt is disconnected.")+'</p></div><div class="integration-button-row">'+actions+'</div></div><div class="trakt-data">'+stats+recent+'</div></section>';
  }).join("");
 }
-async function loadTraktProfiles(){state.traktProfiles=await api("/media/trakt/profiles");renderTraktProfiles()}
+async function loadTraktProfiles(loadSummaries=true){
+ state.traktProfiles=await api("/media/trakt/profiles");
+ if(loadSummaries){
+  const summaries=await Promise.all(state.traktProfiles.map(async profile=>{
+   const family=profile.family_id?"?family_id="+encodeURIComponent(profile.family_id):"";
+   try{return [profile.profile_id,await api("/media/trakt/profiles/"+encodeURIComponent(profile.profile_id)+"/summary"+family)]}
+   catch(error){console.warn("Unable to load Trakt summary for profile",profile.profile_id,error);return [profile.profile_id,null]}
+  }));
+  state.traktSummaries=Object.fromEntries(summaries.filter(([,summary])=>summary));
+ }
+ renderTraktProfiles();
+}
 async function loadIntegrations(){
  const status=$("integrations-status");renderIntegrationView();await loadFamilies();const errors=[];
  try{await loadGoogleConnections()}catch(e){const message=e.message.includes("Google OAuth is not configured")?"Google Calendar integration is not configured on this server.":e.message;$("google-connections").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(message)+'</div></div>';errors.push(message)}
@@ -505,13 +520,13 @@ async function connectTrakt(profile){
  if(!popup){status.textContent="Allow pop-ups for this site to connect a Trakt account.";return}
  const previous=profile.trakt?.linked_at||null;status.textContent="Preparing Trakt authorization…";
  try{
-  const auth=await api("/media/trakt/link",{method:"POST",body:JSON.stringify({family_id:profile.family_id,profile_id:profile.profile_id})});
+  const auth=await api("/media/trakt/link",{method:"POST",body:JSON.stringify({profile_id:profile.profile_id,...(profile.family_id?{family_id:profile.family_id}:{})})});
   popup.location.href=auth.authorization_url;status.textContent="Complete authorization in the Trakt window. This page will update automatically.";
   const deadline=Date.now()+10*60*1000;
   while(Date.now()<deadline){
-   await new Promise(resolve=>setTimeout(resolve,1500));await loadTraktProfiles();
+   await new Promise(resolve=>setTimeout(resolve,1500));await loadTraktProfiles(false);
    const updated=state.traktProfiles.find(item=>item.profile_id===profile.profile_id);
-   if(updated?.trakt&&updated.trakt.linked_at!==previous){if(!popup.closed)popup.close();status.textContent="Trakt account connected.";return}
+   if(updated?.trakt&&updated.trakt.linked_at!==previous){await loadTraktProfiles();if(!popup.closed)popup.close();status.textContent="Trakt account connected.";return}
    if(popup.closed)break;
   }
   status.textContent="Authorization was not completed. You can try again.";
@@ -525,11 +540,11 @@ async function handleTraktIntegrationAction(event){
  try{
   if(action==="connect")await connectTrakt(profile);
   else if(action==="sync"){
-   const result=await api("/media/trakt/profiles/"+encodeURIComponent(profileId)+"/sync?family_id="+encodeURIComponent(familyId),{method:"POST"});
+   const result=await api("/media/trakt/profiles/"+encodeURIComponent(profileId)+"/sync"+(familyId?"?family_id="+encodeURIComponent(familyId):""),{method:"POST"});
    await loadTraktProfiles();status.textContent="Trakt synchronized: "+(result.watched_movies||0)+" movies, "+(result.watched_shows||0)+" shows, "+(result.ratings||0)+" ratings and "+(result.watchlist_items||0)+" watchlist items.";
   }else if(action==="disconnect"){
    if(!window.confirm("Disconnect this Trakt account? Imported media history will remain in the profile."))return;
-   await api("/media/trakt/profiles/"+encodeURIComponent(profileId),{method:"DELETE",body:JSON.stringify({family_id:familyId})});
+   await api("/media/trakt/profiles/"+encodeURIComponent(profileId),{method:"DELETE",body:JSON.stringify(familyId?{family_id:familyId}:{})});
    await loadTraktProfiles();status.textContent="Trakt account disconnected.";
   }
  }catch(e){status.textContent=e.message}finally{button.disabled=false}

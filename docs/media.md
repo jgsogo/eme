@@ -64,18 +64,20 @@ Provider credentials are environment variables, never TOML values:
 
 TMDB and Watchmode tools are registered even when their credentials are absent, so the server can start in a partially configured environment. Calls that require an unconfigured provider return a clear configuration error. Recommendations require TMDB. Watchmode is preferred for availability; TMDB's regional watch-provider endpoint is the fallback when Watchmode is absent, errors or has no matching configured subscription. Trakt linking and synchronization are enabled only when all three Trakt-related variables are configured.
 
-## Family profiles and permissions
+## Personal and family profiles
 
-EME family membership remains authoritative in `agent-storage`. Media profiles are separate, family-managed records and may exist without an EME login. A profile can optionally be associated with an existing family user's `UserId`.
+EME identity and family membership remain authoritative in `agent-storage`. Every authenticated EME user gets one personal media profile, created automatically and idempotently the first time the media integration is accessed. A personal profile is owned directly by its EME `UserId` and has no family association. Users do not need to create or join a family to connect Trakt.
 
-- Family owners/admins can create, update, deactivate and delete media profiles, and assign an existing family user through the profile `user_id` field.
-- Each signed-in family member can link a Trakt account only to a media profile whose `user_id` is their own EME `UserId`. Family administration rights do not allow one member to attach their Trakt credentials to another member's profile.
-- A profile's associated user or a family owner/admin can update that profile's explicit preferences and content restrictions.
+Family-managed profiles remain separate records. Family owners/admins can create, update, deactivate and delete them, and optionally assign an existing family user through the profile `user_id` field.
+
+- A personal profile is accessible only to its owning EME user.
+- Each signed-in family member can still link a Trakt account to a family-managed profile whose `user_id` is their own EME `UserId`. Family administration rights do not allow one member to attach their Trakt credentials to another member's profile.
+- A personal profile's owner, or a family profile's associated user / family owner / admin, can manage its explicit preferences and content restrictions.
 - Family owners/admins manage shared family preferences.
-- The server derives the family from the authenticated tool context. A model-supplied family ID is never an authorization boundary.
+- The server derives ownership and family membership from authenticated context and stored records. A model-supplied family ID is never an authorization boundary.
 - A recommendation request must identify its participants. The assistant should ask who is watching rather than silently using every family profile.
 
-The `media_profiles` tool lists profiles and supports `create`, `update` and `delete` actions. A profile with a Trakt connection must be unlinked before it can be deleted.
+The `media_profiles` tool continues to manage family profiles. Personal profiles are provisioned by the authenticated application path. A profile with a Trakt connection must be unlinked before it can be deleted.
 
 ## Preferences, restrictions and observed activity
 
@@ -101,17 +103,17 @@ Incomplete history is returned as uncertainty evidence. It is not silently inter
 
 ## Trakt account linking and synchronization
 
-Trakt accounts are linked to individual media profiles, not to the family as one undifferentiated account. The profile must be assigned to the initiating EME user (`MediaProfile.user_id`); ordinary family members can link their own profile without being family admins. OAuth uses PKCE and one-time state bound to the initiating EME user. Refresh tokens are stored through the existing encrypted external-connection store and rotated tokens replace the previous credentials.
+Trakt accounts are linked to individual media profiles, not to the family as one undifferentiated account. Every EME user can link Trakt to their automatically provisioned personal profile without belonging to a family. Family members may additionally link a family-managed profile assigned to them (`MediaProfile.user_id`). OAuth uses PKCE and one-time state bound to the initiating EME user and profile. Refresh tokens are stored through the existing encrypted external-connection store and rotated tokens replace the previous credentials.
 
 Authenticated API endpoints:
 
-- `GET /media/trakt/profiles` — list the signed-in user's active, assigned media profiles and their Trakt connection/sync status.
-- `POST /media/trakt/link` — JSON body: `{"family_id":"…","profile_id":"…"}`; returns the authorization URL.
+- `GET /media/trakt/profiles` — list the signed-in user's personal profile, assigned family profiles, and their Trakt connection/sync status.
+- `POST /media/trakt/link` — JSON body: `{"profile_id":"…"}` for a personal profile; include `family_id` only for a family-managed profile.
 - `GET /media/trakt/callback?code=…&state=…` — OAuth callback. The callback must arrive in the initiating user's authenticated browser session.
-- `POST /media/trakt/profiles/{profile_id}/sync?family_id=…` — explicitly synchronize changed Trakt activity categories.
-- `DELETE /media/trakt/profiles/{profile_id}` — JSON body: `{"family_id":"…"}`; unlink and revoke the stored connection.
+- `POST /media/trakt/profiles/{profile_id}/sync` — synchronize a personal profile; add `?family_id=…` only for a family-managed profile.
+- `DELETE /media/trakt/profiles/{profile_id}` — empty JSON body for a personal profile; include `family_id` only for a family-managed profile.
 
-The Profile → Integrations view lists each media profile assigned to the signed-in user and provides Connect, Sync and Disconnect actions. If no profile is assigned, a family owner/admin must associate the user with the appropriate profile using `media_profiles` before Trakt can be linked. The initial and incremental sync imports watched movies/shows, ratings and watchlist entries. Activity timestamps determine which categories need refreshing. Sync is explicit; recommendations do not trigger a Trakt sync. No playback scraping or automatic scrobbling is performed.
+The Profile → Integrations view always lists the signed-in user's personal media profile and any assigned family profiles, with Connect, Sync and Disconnect actions. No family membership or family-admin action is required to connect a personal Trakt account. The initial and incremental sync imports watched movies/shows, ratings and watchlist entries. Activity timestamps determine which categories need refreshing. Sync is explicit; recommendations do not trigger a Trakt sync. No playback scraping or automatic scrobbling is performed.
 
 ## Agent tools
 

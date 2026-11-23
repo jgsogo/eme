@@ -55,6 +55,7 @@ impl TraktSyncService {
             ));
         }
         let http = Client::builder()
+            .user_agent(concat!("EME/", env!("CARGO_PKG_VERSION")))
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
         Ok(Self {
@@ -266,6 +267,7 @@ impl TraktSyncService {
             .http
             .get(format!("{}{}", self.api_base_url, path))
             .bearer_auth(access_token)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
             .header("trakt-api-version", "2")
             .header("trakt-api-key", &self.client_id)
             .send()
@@ -543,6 +545,11 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/sync/last_activities"))
             .and(header("Authorization", "Bearer access-token"))
+            .and(header(
+                "User-Agent",
+                concat!("EME/", env!("CARGO_PKG_VERSION")),
+            ))
+            .and(header("Content-Type", "application/json"))
             .and(header("trakt-api-key", "client"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "movies": {
@@ -631,13 +638,14 @@ mod tests {
 
         let media = MediaStore::open_in_memory().unwrap();
         let family_id = agent_storage::FamilyId::new();
-        let profile = crate::MediaProfile::new(family_id, "Viewer");
+        let mut profile = crate::MediaProfile::new(family_id, "Viewer");
+        let owner_id = UserId::new();
+        profile.user_id = Some(owner_id);
         media.save_profile(&profile).await.unwrap();
 
         let db_path =
             std::env::temp_dir().join(format!("media-trakt-sync-{}.db", uuid::Uuid::new_v4()));
         let external = Arc::new(SqliteExternalConnectionStore::open(&db_path, [10; 32]).unwrap());
-        let owner_id = UserId::new();
         let connection = external
             .create_connection(NewExternalConnection {
                 owner_id,
@@ -652,7 +660,7 @@ mod tests {
         media
             .save_external_connection_link(&crate::MediaExternalConnectionLink {
                 owner_id,
-                family_id,
+                family_id: Some(family_id),
                 profile_id: profile.id,
                 provider: "trakt".into(),
                 external_connection_id: connection.id,

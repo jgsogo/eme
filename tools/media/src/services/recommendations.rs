@@ -1068,7 +1068,8 @@ mod tests {
         let liked = ParticipantData {
             profile: MediaProfile {
                 id: liked_id,
-                family_id,
+                family_id: Some(family_id),
+                owner_id: None,
                 name: "Likes comedy".into(),
                 user_id: None,
                 active: true,
@@ -1086,7 +1087,8 @@ mod tests {
         let disliked = ParticipantData {
             profile: MediaProfile {
                 id: disliked_id,
-                family_id,
+                family_id: Some(family_id),
+                owner_id: None,
                 name: "Dislikes comedy".into(),
                 user_id: None,
                 active: true,
@@ -1148,7 +1150,8 @@ mod tests {
         let participant = ParticipantData {
             profile: MediaProfile {
                 id: profile_id,
-                family_id,
+                family_id: Some(family_id),
+                owner_id: None,
                 name: "Selected".into(),
                 user_id: None,
                 active: true,
@@ -1198,7 +1201,8 @@ mod tests {
         let participant = ParticipantData {
             profile: MediaProfile {
                 id: profile_id,
-                family_id: agent_storage::FamilyId::new(),
+                family_id: Some(agent_storage::FamilyId::new()),
+                owner_id: None,
                 name: "Viewer".into(),
                 user_id: None,
                 active: true,
@@ -1221,7 +1225,8 @@ mod tests {
         family.liked_genres.push("Comedy".into());
         let profile = MediaProfile {
             id: MediaProfileId::new(),
-            family_id: family.family_id,
+            family_id: Some(family.family_id),
+            owner_id: None,
             name: "Selected".into(),
             user_id: None,
             active: true,

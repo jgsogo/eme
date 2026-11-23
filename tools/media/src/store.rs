@@ -50,12 +50,32 @@ impl MediaStore {
         connection
             .execute_batch(include_str!("../migrations/0003_media_watchlist.sql"))
             .map_err(storage)?;
+        let has_personal_owner_column = {
+            let mut statement = connection
+                .prepare("PRAGMA table_info(media_profiles)")
+                .map_err(storage)?;
+            let columns = statement
+                .query_map([], |row| row.get::<_, String>(1))
+                .map_err(storage)?;
+            columns
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(storage)?
+                .iter()
+                .any(|column| column == "owner_id")
+        };
+        if !has_personal_owner_column {
+            connection
+                .execute_batch(include_str!(
+                    "../migrations/0004_personal_media_profiles.sql"
+                ))
+                .map_err(storage)?;
+        }
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
         })
     }
 
-    /// Insert or update a family-managed media profile without changing its family.
+    /// Insert or update a media profile without changing its ownership scope.
     pub async fn save_profile(&self, profile: &MediaProfile) -> Result<(), MediaStoreError> {
         if profile.name.trim().is_empty() {
             return Err(MediaStoreError::Invalid(
@@ -67,18 +87,21 @@ impl MediaStore {
         let connection = self.connection.lock().await;
         let changed = connection
             .execute(
-                "INSERT INTO media_profiles(id,family_id,user_id,name,active,payload,created_at,updated_at)
-                 VALUES(?1,?2,?3,?4,?5,?6,?7,?7)
+                "INSERT INTO media_profiles(id,family_id,owner_id,user_id,name,active,payload,created_at,updated_at)
+                 VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8)
                  ON CONFLICT(id) DO UPDATE SET
+                    owner_id=excluded.owner_id,
                     user_id=excluded.user_id,
                     name=excluded.name,
                     active=excluded.active,
                     payload=excluded.payload,
                     updated_at=excluded.updated_at
-                 WHERE media_profiles.family_id=excluded.family_id",
+                 WHERE media_profiles.family_id IS excluded.family_id
+                   AND media_profiles.owner_id IS excluded.owner_id",
                 params![
                     profile.id.to_string(),
-                    profile.family_id.to_string(),
+                    profile.family_id.map(|id| id.to_string()),
+                    profile.owner_id.map(|id| id.to_string()),
                     profile.user_id.map(|id| id.to_string()),
                     profile.name.trim(),
                     profile.active,
@@ -91,6 +114,67 @@ impl MediaStore {
             return Err(MediaStoreError::ProfileFamilyMismatch);
         }
         Ok(())
+    }
+
+    /// Return the user's personal profile, creating it exactly once when absent.
+    pub async fn get_or_create_personal_profile(
+        &self,
+        owner_id: UserId,
+    ) -> Result<MediaProfile, MediaStoreError> {
+        let mut connection = self.connection.lock().await;
+        let transaction = connection.transaction().map_err(storage)?;
+        let existing = transaction
+            .query_row(
+                "SELECT payload FROM media_profiles WHERE owner_id=?1 AND family_id IS NULL",
+                [owner_id.to_string()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(storage)?;
+        if let Some(payload) = existing {
+            let profile = decode(&payload)?;
+            transaction.commit().map_err(storage)?;
+            return Ok(profile);
+        }
+
+        let profile = MediaProfile::new_personal(owner_id, "Personal");
+        let payload = encode(&profile)?;
+        let now = Utc::now().to_rfc3339();
+        transaction
+            .execute(
+                "INSERT INTO media_profiles(
+                    id,family_id,owner_id,user_id,name,active,payload,created_at,updated_at
+                 ) VALUES(?1,NULL,?2,NULL,?3,1,?4,?5,?5)",
+                params![
+                    profile.id.to_string(),
+                    owner_id.to_string(),
+                    profile.name,
+                    payload,
+                    now
+                ],
+            )
+            .map_err(storage)?;
+        transaction.commit().map_err(storage)?;
+        Ok(profile)
+    }
+
+    /// Load a personal profile only when it is owned by the requesting EME user.
+    pub async fn get_personal_profile(
+        &self,
+        owner_id: UserId,
+        profile_id: MediaProfileId,
+    ) -> Result<Option<MediaProfile>, MediaStoreError> {
+        let connection = self.connection.lock().await;
+        let payload = connection
+            .query_row(
+                "SELECT payload FROM media_profiles
+                 WHERE owner_id=?1 AND family_id IS NULL AND id=?2 AND active=1",
+                params![owner_id.to_string(), profile_id.to_string()],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(storage)?;
+        payload.as_deref().map(decode).transpose()
     }
 
     /// List profiles belonging to one family; no membership data is duplicated here.
@@ -461,8 +545,16 @@ impl MediaStore {
         let connection = self.connection.lock().await;
         let profile_exists: bool = connection
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM media_profiles WHERE id=?1 AND family_id=?2)",
-                params![link.profile_id.to_string(), link.family_id.to_string()],
+                "SELECT EXISTS(
+                    SELECT 1 FROM media_profiles
+                    WHERE id=?1 AND family_id IS ?2
+                      AND (owner_id=?3 OR user_id=?3)
+                 )",
+                params![
+                    link.profile_id.to_string(),
+                    link.family_id.map(|id| id.to_string()),
+                    link.owner_id.to_string()
+                ],
                 |row| row.get(0),
             )
             .map_err(storage)?;
@@ -503,7 +595,7 @@ impl MediaStore {
                     payload=excluded.payload",
                 params![
                     link.profile_id.to_string(),
-                    link.family_id.to_string(),
+                    link.family_id.map(|id| id.to_string()),
                     link.provider,
                     link.external_connection_id.to_string(),
                     link.owner_id.to_string(),
@@ -772,7 +864,8 @@ impl MediaStore {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingTraktLink {
     pub owner_id: UserId,
-    pub family_id: FamilyId,
+    #[serde(default)]
+    pub family_id: Option<FamilyId>,
     pub profile_id: MediaProfileId,
 }
 
@@ -780,7 +873,8 @@ pub struct PendingTraktLink {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaExternalConnectionLink {
     pub owner_id: UserId,
-    pub family_id: FamilyId,
+    #[serde(default)]
+    pub family_id: Option<FamilyId>,
     pub profile_id: MediaProfileId,
     pub provider: String,
     pub external_connection_id: ExternalConnectionId,
@@ -854,6 +948,30 @@ mod tests {
                 value: "42".into(),
             }],
         }
+    }
+
+    #[tokio::test]
+    async fn personal_profiles_are_created_once_and_scoped_to_their_owner() {
+        let store = MediaStore::open_in_memory().unwrap();
+        let owner = UserId::new();
+        let other = UserId::new();
+
+        let first = store.get_or_create_personal_profile(owner).await.unwrap();
+        let second = store.get_or_create_personal_profile(owner).await.unwrap();
+        assert_eq!(first.id, second.id);
+        assert_eq!(first.family_id, None);
+        assert_eq!(first.owner_id, Some(owner));
+        assert_eq!(
+            store.get_personal_profile(owner, first.id).await.unwrap(),
+            Some(first.clone())
+        );
+        assert!(
+            store
+                .get_personal_profile(other, first.id)
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -1049,7 +1167,7 @@ mod tests {
         store.save_profile(&profile).await.unwrap();
         let pending = PendingTraktLink {
             owner_id,
-            family_id,
+            family_id: Some(family_id),
             profile_id: profile.id,
         };
         let now = Utc::now();
@@ -1089,7 +1207,7 @@ mod tests {
                 "expired-state",
                 &PendingTraktLink {
                     owner_id: UserId::new(),
-                    family_id,
+                    family_id: Some(family_id),
                     profile_id: profile.id,
                 },
                 now - chrono::Duration::seconds(1),

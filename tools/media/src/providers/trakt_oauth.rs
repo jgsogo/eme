@@ -138,7 +138,7 @@ impl TraktOAuthService {
                 &state,
                 &PendingTraktLink {
                     owner_id,
-                    family_id,
+                    family_id: Some(family_id),
                     profile_id,
                 },
                 expires_at,
@@ -151,7 +151,7 @@ impl TraktOAuthService {
                 provider: "trakt".into(),
                 state: state.clone(),
                 pkce_verifier,
-                requested_scopes: vec!["private".into()],
+                requested_scopes: Vec::new(),
                 expires_at,
             })
             .await
@@ -163,7 +163,55 @@ impl TraktOAuthService {
             .append_pair("response_type", "code")
             .append_pair("client_id", &self.config.client_id)
             .append_pair("redirect_uri", &self.config.redirect_uri)
-            .append_pair("scope", "private")
+            .append_pair("code_challenge", &code_challenge)
+            .append_pair("code_challenge_method", "S256")
+            .append_pair("state", &state);
+        Ok(TraktAuthorization {
+            authorization_url: url.into(),
+            expires_at,
+        })
+    }
+
+    /// Start OAuth for a personal profile without requiring a family membership.
+    pub async fn begin_personal_link(
+        &self,
+        owner_id: UserId,
+        profile_id: MediaProfileId,
+    ) -> Result<TraktAuthorization, TraktError> {
+        self.require_personal_profile_owner(owner_id, profile_id)
+            .await?;
+        let state = Uuid::new_v4().to_string();
+        let (pkce_verifier, code_challenge) = pkce_pair();
+        let expires_at = Utc::now() + ChronoDuration::minutes(10);
+        self.media
+            .create_pending_trakt_link(
+                &state,
+                &PendingTraktLink {
+                    owner_id,
+                    family_id: None,
+                    profile_id,
+                },
+                expires_at,
+            )
+            .await
+            .map_err(TraktError::MediaStorage)?;
+        self.external_connections
+            .begin_authorization(NewExternalAuthorization {
+                user_id: owner_id,
+                provider: "trakt".into(),
+                state: state.clone(),
+                pkce_verifier,
+                requested_scopes: Vec::new(),
+                expires_at,
+            })
+            .await
+            .map_err(TraktError::ExternalStorage)?;
+        let mut url = Url::parse(&self.config.authorize_url)
+            .map_err(|error| TraktError::Configuration(error.to_string()))?;
+        url.query_pairs_mut()
+            .append_pair("response_type", "code")
+            .append_pair("client_id", &self.config.client_id)
+            .append_pair("redirect_uri", &self.config.redirect_uri)
             .append_pair("code_challenge", &code_challenge)
             .append_pair("code_challenge_method", "S256")
             .append_pair("state", &state);
@@ -206,8 +254,13 @@ impl TraktOAuthService {
         if authorization.user_id != pending.owner_id {
             return Err(TraktError::Forbidden);
         }
-        self.require_profile_owner(pending.owner_id, pending.family_id, pending.profile_id)
-            .await?;
+        if let Some(family_id) = pending.family_id {
+            self.require_profile_owner(pending.owner_id, family_id, pending.profile_id)
+                .await?;
+        } else {
+            self.require_personal_profile_owner(pending.owner_id, pending.profile_id)
+                .await?;
+        }
 
         let tokens = self
             .exchange_code(code, &authorization.pkce_verifier)
@@ -367,6 +420,60 @@ impl TraktOAuthService {
         }
     }
 
+    /// Validate direct ownership of a personal profile.
+    pub async fn validate_personal_profile_owner(
+        &self,
+        user_id: UserId,
+        profile_id: MediaProfileId,
+    ) -> Result<(), TraktError> {
+        self.require_personal_profile_owner(user_id, profile_id)
+            .await
+    }
+
+    async fn require_personal_profile_owner(
+        &self,
+        owner_id: UserId,
+        profile_id: MediaProfileId,
+    ) -> Result<(), TraktError> {
+        self.media
+            .get_personal_profile(owner_id, profile_id)
+            .await
+            .map_err(TraktError::MediaStorage)?
+            .ok_or(TraktError::Forbidden)?;
+        Ok(())
+    }
+
+    /// Disconnect a Trakt account from the caller's own personal profile.
+    pub async fn unlink_personal_profile(
+        &self,
+        actor_id: UserId,
+        profile_id: MediaProfileId,
+    ) -> Result<(), TraktError> {
+        self.require_personal_profile_owner(actor_id, profile_id)
+            .await?;
+        let link = self
+            .media
+            .get_external_connection_link(profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?
+            .ok_or(TraktError::ConnectionUnavailable)?;
+        if link.owner_id != actor_id {
+            return Err(TraktError::Forbidden);
+        }
+        self.external_connections
+            .revoke_connection(link.owner_id, link.external_connection_id)
+            .await
+            .map_err(TraktError::ExternalStorage)?;
+        self.media
+            .delete_external_connection_link(profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?;
+        self.token_manager
+            .invalidate(link.external_connection_id)
+            .await;
+        Ok(())
+    }
+
     /// Access-token manager used by Trakt history and rating synchronization.
     pub fn token_manager(&self) -> &TraktTokenManager {
         &self.token_manager
@@ -418,6 +525,7 @@ impl TraktOAuthService {
             .http
             .get(format!("{}/users/settings", self.config.api_base_url))
             .bearer_auth(access_token)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
             .header("trakt-api-version", "2")
             .header("trakt-api-key", &self.config.client_id)
             .send()
@@ -610,6 +718,7 @@ fn pkce_pair() -> (String, String) {
 
 fn http_client() -> Result<Client, TraktError> {
     Client::builder()
+        .user_agent(concat!("EME/", env!("CARGO_PKG_VERSION")))
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(TraktError::Request)
@@ -739,14 +848,18 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "access_token": "short-lived-access",
                 "refresh_token": "durable-refresh",
-                "expires_in": 7200,
-                "scope": "private"
+                "expires_in": 7200
             })))
             .mount(&server)
             .await;
         Mock::given(method("GET"))
             .and(path("/users/settings"))
             .and(header("Authorization", "Bearer short-lived-access"))
+            .and(header(
+                "User-Agent",
+                concat!("EME/", env!("CARGO_PKG_VERSION")),
+            ))
+            .and(header("Content-Type", "application/json"))
             .and(header("trakt-api-version", "2"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "user": {"username": "example-user", "name": "Example"}
@@ -793,9 +906,9 @@ mod tests {
                 .map(|value| value.as_ref()),
             Some("S256")
         );
-        assert_eq!(
-            query.get("scope").map(|value| value.as_ref()),
-            Some("private")
+        assert!(
+            !query.contains_key("scope"),
+            "Trakt authorization requests must not send an unsupported scope"
         );
         assert!(query.contains_key("code_challenge"));
         let link = service
@@ -825,6 +938,38 @@ mod tests {
                 .await,
             Err(TraktError::MediaStorage(MediaStoreError::PendingNotFound))
         ));
+
+        // The same complete OAuth flow works for a user with no family.
+        let personal_user = UserId::new();
+        let personal = media
+            .get_or_create_personal_profile(personal_user)
+            .await
+            .unwrap();
+        let personal_authorization = service
+            .begin_personal_link(personal_user, personal.id)
+            .await
+            .unwrap();
+        let personal_state = Url::parse(&personal_authorization.authorization_url)
+            .unwrap()
+            .query_pairs()
+            .find(|(key, _)| key == "state")
+            .unwrap()
+            .1
+            .into_owned();
+        let personal_link = service
+            .complete_link(personal_user, &personal_state, "personal-one-time-code")
+            .await
+            .unwrap();
+        assert_eq!(personal_link.owner_id, personal_user);
+        assert_eq!(personal_link.family_id, None);
+        assert_eq!(
+            media
+                .get_external_connection_link(personal.id, "trakt")
+                .await
+                .unwrap(),
+            Some(personal_link)
+        );
+
         drop(service);
         drop(external);
         let _ = fs::remove_file(db_path);
@@ -934,6 +1079,23 @@ mod tests {
                 .is_ok(),
             "a regular family member can link their own assigned profile"
         );
+        // A user with no family membership can still link their own personal profile.
+        let standalone_user = UserId::new();
+        let personal = media
+            .get_or_create_personal_profile(standalone_user)
+            .await
+            .unwrap();
+        assert!(
+            service
+                .begin_personal_link(standalone_user, personal.id)
+                .await
+                .is_ok()
+        );
+        assert!(matches!(
+            service.begin_personal_link(member_id, personal.id).await,
+            Err(TraktError::Forbidden)
+        ));
+
         drop(service);
         drop(external);
         let _ = fs::remove_file(db_path);

@@ -1,12 +1,12 @@
 //! Media discovery and recommendation domain for EME.
 //!
-//! This crate owns provider-independent media concepts, family media profiles,
-//! preferences, viewing activity and recommendation context. Provider adapters,
-//! persistence and agent-tool integration are layered on top of these types.
+//! This crate owns provider-independent media concepts, personal and family
+//! media profiles, preferences, viewing activity and recommendation context.
+//! Provider adapters, persistence and agent-tool integration are layered on top.
 //!
-//! EME family membership and authorization remain owned by `agent-storage`
-//! and the host application. A media profile belongs to a family but does not
-//! require an EME user account.
+//! EME identity and family membership remain owned by `agent-storage` and the
+//! host application. Every EME user can have a personal media profile without
+//! joining a family; family-managed profiles remain available for household use.
 mod config;
 mod models;
 mod providers;

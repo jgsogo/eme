@@ -135,22 +135,20 @@ pub fn register_media_tools(
         ),
         (
             "media_watch_history",
-            "Read viewing history for a media profile in the authenticated family.",
+            "Read the authenticated user's own viewing history. Omit profile_id to use their personal media profile; only provide it for an explicitly selected family-managed profile.",
             json!({
                 "type":"object",
                 "properties":{"profile_id":{"type":"string"}},
-                "required":["profile_id"],
                 "additionalProperties":false
             }),
             MediaAction::History,
         ),
         (
             "media_watchlist",
-            "Read the watchlist for a media profile in the authenticated family.",
+            "Read the authenticated user's own watchlist. Omit profile_id to use their personal media profile; only provide it for an explicitly selected family-managed profile.",
             json!({
                 "type":"object",
                 "properties":{"profile_id":{"type":"string"}},
-                "required":["profile_id"],
                 "additionalProperties":false
             }),
             MediaAction::Watchlist,
@@ -190,11 +188,10 @@ pub fn register_media_tools(
         ),
         (
             "media_sync_history",
-            "Synchronize viewing history, ratings and watchlist from the linked Trakt profile.",
+            "Synchronize the authenticated user's personal Trakt profile. Omit profile_id to use their personal media profile; only provide it for an explicitly selected family-managed profile.",
             json!({
                 "type":"object",
                 "properties":{"profile_id":{"type":"string"}},
-                "required":["profile_id"],
                 "additionalProperties":false
             }),
             MediaAction::SyncHistory,
@@ -433,7 +430,11 @@ impl MediaTool {
 
     async fn history(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
         let profile_id = self
-            .require_profile(context, required_string(args, "profile_id")?, false)
+            .require_profile(
+                context,
+                args.get("profile_id").and_then(Value::as_str),
+                false,
+            )
             .await?;
         let events: Vec<MediaWatchEvent> = self
             .services
@@ -441,18 +442,39 @@ impl MediaTool {
             .list_watch_history(profile_id)
             .await
             .map_err(display)?;
+        let mut history = Vec::with_capacity(events.len());
+        for event in events {
+            let item = self
+                .services
+                .store
+                .get_media_item(event.media_item_id)
+                .await
+                .map_err(display)?;
+            history.push(json!({
+                "event": event,
+                "media_item": item,
+            }));
+        }
         let sync_state = self
             .services
             .store
             .get_provider_sync_state(profile_id, "trakt")
             .await
             .map_err(display)?;
-        Ok(json!({"events": events, "trakt_sync": sync_state}))
+        Ok(json!({
+            "profile_id": profile_id.to_string(),
+            "events": history,
+            "trakt_sync": sync_state,
+        }))
     }
 
     async fn watchlist(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
         let profile_id = self
-            .require_profile(context, required_string(args, "profile_id")?, false)
+            .require_profile(
+                context,
+                args.get("profile_id").and_then(Value::as_str),
+                false,
+            )
             .await?;
         let items = self
             .services
@@ -465,7 +487,7 @@ impl MediaTool {
 
     async fn rate(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
         let profile_id = self
-            .require_profile(context, required_string(args, "profile_id")?, true)
+            .require_profile(context, Some(required_string(args, "profile_id")?), true)
             .await?;
         let tmdb = self.tmdb()?;
         let tmdb_id = required_u64(args, "tmdb_id")?;
@@ -540,7 +562,7 @@ impl MediaTool {
             }
             ("profile", "get") => {
                 let profile_id = self
-                    .require_profile(context, required_string(args, "profile_id")?, false)
+                    .require_profile(context, Some(required_string(args, "profile_id")?), false)
                     .await?;
                 let preferences = self
                     .services
@@ -560,7 +582,7 @@ impl MediaTool {
             }
             ("profile", "update") => {
                 let profile_id = self
-                    .require_profile(context, required_string(args, "profile_id")?, true)
+                    .require_profile(context, Some(required_string(args, "profile_id")?), true)
                     .await?;
                 let mut updated = false;
                 if let Some(value) = args.get("preferences") {
@@ -618,9 +640,13 @@ impl MediaTool {
 
     async fn sync_history(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
         let profile_id = self
-            .require_profile(context, required_string(args, "profile_id")?, false)
+            .require_profile(
+                context,
+                args.get("profile_id").and_then(Value::as_str),
+                false,
+            )
             .await?;
-        let (user_id, _, _) = family_scope(context)?;
+        let user_id = authenticated_user_id(context)?;
         let sync = self
             .services
             .sync
@@ -636,19 +662,47 @@ impl MediaTool {
     async fn require_profile(
         &self,
         context: &ToolContext,
-        profile_id: &str,
+        profile_id: Option<&str>,
         manage: bool,
     ) -> Result<MediaProfileId, String> {
-        let (user_id, family_id, role) = family_scope(context)?;
+        let user_id = authenticated_user_id(context)?;
+        let Some(profile_id) = profile_id else {
+            return self
+                .services
+                .store
+                .get_or_create_personal_profile(user_id)
+                .await
+                .map(|profile| profile.id)
+                .map_err(display);
+        };
         let profile_id = MediaProfileId::from_str(profile_id).map_err(display)?;
+
+        if self
+            .services
+            .store
+            .get_personal_profile(user_id, profile_id)
+            .await
+            .map_err(display)?
+            .is_some()
+        {
+            return Ok(profile_id);
+        }
+
+        let family = context.family.as_ref().ok_or_else(|| {
+            "this is a family-managed media profile; select its family first".to_owned()
+        })?;
+        let family_id = parse_id::<FamilyId>(&family.family_id)?;
         let profile: MediaProfile = self
             .services
             .store
             .get_profile(family_id, profile_id)
             .await
             .map_err(display)?
-            .ok_or_else(|| "profile does not belong to the authenticated family".to_owned())?;
-        if manage && !is_family_admin(role) && profile.user_id != Some(user_id) {
+            .ok_or_else(|| {
+                "media profile does not belong to the authenticated user or selected family"
+                    .to_owned()
+            })?;
+        if manage && !is_family_admin(&family.family_role) && profile.user_id != Some(user_id) {
             return Err("you are not allowed to modify this media profile".into());
         }
         Ok(profile_id)
@@ -662,12 +716,16 @@ impl MediaTool {
     }
 }
 
-fn family_scope(context: &ToolContext) -> Result<(UserId, FamilyId, &str), String> {
-    let user_id = context
+fn authenticated_user_id(context: &ToolContext) -> Result<UserId, String> {
+    context
         .user_id
         .as_deref()
         .ok_or_else(|| "authenticated user context is required".to_owned())
-        .and_then(parse_id::<UserId>)?;
+        .and_then(parse_id::<UserId>)
+}
+
+fn family_scope(context: &ToolContext) -> Result<(UserId, FamilyId, &str), String> {
+    let user_id = authenticated_user_id(context)?;
     let family = context
         .family
         .as_ref()
@@ -765,6 +823,37 @@ mod tests {
     use agent_storage::{FamilyId, UserId};
 
     use super::*;
+
+    #[tokio::test]
+    async fn personal_history_defaults_to_authenticated_users_profile_without_family() {
+        let store = MediaStore::open_in_memory().unwrap();
+        let user_id = UserId::new();
+        let services =
+            MediaToolServices::new(store.clone(), MediaConfig::default(), None, None, None);
+        let mut registry = ToolRegistry::new();
+        register_media_tools(&mut registry, services).unwrap();
+        let context = ToolContext::new(user_id.to_string());
+
+        let output = registry
+            .execute(&context, "media_watch_history", json!({}))
+            .await
+            .unwrap();
+        let history: Value = serde_json::from_str(&output).unwrap();
+        let profile = store.get_or_create_personal_profile(user_id).await.unwrap();
+
+        assert_eq!(history["profile_id"], profile.id.to_string());
+        assert_eq!(history["events"], json!([]));
+        assert!(history["trakt_sync"].is_null());
+
+        let watchlist = registry
+            .execute(&context, "media_watchlist", json!({}))
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&watchlist).unwrap(),
+            json!([])
+        );
+    }
 
     #[tokio::test]
     async fn registers_media_tools_and_uses_trusted_family_context() {

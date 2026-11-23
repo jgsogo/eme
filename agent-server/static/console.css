@@ -123,6 +123,20 @@ button.integration-nav-item.active{border-color:var(--accent);box-shadow:inset 0
 .integration-button-row button{min-width:112px}
 .integration-details .google-connections{display:flex;flex-direction:column;gap:12px}
 .integration-details .google-account,.integration-details .integrations-empty{padding:14px}
+.trakt-data{padding-top:4px}
+.trakt-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.trakt-stats>div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;min-width:0}
+.trakt-stats strong{font-size:19px;line-height:1.2;color:var(--text);font-variant-numeric:tabular-nums}
+.trakt-stats span,.trakt-recent small{font-size:11px;color:var(--muted)}
+.trakt-no-data{margin:12px 0 4px}
+.trakt-recent{margin-top:16px}
+.trakt-recent h4{font-size:13px;margin:0 0 8px;color:var(--text)}
+.trakt-recent ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--border)}
+.trakt-recent li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.trakt-recent li span{font-size:12px;color:var(--text);overflow-wrap:anywhere}
+.trakt-recent li small{white-space:nowrap}
+@media(max-width:560px){.trakt-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.trakt-recent li{align-items:flex-start;flex-direction:column;gap:3px}}
+
 .integration-details .google-account h3{font-size:15px;color:var(--text);margin:0}
 .integration-details .google-account-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}
 .integration-details .calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 8px}
