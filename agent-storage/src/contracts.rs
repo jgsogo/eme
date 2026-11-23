@@ -8,6 +8,7 @@ mod stored_message;
 mod stored_run;
 mod stored_run_event;
 mod stored_run_status;
+mod usage_store;
 
 pub use conversation_message_store::ConversationMessageStore;
 pub use run_event_store::RunEventStore;
@@ -17,6 +18,7 @@ pub use stored_message::StoredMessage;
 pub use stored_run::StoredRun;
 pub use stored_run_event::StoredRunEvent;
 pub use stored_run_status::StoredRunStatus;
+pub use usage_store::UsageStore;
 
 /// Combined persistence interface required by the run coordinator.
 pub trait ExecutionStore: RunStore + RunEventStore + ConversationMessageStore {}

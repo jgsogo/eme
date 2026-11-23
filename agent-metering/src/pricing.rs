@@ -11,7 +11,6 @@ use crate::{MeteredValue, ReportedCost, UsageRecord};
 const UNITS_PER_MILLION: u128 = 1_000_000;
 
 /// Rates are currency micro-units per one million resource units.
-///
 /// A missing rate means that the dimension is not priced, not that it is free.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelPricing {
@@ -156,7 +155,6 @@ pub fn calculate_cost(
     } else {
         CostStatus::Partial
     };
-
     Ok(CostEstimate {
         amount_micros: u64::try_from(amount).map_err(|_| PricingError::Overflow)?,
         currency: pricing.currency.clone(),

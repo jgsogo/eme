@@ -1,7 +1,10 @@
-//! SQLite implementation of durable run, event, and conversation-message contracts.
+//! SQLite implementation of durable run, event, usage, pricing, and conversation contracts.
+
+mod usage_tests;
 
 use std::{path::Path, str::FromStr, sync::Arc};
 
+use agent_metering::{ModelPricing, UsageRecord};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
@@ -10,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
-    StoredRunEvent,
+    StoredRunEvent, UsageStore,
 };
 
 #[derive(Clone)]
@@ -28,7 +31,13 @@ impl SqliteExecutionStore {
             .execute_batch("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
             .map_err(backend)?;
         connection
+            .execute_batch(include_str!("../migrations/0006_conversations.sql"))
+            .map_err(backend)?;
+        connection
             .execute_batch(include_str!("../migrations/0007_run_history.sql"))
+            .map_err(backend)?;
+        connection
+            .execute_batch(include_str!("../migrations/0008_usage_metering.sql"))
             .map_err(backend)?;
         ensure_message_column(
             &connection,
@@ -50,6 +59,12 @@ fn backend(error: rusqlite::Error) -> StorageError {
     StorageError::Backend(error.to_string())
 }
 
+fn parse_time(value: &str) -> Result<DateTime<Utc>, StorageError> {
+    DateTime::parse_from_rfc3339(value)
+        .map(|time| time.with_timezone(&Utc))
+        .map_err(|error| StorageError::Backend(error.to_string()))
+}
+
 fn ensure_message_column(
     connection: &Connection,
     column: &str,
@@ -69,12 +84,6 @@ fn ensure_message_column(
     drop(statement);
     connection.execute(alter, []).map_err(backend)?;
     Ok(())
-}
-
-fn parse_time(value: &str) -> Result<DateTime<Utc>, StorageError> {
-    DateTime::parse_from_rfc3339(value)
-        .map(|time| time.with_timezone(&Utc))
-        .map_err(|error| StorageError::Backend(error.to_string()))
 }
 
 #[async_trait]
@@ -159,7 +168,6 @@ impl RunEventStore for SqliteExecutionStore {
         if !exists {
             return Err(StorageError::NotFound(format!("run {}", event.run_id)));
         }
-        // SQLite COUNT(*) is an INTEGER, so decode it as i64 before converting.
         let count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM run_events WHERE run_id = ?1",
@@ -225,6 +233,109 @@ impl RunEventStore for SqliteExecutionStore {
 }
 
 #[async_trait]
+impl UsageStore for SqliteExecutionStore {
+    async fn append_usage(&self, record: UsageRecord) -> Result<(), StorageError> {
+        let connection = self.connection.lock().await;
+        let id = record.invocation_id.to_string();
+        let json = serde_json::to_string(&record)
+            .map_err(|error| StorageError::Backend(error.to_string()))?;
+        let existing: Option<String> = connection
+            .query_row(
+                "SELECT record_json FROM model_usage_records WHERE invocation_id = ?1",
+                [&id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(backend)?;
+        if let Some(existing) = existing {
+            return if existing == json {
+                Ok(())
+            } else {
+                Err(StorageError::AlreadyExists(format!(
+                    "usage invocation {id}"
+                )))
+            };
+        }
+        connection.execute(
+            "INSERT INTO model_usage_records(invocation_id, run_id, provider, model, principal_id, occurred_at, record_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, record.run_id.to_string(), record.provider, record.model, record.principal_id, record.occurred_at.to_rfc3339(), json],
+        ).map_err(backend)?;
+        Ok(())
+    }
+
+    async fn list_usage(&self, run_id: Option<Uuid>) -> Result<Vec<UsageRecord>, StorageError> {
+        let connection = self.connection.lock().await;
+        let mut statement = connection.prepare(
+            "SELECT record_json FROM model_usage_records WHERE (?1 IS NULL OR run_id = ?1) ORDER BY occurred_at, invocation_id"
+        ).map_err(backend)?;
+        let rows = statement
+            .query_map([run_id.map(|id| id.to_string())], |row| {
+                row.get::<_, String>(0)
+            })
+            .map_err(backend)?;
+        rows.map(|row| {
+            let json = row.map_err(backend)?;
+            serde_json::from_str(&json).map_err(|error| StorageError::Backend(error.to_string()))
+        })
+        .collect()
+    }
+
+    async fn insert_pricing(&self, pricing: ModelPricing) -> Result<(), StorageError> {
+        pricing
+            .validate()
+            .map_err(|error| StorageError::Backend(error.to_string()))?;
+        let connection = self.connection.lock().await;
+        let json = serde_json::to_string(&pricing)
+            .map_err(|error| StorageError::Backend(error.to_string()))?;
+        connection.execute(
+            "INSERT INTO model_pricing(provider, model, version, effective_from, effective_until, pricing_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![pricing.provider, pricing.model, pricing.version, pricing.effective_from.to_rfc3339(), pricing.effective_until.map(|time| time.to_rfc3339()), json],
+        ).map_err(|error| match error {
+            rusqlite::Error::SqliteFailure(code, _) if code.code == rusqlite::ErrorCode::ConstraintViolation =>
+                StorageError::AlreadyExists(format!("pricing {}:{}:{}", pricing.provider, pricing.model, pricing.version)),
+            other => backend(other),
+        })?;
+        Ok(())
+    }
+
+    async fn get_pricing(
+        &self,
+        provider: &str,
+        model: &str,
+        version: &str,
+    ) -> Result<Option<ModelPricing>, StorageError> {
+        let connection = self.connection.lock().await;
+        let json: Option<String> = connection.query_row(
+            "SELECT pricing_json FROM model_pricing WHERE provider = ?1 AND model = ?2 AND version = ?3",
+            params![provider, model, version], |row| row.get(0),
+        ).optional().map_err(backend)?;
+        json.map(|json| {
+            serde_json::from_str(&json).map_err(|error| StorageError::Backend(error.to_string()))
+        })
+        .transpose()
+    }
+
+    async fn list_pricing(
+        &self,
+        provider: &str,
+        model: &str,
+    ) -> Result<Vec<ModelPricing>, StorageError> {
+        let connection = self.connection.lock().await;
+        let mut statement = connection.prepare(
+            "SELECT pricing_json FROM model_pricing WHERE provider = ?1 AND model = ?2 ORDER BY effective_from, version"
+        ).map_err(backend)?;
+        let rows = statement
+            .query_map(params![provider, model], |row| row.get::<_, String>(0))
+            .map_err(backend)?;
+        rows.map(|row| {
+            let json = row.map_err(backend)?;
+            serde_json::from_str(&json).map_err(|error| StorageError::Backend(error.to_string()))
+        })
+        .collect()
+    }
+}
+
+#[async_trait]
 impl ConversationMessageStore for SqliteExecutionStore {
     async fn append_message(&self, message: StoredMessage) -> Result<(), StorageError> {
         let connection = self.connection.lock().await;
@@ -261,7 +372,6 @@ impl ConversationMessageStore for SqliteExecutionStore {
                 _ => {}
             }
         }
-        // SQLite COUNT(*) is an INTEGER, so decode it as i64 before converting.
         let count: i64 = connection
             .query_row(
                 "SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = ?1",
@@ -349,6 +459,3 @@ impl ConversationMessageStore for SqliteExecutionStore {
         .collect()
     }
 }
-
-#[cfg(test)]
-mod tests;
