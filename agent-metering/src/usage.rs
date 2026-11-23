@@ -115,6 +115,7 @@ pub enum InvocationOutcome {
     Succeeded,
     Failed,
     TimedOut,
+    Cancelled,
 }
 
 /// Immutable accounting input for one model invocation.

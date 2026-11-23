@@ -1,6 +1,9 @@
 //! Coordinates model turns, tool calls, authorization, cancellation, and run results.
 
 use std::sync::Arc;
+
+use agent_metering::{InvocationOutcome, MeteredValue, UsageDimensions, UsageRecord};
+use agent_models::TokenUsage;
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -41,6 +44,59 @@ impl EventSink for CompositeEventSink {
 enum ModelTurnError {
     Model(ModelError),
     TimedOut,
+}
+
+fn usage_dimensions(usage: Option<&TokenUsage>) -> UsageDimensions {
+    let Some(usage) = usage else {
+        return UsageDimensions::new();
+    };
+    let mut dimensions = UsageDimensions::new()
+        .with(
+            UsageDimensions::INPUT_TOKENS,
+            MeteredValue::Reported(u64::from(usage.input_tokens)),
+        )
+        .with(
+            UsageDimensions::OUTPUT_TOKENS,
+            MeteredValue::Reported(u64::from(usage.output_tokens)),
+        );
+    if let Some(value) = usage.cached_input_tokens {
+        dimensions = dimensions.with(
+            UsageDimensions::CACHED_INPUT_TOKENS,
+            MeteredValue::Reported(u64::from(value)),
+        );
+    }
+    if let Some(value) = usage.reasoning_tokens {
+        dimensions = dimensions.with(
+            UsageDimensions::REASONING_TOKENS,
+            MeteredValue::Reported(u64::from(value)),
+        );
+    }
+    dimensions
+}
+
+fn usage_record(
+    run_id: Uuid,
+    iteration: usize,
+    agent: &str,
+    principal_id: Option<String>,
+    model_id: &str,
+    outcome: InvocationOutcome,
+    usage: UsageDimensions,
+) -> UsageRecord {
+    let (provider, model) = model_id.split_once('/').unwrap_or(("unknown", model_id));
+    UsageRecord::new(
+        Uuid::new_v4(),
+        run_id,
+        u32::try_from(iteration).unwrap_or(u32::MAX),
+        agent,
+        principal_id,
+        provider,
+        model,
+        outcome,
+        usage,
+        chrono::Utc::now(),
+    )
+    .expect("runtime attribution is non-empty")
 }
 
 fn limit_tool_output(mut output: String, max_bytes: usize) -> String {
@@ -129,6 +185,8 @@ impl AgentRuntime {
         &self,
         run_id: Uuid,
         iteration: usize,
+        agent: &str,
+        principal_id: Option<String>,
         required: &[agent_models::ModelCapability],
         request: ModelRequest,
         cancellation: CancellationToken,
@@ -148,15 +206,35 @@ impl AgentRuntime {
             None => Ok(completion.await),
         };
 
+        let mut pending_attempts = Vec::new();
         while let Ok(event) = receiver.try_recv() {
             let kind = match event {
                 ModelRoutingEvent::CandidatesDiscovered { model_ids } => {
                     RunEventKind::ModelCandidatesDiscovered { model_ids }
                 }
                 ModelRoutingEvent::CandidateAttemptStarted { model_id } => {
+                    pending_attempts.push(model_id.clone());
                     RunEventKind::ModelCandidateAttemptStarted { model_id }
                 }
                 ModelRoutingEvent::CandidateAttemptFailed { model_id, category } => {
+                    pending_attempts.retain(|candidate| candidate != &model_id);
+                    let record = usage_record(
+                        run_id,
+                        iteration,
+                        agent,
+                        principal_id.clone(),
+                        &model_id,
+                        InvocationOutcome::Failed,
+                        UsageDimensions::new(),
+                    );
+                    self.emit_event(
+                        events,
+                        RunEvent {
+                            run_id,
+                            iteration,
+                            kind: RunEventKind::ModelUsageRecorded { record },
+                        },
+                    );
                     RunEventKind::ModelCandidateAttemptFailed { model_id, category }
                 }
                 ModelRoutingEvent::Fallback {
@@ -188,11 +266,78 @@ impl AgentRuntime {
         }
 
         match result {
-            Ok(Ok(routed)) => Ok(routed),
-            Ok(Err(error)) => Err(ModelTurnError::Model(error)),
-            Err(error) => Err(error),
+            Ok(Ok(routed)) => {
+                let record = usage_record(
+                    run_id,
+                    iteration,
+                    agent,
+                    principal_id,
+                    &routed.model_id,
+                    InvocationOutcome::Succeeded,
+                    usage_dimensions(routed.turn.usage.as_ref()),
+                );
+                self.emit_event(
+                    events,
+                    RunEvent {
+                        run_id,
+                        iteration,
+                        kind: RunEventKind::ModelUsageRecorded { record },
+                    },
+                );
+                Ok(routed)
+            }
+            Ok(Err(error)) => {
+                let outcome = if matches!(error, ModelError::Cancelled) {
+                    InvocationOutcome::Cancelled
+                } else {
+                    InvocationOutcome::Failed
+                };
+                for model_id in pending_attempts {
+                    let record = usage_record(
+                        run_id,
+                        iteration,
+                        agent,
+                        principal_id.clone(),
+                        &model_id,
+                        outcome,
+                        UsageDimensions::new(),
+                    );
+                    self.emit_event(
+                        events,
+                        RunEvent {
+                            run_id,
+                            iteration,
+                            kind: RunEventKind::ModelUsageRecorded { record },
+                        },
+                    );
+                }
+                Err(ModelTurnError::Model(error))
+            }
+            Err(error) => {
+                for model_id in pending_attempts {
+                    let record = usage_record(
+                        run_id,
+                        iteration,
+                        agent,
+                        principal_id.clone(),
+                        &model_id,
+                        InvocationOutcome::TimedOut,
+                        UsageDimensions::new(),
+                    );
+                    self.emit_event(
+                        events,
+                        RunEvent {
+                            run_id,
+                            iteration,
+                            kind: RunEventKind::ModelUsageRecorded { record },
+                        },
+                    );
+                }
+                Err(error)
+            }
         }
     }
+
     fn emit_event(&self, events: &mut Vec<RunEvent>, event: RunEvent) {
         self.event_sink.emit(&event);
         events.push(event);
@@ -381,6 +526,8 @@ impl AgentRuntime {
                 .complete_model_turn(
                     run_id,
                     iteration,
+                    &agent.id,
+                    context.user_id.clone(),
                     &agent.capabilities,
                     request,
                     cancellation.clone(),
@@ -601,6 +748,7 @@ mod external_run_id_tests {
     impl AgentModel for FixedModel {
         async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, ModelError> {
             Ok(ModelTurn {
+                usage: None,
                 content: Some("completed".into()),
                 tool_calls: Vec::new(),
             })
@@ -705,6 +853,7 @@ mod family_context_tests {
         async fn complete(&self, request: ModelRequest) -> Result<ModelTurn, ModelError> {
             *self.0.lock().unwrap() = Some(request);
             Ok(ModelTurn {
+                usage: None,
                 content: Some("done".into()),
                 tool_calls: Vec::new(),
             })

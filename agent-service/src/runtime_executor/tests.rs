@@ -18,6 +18,7 @@ struct FixedModel;
 impl AgentModel for FixedModel {
     async fn complete(&self, _request: ModelRequest) -> Result<ModelTurn, ModelError> {
         Ok(ModelTurn {
+            usage: None,
             content: Some("runtime response".into()),
             tool_calls: Vec::new(),
         })

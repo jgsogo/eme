@@ -7,6 +7,7 @@ description = "Orchestration and lifecycle management for concurrent agent runs.
 [dependencies]
 agent-config = { path = "../agent-config" }
 agent-runtime = { path = "../agent-runtime" }
+agent-metering = { path = "../agent-metering" }
 agent-storage = { path = "../agent-storage" }
 async-trait = { workspace = true }
 chrono = { workspace = true }

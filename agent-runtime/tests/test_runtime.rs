@@ -9,7 +9,7 @@ use std::{
 
 use tokio::sync::Notify;
 
-use agent_models::{ModelCapability, ModelError};
+use agent_models::{ModelCapability, ModelError, TokenUsage};
 use agent_runtime::{
     Agent, AgentModel, AgentRuntime, AllowListPolicy, CancellationToken, ErrorCategory, Message,
     ModelRequest, ModelTurn, RuntimeError, ToolCall, ToolContext, ToolDefinition, ToolDispatcher,
@@ -100,6 +100,7 @@ impl ToolDispatcher for MockTools {
 async fn executes_tool_and_returns_final_response() {
     let model = Arc::new(MockModel::new(vec![
         ModelTurn {
+            usage: None,
             content: None,
             tool_calls: vec![ToolCall {
                 id: "call-1".into(),
@@ -112,6 +113,7 @@ async fn executes_tool_and_returns_final_response() {
             }],
         },
         ModelTurn {
+            usage: None,
             content: Some("123 × 456 = 56088".into()),
             tool_calls: vec![],
         },
@@ -192,6 +194,7 @@ async fn executes_tool_and_returns_final_response() {
 async fn denies_unauthorized_tool_execution() {
     let model = Arc::new(MockModel::new(vec![
         ModelTurn {
+            usage: None,
             content: None,
             tool_calls: vec![ToolCall {
                 id: "call-1".into(),
@@ -204,6 +207,7 @@ async fn denies_unauthorized_tool_execution() {
             }],
         },
         ModelTurn {
+            usage: None,
             content: Some("I cannot use the calculator.".into()),
             tool_calls: vec![],
         },
@@ -274,6 +278,7 @@ async fn denies_unauthorized_tool_execution() {
 async fn stops_after_max_iterations() {
     let model = Arc::new(MockModel::new(vec![
         ModelTurn {
+            usage: None,
             content: None,
             tool_calls: vec![ToolCall {
                 id: "call-1".into(),
@@ -283,6 +288,7 @@ async fn stops_after_max_iterations() {
             }],
         },
         ModelTurn {
+            usage: None,
             content: None,
             tool_calls: vec![ToolCall {
                 id: "call-2".into(),
@@ -344,6 +350,7 @@ impl AgentModel for BlockingModel {
         self.started.notify_one();
         self.release.notified().await;
         Ok(ModelTurn {
+            usage: None,
             content: Some("Model response".into()),
             tool_calls: Vec::new(),
         })
@@ -442,6 +449,7 @@ async fn cancellation_waits_for_in_flight_tool_and_keeps_its_result() {
     let started = Arc::new(Notify::new());
     let release = Arc::new(Notify::new());
     let model = Arc::new(MockModel::new(vec![ModelTurn {
+        usage: None,
         content: None,
         tool_calls: vec![ToolCall {
             id: "call-1".into(),
@@ -550,10 +558,12 @@ async fn times_out_individual_tool_calls_without_timing_out_the_run() {
     let completed = Arc::new(AtomicBool::new(false));
     let model = Arc::new(MockModel::new(vec![
         ModelTurn {
+            usage: None,
             content: None,
             tool_calls: vec![test_tool_call()],
         },
         ModelTurn {
+            usage: None,
             content: Some("The tool timed out.".into()),
             tool_calls: Vec::new(),
         },
@@ -604,10 +614,12 @@ async fn truncates_tool_output_to_the_configured_utf8_byte_limit() {
     let completed = Arc::new(AtomicBool::new(false));
     let model = Arc::new(MockModel::new(vec![
         ModelTurn {
+            usage: None,
             content: None,
             tool_calls: vec![test_tool_call()],
         },
         ModelTurn {
+            usage: None,
             content: Some("Done.".into()),
             tool_calls: Vec::new(),
         },
@@ -706,4 +718,61 @@ fn configuration_errors_have_a_stable_category() {
         ToolError::Configuration("missing setting".into()).category(),
         ErrorCategory::Configuration
     );
+}
+
+#[tokio::test]
+async fn emits_usage_record_with_provider_dimensions_and_principal_attribution() {
+    let model = Arc::new(MockModel::new(vec![ModelTurn {
+        usage: Some(TokenUsage {
+            input_tokens: 11,
+            output_tokens: 7,
+            cached_input_tokens: Some(2),
+            reasoning_tokens: Some(3),
+        }),
+        content: Some("done".into()),
+        tool_calls: Vec::new(),
+    }]));
+    let runtime = AgentRuntime::new(
+        model,
+        Arc::new(MockTools {
+            calls: Mutex::new(Vec::new()),
+        }),
+        Arc::new(AllowListPolicy::new(Vec::<String>::new())),
+    );
+    let agent = Agent {
+        id: "metered-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
+        system_prompt: None,
+        tool_names: Vec::new(),
+        max_iterations: 1,
+    };
+    let run_id = Uuid::new_v4();
+    let result = runtime
+        .run(
+            run_id,
+            &agent,
+            ToolContext::new("user-123"),
+            Vec::new(),
+            "hello",
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+
+    let records = result
+        .events
+        .iter()
+        .filter_map(|event| match &event.kind {
+            agent_runtime::RunEventKind::ModelUsageRecorded { record } => Some(record),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0].run_id, run_id);
+    assert_eq!(records[0].agent, "metered-agent");
+    assert_eq!(records[0].principal_id.as_deref(), Some("user-123"));
+    assert_eq!(records[0].usage.get("input_tokens").value(), Some(11));
+    assert_eq!(records[0].usage.get("output_tokens").value(), Some(7));
+    assert_eq!(records[0].usage.get("cached_input_tokens").value(), Some(2));
+    assert_eq!(records[0].usage.get("reasoning_tokens").value(), Some(3));
 }
