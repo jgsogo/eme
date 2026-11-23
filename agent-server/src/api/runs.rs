@@ -82,6 +82,8 @@ async fn list_runs(
         .into_iter()
         .map(|run| GetRunResponse {
             run_id: run.id.to_string(),
+            conversation_id: run.conversation_id.map(|id| id.to_string()),
+            input: run.input,
             agent: run.agent,
             status: status_name(run.status),
             response: run.response,
@@ -178,6 +180,8 @@ async fn get_run(
         {
             HttpResponse::Ok().json(GetRunResponse {
                 run_id: run.id.to_string(),
+                conversation_id: run.conversation_id.map(|id| id.to_string()),
+                input: run.input,
                 agent: run.agent,
                 status: status_name(run.status),
                 response: run.response,
