@@ -9,6 +9,20 @@ use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use super::provider_config::ProviderConfig;
 
+/// Credential-free metadata for a configured provider and its models.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProviderInfo {
+    pub name: String,
+    pub client: String,
+    pub models: Vec<ProviderModelInfo>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProviderModelInfo {
+    pub name: String,
+    pub capabilities: Vec<ModelCapability>,
+}
+
 pub struct Registry {
     providers: BTreeMap<String, ProviderConfig>,
 }
@@ -34,6 +48,18 @@ impl Registry {
         }
 
         Ok(Self { providers })
+    }
+
+    /// Returns the validated provider/model metadata without exposing credentials.
+    pub fn catalog(&self) -> Vec<ProviderInfo> {
+        self.providers.values().map(|provider| ProviderInfo {
+            name: provider.name.clone(),
+            client: provider.client.clone(),
+            models: provider.models.iter().map(|model| ProviderModelInfo {
+                name: model.name.clone(),
+                capabilities: model.capabilities.clone(),
+            }).collect(),
+        }).collect()
     }
 
     /// Returns whether a provider/model pair is declared in the loaded configuration.
