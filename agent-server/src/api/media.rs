@@ -5,11 +5,12 @@ use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post,
     web::{self, Data, Json, Path as PathParam, Query},
 };
-use agent_storage::{FamilyId, FileUserIdentityStore, UserId, UserIdentityStore};
+use agent_storage::{FamilyId, FamilyStore, FileUserIdentityStore, UserId, UserIdentityStore};
 use media_tools::{
     MediaProfileId, MediaStore, TraktError, TraktOAuthService, TraktSyncError, TraktSyncService,
 };
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::auth::TelegramAuth;
 
@@ -17,6 +18,7 @@ use crate::auth::TelegramAuth;
 #[derive(Clone, Default)]
 pub struct MediaApiState {
     pub media: Option<MediaStore>,
+    pub families: Option<Arc<dyn FamilyStore>>,
     pub trakt_oauth: Option<Arc<TraktOAuthService>>,
     pub trakt_sync: Option<TraktSyncService>,
 }
@@ -42,6 +44,68 @@ pub struct TraktProfileRequest {
 #[derive(Debug, Deserialize)]
 pub struct TraktSyncQuery {
     pub family_id: String,
+}
+
+#[get("/trakt/profiles")]
+async fn list_trakt_profiles(
+    request: HttpRequest,
+    auth: Data<TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<MediaApiState>,
+) -> impl Responder {
+    let user_id = match current_user_id(&request, &auth, &identities) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+    if state.trakt_oauth.is_none() {
+        return HttpResponse::ServiceUnavailable().body("Trakt OAuth is not configured");
+    }
+    let Some(media) = state.media.as_ref() else {
+        return HttpResponse::ServiceUnavailable().body("Media storage is not configured");
+    };
+    let Some(families) = state.families.as_ref() else {
+        return HttpResponse::ServiceUnavailable().body("Family storage is not configured");
+    };
+    let memberships = match families.list_families(user_id).await {
+        Ok(families) => families,
+        Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
+    };
+    let mut profiles = Vec::new();
+    for family in memberships {
+        let family_profiles = match media.list_profiles(family.id).await {
+            Ok(profiles) => profiles,
+            Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
+        };
+        for profile in family_profiles
+            .into_iter()
+            .filter(|profile| profile.active && profile.user_id == Some(user_id))
+        {
+            let link = match media
+                .get_external_connection_link(profile.id, "trakt")
+                .await
+            {
+                Ok(link) => link,
+                Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
+            };
+            let sync = match media.get_provider_sync_state(profile.id, "trakt").await {
+                Ok(sync) => sync,
+                Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
+            };
+            profiles.push(json!({
+                "profile_id": profile.id,
+                "profile_name": profile.name,
+                "family_id": family.id,
+                "family_name": family.name.clone(),
+                "trakt": link.map(|link| json!({
+                    "username": link.provider_subject,
+                    "display_name": link.display_name,
+                    "linked_at": link.linked_at,
+                })),
+                "sync": sync,
+            }));
+        }
+    }
+    HttpResponse::Ok().json(profiles)
 }
 
 #[post("/trakt/link")]
@@ -137,7 +201,7 @@ async fn sync_trakt_profile(
         return HttpResponse::ServiceUnavailable().body("Trakt OAuth is not configured");
     };
     if let Err(error) = oauth
-        .validate_profile_member(owner_id, family_id, profile_id)
+        .validate_profile_owner(owner_id, family_id, profile_id)
         .await
     {
         return trakt_error_response(error);
@@ -181,6 +245,7 @@ async fn unlink_trakt_profile(
 /// Authenticated Trakt API scope. Mount below the platform's session middleware.
 pub fn media_api() -> Scope {
     web::scope("/media")
+        .service(list_trakt_profiles)
         .service(start_trakt_link)
         .service(complete_trakt_link)
         .service(sync_trakt_profile)

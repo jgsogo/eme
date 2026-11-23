@@ -120,15 +120,15 @@ impl TraktOAuthService {
 
     /// Begin linking a Trakt account to a media profile.
     ///
-    /// Only EME family owners and admins can attach an external account to a
-    /// family-managed profile. The pending state is hashed and consumed once.
+    /// Only the EME user assigned to the media profile can attach their own
+    /// external account. The pending state is hashed and consumed once.
     pub async fn begin_link(
         &self,
         owner_id: UserId,
         family_id: FamilyId,
         profile_id: MediaProfileId,
     ) -> Result<TraktAuthorization, TraktError> {
-        self.require_profile_admin(owner_id, family_id, profile_id)
+        self.require_profile_owner(owner_id, family_id, profile_id)
             .await?;
         let state = Uuid::new_v4().to_string();
         let (pkce_verifier, code_challenge) = pkce_pair();
@@ -206,7 +206,7 @@ impl TraktOAuthService {
         if authorization.user_id != pending.owner_id {
             return Err(TraktError::Forbidden);
         }
-        self.require_profile_admin(pending.owner_id, pending.family_id, pending.profile_id)
+        self.require_profile_owner(pending.owner_id, pending.family_id, pending.profile_id)
             .await?;
 
         let tokens = self
@@ -331,20 +331,20 @@ impl TraktOAuthService {
         }))
     }
 
-    /// Validate that the actor is still a member of the family owning this profile.
-    pub async fn validate_profile_member(
+    /// Validate that the actor still owns the assigned profile and belongs to its family.
+    pub async fn validate_profile_owner(
         &self,
         user_id: UserId,
         family_id: FamilyId,
         profile_id: MediaProfileId,
     ) -> Result<(), TraktError> {
-        if self
+        let profile = self
             .media
             .get_profile(family_id, profile_id)
             .await
             .map_err(TraktError::MediaStorage)?
-            .is_none()
-        {
+            .ok_or(TraktError::Forbidden)?;
+        if profile.user_id != Some(user_id) {
             return Err(TraktError::Forbidden);
         }
         let families = self
@@ -372,38 +372,27 @@ impl TraktOAuthService {
         &self.token_manager
     }
 
-    async fn require_profile_admin(
+    async fn require_profile_owner(
         &self,
         owner_id: UserId,
         family_id: FamilyId,
         profile_id: MediaProfileId,
     ) -> Result<(), TraktError> {
+        let profile = self
+            .media
+            .get_profile(family_id, profile_id)
+            .await
+            .map_err(TraktError::MediaStorage)?
+            .ok_or(TraktError::Forbidden)?;
+        if profile.user_id != Some(owner_id) {
+            return Err(TraktError::Forbidden);
+        }
         let families = self
             .families
             .list_families(owner_id)
             .await
             .map_err(|error| TraktError::Family(error.to_string()))?;
         if !families.iter().any(|family| family.id == family_id) {
-            return Err(TraktError::Forbidden);
-        }
-        let members = self
-            .families
-            .list_members(family_id)
-            .await
-            .map_err(|error| TraktError::Family(error.to_string()))?;
-        if !members.iter().any(|member| {
-            member.user_id == owner_id
-                && matches!(member.role, FamilyRole::Owner | FamilyRole::Admin)
-        }) {
-            return Err(TraktError::Forbidden);
-        }
-        if self
-            .media
-            .get_profile(family_id, profile_id)
-            .await
-            .map_err(TraktError::MediaStorage)?
-            .is_none()
-        {
             return Err(TraktError::Forbidden);
         }
         Ok(())
@@ -693,7 +682,9 @@ struct TraktUser {
 mod tests {
     use std::{fs, sync::Arc};
 
-    use agent_storage::{Family, FamilyMember, InMemoryFamilyStore, SqliteExternalConnectionStore};
+    use agent_storage::{
+        Family, FamilyMember, FamilyRole, InMemoryFamilyStore, SqliteExternalConnectionStore,
+    };
     use chrono::Utc;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
@@ -733,7 +724,8 @@ mod tests {
             .await
             .unwrap();
         let media = MediaStore::open_in_memory().unwrap();
-        let profile = crate::MediaProfile::new(family_id, "Child");
+        let mut profile = crate::MediaProfile::new(family_id, "Child");
+        profile.user_id = Some(user_id);
         let profile_id = profile.id;
         media.save_profile(&profile).await.unwrap();
         (families, user_id, family_id, media, profile_id)
@@ -903,7 +895,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn only_family_owners_and_admins_can_start_a_profile_link() {
+    async fn only_the_assigned_user_can_link_their_profile() {
         let (families, user_id, family_id, media, profile_id) = family_and_profile().await;
         let member_id = UserId::new();
         families
@@ -921,7 +913,7 @@ mod tests {
         let external_trait: Arc<dyn ExternalConnectionStore> = external.clone();
         let service = TraktOAuthService::new(
             TraktOAuthConfig::new("client", "http://localhost/callback").unwrap(),
-            media,
+            media.clone(),
             families,
             external_trait,
         )
@@ -930,6 +922,18 @@ mod tests {
             service.begin_link(member_id, family_id, profile_id).await,
             Err(TraktError::Forbidden)
         ));
+
+        let mut member_profile = crate::MediaProfile::new(family_id, "Member");
+        member_profile.user_id = Some(member_id);
+        let member_profile_id = member_profile.id;
+        media.save_profile(&member_profile).await.unwrap();
+        assert!(
+            service
+                .begin_link(member_id, family_id, member_profile_id)
+                .await
+                .is_ok(),
+            "a regular family member can link their own assigned profile"
+        );
         drop(service);
         drop(external);
         let _ = fs::remove_file(db_path);

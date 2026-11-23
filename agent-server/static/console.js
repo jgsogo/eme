@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={googleConnections:[],googleCalendars:{},agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -426,11 +426,33 @@ on("profile-form","submit",saveProfile);
 function googleHasWriteScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
 function googleHasReadScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events.readonly"||scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
 function renderIntegrationNav(){
- const summary=$("google-integration-summary");if(!summary)return;
- const active=state.googleConnections.filter(connection=>connection.status==="active").length;
- summary.textContent=state.googleConnections.length
-  ? active+" active account"+(active===1?"":"s")+" · "+state.googleConnections.length+" saved"
-  : "Connect an account to get started";
+ const summary=$("google-integration-summary");
+ if(summary){
+  const active=state.googleConnections.filter(connection=>connection.status==="active").length;
+  summary.textContent=state.googleConnections.length
+   ? active+" active account"+(active===1?"":"s")+" · "+state.googleConnections.length+" saved"
+   : "Connect an account to get started";
+ }
+ const traktSummary=$("trakt-integration-summary");
+ if(traktSummary)traktSummary.textContent=state.traktProfiles.length
+  ?state.traktProfiles.length+" personal media profile"+(state.traktProfiles.length===1?"":"s")
+  :"No personal media profile assigned";
+}
+function renderIntegrationView(){
+ document.querySelectorAll("[data-integration]").forEach(button=>{
+  const selected=button.dataset.integration===state.activeIntegration;
+  button.classList.toggle("active",selected);
+  button.setAttribute("aria-pressed",String(selected));
+  if(selected)button.setAttribute("aria-current","page");else button.removeAttribute("aria-current");
+ });
+ document.querySelectorAll("[data-integration-panel]").forEach(panel=>{
+  panel.hidden=panel.dataset.integrationPanel!==state.activeIntegration;
+ });
+}
+function selectIntegration(name){
+ if(!["google","trakt"].includes(name))return;
+ state.activeIntegration=name;
+ renderIntegrationView();
 }
 function renderGoogleConnections(){
  renderIntegrationNav();
@@ -451,10 +473,66 @@ async function loadGoogleConnections(){
  await Promise.all(state.googleConnections.filter(c=>c.status==="active").map(async c=>{try{state.googleCalendars[c.id]=await api("/integrations/google/connections/"+encodeURIComponent(c.id)+"/calendars")}catch(e){state.googleCalendars[c.id]=[]}}));
  renderGoogleConnections();
 }
+function renderTraktProfiles(){
+ const target=$("trakt-profiles");if(!target)return;
+ renderIntegrationNav();
+ const connectable=state.traktProfiles.filter(profile=>!profile.trakt);
+ const selector=$("trakt-connect-profile"),connectButton=$("trakt-connect");
+ if(selector){
+  selector.innerHTML=connectable.length
+   ?connectable.map(profile=>'<option value="'+escapeHtml(profile.profile_id)+'">'+escapeHtml(profile.profile_name)+' · '+escapeHtml(profile.family_name)+'</option>').join("")
+   :'<option value="">No unconnected profile available</option>';
+  selector.disabled=connectable.length===0;
+ }
+ if(connectButton)connectButton.disabled=connectable.length===0;
+ if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No active media profile is assigned to your EME user. Ask a family admin to associate your EME account with your media profile before connecting Trakt.</div></div>';return}
+ target.innerHTML=state.traktProfiles.map(profile=>{
+  const trakt=profile.trakt,sync=profile.sync||{},lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
+  const account=trakt?'<strong>'+escapeHtml(trakt.display_name||trakt.username)+'</strong><small>Trakt account · @'+escapeHtml(trakt.username)+'</small>':'<span class="hint">No Trakt account connected</span>';
+  const actions=trakt?'<button type="button" data-trakt-action="sync" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id)+'">Sync now</button><button type="button" class="danger" data-trakt-action="disconnect" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id)+'">Disconnect</button>':'<span class="hint">Use the Connect Trakt action above to link this profile.</span>';
+  return '<section class="panel google-account"><div class="google-account-heading"><div><h3>'+escapeHtml(profile.profile_name)+'</h3><p class="hint">'+escapeHtml(profile.family_name)+' · '+(trakt?"Connected":"Not connected")+'</p></div></div><div class="calendar-toolbar"><div>'+account+'<p class="hint">'+(trakt?"Last synchronized: "+escapeHtml(lastSync):"Import watched movies and shows, ratings and watchlist.")+'</p></div><div class="integration-button-row">'+actions+'</div></div></section>';
+ }).join("");
+}
+async function loadTraktProfiles(){state.traktProfiles=await api("/media/trakt/profiles");renderTraktProfiles()}
 async function loadIntegrations(){
- const status=$("integrations-status");
- try{await loadFamilies();await loadGoogleConnections();status.textContent="Google account settings loaded."}
- catch(e){status.textContent=e.message.includes("Google OAuth is not configured")?"Google Calendar integration is not configured on this server.":e.message;$("google-connections").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(status.textContent)+'</div></div>'}
+ const status=$("integrations-status");renderIntegrationView();await loadFamilies();const errors=[];
+ try{await loadGoogleConnections()}catch(e){const message=e.message.includes("Google OAuth is not configured")?"Google Calendar integration is not configured on this server.":e.message;$("google-connections").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(message)+'</div></div>';errors.push(message)}
+ try{await loadTraktProfiles()}catch(e){const message=e.message.includes("Trakt OAuth is not configured")?"Trakt integration is not configured on this server.":e.message;$("trakt-profiles").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(message)+'</div></div>';errors.push(message);renderIntegrationNav()}
+ status.textContent=errors.length?errors.join(" "):"Integration settings loaded.";
+}
+async function connectTrakt(profile){
+ const status=$("integrations-status"),popup=window.open("about:blank","eme-trakt-oauth","popup,width=620,height=760");
+ if(!popup){status.textContent="Allow pop-ups for this site to connect a Trakt account.";return}
+ const previous=profile.trakt?.linked_at||null;status.textContent="Preparing Trakt authorization…";
+ try{
+  const auth=await api("/media/trakt/link",{method:"POST",body:JSON.stringify({family_id:profile.family_id,profile_id:profile.profile_id})});
+  popup.location.href=auth.authorization_url;status.textContent="Complete authorization in the Trakt window. This page will update automatically.";
+  const deadline=Date.now()+10*60*1000;
+  while(Date.now()<deadline){
+   await new Promise(resolve=>setTimeout(resolve,1500));await loadTraktProfiles();
+   const updated=state.traktProfiles.find(item=>item.profile_id===profile.profile_id);
+   if(updated?.trakt&&updated.trakt.linked_at!==previous){if(!popup.closed)popup.close();status.textContent="Trakt account connected.";return}
+   if(popup.closed)break;
+  }
+  status.textContent="Authorization was not completed. You can try again.";
+ }catch(e){status.textContent=e.message}finally{if(!popup.closed)popup.close()}
+}
+async function handleTraktIntegrationAction(event){
+ const button=event.target.closest("[data-trakt-action]");if(!button)return;
+ const action=button.dataset.traktAction,profileId=button.dataset.profileId,familyId=button.dataset.familyId;
+ const profile=state.traktProfiles.find(item=>item.profile_id===profileId),status=$("integrations-status");if(!profile)return;
+ button.disabled=true;
+ try{
+  if(action==="connect")await connectTrakt(profile);
+  else if(action==="sync"){
+   const result=await api("/media/trakt/profiles/"+encodeURIComponent(profileId)+"/sync?family_id="+encodeURIComponent(familyId),{method:"POST"});
+   await loadTraktProfiles();status.textContent="Trakt synchronized: "+(result.watched_movies||0)+" movies, "+(result.watched_shows||0)+" shows, "+(result.ratings||0)+" ratings and "+(result.watchlist_items||0)+" watchlist items.";
+  }else if(action==="disconnect"){
+   if(!window.confirm("Disconnect this Trakt account? Imported media history will remain in the profile."))return;
+   await api("/media/trakt/profiles/"+encodeURIComponent(profileId),{method:"DELETE",body:JSON.stringify({family_id:familyId})});
+   await loadTraktProfiles();status.textContent="Trakt account disconnected.";
+  }
+ }catch(e){status.textContent=e.message}finally{button.disabled=false}
 }
 async function connectGoogle(){
  const button=$("google-connect"),status=$("integrations-status"),access=$("google-connect-access").value,popup=window.open("about:blank","eme-google-oauth","popup,width=620,height=760");
@@ -510,8 +588,20 @@ async function handleGoogleCalendarChange(event){
 }
 on("google-connect","click",connectGoogle);
 on("refresh-integrations","click",loadIntegrations);
+on("integrations-sidebar","click",event=>{
+ const button=event.target.closest("[data-integration]");
+ if(button)selectIntegration(button.dataset.integration);
+});
 on("google-connections","click",handleGoogleIntegrationAction);
 on("google-connections","change",handleGoogleCalendarChange);
+on("trakt-profiles","click",handleTraktIntegrationAction);
+on("trakt-connect","click",async()=>{
+ const profileId=$("trakt-connect-profile")?.value;
+ const profile=state.traktProfiles.find(item=>item.profile_id===profileId&&!item.trakt);
+ if(!profile){$("integrations-status").textContent="Select a media profile before connecting Trakt.";return}
+ const button=$("trakt-connect");button.disabled=true;
+ try{await connectTrakt(profile)}finally{renderTraktProfiles()}
+});
 
 async function showConsole(){
  document.body.classList.remove("login-active");

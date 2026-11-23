@@ -75,7 +75,7 @@ impl MediaIntegration {
                     TraktOAuthService::new(
                         oauth_config,
                         media.clone(),
-                        families,
+                        families.clone(),
                         external_connections,
                     )
                     .map_err(anyhow::Error::msg)
@@ -94,6 +94,7 @@ impl MediaIntegration {
             MediaToolServices::new(media.clone(), config, tmdb, watchmode, trakt_sync.clone());
         let api = MediaApiState {
             media: Some(media),
+            families: Some(families),
             trakt_oauth,
             trakt_sync,
         };
