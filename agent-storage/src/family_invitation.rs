@@ -24,8 +24,8 @@ mod token_tests {
 }
 
 pub use family_invitation_store::FamilyInvitationStore;
-pub use invitation_record::FamilyInvitation;
 pub use family_invitation_summary::FamilyInvitationSummary;
+pub use invitation_record::FamilyInvitation;
 pub use invitation_storage_error::InvitationStorageError;
 pub use invitation_target_identity::InvitationTargetIdentity;
 pub use invitation_token::InvitationToken;
