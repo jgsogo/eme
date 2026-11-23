@@ -13,7 +13,10 @@ mod providers;
 mod store;
 
 pub use config::{MediaConfig, MediaConfigError, StreamingService};
-pub use providers::{TmdbClient, TmdbError, TmdbPage};
+pub use providers::{
+    TmdbClient, TmdbError, TmdbPage, WatchmodeClient, WatchmodeError, WatchmodeSource,
+    filter_subscription_offers,
+};
 pub use store::{MediaStore, MediaStoreError};
 
 pub use models::{
