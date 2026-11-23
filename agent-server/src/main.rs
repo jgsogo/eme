@@ -10,6 +10,8 @@ mod configured_agent_resolver;
 mod console;
 #[path = "main/console_event_sink.rs"]
 mod console_event_sink;
+#[path = "main/media_integration.rs"]
+mod media_integration;
 mod telegram;
 
 use std::sync::Arc;
@@ -40,6 +42,7 @@ use console::{
     school_menus_script, shopping_list_page, shopping_list_script, tasks_page, weekly_planner_page,
     weekly_planner_script,
 };
+use media_integration::MediaIntegration;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -104,6 +107,12 @@ async fn main() -> Result<()> {
         .map_err(anyhow::Error::msg)
         .context("configuring Google OAuth integration")?;
     let google_runtime = google_oauth_state.calendar_runtime(Arc::clone(&family_service));
+    let media_integration = MediaIntegration::from_env(
+        &args.data_dir,
+        Arc::clone(&family_store) as Arc<dyn FamilyStore>,
+    )
+    .context("configuring media integrations")?;
+    let media_api_state = media_integration.api.clone();
 
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(
@@ -113,6 +122,7 @@ async fn main() -> Result<()> {
             meal_planner_store.clone(),
             Arc::clone(&family_store) as Arc<dyn FamilyStore>,
             google_runtime,
+            media_integration.tools,
         )
         .with_context(|| {
             format!(
@@ -229,6 +239,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(task_registry.clone()))
             .app_data(web::Data::new(meal_planner_store.clone()))
             .app_data(web::Data::new(google_oauth_state.clone()))
+            .app_data(web::Data::new(media_api_state.clone()))
             .app_data(web::Data::from(Arc::clone(&telegram_auth)));
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
@@ -266,6 +277,7 @@ async fn main() -> Result<()> {
             .service(invitation_page)
             .service(agent_server::auth::auth_api())
             .service(agent_server::google_integrations_api())
+            .service(agent_server::media_api())
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())

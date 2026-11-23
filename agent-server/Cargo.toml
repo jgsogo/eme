@@ -19,6 +19,7 @@ common-tools = { path = "../tools/common" }
 tasks-tool = { path = "../tools/tasks" }
 notes-tools = { path = "../tools/notes" }
 meal-planner = { path = "../tools/meal-planner" }
+media-tools = { path = "../tools/media" }
 mercadona-tool = { path = "../tools/mercadona" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -26,6 +27,7 @@ clap = { workspace = true }
 chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = { workspace = true }
 uuid = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

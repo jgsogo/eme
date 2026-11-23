@@ -14,6 +14,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use google_tool::GoogleCalendarRuntimeConfig;
 use meal_planner::MealPlannerStore;
+use media_tools::MediaToolServices;
 use notes_tools::NotesStore;
 use tasks_tool::TaskRegistry;
 use telegram_tool::TelegramGateway;
@@ -47,6 +48,7 @@ impl ConfiguredAgentResolver {
         meal_planner_store: MealPlannerStore,
         family_store: Arc<dyn FamilyStore>,
         google_runtime: Option<GoogleCalendarRuntimeConfig>,
+        media_services: MediaToolServices,
     ) -> Result<Self> {
         let models = Arc::new(ModelRegistry::load(data_dir).context("loading model providers")?);
 
@@ -69,6 +71,9 @@ impl ConfiguredAgentResolver {
             notes_tools::register_tools(&mut tools, family_store, data_dir.join("notes.sqlite"))
                 .map_err(|error| anyhow::anyhow!(error.to_string()))
                 .context("registering notes tools")?;
+        media_tools::register_media_tools(&mut tools, media_services)
+            .map_err(|error| anyhow::anyhow!(error))
+            .context("registering media tools")?;
         let tools = Arc::new(tools);
 
         let agents =
