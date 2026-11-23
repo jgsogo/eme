@@ -1,4 +1,4 @@
-//! HTTP middleware enforcing browser authentication and run ownership.
+//! HTTP middleware enforcing browser-session authentication.
 
 use actix_web::{
     Error, HttpResponse,
@@ -35,12 +35,12 @@ where
     }
 
     let auth = request.app_data::<web::Data<TelegramAuth>>();
-    let owner = auth.and_then(|auth| auth.owner_for_request(request.request()));
-    let Some(_owner) = owner else {
+    let authenticated = auth.is_some_and(|auth| auth.owner_for_request(request.request()).is_some());
+    if !authenticated {
         return Ok(request
             .into_response(HttpResponse::Unauthorized().finish())
             .map_into_right_body());
-    };
+    }
 
     Ok(next.call(request).await?.map_into_left_body())
 }
