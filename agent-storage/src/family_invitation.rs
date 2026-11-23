@@ -1,6 +1,7 @@
 //! Invitation records, token handling, and persistence contract.
 
-mod family_invitation;
+#[path = "family_invitation/family_invitation.rs"]
+mod invitation_record;
 mod family_invitation_store;
 mod family_invitation_summary;
 mod invitation_storage_error;
@@ -22,7 +23,7 @@ mod token_tests {
     }
 }
 
-pub use family_invitation::FamilyInvitation;
+pub use invitation_record::FamilyInvitation;
 pub use family_invitation_store::FamilyInvitationStore;
 pub use family_invitation_summary::FamilyInvitationSummary;
 pub use invitation_storage_error::InvitationStorageError;
