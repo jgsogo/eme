@@ -11,7 +11,6 @@
     : path.startsWith("/console/profile") || path.startsWith("/console/integrations") || path.startsWith("/console/families") ? "profile"
     : "conversations";
   const profileActive = section === "profile";
-  const adminActive = section === "admin";
 
   const navItems = [
     ["conversations", "Conversations", "/console/conversations"],
