@@ -15,6 +15,9 @@ pub struct ToolContext {
     pub telegram_id: Option<String>,
     /// Family selected for the conversation and verified for this user.
     pub family: Option<FamilyContext>,
+    /// Every family the authenticated user currently belongs to, resolved by the host.
+    /// Telegram recipient authorization is checked against these trusted rosters.
+    pub families: Vec<FamilyContext>,
     /// Conversation whose turn caused this tool invocation.
     pub conversation_id: Option<String>,
     /// Stable identifier of the enclosing agent run.
