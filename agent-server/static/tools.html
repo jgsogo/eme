@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Admin · Tools · EME</title>
+  <link rel="stylesheet" href="/assets/console.css">
+  <link rel="stylesheet" href="/assets/usage.css">
+  <script src="/assets/desktop-header.js" defer></script>
+  <script src="/assets/console-auth.js" defer></script>
+  <script src="/assets/tools.js" defer></script>
+</head>
+<body data-page="admin-tools">
+  <header></header>
+  <main class="usage-main">
+    <nav class="profile-section-nav admin-section-nav" aria-label="Admin">
+      <a class="profile-section-link" href="/console/admin/usage">Observability</a>
+      <a class="profile-section-link active" href="/console/admin/tools" aria-current="page">Tools</a>
+    </nav>
+    <div class="usage-heading">
+      <div>
+        <p class="eyebrow">AGENT RUNTIME</p>
+        <h2>Available tools</h2>
+        <p class="usage-intro">Tools registered in the agent runtime, including their descriptions and input schemas.</p>
+      </div>
+      <div class="usage-actions">
+        <label for="tools-search">Search</label>
+        <input id="tools-search" type="search" placeholder="Name or description">
+        <button class="secondary" id="tools-refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <p id="tools-status" class="usage-status" role="status">Loading registered tools…</p>
+    <section id="tools-list" class="tools-grid" aria-live="polite">
+      <p class="usage-empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>
