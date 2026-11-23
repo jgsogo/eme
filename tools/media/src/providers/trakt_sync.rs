@@ -330,7 +330,7 @@ fn latest_episode_watch(seasons: &[TraktWatchedSeason]) -> Option<DateTime<Utc>>
     seasons
         .iter()
         .flat_map(|season| season.episodes.iter())
-        .filter_map(|episode| episode.last_watched_at.clone())
+        .filter_map(|episode| episode.last_watched_at)
         .max()
 }
 

@@ -6,7 +6,7 @@ use crate::{
     MealPlannerError, MealPlannerStore, NewShoppingListItem, ShoppingList, ShoppingListItem,
     ShoppingListItemUpdate,
 };
-use chrono::{Datelike, NaiveDate, Weekday};
+use chrono::{Datelike, NaiveDate};
 use rusqlite::{OptionalExtension, params};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -305,7 +305,6 @@ fn timestamp() -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::{
         MealPlannerStore, MealType, PlanParticipant, RecipeDraft, RecipeIngredient, WeeklyPlanDraft,
     };

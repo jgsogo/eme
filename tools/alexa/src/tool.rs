@@ -32,15 +32,15 @@ impl Tool for AlexaSpeak {
             })?;
 
         let chime = arguments.get("chime").and_then(Value::as_str);
-        if let Some(uri) = chime {
-            if !valid_chime(uri) {
-                return Err(ToolError::InvalidArguments {
-                    tool_name: "alexa.speak".into(),
-                    errors: vec![
-                        "'chime' must be 'none' or a soundbank://soundlibrary/ URI containing only letters, numbers, '/', '_' or '-'".into(),
-                    ],
-                });
-            }
+        if let Some(uri) = chime
+            && !valid_chime(uri)
+        {
+            return Err(ToolError::InvalidArguments {
+                tool_name: "alexa.speak".into(),
+                errors: vec![
+                    "'chime' must be 'none' or a soundbank://soundlibrary/ URI containing only letters, numbers, '/', '_' or '-'".into(),
+                ],
+            });
         }
 
         let device_name = std::env::var("AMAZON_ALEXA_DEVICE_NAME").map_err(|_| {

@@ -41,7 +41,6 @@ pub(crate) fn markdown_to_telegram_html(markdown: &str) -> String {
         .replace("</ol>", "")
         .replace("<li>", "• ")
         .replace("</li>", "\n")
-        .replace("<blockquote>", "<blockquote>")
         .replace("</blockquote>", "</blockquote>\n")
         .replace("<hr />", "──────────\n")
         .replace("<br />", "\n");

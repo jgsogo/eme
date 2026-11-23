@@ -108,12 +108,15 @@ impl Registry {
         self.providers
             .iter()
             .flat_map(|(provider_name, provider)| {
-                provider.models.iter().filter_map(move |model| {
-                    required
-                        .iter()
-                        .all(|capability| model.capabilities.contains(capability))
-                        .then(|| format!("{provider_name}/{}", model.name))
-                })
+                provider
+                    .models
+                    .iter()
+                    .filter(move |model| {
+                        required
+                            .iter()
+                            .all(|capability| model.capabilities.contains(capability))
+                    })
+                    .map(move |model| format!("{provider_name}/{}", model.name))
             })
             .collect()
     }

@@ -146,10 +146,10 @@ impl MercadonaClient {
         if let (Ok(app_id), Ok(api_key)) = (
             std::env::var("MERCADONA_ALGOLIA_APP_ID"),
             std::env::var("MERCADONA_ALGOLIA_API_KEY"),
-        ) {
-            if !app_id.trim().is_empty() && !api_key.trim().is_empty() {
-                return Ok((app_id, api_key));
-            }
+        ) && !app_id.trim().is_empty()
+            && !api_key.trim().is_empty()
+        {
+            return Ok((app_id, api_key));
         }
 
         let shell = self

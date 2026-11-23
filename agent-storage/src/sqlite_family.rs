@@ -5,6 +5,7 @@
 //! transaction. Connections are serialized through a Tokio mutex; operations
 //! are intentionally small and synchronous once the lock has been acquired.
 
+#[cfg(test)]
 mod tests;
 use std::{path::Path, str::FromStr, sync::Arc};
 
@@ -708,10 +709,10 @@ impl FamilyInvitationStore for SqliteFamilyStore {
                 row.get::<_, Option<String>>(4)?,
             )),
         ).optional().map_err(invitation_backend)?.ok_or(InvitationStorageError::NotFound)?;
-        if let (Some(provider), Some(subject)) = (&row.0, &row.1) {
-            if provider != &accepting_identity.provider || subject != &accepting_identity.subject {
-                return Err(InvitationStorageError::IdentityMismatch);
-            }
+        if let (Some(provider), Some(subject)) = (&row.0, &row.1)
+            && (provider != &accepting_identity.provider || subject != &accepting_identity.subject)
+        {
+            return Err(InvitationStorageError::IdentityMismatch);
         }
         if row.3.is_some() {
             return Err(InvitationStorageError::AlreadyAccepted);
@@ -745,10 +746,10 @@ impl FamilyInvitationStore for SqliteFamilyStore {
             )),
         ).optional().map_err(invitation_backend)?.ok_or(InvitationStorageError::NotFound)?;
         let (id, family, provider, subject, expires, accepted_at, accepted_by, revoked_at) = row;
-        if let (Some(provider), Some(subject)) = (provider, subject) {
-            if provider != accepting_identity.provider || subject != accepting_identity.subject {
-                return Err(InvitationStorageError::IdentityMismatch);
-            }
+        if let (Some(provider), Some(subject)) = (provider, subject)
+            && (provider != accepting_identity.provider || subject != accepting_identity.subject)
+        {
+            return Err(InvitationStorageError::IdentityMismatch);
         }
         let family_id = FamilyId::from_str(&family)
             .map_err(|e| InvitationStorageError::Backend(e.to_string()))?;

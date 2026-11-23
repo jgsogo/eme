@@ -17,11 +17,10 @@ impl UserIdentityStore for InMemoryUserIdentityStore {
         subject: &str,
         display_name: Option<&str>,
     ) -> Result<(User, UserIdentity), IdentityStoreError> {
-        Ok(self
-            .state
+        self.state
             .lock()
             .unwrap_or_else(|p| p.into_inner())
-            .resolve_or_create(provider, subject, display_name)?)
+            .resolve_or_create(provider, subject, display_name)
     }
     fn create_user(
         &self,

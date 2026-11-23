@@ -10,6 +10,12 @@ use crate::{
 use chrono::NaiveDate;
 use rusqlite::{OptionalExtension, params};
 
+type ResolutionInputs = (
+    Vec<FamilyMember>,
+    Vec<RecurringParticipationRule>,
+    Vec<MealException>,
+);
+
 impl MealPlannerStore {
     /// Refresh the local numeric member keys from the authoritative family
     /// membership list. External IDs are stable UserIds; names are snapshots.
@@ -405,16 +411,7 @@ impl MealPlannerStore {
         Ok(resolve_week(start, &members, &rules, &exceptions))
     }
 
-    fn resolution_inputs(
-        &self,
-    ) -> Result<
-        (
-            Vec<FamilyMember>,
-            Vec<RecurringParticipationRule>,
-            Vec<MealException>,
-        ),
-        MealPlannerError,
-    > {
+    fn resolution_inputs(&self) -> Result<ResolutionInputs, MealPlannerError> {
         let connection = self
             .connection
             .lock()

@@ -31,10 +31,10 @@ impl TaskScheduler {
 
     pub async fn shutdown(mut self) {
         let _ = self.shutdown.send(true);
-        if let Some(handle) = self.handle.take() {
-            if let Err(error) = handle.await {
-                tracing::warn!(%error, "task scheduler stopped unexpectedly");
-            }
+        if let Some(handle) = self.handle.take()
+            && let Err(error) = handle.await
+        {
+            tracing::warn!(%error, "task scheduler stopped unexpectedly");
         }
     }
 }
