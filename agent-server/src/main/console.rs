@@ -60,7 +60,18 @@ pub(super) async fn tools_script() -> impl Responder {
 
 #[get("/tools")]
 pub(super) async fn list_registered_tools(tools: Data<Vec<ToolDefinition>>) -> impl Responder {
-    HttpResponse::Ok().json(tools.get_ref())
+    HttpResponse::Ok().json(
+        tools
+            .iter()
+            .map(|tool| {
+                serde_json::json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.parameters,
+                })
+            })
+            .collect::<Vec<_>>(),
+    )
 }
 
 #[get("/assets/usage.js")]
