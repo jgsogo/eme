@@ -13,7 +13,7 @@ pub(super) async fn report(
     gateway: Arc<TelegramGateway>,
     chat_id: i64,
     manager: RunManager,
-    store: Arc<SqliteConversationStore>,
+    _store: Arc<SqliteConversationStore>,
     conversation_id: ConversationId,
     active_conversations: Arc<Mutex<HashSet<ConversationId>>>,
     id: RunId,

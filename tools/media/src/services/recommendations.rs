@@ -10,7 +10,7 @@ use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaConfig, MediaItem, MediaItemId, MediaKind,
     MediaProfile, MediaProfileId, MediaRating, MediaStore, MediaStoreError, MediaWatchEvent,
     ProfilePreferences, RecommendationContext, RecommendationCriteria, RecommendationWeights,
-    StreamingOffer, TmdbClient, TmdbError, WatchHistorySource, WatchedPolicy, WatchmodeClient,
+    StreamingOffer, TmdbClient, TmdbError, WatchedPolicy, WatchmodeClient,
     WatchmodeError,
 };
 

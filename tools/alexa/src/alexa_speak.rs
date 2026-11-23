@@ -155,15 +155,10 @@ async fn fetch_csrf(client: &Client, cookie_header: &str) -> Result<String, Alex
         // miramos el header por si acaso
         if let Some(set_cookie) = res.headers().get_all("set-cookie").iter().find_map(|v| {
             let s = v.to_str().ok()?;
-            if s.contains("csrf=") {
-                Some(s.to_string())
-            } else {
-                None
-            }
-        }) {
-            if let Some(csrf) = extract_csrf_value(&set_cookie) {
-                return Ok(csrf);
-            }
+            s.contains("csrf=").then(|| s.to_string())
+        }) && let Some(csrf) = extract_csrf_value(&set_cookie)
+        {
+            return Ok(csrf);
         }
     }
 
