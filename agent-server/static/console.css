@@ -501,9 +501,6 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 
 /* Admin tools catalogue. */
 .admin-section-nav{margin-bottom:20px}
-.admin-nav-menu{position:relative}
-.admin-nav-menu>summary{display:inline-flex;align-items:center;padding:7px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text);font-weight:650}
-.admin-nav-menu[open]>summary{border-color:var(--accent);background:rgba(104,169,220,.12)}
 .tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:12px}
 .tool-card{padding:16px;min-width:0}
 .tool-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
