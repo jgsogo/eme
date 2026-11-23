@@ -1,5 +1,6 @@
 //! SQLite implementation of durable run, event, usage, pricing, and conversation contracts.
 
+#[cfg(test)]
 mod usage_tests;
 
 use std::{path::Path, str::FromStr, sync::Arc};

@@ -5,6 +5,7 @@
 //! transaction. Connections are serialized through a Tokio mutex; operations
 //! are intentionally small and synchronous once the lock has been acquired.
 
+#[cfg(test)]
 mod tests;
 use std::{path::Path, str::FromStr, sync::Arc};
 
