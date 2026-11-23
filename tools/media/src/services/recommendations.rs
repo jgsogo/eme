@@ -1,13 +1,17 @@
 //! Deterministic family-aware recommendation pipeline.
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 use chrono::Datelike;
 
 use crate::{
     ContentRestrictions, FamilyMediaPreferences, MediaConfig, MediaItem, MediaItemId, MediaKind,
     MediaProfile, MediaProfileId, MediaRating, MediaStore, MediaStoreError, MediaWatchEvent,
-    ProfilePreferences, RecommendationContext, RecommendationCriteria, StreamingOffer, TmdbClient,
-    TmdbError, WatchedPolicy, WatchmodeClient, WatchmodeError,
+    ProfilePreferences, RecommendationContext, RecommendationCriteria, RecommendationWeights,
+    StreamingOffer, TmdbClient, TmdbError, WatchHistorySource, WatchedPolicy, WatchmodeClient,
+    WatchmodeError,
 };
 
 /// One ranked candidate with the evidence used to recommend it.
@@ -31,8 +35,6 @@ pub enum RecommendationError {
     NoParticipants,
     #[error("profile {0} is not an active member of the requested family")]
     InvalidParticipant(MediaProfileId),
-    #[error("subscription filtering is enabled but Watchmode is not configured")]
-    MissingAvailabilityProvider,
     #[error("catalogue request failed: {0}")]
     Catalogue(#[from] TmdbError),
     #[error("availability request failed: {0}")]
@@ -61,9 +63,6 @@ impl RecommendationService {
         config
             .validate()
             .map_err(|error| RecommendationError::Configuration(error.to_string()))?;
-        if config.require_subscription && watchmode.is_none() {
-            return Err(RecommendationError::MissingAvailabilityProvider);
-        }
         Ok(Self {
             media,
             tmdb,
@@ -82,6 +81,11 @@ impl RecommendationService {
         &self,
         context: &RecommendationContext,
     ) -> Result<Vec<MediaRecommendation>, RecommendationError> {
+        let started = Instant::now();
+        tracing::debug!(
+            participant_count = context.participants.len(),
+            "starting media recommendation"
+        );
         if context.participants.is_empty() {
             return Err(RecommendationError::NoParticipants);
         }
@@ -107,30 +111,46 @@ impl RecommendationService {
         }
 
         let candidates = self.discover_candidates(&context.criteria).await?;
+        let discovered_count = candidates.len();
         let watched_policy = context.watched_policy.unwrap_or(self.config.watched_policy);
 
         let mut recommendations = Vec::new();
+        let mut excluded_by_criteria = 0;
+        let mut excluded_by_restrictions = 0;
+        let mut excluded_as_watched = 0;
+        let mut excluded_by_availability = 0;
         for candidate in candidates {
             let item = self.enrich(candidate).await?;
-            if !matches_criteria(&item, &context.criteria)
-                || !participants
-                    .iter()
-                    .all(|participant| passes_restrictions(&item, &participant.restrictions))
+            if !matches_criteria(&item, &context.criteria) {
+                excluded_by_criteria += 1;
+                continue;
+            }
+            if !participants
+                .iter()
+                .all(|participant| passes_restrictions(&item, &participant.restrictions))
             {
+                excluded_by_restrictions += 1;
                 continue;
             }
 
             let (watched_by, history_unknown_for) = watched_evidence(item.id, &participants);
             if should_exclude_watched(watched_policy, participants.len(), watched_by.len()) {
+                excluded_as_watched += 1;
                 continue;
             }
 
             let offers = self.availability(&item).await?;
             if self.config.require_subscription && offers.is_empty() {
+                excluded_by_availability += 1;
                 continue;
             }
 
-            let (score, mut reasons) = score_item(&item, &family_preferences, &participants);
+            let (score, mut reasons) = score_item(
+                &item,
+                &family_preferences,
+                &participants,
+                &self.config.recommendation_weights,
+            );
             for offer in &offers {
                 reasons.push(format!("Available on {}", offer.service_name));
             }
@@ -150,10 +170,29 @@ impl RecommendationService {
             });
         }
 
-        Ok(apply_diversity(
+        let eligible_count = recommendations.len();
+        let recommendations = apply_diversity(
             recommendations,
             self.config.recommendation_limit,
-        ))
+            self.config.recommendation_weights.diversity_penalty,
+        );
+        let uncertain_profile_count = recommendations
+            .iter()
+            .map(|recommendation| recommendation.history_unknown_for.len())
+            .sum::<usize>();
+        tracing::info!(
+            discovered = discovered_count,
+            eligible = eligible_count,
+            returned = recommendations.len(),
+            excluded_by_criteria,
+            excluded_by_restrictions,
+            excluded_as_watched,
+            excluded_by_availability,
+            history_uncertain_profiles = uncertain_profile_count,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media recommendation completed"
+        );
+        Ok(recommendations)
     }
 
     async fn load_participant(
@@ -280,9 +319,6 @@ impl RecommendationService {
         &self,
         item: &MediaItem,
     ) -> Result<Vec<StreamingOffer>, RecommendationError> {
-        let Some(watchmode) = &self.watchmode else {
-            return Ok(Vec::new());
-        };
         let Some(tmdb_id) = item
             .external_ids
             .iter()
@@ -291,16 +327,49 @@ impl RecommendationService {
         else {
             return Ok(Vec::new());
         };
-        let offers = watchmode
-            .offers_for_tmdb_id(tmdb_id, item.kind, &self.config.country)
+
+        let watchmode_offers = if let Some(watchmode) = &self.watchmode {
+            match watchmode
+                .offers_for_tmdb_id(tmdb_id, item.kind, &self.config.country)
+                .await
+            {
+                Ok(offers) => offers,
+                Err(_) => {
+                    tracing::warn!(
+                        provider = "watchmode",
+                        "availability lookup failed; falling back to TMDB watch providers"
+                    );
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
+        let usable_watchmode = if self.config.require_subscription {
+            crate::filter_subscription_offers(watchmode_offers, &self.config.subscriptions)
+        } else {
+            watchmode_offers
+        };
+        if !usable_watchmode.is_empty() {
+            return Ok(usable_watchmode);
+        }
+
+        let tmdb_offers = self
+            .tmdb
+            .watch_providers(tmdb_id, item.kind, &self.config.country)
             .await?;
-        Ok(crate::filter_subscription_offers(
-            offers,
-            &self.config.subscriptions,
-        ))
+        if self.config.require_subscription {
+            Ok(crate::filter_subscription_offers(
+                tmdb_offers,
+                &self.config.subscriptions,
+            ))
+        } else {
+            Ok(tmdb_offers)
+        }
     }
 }
 
+#[derive(Clone)]
 struct ParticipantData {
     profile: MediaProfile,
     preferences: ProfilePreferences,
@@ -347,6 +416,14 @@ fn matches_criteria(item: &MediaItem, criteria: &RecommendationCriteria) -> bool
     {
         return false;
     }
+    if !criteria.themes.is_empty()
+        && !criteria
+            .themes
+            .iter()
+            .any(|theme| theme_matches(item, theme))
+    {
+        return false;
+    }
     if let Some(maximum_runtime) = criteria.maximum_runtime_minutes
         && !item
             .runtime_minutes
@@ -363,6 +440,13 @@ fn passes_restrictions(item: &MediaItem, restrictions: &ContentRestrictions) -> 
             .iter()
             .any(|item_genre| normalize(item_genre) == normalize(genre))
     }) {
+        return false;
+    }
+    if restrictions
+        .disallowed_themes
+        .iter()
+        .any(|theme| theme_matches(item, theme))
+    {
         return false;
     }
     let Some(maximum) = restrictions.maximum_certification.as_deref() else {
@@ -389,6 +473,41 @@ fn certification_rank(value: &str) -> Option<u8> {
         "18" | "nc-17" => Some(4),
         _ => None,
     }
+}
+
+fn theme_matches(item: &MediaItem, theme: &str) -> bool {
+    let theme = normalize(theme);
+    if theme.is_empty() {
+        return false;
+    }
+    let title = normalize(&item.title);
+    let overview = normalize(item.overview.as_deref().unwrap_or_default());
+    title.contains(&theme) || overview.contains(&theme)
+}
+
+fn preference_themes(
+    family: &FamilyMediaPreferences,
+    participants: &[ParticipantData],
+) -> Vec<String> {
+    let mut themes = family
+        .liked_themes
+        .iter()
+        .chain(&family.disliked_themes)
+        .chain(
+            participants
+                .iter()
+                .flat_map(|participant| participant.preferences.liked_themes.iter()),
+        )
+        .chain(
+            participants
+                .iter()
+                .flat_map(|participant| participant.preferences.disliked_themes.iter()),
+        )
+        .map(|theme| normalize(theme))
+        .collect::<Vec<_>>();
+    themes.sort();
+    themes.dedup();
+    themes
 }
 
 fn watched_evidence(
@@ -426,8 +545,9 @@ fn score_item(
     item: &MediaItem,
     family: &FamilyMediaPreferences,
     participants: &[ParticipantData],
+    weights: &RecommendationWeights,
 ) -> (f32, Vec<String>) {
-    let mut score = item.vote_average.unwrap_or(5.0) * 100.0;
+    let mut score = item.vote_average.unwrap_or(5.0) * weights.audience_rating_scale as f32;
     let mut reasons = Vec::new();
     let genres = item
         .genres
@@ -437,13 +557,14 @@ fn score_item(
 
     for genre in &family.liked_genres {
         if genres.contains(&normalize(genre)) {
-            score += 100.0;
+            score += weights.family_genre_preference as f32;
             reasons.push(format!("Matches shared family preference: {genre}"));
         }
     }
     for genre in &family.disliked_genres {
         if genres.contains(&normalize(genre)) {
-            score -= 100.0;
+            score -= weights.family_genre_dislike_penalty as f32;
+            reasons.push(format!("Conflicts with shared family dislike: {genre}"));
         }
     }
     if item.original_language.as_ref().is_some_and(|language| {
@@ -452,25 +573,76 @@ fn score_item(
             .iter()
             .any(|value| normalize(value) == normalize(language))
     }) {
-        score += 40.0;
+        score += weights.family_language_preference as f32;
         reasons.push("Matches a shared family language preference".into());
     }
 
-    for participant in participants {
-        for genre in &participant.preferences.liked_genres {
-            if genres.contains(&normalize(genre)) {
-                score += 60.0;
+    for theme in preference_themes(family, participants) {
+        if !theme_matches(item, &theme) {
+            continue;
+        }
+        if family
+            .liked_themes
+            .iter()
+            .any(|liked| normalize(liked) == theme)
+        {
+            score += weights.family_theme_preference as f32;
+            reasons.push(format!("Matches shared family theme: {theme}"));
+        }
+        if family
+            .disliked_themes
+            .iter()
+            .any(|disliked| normalize(disliked) == theme)
+        {
+            score -= weights.family_theme_dislike_penalty as f32;
+            reasons.push(format!(
+                "Conflicts with shared family theme dislike: {theme}"
+            ));
+        }
+        let dislikers = participants
+            .iter()
+            .filter(|participant| {
+                participant
+                    .preferences
+                    .disliked_themes
+                    .iter()
+                    .any(|disliked| normalize(disliked) == theme)
+            })
+            .count();
+        if dislikers > 0 {
+            score -= weights.profile_theme_dislike_penalty as f32 * dislikers as f32;
+            for participant in participants {
+                if participant
+                    .preferences
+                    .disliked_themes
+                    .iter()
+                    .any(|disliked| normalize(disliked) == theme)
+                {
+                    reasons.push(format!(
+                        "Conflicts with {}'s theme dislike: {theme}",
+                        participant.profile.name
+                    ));
+                }
+            }
+            continue;
+        }
+        for participant in participants {
+            if participant
+                .preferences
+                .liked_themes
+                .iter()
+                .any(|liked| normalize(liked) == theme)
+            {
+                score += weights.profile_theme_preference as f32;
                 reasons.push(format!(
-                    "Matches {}'s preference: {genre}",
+                    "Matches {}'s theme preference: {theme}",
                     participant.profile.name
                 ));
             }
         }
-        for genre in &participant.preferences.disliked_genres {
-            if genres.contains(&normalize(genre)) {
-                score -= 60.0;
-            }
-        }
+    }
+
+    for participant in participants {
         if item.original_language.as_ref().is_some_and(|language| {
             participant
                 .preferences
@@ -478,11 +650,54 @@ fn score_item(
                 .iter()
                 .any(|value| normalize(value) == normalize(language))
         }) {
-            score += 30.0;
+            score += weights.profile_language_preference as f32;
         }
-        for genre in &genres {
+    }
+    for genre in &genres {
+        let dislikers = participants
+            .iter()
+            .filter(|participant| {
+                participant
+                    .preferences
+                    .disliked_genres
+                    .iter()
+                    .any(|disliked| normalize(disliked).as_str() == genre.as_str())
+            })
+            .count();
+        if dislikers > 0 {
+            // A selected participant's explicit dislike must not be cancelled
+            // by another participant's positive preference or inferred affinity.
+            score -= weights.profile_genre_dislike_penalty as f32 * dislikers as f32;
+            for participant in participants {
+                if participant
+                    .preferences
+                    .disliked_genres
+                    .iter()
+                    .any(|disliked| normalize(disliked).as_str() == genre.as_str())
+                {
+                    reasons.push(format!(
+                        "Conflicts with {}'s genre dislike: {genre}",
+                        participant.profile.name
+                    ));
+                }
+            }
+            continue;
+        }
+        for participant in participants {
+            if participant
+                .preferences
+                .liked_genres
+                .iter()
+                .any(|liked| normalize(liked).as_str() == genre.as_str())
+            {
+                score += weights.profile_genre_preference as f32;
+                reasons.push(format!(
+                    "Matches {}'s preference: {}",
+                    participant.profile.name, genre
+                ));
+            }
             if let Some(average) = participant.genre_affinity.get(genre) {
-                score += (average - 2.5) * 30.0;
+                score += (average - 2.5) * weights.rating_affinity_scale as f32;
             }
         }
     }
@@ -490,19 +705,19 @@ fn score_item(
     if item.vote_average.is_some_and(|rating| rating >= 7.5)
         && item.vote_count.is_some_and(|count| count >= 100)
     {
-        score += 40.0;
+        score += weights.audience_quality_bonus as f32;
         reasons.push("Strong TMDB audience rating".into());
     }
     if let Some(popularity) = item.popularity.filter(|popularity| *popularity > 0.0) {
-        score += popularity.log10().max(0.0) * 10.0;
+        score += popularity.log10().max(0.0) * weights.popularity_scale as f32;
     }
     if let Some(release_date) = item.release_date {
         let age = chrono::Utc::now().year() - release_date.year();
-        if (0..=2).contains(&age) {
-            score += 30.0;
+        if (0..=i32::from(weights.recent_release_years)).contains(&age) {
+            score += weights.recent_release_bonus as f32;
             reasons.push("Recent release".into());
-        } else if (0..=5).contains(&age) {
-            score += 15.0;
+        } else if (0..=i32::from(weights.older_release_years)).contains(&age) {
+            score += weights.older_release_bonus as f32;
         }
     }
     (score, reasons)
@@ -511,6 +726,7 @@ fn score_item(
 fn apply_diversity(
     mut recommendations: Vec<MediaRecommendation>,
     limit: usize,
+    diversity_penalty: i32,
 ) -> Vec<MediaRecommendation> {
     recommendations.sort_by(|left, right| {
         right
@@ -531,7 +747,11 @@ fn apply_diversity(
                     .iter()
                     .filter(|genre| used_genres.contains(&normalize(genre)))
                     .count() as i32;
-                (index, recommendation.score - overlap * 25)
+                (
+                    index,
+                    recommendation.score
+                        - (overlap as f32 * diversity_penalty as f32).round() as i32,
+                )
             })
             .max_by(|left, right| {
                 left.1.cmp(&right.1).then_with(|| {
@@ -549,7 +769,7 @@ fn apply_diversity(
             .iter()
             .filter(|genre| used_genres.contains(&normalize(genre)))
             .count() as i32;
-        recommendation.score -= overlap * 25;
+        recommendation.score -= (overlap as f32 * diversity_penalty as f32).round() as i32;
         used_genres.extend(
             recommendation
                 .item
@@ -589,6 +809,239 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn falls_back_to_tmdb_when_watchmode_has_no_title_match() {
+        use std::time::Duration;
+
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        let tmdb_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42/watch/providers"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "results": {
+                    "ES": {
+                        "link": "https://www.themoviedb.org/movie/42/watch",
+                        "flatrate": [{"provider_id": 8, "provider_name": "Netflix"}]
+                    }
+                }
+            })))
+            .mount(&tmdb_server)
+            .await;
+        let watchmode_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/search/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "title_results": []
+            })))
+            .mount(&watchmode_server)
+            .await;
+
+        let tmdb = TmdbClient::with_base_url("tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
+        let watchmode = WatchmodeClient::with_options(
+            "watchmode-key",
+            watchmode_server.uri(),
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        let service = RecommendationService::new(
+            MediaStore::open_in_memory().unwrap(),
+            tmdb,
+            Some(watchmode),
+            MediaConfig::default(),
+        )
+        .unwrap();
+        let mut item = item();
+        item.external_ids.push(crate::ExternalId {
+            provider: "tmdb".into(),
+            value: "42".into(),
+        });
+
+        let offers = service.availability(&item).await.unwrap();
+        assert_eq!(offers.len(), 1);
+        assert_eq!(offers[0].service_name, "Netflix");
+        assert_eq!(offers[0].offer_type, crate::OfferType::Subscription);
+    }
+
+    #[tokio::test]
+    async fn recommendation_e2e_uses_only_selected_profiles_and_requires_subscription_offer() {
+        use std::time::Duration;
+
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{method, path, query_param},
+        };
+
+        let tmdb_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/genre/movie/list"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "genres": [{"id": 35, "name": "Comedy"}]
+            })))
+            .mount(&tmdb_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/search/movie"))
+            .and(query_param("query", "comedy"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "page": 1,
+                "total_pages": 1,
+                "total_results": 1,
+                "results": [{
+                    "id": 42,
+                    "title": "Family Comedy",
+                    "genre_ids": [35],
+                    "original_language": "en",
+                    "release_date": "2025-01-01",
+                    "popularity": 50.0,
+                    "vote_average": 8.0,
+                    "vote_count": 500
+                }]
+            })))
+            .mount(&tmdb_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/movie/42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": 42,
+                "title": "Family Comedy",
+                "release_date": "2025-01-01",
+                "original_language": "en",
+                "genres": [{"id": 35, "name": "Comedy"}],
+                "runtime": 100,
+                "popularity": 50.0,
+                "vote_average": 8.0,
+                "vote_count": 500,
+                "release_dates": {
+                    "results": [{
+                        "iso_3166_1": "ES",
+                        "release_dates": [{"certification": "7"}]
+                    }]
+                }
+            })))
+            .mount(&tmdb_server)
+            .await;
+
+        let watchmode_server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/search/"))
+            .and(query_param("search_field", "tmdb_movie_id"))
+            .and(query_param("search_value", "42"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "title_results": [{"id": 9001}]
+            })))
+            .mount(&watchmode_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/title/9001/sources/"))
+            .and(query_param("regions", "ES"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!([
+                {"source_id": 203, "name": "Netflix", "type": "sub", "region": "ES", "web_url": "https://example.invalid/title"}
+            ])))
+            .mount(&watchmode_server)
+            .await;
+
+        let media = MediaStore::open_in_memory().unwrap();
+        let family_id = agent_storage::FamilyId::new();
+        let selected = MediaProfile::new(family_id, "Selected viewer");
+        let non_selected = MediaProfile::new(family_id, "Not watching");
+        media.save_profile(&selected).await.unwrap();
+        media.save_profile(&non_selected).await.unwrap();
+
+        let mut family_preferences = FamilyMediaPreferences::new(family_id);
+        family_preferences.liked_genres.push("Comedy".into());
+        media
+            .save_family_preferences(&family_preferences)
+            .await
+            .unwrap();
+
+        let mut non_selected_preferences = ProfilePreferences::new(non_selected.id);
+        non_selected_preferences
+            .disliked_genres
+            .push("Comedy".into());
+        media
+            .save_profile_preferences(&non_selected_preferences)
+            .await
+            .unwrap();
+
+        let candidate_id = MediaItemId::from_external_id("tmdb", "42");
+        let non_selected_watch = MediaWatchEvent {
+            profile_id: non_selected.id,
+            media_item_id: candidate_id,
+            watched_at: chrono::Utc::now(),
+            source: WatchHistorySource::Eme,
+        };
+        let minimal_item = MediaItem {
+            id: candidate_id,
+            kind: MediaKind::Movie,
+            title: "Family Comedy".into(),
+            original_title: None,
+            overview: None,
+            release_date: None,
+            original_language: None,
+            genres: Vec::new(),
+            runtime_minutes: None,
+            certification: None,
+            popularity: None,
+            vote_average: None,
+            vote_count: None,
+            external_ids: vec![],
+        };
+        media.save_media_item(&minimal_item).await.unwrap();
+        media.record_watch_event(&non_selected_watch).await.unwrap();
+
+        let tmdb =
+            TmdbClient::with_base_url("test-tmdb-key", "es-ES", "ES", tmdb_server.uri()).unwrap();
+        let watchmode = WatchmodeClient::with_options(
+            "test-watchmode-key",
+            watchmode_server.uri(),
+            Duration::from_secs(60),
+        )
+        .unwrap();
+        let service =
+            RecommendationService::new(media, tmdb, Some(watchmode), MediaConfig::default())
+                .unwrap();
+
+        let recommendations = service
+            .recommend(&RecommendationContext {
+                family_id,
+                participants: vec![selected.id],
+                criteria: RecommendationCriteria {
+                    kinds: vec![MediaKind::Movie],
+                    genres: vec!["Comedy".into()],
+                    query: Some("comedy".into()),
+                    ..RecommendationCriteria::default()
+                },
+                watched_policy: None,
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(recommendations.len(), 1);
+        let recommendation = &recommendations[0];
+        assert_eq!(recommendation.item.title, "Family Comedy");
+        assert!(recommendation.watched_by.is_empty());
+        assert_eq!(recommendation.history_unknown_for, vec![selected.id]);
+        assert_eq!(recommendation.offers.len(), 1);
+        assert_eq!(recommendation.offers[0].service_name, "Netflix");
+        assert!(recommendation.score >= 950);
+        assert!(
+            recommendation
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("shared family"))
+        );
+        assert!(
+            !recommendation
+                .reasons
+                .iter()
+                .any(|reason| reason.contains("Not watching"))
+        );
+    }
+
     #[test]
     fn hard_restrictions_are_applied_before_ranking() {
         let item = item();
@@ -604,6 +1057,61 @@ mod tests {
     }
 
     #[test]
+    fn one_selected_participants_dislike_is_not_cancelled_by_another_profiles_like() {
+        let family_id = agent_storage::FamilyId::new();
+        let mut family = FamilyMediaPreferences::new(family_id);
+        family.liked_genres.push("Comedy".into());
+
+        let liked_id = MediaProfileId::new();
+        let mut liked_preferences = ProfilePreferences::new(liked_id);
+        liked_preferences.liked_genres.push("Comedy".into());
+        let liked = ParticipantData {
+            profile: MediaProfile {
+                id: liked_id,
+                family_id,
+                name: "Likes comedy".into(),
+                user_id: None,
+                active: true,
+            },
+            preferences: liked_preferences,
+            restrictions: ContentRestrictions::new(liked_id),
+            watched_items: HashSet::new(),
+            history_complete: true,
+            genre_affinity: HashMap::new(),
+        };
+
+        let disliked_id = MediaProfileId::new();
+        let mut disliked_preferences = ProfilePreferences::new(disliked_id);
+        disliked_preferences.disliked_genres.push("Comedy".into());
+        let disliked = ParticipantData {
+            profile: MediaProfile {
+                id: disliked_id,
+                family_id,
+                name: "Dislikes comedy".into(),
+                user_id: None,
+                active: true,
+            },
+            preferences: disliked_preferences,
+            restrictions: ContentRestrictions::new(disliked_id),
+            watched_items: HashSet::new(),
+            history_complete: true,
+            genre_affinity: HashMap::new(),
+        };
+
+        let weights = RecommendationWeights::default();
+        let (likes_only, _) = score_item(&item(), &family, &[liked.clone()], &weights);
+        let (conflicting, reasons) = score_item(&item(), &family, &[disliked, liked], &weights);
+
+        assert!(conflicting < likes_only);
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| reason.contains("shared family"))
+        );
+        assert!(!reasons.iter().any(|reason| reason.contains("Likes comedy")));
+    }
+
+    #[test]
     fn unknown_certification_is_not_silently_treated_as_safe() {
         let mut item = item();
         item.certification = None;
@@ -612,6 +1120,64 @@ mod tests {
         assert!(!passes_restrictions(&item, &restrictions));
         restrictions.allow_unrated = true;
         assert!(passes_restrictions(&item, &restrictions));
+    }
+
+    #[test]
+    fn theme_criteria_and_restrictions_match_title_and_overview() {
+        let mut candidate = item();
+        candidate.overview = Some("A story about space exploration".into());
+        let criteria = RecommendationCriteria {
+            themes: vec!["space".into()],
+            ..RecommendationCriteria::default()
+        };
+        assert!(matches_criteria(&candidate, &criteria));
+
+        let mut restrictions = ContentRestrictions::new(MediaProfileId::new());
+        restrictions.disallowed_themes.push("space".into());
+        assert!(!passes_restrictions(&candidate, &restrictions));
+    }
+
+    #[test]
+    fn shared_and_profile_theme_preferences_contribute_to_score() {
+        let family_id = agent_storage::FamilyId::new();
+        let mut family = FamilyMediaPreferences::new(family_id);
+        family.liked_themes.push("space".into());
+        let profile_id = MediaProfileId::new();
+        let mut preferences = ProfilePreferences::new(profile_id);
+        preferences.liked_themes.push("space".into());
+        let participant = ParticipantData {
+            profile: MediaProfile {
+                id: profile_id,
+                family_id,
+                name: "Selected".into(),
+                user_id: None,
+                active: true,
+            },
+            preferences,
+            restrictions: ContentRestrictions::new(profile_id),
+            watched_items: HashSet::new(),
+            history_complete: true,
+            genre_affinity: HashMap::new(),
+        };
+        let mut candidate = item();
+        candidate.overview = Some("A story about space exploration".into());
+        let (score, reasons) = score_item(
+            &candidate,
+            &family,
+            &[participant],
+            &RecommendationWeights::default(),
+        );
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| reason.contains("shared family theme"))
+        );
+        assert!(
+            reasons
+                .iter()
+                .any(|reason| reason.contains("theme preference"))
+        );
+        assert!(score > 900.0);
     }
 
     #[test]
@@ -671,7 +1237,12 @@ mod tests {
             genre_affinity: HashMap::new(),
         };
 
-        let (score, reasons) = score_item(&item(), &family, &[participant]);
+        let (score, reasons) = score_item(
+            &item(),
+            &family,
+            &[participant],
+            &RecommendationWeights::default(),
+        );
         assert!(score > 600.0);
         assert!(
             reasons

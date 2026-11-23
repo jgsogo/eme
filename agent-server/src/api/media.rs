@@ -137,7 +137,7 @@ async fn sync_trakt_profile(
         return HttpResponse::ServiceUnavailable().body("Trakt OAuth is not configured");
     };
     if let Err(error) = oauth
-        .validate_profile_admin(owner_id, family_id, profile_id)
+        .validate_profile_member(owner_id, family_id, profile_id)
         .await
     {
         return trakt_error_response(error);

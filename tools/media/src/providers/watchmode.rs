@@ -57,6 +57,14 @@ impl WatchmodeClient {
         Self::with_options(api_key, DEFAULT_BASE_URL, Duration::from_secs(6 * 60 * 60))
     }
 
+    /// Configure the in-memory availability cache lifetime using the default API endpoint.
+    pub fn with_cache_ttl(
+        api_key: impl Into<String>,
+        cache_ttl: Duration,
+    ) -> Result<Self, WatchmodeError> {
+        Self::with_options(api_key, DEFAULT_BASE_URL, cache_ttl)
+    }
+
     /// Configure the endpoint and in-memory availability cache lifetime.
     pub fn with_options(
         api_key: impl Into<String>,
@@ -108,6 +116,10 @@ impl WatchmodeClient {
             )
             .await?;
         let Some(title) = search.title_results.into_iter().next() else {
+            self.offers_cache
+                .write()
+                .await
+                .insert(cache_key, (Instant::now(), Vec::new()));
             return Ok(Vec::new());
         };
 
@@ -174,9 +186,17 @@ impl WatchmodeClient {
         for (key, value) in extra {
             request = request.query(&[(key, value)]);
         }
+        let started = Instant::now();
         let response = request.send().await?;
         let status = response.status();
+        tracing::debug!(
+            provider = "watchmode",
+            status = status.as_u16(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media provider request completed"
+        );
         if status == StatusCode::TOO_MANY_REQUESTS {
+            tracing::warn!(provider = "watchmode", "media provider rate limit reached");
             let retry_after_seconds = response
                 .headers()
                 .get(reqwest::header::RETRY_AFTER)
@@ -187,6 +207,11 @@ impl WatchmodeClient {
             });
         }
         if !status.is_success() {
+            tracing::warn!(
+                provider = "watchmode",
+                status = status.as_u16(),
+                "media provider request failed"
+            );
             let message = response
                 .text()
                 .await
@@ -257,6 +282,7 @@ fn parse_offer_type(value: &str) -> Result<OfferType, WatchmodeError> {
         "rent" => Ok(OfferType::Rent),
         "buy" | "purchase" => Ok(OfferType::Buy),
         "free" => Ok(OfferType::Free),
+        "ads" | "ad_supported" => Ok(OfferType::AdSupported),
         "tv" | "tve" | "tv_provider" => Ok(OfferType::TvProvider),
         other => Err(WatchmodeError::UnsupportedOfferType(other.to_owned())),
     }

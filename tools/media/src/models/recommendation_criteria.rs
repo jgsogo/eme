@@ -9,6 +9,8 @@ use super::MediaKind;
 pub struct RecommendationCriteria {
     pub kinds: Vec<MediaKind>,
     pub genres: Vec<String>,
+    /// Free-text themes matched against normalized title/overview metadata.
+    pub themes: Vec<String>,
     pub languages: Vec<String>,
     pub maximum_runtime_minutes: Option<u16>,
     pub query: Option<String>,

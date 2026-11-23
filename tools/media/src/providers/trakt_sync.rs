@@ -75,6 +75,8 @@ impl TraktSyncService {
         owner_id: UserId,
         profile_id: crate::MediaProfileId,
     ) -> Result<TraktSyncSummary, TraktSyncError> {
+        let started = std::time::Instant::now();
+        tracing::debug!("starting Trakt media synchronization");
         let link = self
             .media
             .get_external_connection_link(profile_id, "trakt")
@@ -242,6 +244,15 @@ impl TraktSyncService {
             status: "complete".into(),
         };
         self.media.save_provider_sync_state(&state).await?;
+        tracing::info!(
+            watched_movies = summary.watched_movies,
+            watched_shows = summary.watched_shows,
+            ratings = summary.ratings,
+            watchlist_items = summary.watchlist_items,
+            categories_refreshed = summary.categories_refreshed,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "Trakt media synchronization completed"
+        );
         Ok(summary)
     }
 
@@ -250,6 +261,7 @@ impl TraktSyncService {
         path: &str,
         access_token: &str,
     ) -> Result<T, TraktSyncError> {
+        let started = std::time::Instant::now();
         let response = self
             .http
             .get(format!("{}{}", self.api_base_url, path))
@@ -259,7 +271,14 @@ impl TraktSyncService {
             .send()
             .await?;
         let status = response.status();
+        tracing::debug!(
+            provider = "trakt",
+            status = status.as_u16(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media provider request completed"
+        );
         if status == StatusCode::TOO_MANY_REQUESTS {
+            tracing::warn!(provider = "trakt", "media provider rate limit reached");
             let retry_after_seconds = response
                 .headers()
                 .get(reqwest::header::RETRY_AFTER)
@@ -270,6 +289,11 @@ impl TraktSyncService {
             });
         }
         if !status.is_success() {
+            tracing::warn!(
+                provider = "trakt",
+                status = status.as_u16(),
+                "media provider request failed"
+            );
             let message = response
                 .text()
                 .await

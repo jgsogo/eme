@@ -1,5 +1,5 @@
 //! Compose optional media providers and their persistent stores from server configuration.
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, path::Path, sync::Arc, time::Duration};
 
 use agent_server::MediaApiState;
 use agent_storage::{ExternalConnectionStore, FamilyStore, SqliteExternalConnectionStore};
@@ -44,7 +44,12 @@ impl MediaIntegration {
         let watchmode = std::env::var("WATCHMODE_API_KEY")
             .ok()
             .filter(|value| !value.trim().is_empty())
-            .map(WatchmodeClient::new)
+            .map(|key| {
+                WatchmodeClient::with_cache_ttl(
+                    key,
+                    Duration::from_secs(config.availability_cache_ttl_seconds),
+                )
+            })
             .transpose()
             .context("configuring Watchmode")?;
 

@@ -12,6 +12,8 @@ pub struct ContentRestrictions {
     pub maximum_certification: Option<String>,
     /// Explicitly prohibited content genres.
     pub disallowed_genres: Vec<String>,
+    /// Explicitly prohibited themes matched against normalized title/overview metadata.
+    pub disallowed_themes: Vec<String>,
     /// Whether titles without a known certification may pass the restriction check.
     pub allow_unrated: bool,
 }
@@ -22,6 +24,7 @@ impl ContentRestrictions {
             profile_id,
             maximum_certification: None,
             disallowed_genres: Vec::new(),
+            disallowed_themes: Vec::new(),
             allow_unrated: false,
         }
     }
