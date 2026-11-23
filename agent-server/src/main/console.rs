@@ -1,6 +1,7 @@
 //! Serves the independent desktop and mobile web console pages and their shared assets.
 
 use actix_web::{HttpRequest, HttpResponse, Responder, get, http::header, web::Data};
+use agent_models::ProviderInfo;
 use agent_runtime::ToolDefinition;
 
 fn is_mobile_user_agent(user_agent: &str) -> bool {
@@ -42,6 +43,27 @@ pub(super) async fn usage_page() -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/usage.html"))
+}
+
+#[get("/console/admin/providers")]
+pub(super) async fn providers_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/providers.html"))
+}
+
+#[get("/assets/providers.js")]
+pub(super) async fn providers_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/providers.js"))
+}
+
+#[get("/providers")]
+pub(super) async fn list_configured_providers(
+    providers: Data<Vec<ProviderInfo>>,
+) -> impl Responder {
+    HttpResponse::Ok().json(providers.get_ref())
 }
 
 #[get("/console/admin/agents")]
