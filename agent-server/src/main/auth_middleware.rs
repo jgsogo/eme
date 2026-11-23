@@ -8,6 +8,18 @@ use actix_web::{
     web,
 };
 use agent_server::auth::TelegramAuth;
+use agent_service::RunId;
+use std::str::FromStr;
+
+/// Returns the run ID in a /runs/{run_id}[/*] path.
+///
+/// Collection endpoints such as /runs/usage and /runs/pricing are not run
+/// IDs, so only UUID-shaped path segments are subject to run ownership checks.
+fn run_id_from_path(path: &str) -> Option<&str> {
+    let segment = path.strip_prefix("/runs/")?.split('/').next()?;
+    RunId::from_str(segment).ok()?;
+    Some(segment)
+}
 
 fn is_public_path(path: &str) -> bool {
     path == "/"
@@ -42,10 +54,7 @@ where
             .map_into_right_body());
     };
 
-    if let Some(run_id) = path
-        .strip_prefix("/runs/")
-        .and_then(|path| path.split('/').next())
-    {
+    if let Some(run_id) = run_id_from_path(path) {
         let owns_run = auth.is_some_and(|auth| auth.owns_run(run_id, &owner));
         if !owns_run {
             return Ok(request
@@ -59,7 +68,24 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::is_public_path;
+    use super::{is_public_path, run_id_from_path};
+
+    #[test]
+    fn usage_and_pricing_collection_routes_are_not_run_ids() {
+        assert_eq!(run_id_from_path("/runs/usage"), None);
+        assert_eq!(run_id_from_path("/runs/pricing"), None);
+    }
+
+    #[test]
+    fn uuid_run_routes_are_subject_to_ownership_checks() {
+        let run_id = "550e8400-e29b-41d4-a716-446655440000";
+        assert_eq!(run_id_from_path(&format!("/runs/{run_id}")), Some(run_id));
+        assert_eq!(
+            run_id_from_path(&format!("/runs/{run_id}/usage")),
+            Some(run_id)
+        );
+        assert_eq!(run_id_from_path("/runs/not-a-uuid/usage"), None);
+    }
 
     #[test]
     fn all_desktop_console_pages_are_public_shells() {
