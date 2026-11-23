@@ -36,11 +36,13 @@ use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     console_auth_script, console_root, console_script, console_stylesheet, conversations_page,
     desktop_header_script, families_page, favicon, integrations_page, invitation_page,
-    meals_family_script, meals_page, mobile_conversations_page, mobile_families_page,
-    mobile_notes_page, mobile_profile_page, mobile_root, mobile_script, mobile_stylesheet,
-    mobile_tasks_page, notes_page, profile_page, recipes_page, recipes_script, school_menus_page,
-    school_menus_script, shopping_list_page, shopping_list_script, tasks_page, usage_page,
-    usage_script, usage_stylesheet, weekly_planner_page, weekly_planner_script,
+    meals_family_script, meals_page, mobile_base_stylesheet, mobile_conversations_page,
+    mobile_families_page, mobile_integrations_page, mobile_meal_planner_page, mobile_meals_page,
+    mobile_notes_page, mobile_profile_page, mobile_root, mobile_school_menus_page, mobile_script,
+    mobile_shopping_list_page, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
+    recipes_page, recipes_script, school_menus_page, school_menus_script, shopping_list_page,
+    shopping_list_script, tasks_page, usage_page, usage_script, usage_stylesheet,
+    weekly_planner_page, weekly_planner_script,
 };
 use media_integration::MediaIntegration;
 
@@ -251,6 +253,12 @@ async fn main() -> Result<()> {
             .service(mobile_notes_page)
             .service(mobile_profile_page)
             .service(mobile_tasks_page)
+            .service(mobile_meals_page)
+            .service(mobile_meal_planner_page)
+            .service(mobile_shopping_list_page)
+            .service(mobile_school_menus_page)
+            .service(mobile_base_stylesheet)
+            .service(mobile_integrations_page)
             .service(conversations_page)
             .service(usage_page)
             .service(usage_script)

@@ -10,3 +10,43 @@ header{padding:10px 14px;flex-wrap:wrap}.header-title{gap:10px;flex-wrap:wrap}.m
 .sidebar.open{transform:translateX(0)}
 .main-nav{gap:2px;overflow-x:auto;white-space:nowrap;max-width:100%}
 .main-nav-link{padding:7px 9px}
+
+/* Mobile-owned responsive presentation. */
+body[data-layout="mobile"]{min-width:320px;overflow-x:hidden}
+body[data-layout="mobile"] header{position:sticky;top:0;z-index:20;gap:8px;background:var(--panel);border-bottom:1px solid var(--border)}
+body[data-layout="mobile"] .header-title{min-width:0;flex:1}
+body[data-layout="mobile"] .header-title h1{font-size:16px;white-space:nowrap}
+body[data-layout="mobile"] .main-nav{flex:1;min-width:0;scrollbar-width:none;overflow-x:auto;white-space:nowrap}
+body[data-layout="mobile"] .main-nav::-webkit-scrollbar{display:none}
+body[data-layout="mobile"] .main-nav-link{flex:none;font-size:12px;padding:7px 9px}
+body[data-layout="mobile"] .header-actions{gap:8px}
+body[data-layout="mobile"] .header-actions .hint{display:none}
+body[data-layout="mobile"] main{padding:8px;min-height:calc(100dvh - 58px)}
+body[data-layout="mobile"] .profile-section-nav{display:flex;gap:6px;overflow-x:auto;white-space:nowrap;scrollbar-width:none;padding:4px 0 10px}
+body[data-layout="mobile"] .profile-section-nav::-webkit-scrollbar{display:none}
+body[data-layout="mobile"] .profile-section-link{flex:none;padding:8px 11px}
+body[data-layout="mobile"] .meals-header-row{display:flex;flex-direction:column;align-items:stretch;gap:4px;margin-bottom:8px}
+body[data-layout="mobile"] .meals-family-selector{width:100%;min-width:0}
+body[data-layout="mobile"] .recipes-view{display:flex;flex-direction:column;gap:8px;min-height:0}
+body[data-layout="mobile"] .recipes-sidebar{max-height:34dvh;min-height:150px;overflow:auto}
+body[data-layout="mobile"] .recipe-main{min-width:0}
+body[data-layout="mobile"] .planner-toolbar,body[data-layout="mobile"] .school-menu-toolbar{align-items:flex-start;flex-wrap:wrap;gap:8px}
+body[data-layout="mobile"] .planner-week-controls{flex-wrap:wrap}
+body[data-layout="mobile"] .planner-week-controls input{max-width:155px}
+body[data-layout="mobile"] .shopping-list-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+body[data-layout="mobile"] .shopping-list-controls button{width:100%;margin:0}
+body[data-layout="mobile"] .shopping-list-controls>*{min-width:0}
+body[data-layout="mobile"] dialog{max-width:calc(100vw - 20px);max-height:90dvh;overflow:auto}
+body[data-layout="mobile"] .recipe-grid{grid-template-columns:1fr}
+body[data-layout="mobile"] .notes-list-panel,body[data-layout="mobile"] .family-list-panel{max-height:32dvh;overflow:auto}
+@media(min-width:760px){body[data-layout="mobile"] main{max-width:980px;margin:0 auto}body[data-layout="mobile"] .recipes-view{display:grid;grid-template-columns:minmax(230px,.8fr) minmax(0,2fr)}body[data-layout="mobile"] .recipes-sidebar{max-height:none}}
+
+body[data-layout="mobile"] .integrations-layout{display:flex;flex-direction:column;gap:10px}
+body[data-layout="mobile"] .integrations-sidebar{width:100%;min-width:0}
+body[data-layout="mobile"] .integration-nav-list{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+body[data-layout="mobile"] .integration-nav-list::-webkit-scrollbar{display:none}
+body[data-layout="mobile"] .integration-nav-item{flex:0 0 auto;min-width:175px}
+body[data-layout="mobile"] .integration-details{min-width:0}
+body[data-layout="mobile"] .integration-actions{flex-wrap:wrap;align-items:stretch}
+body[data-layout="mobile"] .integration-field{min-width:0;flex:1 1 100%}
+body[data-layout="mobile"] .integration-actions button{width:100%}

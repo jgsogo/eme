@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
+<title>EME Agent Console · Recipes</title><link rel="stylesheet" href="/assets/mobile-base.css"><script src="/assets/console-auth.js" defer></script><script src="/assets/mobile.js" defer></script><script src="/assets/meals-family.js" defer></script><script src="/assets/recipes.js" defer></script>
+</head>
+<body data-layout="mobile">
+<header><div class="header-title"><h1 class="mobile-brand" aria-label="EME">M</h1><nav class="main-nav" aria-label="Main navigation"><a class="main-nav-link" href="/mobile/conversations">Chats</a><a class="main-nav-link" href="/mobile/notes">Notes</a><a class="main-nav-link" href="/mobile/tasks">Tasks</a><a class="main-nav-link active" href="/mobile/meals" aria-current="page">Meals</a></nav></div><div class="header-actions"><a class="profile-link" href="/mobile/profile" aria-label="Profile" title="Profile">◎</a><button class="secondary" id="logout" hidden>Sign out</button><span id="connection" class="hint">Connecting…</span></div></header>
+<main hidden><div class="meals-header-row"><div id="meals-family-selector" class="meals-family-selector"></div><nav class="profile-section-nav meals-section-nav" aria-label="Meals"><a class="profile-section-link active" href="/mobile/meals" aria-current="page">Recipes</a><a class="profile-section-link " href="/mobile/meal-planner" >Planner</a><a class="profile-section-link " href="/mobile/shopping-list" >Shopping</a><a class="profile-section-link " href="/mobile/school-menus" >School</a></nav></div><div class="recipes-view">
+<section class="panel recipes-sidebar"><h2>Recipe catalogue</h2><div class="recipes-toolbar"><input id="recipe-search" type="search" placeholder="Search recipes…" aria-label="Search recipes"></div><button id="new-recipe" type="button">＋ New recipe</button><div id="recipe-list" class="recipe-list"><p class="hint">Loading recipes…</p></div></section>
+<section class="panel recipe-main"><div id="recipe-content"><p class="empty">Select a recipe or create one.</p></div></section>
+</div></main>
+</body></html>
