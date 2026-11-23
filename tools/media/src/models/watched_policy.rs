@@ -13,4 +13,3 @@ pub enum WatchedPolicy {
     /// Do not exclude watched titles.
     IncludeAll,
 }
-

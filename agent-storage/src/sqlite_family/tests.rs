@@ -1,6 +1,5 @@
 //! Tests for SQLite family, membership, and invitation persistence.
 
-
 use super::*;
 
 fn database_path() -> std::path::PathBuf {

@@ -1,9 +1,9 @@
 //! Invitation records, token handling, and persistence contract.
 
-#[path = "family_invitation/family_invitation.rs"]
-mod invitation_record;
 mod family_invitation_store;
 mod family_invitation_summary;
+#[path = "family_invitation/family_invitation.rs"]
+mod invitation_record;
 mod invitation_storage_error;
 mod invitation_target_identity;
 mod invitation_token;
@@ -23,8 +23,8 @@ mod token_tests {
     }
 }
 
-pub use invitation_record::FamilyInvitation;
 pub use family_invitation_store::FamilyInvitationStore;
+pub use invitation_record::FamilyInvitation;
 pub use family_invitation_summary::FamilyInvitationSummary;
 pub use invitation_storage_error::InvitationStorageError;
 pub use invitation_target_identity::InvitationTargetIdentity;

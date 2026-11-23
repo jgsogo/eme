@@ -709,8 +709,7 @@ impl FamilyInvitationStore for SqliteFamilyStore {
             )),
         ).optional().map_err(invitation_backend)?.ok_or(InvitationStorageError::NotFound)?;
         if let (Some(provider), Some(subject)) = (&row.0, &row.1)
-            && (provider != &accepting_identity.provider
-                || subject != &accepting_identity.subject)
+            && (provider != &accepting_identity.provider || subject != &accepting_identity.subject)
         {
             return Err(InvitationStorageError::IdentityMismatch);
         }

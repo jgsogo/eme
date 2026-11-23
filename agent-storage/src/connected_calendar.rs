@@ -229,9 +229,7 @@ fn load_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CalendarRow> {
     ))
 }
 
-fn parse_calendar(
-    row: CalendarRow,
-) -> Result<ConnectedCalendar, ConnectedCalendarStorageError> {
+fn parse_calendar(row: CalendarRow) -> Result<ConnectedCalendar, ConnectedCalendarStorageError> {
     let (
         id,
         owner,
