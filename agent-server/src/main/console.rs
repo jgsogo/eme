@@ -1,6 +1,7 @@
 //! Serves the independent desktop and mobile web console pages and their shared assets.
 
-use actix_web::{HttpRequest, HttpResponse, Responder, get, http::header};
+use actix_web::{HttpRequest, HttpResponse, Responder, get, http::header, web::Data};
+use agent_runtime::ToolDefinition;
 
 fn is_mobile_user_agent(user_agent: &str) -> bool {
     let user_agent = user_agent.to_ascii_lowercase();
