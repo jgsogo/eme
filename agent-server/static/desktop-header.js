@@ -18,6 +18,7 @@
     ["notes", "Notes", "/console/notes"],
     ["tasks", "Tasks", "/console/tasks"],
     ["meals", "Meals", "/console/meals"],
+    ["admin", "Admin", "/console/admin/usage"],
   ];
 
   header.innerHTML = `
@@ -30,13 +31,7 @@
       </nav>
     </div>
     <div class="header-actions">
-      <details class="main-nav-menu admin-nav-menu"${adminActive ? " open" : ""}>
-        <summary class="admin-nav-link${adminActive ? " active" : ""}">Admin</summary>
-        <div class="main-nav-menu-panel">
-          <a class="main-nav-menu-link${path === "/console/admin/usage" ? " active" : ""}" href="/console/admin/usage">Observability</a>
-          <a class="main-nav-menu-link${path === "/console/admin/tools" ? " active" : ""}" href="/console/admin/tools">Tools</a>
-        </div>
-      </details>
+
       <div class="console-mode-switch" role="group" aria-label="Console layout">
         <a class="console-mode-link active" href="/console/conversations" aria-label="Desktop version" title="Desktop version" aria-current="page">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
