@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Admin · Agents · EME</title>
+  <link rel="stylesheet" href="/assets/console.css">
+  <link rel="stylesheet" href="/assets/usage.css">
+  <script src="/assets/desktop-header.js" defer></script>
+  <script src="/assets/console-auth.js" defer></script>
+  <script src="/assets/agents.js" defer></script>
+</head>
+<body data-page="admin-agents">
+  <header></header>
+  <main class="usage-main">
+    <nav class="profile-section-nav admin-section-nav" aria-label="Admin">
+      <a class="profile-section-link" href="/console/admin/usage">Observability</a>
+      <a class="profile-section-link" href="/console/admin/tools">Tools</a>
+      <a class="profile-section-link active" href="/console/admin/agents" aria-current="page">Agents</a>
+      <a class="profile-section-link" href="/console/admin/providers">Providers</a>
+    </nav>
+    <div class="usage-heading">
+      <div>
+        <p class="eyebrow">AGENT RUNTIME</p>
+        <h2>Configured agents</h2>
+        <p class="usage-intro">Agents available in the platform, with their capabilities and assigned tools.</p>
+      </div>
+      <div class="usage-actions">
+        <label for="agents-search">Search</label>
+        <input id="agents-search" type="search" placeholder="Name, description or tool">
+        <button class="secondary" id="agents-refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <p id="agents-status" class="usage-status" role="status">Loading configured agents…</p>
+    <section id="agents-list" class="tools-grid" aria-live="polite">
+      <p class="usage-empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

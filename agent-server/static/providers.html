@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Admin · Providers · EME</title>
+  <link rel="stylesheet" href="/assets/console.css">
+  <link rel="stylesheet" href="/assets/usage.css">
+  <script src="/assets/desktop-header.js" defer></script>
+  <script src="/assets/console-auth.js" defer></script>
+  <script src="/assets/providers.js" defer></script>
+</head>
+<body data-page="admin-providers">
+  <header></header>
+  <main class="usage-main">
+    <nav class="profile-section-nav admin-section-nav" aria-label="Admin">
+      <a class="profile-section-link" href="/console/admin/usage">Observability</a>
+      <a class="profile-section-link" href="/console/admin/tools">Tools</a>
+      <a class="profile-section-link" href="/console/admin/agents">Agents</a>
+      <a class="profile-section-link active" href="/console/admin/providers" aria-current="page">Providers</a>
+    </nav>
+    <div class="usage-heading">
+      <div>
+        <p class="eyebrow">MODEL REGISTRY</p>
+        <h2>Configured providers</h2>
+        <p class="usage-intro">Providers and models declared in the platform's loaded model registry.</p>
+      </div>
+      <div class="usage-actions">
+        <label for="providers-search">Search</label>
+        <input id="providers-search" type="search" placeholder="Provider, model or capability">
+        <button class="secondary" id="providers-refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <p id="providers-status" class="usage-status" role="status">Loading configured providers…</p>
+    <section id="providers-list" class="tools-grid" aria-live="polite">
+      <p class="usage-empty">Loading…</p>
+    </section>
+  </main>
+</body>
+</html>

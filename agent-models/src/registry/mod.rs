@@ -3,4 +3,4 @@
 mod provider_config;
 mod registry;
 
-pub use registry::Registry;
+pub use registry::{ProviderInfo, ProviderModelInfo, Registry};
