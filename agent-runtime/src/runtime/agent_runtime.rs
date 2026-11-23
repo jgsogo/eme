@@ -463,23 +463,37 @@ impl AgentRuntime {
                 "User timezone: {timezone}. This timezone comes from the authenticated user's profile and is authoritative. Use it when interpreting local dates, times, schedules, and relative time expressions; do not infer or override it from conversation content."
             )
         });
-        let system_prompt = match (context.family.as_ref(), timezone_context.as_deref()) {
-            (Some(family), Some(timezone_context)) => {
-                let family_json =
-                    serde_json::to_string_pretty(family).expect("family context is serializable");
-                Some(format!(
-                    "{}\n\n{}\n\n{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
-                    base_prompt, date_context, timezone_context, family_json,
-                ))
+        // Give the model the internal recipient IDs for every family the host
+        // has verified the user belongs to. Provider-specific Telegram IDs are
+        // intentionally omitted by FamilyMemberContext serialization.
+        let mut trusted_families = context.families.clone();
+        if let Some(selected_family) = context.family.as_ref() {
+            if !trusted_families
+                .iter()
+                .any(|family| family.family_id == selected_family.family_id)
+            {
+                trusted_families.push(selected_family.clone());
             }
-            (Some(family), None) => {
-                let family_json =
-                    serde_json::to_string_pretty(family).expect("family context is serializable");
-                Some(format!(
-                    "{}\n\n{}\n\nTrusted context for the family selected in this conversation:\n{}\nUse these names and relationships as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
-                    base_prompt, date_context, family_json,
-                ))
-            }
+        }
+        let family_context = if trusted_families.is_empty() {
+            None
+        } else {
+            let family_json = serde_json::to_string_pretty(&trusted_families)
+                .expect("family contexts are serializable");
+            Some(format!(
+                "Trusted context for all families the authenticated user belongs to:\n{}\nUse these names, relationships, and recipient IDs as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
+                family_json,
+            ))
+        };
+        let system_prompt = match (family_context.as_deref(), timezone_context.as_deref()) {
+            (Some(family_context), Some(timezone_context)) => Some(format!(
+                "{}\n\n{}\n\n{}\n\n{}",
+                base_prompt, date_context, timezone_context, family_context
+            )),
+            (Some(family_context), None) => Some(format!(
+                "{}\n\n{}\n\n{}",
+                base_prompt, date_context, family_context
+            )),
             (None, Some(timezone_context)) => Some(format!(
                 "{}\n\n{}\n\n{}",
                 base_prompt, date_context, timezone_context
@@ -874,7 +888,7 @@ mod family_context_tests {
     }
 
     #[tokio::test]
-    async fn selected_family_roster_is_injected_into_model_system_prompt() {
+    async fn all_trusted_family_rosters_are_injected_into_model_system_prompt() {
         let model = Arc::new(CapturingModel(Mutex::new(None)));
         let runtime = AgentRuntime::new(
             model.clone(),
@@ -913,6 +927,20 @@ mod family_context_tests {
                     },
                 ],
             }),
+            families: vec![FamilyContext {
+                family_id: "family-2".into(),
+                family_name: "Other home".into(),
+                family_role: "member".into(),
+                relationship: "son".into(),
+                members: vec![FamilyMemberContext {
+                    user_id: "user-3".into(),
+                    name: Some("Alex".into()),
+                    birthday: None,
+                    telegram_id: Some("987654321".into()),
+                    role: "owner".into(),
+                    relationship: "father".into(),
+                }],
+            }],
             ..ToolContext::default()
         };
 
@@ -933,6 +961,9 @@ mod family_context_tests {
         assert!(prompt.contains("Home"));
         assert!(prompt.contains("Javier"));
         assert!(prompt.contains("Lucas"));
+        assert!(prompt.contains("Other home"));
+        assert!(prompt.contains("Alex"));
+        assert!(prompt.contains("user-3"));
         assert!(prompt.contains("father"));
         assert!(prompt.contains("son"));
         assert!(prompt.contains("Do not infer additional family members"));
@@ -941,6 +972,7 @@ mod family_context_tests {
         assert!(prompt.contains("recipient_id"));
         assert!(prompt.contains("user-1"));
         assert!(!prompt.contains("telegram_id"));
+        assert!(!prompt.contains("987654321"));
     }
     #[tokio::test]
     async fn user_timezone_is_injected_as_authoritative_system_context() {
