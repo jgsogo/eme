@@ -13,6 +13,8 @@ use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
+type CachedOffers = HashMap<String, (Instant, Vec<StreamingOffer>)>;
+
 use crate::{MediaKind, OfferType, StreamingOffer, StreamingService};
 
 const DEFAULT_BASE_URL: &str = "https://api.watchmode.com/v1";
@@ -48,7 +50,7 @@ pub struct WatchmodeClient {
     api_key: String,
     base_url: String,
     cache_ttl: Duration,
-    offers_cache: Arc<RwLock<HashMap<String, (Instant, Vec<StreamingOffer>)>>>,
+    offers_cache: Arc<RwLock<CachedOffers>>,
 }
 
 impl WatchmodeClient {
@@ -96,10 +98,10 @@ impl WatchmodeClient {
     ) -> Result<Vec<StreamingOffer>, WatchmodeError> {
         let region = normalize_region(region)?;
         let cache_key = format!("{}:{}:{}", kind_key(kind), tmdb_id, region);
-        if let Some((created, offers)) = self.offers_cache.read().await.get(&cache_key) {
-            if created.elapsed() < self.cache_ttl {
-                return Ok(offers.clone());
-            }
+        if let Some((created, offers)) = self.offers_cache.read().await.get(&cache_key)
+            && created.elapsed() < self.cache_ttl
+        {
+            return Ok(offers.clone());
         }
 
         let search_field = match kind {

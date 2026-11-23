@@ -294,10 +294,10 @@ impl TaskRegistry {
     }
 
     pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) {
-        if let Ok(mut tasks) = self.inner.tasks.write() {
-            if let Some(task) = tasks.get_mut(&id) {
-                task.next_run = Some(next);
-            }
+        if let Ok(mut tasks) = self.inner.tasks.write()
+            && let Some(task) = tasks.get_mut(&id)
+        {
+            task.next_run = Some(next);
         }
     }
     pub fn remove(&self, user: &str, id: Uuid) -> Result<(), TaskError> {
@@ -311,11 +311,11 @@ impl TaskRegistry {
         Ok(())
     }
     pub(crate) fn remove_after_execution(&self, id: Uuid) {
-        if let Ok(mut tasks) = self.inner.tasks.write() {
-            if tasks.remove(&id).is_some() {
-                let _ = fs::remove_file(self.path(id));
-                self.notify();
-            }
+        if let Ok(mut tasks) = self.inner.tasks.write()
+            && tasks.remove(&id).is_some()
+        {
+            let _ = fs::remove_file(self.path(id));
+            self.notify();
         }
     }
     fn path(&self, id: Uuid) -> PathBuf {
