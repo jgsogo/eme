@@ -60,7 +60,12 @@ fn test_registry() -> (TaskRegistry, std::path::PathBuf) {
 
 fn recording_manager(
     block_first: bool,
-) -> (RunManager, mpsc::UnboundedReceiver<String>, Arc<Notify>, Arc<Notify>) {
+ ) -> (
+    RunManager,
+    mpsc::UnboundedReceiver<String>,
+    Arc<Notify>,
+    Arc<Notify>,
+) {
     let (calls, receiver) = mpsc::unbounded_channel();
     let started = Arc::new(Notify::new());
     let release = Arc::new(Notify::new());
@@ -71,7 +76,12 @@ fn recording_manager(
         release: Arc::clone(&release),
         invocation: AtomicUsize::new(0),
     };
-    (RunManager::new(Arc::new(executor), 1, 1).unwrap(), receiver, started, release)
+    (
+        RunManager::new(Arc::new(executor), 1, 1).unwrap(),
+        receiver,
+        started,
+        release,
+    )
 }
 
 fn new_task(schedule: Option<&str>, at: Option<chrono::DateTime<chrono::FixedOffset>>) -> NewTask {
@@ -85,7 +95,6 @@ fn new_task(schedule: Option<&str>, at: Option<chrono::DateTime<chrono::FixedOff
         timezone: schedule.map(|_| "UTC".into()),
     }
 }
-
 
 #[test]
 fn calculates_recurring_occurrences_in_requested_timezone() {
@@ -103,7 +112,6 @@ fn skips_missed_occurrences() {
     let after = Utc::now() + ChronoDuration::days(2);
     assert!(next_occurrence(&schedule, "UTC".parse().unwrap(), after).unwrap() > after);
 }
-
 
 #[tokio::test]
 async fn due_cron_task_is_submitted_to_the_run_manager() {
@@ -153,12 +161,22 @@ async fn one_time_task_is_retained_and_retried_when_the_run_queue_is_full() {
     let (manager, mut calls, started, release) = recording_manager(true);
 
     manager
-        .submit("assistant", "occupy worker", Vec::new(), ToolContext::default())
+        .submit(
+            "assistant",
+            "occupy worker",
+            Vec::new(),
+            ToolContext::default(),
+        )
         .await
         .unwrap();
     started.notified().await;
     manager
-        .submit("assistant", "fill queue", Vec::new(), ToolContext::default())
+        .submit(
+            "assistant",
+            "fill queue",
+            Vec::new(),
+            ToolContext::default(),
+        )
         .await
         .unwrap();
 
@@ -187,7 +205,6 @@ async fn one_time_task_is_retained_and_retried_when_the_run_queue_is_full() {
     scheduler.shutdown().await;
     std::fs::remove_dir_all(directory).unwrap();
 }
-
 
 #[test]
 fn submission_retry_backoff_is_bounded() {
