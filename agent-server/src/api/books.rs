@@ -36,10 +36,10 @@ async fn search_catalogue(
             let message = match error {
                 RabelError::Http(status) => format!("RABEL returned HTTP {status}"),
                 RabelError::Request(_) => "Could not connect to RABEL".to_owned(),
-                RabelError::Parse(_) => "RABEL returned an unexpected catalogue response".to_owned(),
+                RabelError::Parse(diagnostic) => format!("RABEL returned an unexpected catalogue response: {diagnostic}"),
                 RabelError::InvalidRecordReference => "RABEL returned an invalid record reference".to_owned(),
             };
-            tracing::warn!(error_kind = %message, "RABEL catalogue search failed");
+            tracing::warn!(error = %message, "RABEL catalogue search failed");
             HttpResponse::BadGateway().body(message)
         },
     }
