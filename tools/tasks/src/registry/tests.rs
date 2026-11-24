@@ -170,7 +170,7 @@ fn completed_one_time_tasks_are_retained_as_disabled_definitions() {
         )
         .unwrap();
 
-    registry.disable_after_execution(task.id);
+    registry.disable_after_execution(task.id).unwrap();
     let retained = registry.list("telegram:12");
     assert_eq!(retained.len(), 1);
     assert_eq!(retained[0].id, task.id);
@@ -181,5 +181,66 @@ fn completed_one_time_tasks_are_retained_as_disabled_definitions() {
     let reloaded = TaskRegistry::load(&directory).unwrap();
     assert_eq!(reloaded.list("telegram:12").len(), 1);
     assert!(!reloaded.list("telegram:12")[0].enabled);
+    fs::remove_dir_all(directory).unwrap();
+}
+
+
+#[test]
+fn persists_pending_due_time_across_registry_restarts() {
+    let directory = temp_dir();
+    let registry = TaskRegistry::load(&directory).unwrap();
+    registry.validate_agents(["assistant".to_owned()]).unwrap();
+    let task = registry
+        .add(
+            "telegram:17",
+            NewTask {
+                name: "once".into(),
+                description: String::new(),
+                agent: "assistant".into(),
+                prompt: "do it".into(),
+                schedule: None,
+                at: Some((Utc::now() + chrono::Duration::hours(1)).fixed_offset()),
+                timezone: None,
+            },
+        )
+        .unwrap();
+    let due = Utc::now() - chrono::Duration::minutes(5);
+    registry.set_next_run(task.id, due).unwrap();
+    drop(registry);
+
+    let reloaded = TaskRegistry::load(&directory).unwrap();
+    assert_eq!(reloaded.snapshot()[0].next_run, Some(due));
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn recovers_overdue_legacy_one_time_task() {
+    let directory = temp_dir();
+    let id = Uuid::new_v4();
+    fs::write(
+        directory.join(format!("{id}.toml")),
+        format!(
+            r#"
+id = "{id}"
+user_id = "telegram:18"
+name = "legacy once"
+agent = "assistant"
+prompt = "do it"
+at = "2020-01-01T00:00:00Z"
+enabled = true
+"#
+        ),
+    )
+    .unwrap();
+
+    let registry = TaskRegistry::load(&directory).unwrap();
+    assert_eq!(
+        registry.snapshot()[0].next_run,
+        Some(
+            chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
+                .unwrap()
+                .to_utc()
+        )
+    );
     fs::remove_dir_all(directory).unwrap();
 }
