@@ -16,4 +16,12 @@
 <label style="display:flex;align-items:center;gap:7px;margin:4px 0 10px"><input id="task-enabled" type="checkbox" checked disabled style="width:auto;margin:0"> Enabled</label>
 <div class="notes-actions"><button id="save-task" type="submit" disabled>Save task</button><button id="delete-task" type="button" class="danger" disabled>Delete</button></div>
 <p id="tasks-status" class="hint" aria-live="polite">Choose a task or create a new one.</p>
-</form></section></div></section></main></body></html>
+</form>
+<section id="task-executions" class="panel" hidden aria-live="polite">
+  <div class="family-details-heading">
+    <div><h3>Execution history</h3><p class="hint">Newest runs appear first. Expand an execution to inspect its output, timeline, and model usage.</p></div>
+    <button id="task-executions-refresh" type="button" class="secondary">Refresh</button>
+  </div>
+  <div id="task-executions-list" class="notes-list"><div class="empty">Select a task to inspect its executions.</div></div>
+</section>
+</section></div></section></main></body></html>
