@@ -71,11 +71,14 @@ pub(super) fn libraries(html: &str) -> Result<Vec<Library>, RabelError> {
         .map_err(|error| RabelError::Parse(error.to_string()))?;
     let select = selects.captures(html).and_then(|c| c.get(1))
         .ok_or_else(|| RabelError::Parse("library selector not found in RABEL session page".into()))?;
-    let libraries = options.captures_iter(select.as_str()).filter_map(|c| {
+    let libraries: Vec<Library> = options.captures_iter(select.as_str()).filter_map(|c| {
         let id = c.get(1)?.as_str().trim().to_owned();
         let name = clean_text(c.get(2)?.as_str());
         (!id.is_empty() && !name.is_empty()).then_some(Library { id, name })
     }).collect();
+    if libraries.is_empty() {
+        return Err(RabelError::Parse("RABEL library selector contains no usable options".into()));
+    }
     Ok(libraries)
 }
 
