@@ -144,9 +144,9 @@ fn load(connection: &Connection,user:&str,id:&str)->Result<Option<Book>,BookStor
 }
 fn row_to_book(row:&rusqlite::Row<'_>)->Result<Book,rusqlite::Error>{
     let authors:String=row.get(2)?;
-    let status:String=row.get(8)?;
-    let created:String=row.get(11)?;
-    let updated:String=row.get(12)?;
+    let status:String=row.get(14)?;
+    let created:String=row.get(17)?;
+    let updated:String=row.get(18)?;
     let parse_time=|value:&str| DateTime::parse_from_rfc3339(value).map(|t|t.with_timezone(&Utc)).map_err(|e|rusqlite::Error::FromSqlConversionFailure(0,rusqlite::types::Type::Text,Box::new(e)));
     Ok(Book{
         id:row.get(0)?,title:row.get(1)?,
