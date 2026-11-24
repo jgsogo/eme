@@ -8,6 +8,24 @@
   }
   const status = message => { $("books-status").textContent = message; };
   function button(label, action) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", action); return b; }
+  async function setBookRating(book, rating) {
+    try {
+      const updated = await api(`/books/${book.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ rating })
+      });
+      state.books = state.books.map(item => item.id === updated.id ? updated : item);
+      if (state.selected?.id === updated.id) {
+        state.selected = updated;
+        populateBookForm(updated);
+      }
+      renderBooks();
+      status(`Rating saved for “${updated.title}”.`);
+    } catch (error) {
+      status(error.message || "Could not save the book rating.");
+    }
+  }
+
   function renderBooks() {
     const list = $("books-list"); list.replaceChildren();
     const query = state.collectionQuery.trim().toLocaleLowerCase();
@@ -23,7 +41,36 @@
     thead.append(header);table.append(thead);const tbody=document.createElement("tbody");
     for (const book of filtered) { const row=document.createElement("tr");row.tabIndex=0;row.setAttribute("aria-label","Open details for "+book.title);
       const cells=[[book.title,book.publication_year?String(book.publication_year):""],[(book.authors||[]).join(", ")||"—"],[book.isbn||"—"],[(book.reading_status||"pending").replaceAll("_"," ")],[book.rating==null?"—":book.rating+"/5"],[book.want_to_buy?"Yes":"No"]];
-      cells.forEach(([value,sub],index)=>{const td=document.createElement("td");td.textContent=value||"—";if(index===0){td.className="book-title-cell";if(sub){const small=document.createElement("small");small.textContent=sub;td.append(small);}}row.append(td);});
+      cells.forEach(([value,sub],index)=>{
+        const td=document.createElement("td");
+        if (index === 4 && book.reading_status === "read") {
+          const rating = document.createElement("div");
+          rating.className = "book-rating-stars";
+          rating.setAttribute("role", "group");
+          rating.setAttribute("aria-label", `Rate ${book.title}`);
+          for (let score = 1; score <= 5; score++) {
+            const star = button(score <= (book.rating || 0) ? "★" : "☆", event => {
+              event.stopPropagation();
+              setBookRating(book, score);
+            });
+            star.className = "book-rating-star";
+            star.setAttribute("aria-label", `${score} out of 5 stars`);
+            star.setAttribute("aria-pressed", String(book.rating === score));
+            rating.append(star);
+          }
+          td.append(rating);
+        } else if (index === 4) {
+          td.textContent = book.rating == null ? "Mark as read to rate" : `${book.rating}/5`;
+          td.className = "book-rating-unavailable";
+        } else {
+          td.textContent = value || "—";
+          if (index === 0) {
+            td.className = "book-title-cell";
+            if (sub) { const small=document.createElement("small"); small.textContent=sub; td.append(small); }
+          }
+        }
+        row.append(td);
+      });
       row.addEventListener("click",()=>selectBook(book));row.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();selectBook(book);}});tbody.append(row);
     } table.append(tbody);wrap.append(table);list.append(wrap);
   }
