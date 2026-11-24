@@ -116,11 +116,12 @@
       for (const result of results) {
         const card = document.createElement("article"); card.className = "catalogue-entry";
         const details = document.createElement("div"); details.className = "catalogue-entry-details";
-        const title = document.createElement("strong"); title.className = "catalogue-entry-title"; title.textContent = result.title; details.append(title);
-        const meta = document.createElement("p"); meta.className = "catalogue-entry-meta"; meta.textContent = result.category || "Document type not specified"; details.append(meta);
-        const openDetails = button(result.title, () => showCatalogueItem(result));
+        const author = document.createElement("p"); author.className = "catalogue-entry-author";
+        author.textContent = (result.authors || []).filter(Boolean).join(", ") || "Author not specified";
+        details.append(author);
+        const openDetails = button(result.title || "Untitled record", () => showCatalogueItem(result));
         openDetails.className = "catalogue-result-title";
-        details.replaceChild(openDetails, title);
+        details.append(openDetails);
         card.append(details);
         const add = button("Add to my collection", async () => {
           try {
