@@ -3,6 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
+let familyActionHandler=null;
 const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
@@ -170,12 +171,14 @@ function renderFamiliesList(){
 }
 function memberAge(birthday){if(!birthday)return null;const [year,month,day]=birthday.split("-").map(Number),today=new Date();let age=today.getUTCFullYear()-year;if(today.getUTCMonth()+1<month||(today.getUTCMonth()+1===month&&today.getUTCDate()<day))age--;return age>=0?age:null}
 function renderFamilyMembers(){
- const target=$("family-members"),details=state.familyDetails;
+ const target=$("family-members"),details=state.familyDetails,filter=$("family-members-search");
  const canManage=!!details&&["owner","admin"].includes(currentFamilyMember()?.role.toLowerCase());
  $("rename-family").disabled=!canManage;$("add-family-member").disabled=!canManage;
+ if(filter)filter.disabled=!details;
  if(!details){target.textContent="Select a family to see its members.";renderFamilyLifecycle();return}
- const members=details.members||[];
- target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+members.length+' members</div>'+ (members.length?members.map(m=>{
+ const allMembers=details.members||[],query=filter?.value.trim().toLocaleLowerCase()||"";
+ const members=allMembers.filter(member=>[member.display_name,member.user_id,member.relationship,member.role,member.birthday].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+allMembers.length+' members</div>'+ (members.length?members.map(m=>{
   const role=String(m.role).toLowerCase(),actorRole=currentFamilyMember()?.role.toLowerCase();
   const isSelf=m.user_id===state.currentUserId,isOwner=actorRole==="owner",isAdmin=actorRole==="admin";
   const roleControl=!isSelf&&isOwner?'<label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button>':(!isSelf&&isAdmin&&role==="member"?'<button type="button" class="secondary" data-promote-member="'+escapeHtml(m.user_id)+'">Promote to admin</button>':'');
@@ -186,7 +189,7 @@ function renderFamilyMembers(){
   const editProfile=actorRole==="owner"||actorRole==="admin"?'<button type="button" class="secondary" data-edit-member-profile="'+escapeHtml(m.user_id)+'">Edit details</button>':"";
   const actions=roleControl||transfer||remove||editProfile?'<div class="member-actions">'+roleControl+transfer+remove+editProfile+'</div>':'';
   return '<div class="family-member"><strong>'+escapeHtml(m.display_name||m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span><span>'+escapeHtml(birthday)+(age===null?'':' · '+age+' years old')+'</span>'+actions+'</div>';
- }).join(""):'<div class="hint">No members.</div>');
+ }).join(""):'<div class="hint">'+(allMembers.length?'No members match this filter. <button type="button" class="secondary" data-clear-family-member-filter>Clear filter</button>':'No members.')+'</div>');
 }
 function currentFamilyMember(){
  return (state.familyDetails?.members||[]).find(member=>member.user_id===state.currentUserId)||null;
@@ -206,18 +209,56 @@ function invitationState(invitation){
  return "Pending";
 }
 function renderFamilyInvitations(){
- const target=$("family-invitations"),family=state.familyDetails?.family,me=currentFamilyMember();
+ const target=$("family-invitations"),family=state.familyDetails?.family,me=currentFamilyMember(),filter=$("family-invitations-search");
  const canManage=me&&["owner","admin"].includes(me.role.toLowerCase());
  $("create-invitation").disabled=!family||!canManage;
+ if(filter)filter.disabled=!family||!canManage;
  if(!family){target.textContent="Select a family to manage invitations.";return}
  if(!canManage){target.textContent="Only family owners and admins can manage invitations.";return}
- const items=state.familyInvitations;
+ const query=filter?.value.trim().toLocaleLowerCase()||"",allItems=state.familyInvitations;
+ const items=allItems.filter(inv=>[invitationState(inv),inv.target_identity?.provider,inv.target_identity?.subject,inv.expires_at].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
  target.innerHTML=items.length?items.map(inv=>{
   const status=invitationState(inv);
   return '<div class="family-invitation"><div><strong>'+escapeHtml(status)+'</strong><small>Expires '+escapeHtml(new Date(inv.expires_at).toLocaleString())+(inv.target_identity?' · '+escapeHtml(inv.target_identity.provider)+': '+escapeHtml(inv.target_identity.subject):'')+'</small></div><div class="family-invitation-actions">'+(status==="Pending"?'<button type="button" class="secondary" data-revoke-invitation="'+escapeHtml(inv.id)+'">Revoke</button>':'')+'</div></div>';
- }).join(""):'<div class="hint" style="padding:8px 0">No invitations yet.</div>';
+ }).join(""):'<div class="hint" style="padding:8px 0">'+(allItems.length?'No invitations match this filter. <button type="button" class="secondary" data-clear-family-invitation-filter>Clear filter</button>':'No invitations yet.')+'</div>';
 }
-
+function openFamilyActionDialog({title,description,fields,submitLabel="Save",handler}){
+ familyActionHandler=handler;
+ $("family-action-title").textContent=title;
+ $("family-action-description").textContent=description||"";
+ $("family-action-fields").innerHTML=fields.map(field=>{
+  const id="family-action-"+field.name,required=field.required?" required":"",placeholder=field.placeholder?' placeholder="'+escapeHtml(field.placeholder)+'"':"",limits=(field.maxLength?' maxlength="'+field.maxLength+'"':"")+(field.min!==undefined?' min="'+field.min+'"':"")+(field.max!==undefined?' max="'+field.max+'"':"");
+  const control=field.type==="select"
+   ?'<select id="'+id+'" name="'+field.name+'"'+required+'>'+field.options.map(option=>'<option value="'+escapeHtml(option.value)+'" '+(String(option.value)===String(field.value??"")?"selected":"")+'>'+escapeHtml(option.label)+'</option>').join("")+'</select>'
+   :'<input id="'+id+'" name="'+field.name+'" type="'+(field.type||"text")+'" value="'+escapeHtml(field.value??"")+'"'+required+placeholder+limits+'>';
+  return '<label class="family-action-field" for="'+id+'">'+escapeHtml(field.label)+control+'</label>';
+ }).join("");
+ $("family-action-status").textContent="";
+ $("family-action-submit").textContent=submitLabel;
+ $("family-action-dialog").showModal();
+ $("family-action-fields").querySelector("input,select")?.focus();
+}
+async function addManagedFamilyMember(){
+ const family=state.familyDetails?.family;if(!family)return;
+ openFamilyActionDialog({title:"Add family member",description:"Add a person to this family. Birthday is optional.",submitLabel:"Add member",fields:[
+  {name:"name",label:"Name",required:true,maxLength:80},
+  {name:"relationship",label:"Relationship",type:"select",value:"other",options:["father","mother","son","daughter","grandfather","grandmother","partner","other"].map(value=>({value,label:value[0].toUpperCase()+value.slice(1)}))},
+  {name:"birthday",label:"Birthday (optional)",type:"date"}
+ ],handler:async values=>{
+  await api("/families/"+encodeURIComponent(family.id)+"/members",{method:"POST",body:JSON.stringify({name:values.name.trim(),relationship:values.relationship,birthday:values.birthday||null})});
+  await loadFamilyDetails(family.id);await loadFamilies();setStatus("Family member added","ok");
+ }});
+}
+async function editManagedFamilyMember(userId){
+ const family=state.familyDetails?.family,member=state.familyDetails?.members?.find(item=>item.user_id===userId);if(!family||!member)return;
+ openFamilyActionDialog({title:"Edit family member",description:"Update the member's display name and birthday.",submitLabel:"Save changes",fields:[
+  {name:"name",label:"Name",required:true,maxLength:80,value:member.display_name||""},
+  {name:"birthday",label:"Birthday (optional)",type:"date",value:member.birthday||""}
+ ],handler:async values=>{
+  await api("/families/"+encodeURIComponent(family.id)+"/members/"+encodeURIComponent(userId)+"/profile",{method:"PUT",body:JSON.stringify({name:values.name.trim(),birthday:values.birthday||null})});
+  await loadFamilyDetails(family.id);setStatus("Member details updated","ok");
+ }});
+}
 async function addManagedFamilyMember(){
  const family=state.familyDetails?.family;if(!family)return;
  const name=window.prompt("Member's name");if(name===null)return;if(!name.trim()){setStatus("Member name is required","error");return}
@@ -244,14 +285,14 @@ async function loadFamilyInvitations(familyId){
 }
 async function createInvitation(){
  const family=state.familyDetails?.family;if(!family)return;
- const days=window.prompt("Invitation validity in days","7");if(days===null)return;
- const validity=Number(days);if(!Number.isInteger(validity)||validity<1||validity>30){setStatus("Choose a validity between 1 and 30 days","error");return}
- const target=window.prompt("Optional Telegram user ID to restrict this invitation (leave empty for anyone)","");
- if(target===null)return;
- const expiresAt=new Date(Date.now()+validity*86400000).toISOString();
- const request={expires_at:expiresAt};
- if(target.trim())request.target_identity={provider:"telegram",subject:target.trim()};
- try{
+ openFamilyActionDialog({title:"Create invitation",description:"Choose how long this invitation remains valid. Optionally restrict it to a Telegram user ID.",submitLabel:"Create invitation",fields:[
+  {name:"days",label:"Validity (days)",type:"number",value:7,min:1,max:30,required:true},
+  {name:"target",label:"Telegram user ID (optional)",placeholder:"Leave empty to allow anyone"}
+ ],handler:async values=>{
+  const validity=Number(values.days);
+  if(!Number.isInteger(validity)||validity<1||validity>30)throw new Error("Choose a validity between 1 and 30 days.");
+  const request={expires_at:new Date(Date.now()+validity*86400000).toISOString()};
+  if(values.target.trim())request.target_identity={provider:"telegram",subject:values.target.trim()};
   const created=await api("/families/"+encodeURIComponent(family.id)+"/invitations",{method:"POST",body:JSON.stringify(request)});
   if(created.lan_url){
    const copy=window.confirm("Invitation created. Copy this LAN invitation link now?\n\n"+created.lan_url);
@@ -261,7 +302,7 @@ async function createInvitation(){
    setStatus("Invitation created; LAN_BASE_URL is not configured, so no LAN link is available","ok");
   }
   await loadFamilyInvitations(family.id);
- }catch(e){setStatus(e.message,"error")}
+ }});
 }
 async function revokeInvitation(invitationId){
  const family=state.familyDetails?.family;if(!family)return;
@@ -327,15 +368,13 @@ async function loadFamilyDetails(familyId){
  catch(e){state.familyDetails=null;$("managed-family-meta").textContent=e.message;renderFamilyMembers();renderFamilyLifecycle();setStatus(e.message,"error")}
 }
 async function createFamily(){
- const name=window.prompt("Family name");if(name===null)return;
- if(!name.trim()){setStatus("Family name must not be empty","error");return}
- const relationship=window.prompt("Your relationship in this family (father, mother, son, daughter, grandfather, grandmother, partner, other)","other");
- if(relationship===null)return;
- try{
-  const created=await api("/families",{method:"POST",body:JSON.stringify({name:name.trim(),relationship:relationship.trim().toLowerCase()})});
-  await loadFamilies();await loadFamilyDetails(created.id);
-  setStatus("Family created","ok");
- }catch(e){setStatus(e.message,"error")}
+ openFamilyActionDialog({title:"Create family",description:"Create a family and choose your relationship to it.",submitLabel:"Create family",fields:[
+  {name:"name",label:"Family name",required:true,maxLength:80},
+  {name:"relationship",label:"Your relationship",type:"select",value:"other",options:["father","mother","son","daughter","grandfather","grandmother","partner","other"].map(value=>({value,label:value[0].toUpperCase()+value.slice(1)}))}
+ ],handler:async values=>{
+  const created=await api("/families",{method:"POST",body:JSON.stringify({name:values.name.trim(),relationship:values.relationship})});
+  await loadFamilies();await loadFamilyDetails(created.id);setStatus("Family created","ok");
+ }});
 }
 async function renameFamily(){
  if(!state.familyDetails)return;
@@ -419,9 +458,9 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
  };
  setStatus("Running · "+runId.slice(0,8));
 }
-on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",renderNotes);on("note-family-filter","change",renderNotes);
+on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",renderNotes);on("note-family-filter","change",renderNotes);
 on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
-on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
+on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
  const button=$("refresh-tasks");if(button)button.disabled=true;
  $("tasks-list").innerHTML='<div class="empty" role="status">Loading tasks…</div>';
