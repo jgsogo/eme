@@ -135,10 +135,15 @@ pub fn register_media_tools(
         ),
         (
             "media_watch_history",
-            "Read the authenticated user's own viewing history. Omit profile_id to use their personal media profile; only provide it for an explicitly selected family-managed profile.",
+            "Read the authenticated user's viewing history, or mark a movie/show as watched on their explicit request. mark_watched requires their linked Trakt account. Omit profile_id to use their personal media profile.",
             json!({
                 "type":"object",
-                "properties":{"profile_id":{"type":"string"}},
+                "properties":{
+                    "action":{"type":"string","enum":["list","mark_watched"]},
+                    "profile_id":{"type":"string"},
+                    "tmdb_id":{"type":"integer","minimum":1},
+                    "kind":{"type":"string","enum":["movie","tv_show"]}
+                },
                 "additionalProperties":false
             }),
             MediaAction::History,
@@ -434,6 +439,41 @@ impl MediaTool {
     }
 
     async fn history(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
+        let action = args.get("action").and_then(Value::as_str).unwrap_or("list");
+        if action == "mark_watched" {
+            let profile_id = self
+                .require_profile(
+                    context,
+                    args.get("profile_id").and_then(Value::as_str),
+                    true,
+                )
+                .await?;
+            let user_id = authenticated_user_id(context)?;
+            let tmdb_id = required_u64(args, "tmdb_id")?;
+            let kind = parse_kind(required_string(args, "kind")?)?;
+            let item = match kind {
+                MediaKind::Movie => self.tmdb()?.movie_details(tmdb_id).await,
+                MediaKind::TvShow => self.tmdb()?.tv_details(tmdb_id).await,
+            }
+            .map_err(display)?;
+            let sync = self
+                .services
+                .sync
+                .as_ref()
+                .ok_or_else(|| "Trakt write synchronization is not configured".to_owned())?;
+            sync.mark_watched(user_id, profile_id, &item)
+                .await
+                .map_err(display)?;
+            return Ok(json!({
+                "action": "mark_watched",
+                "profile_id": profile_id.to_string(),
+                "item": item,
+                "trakt_synced": true
+            }));
+        }
+        if action != "list" {
+            return Err("action must be list or mark_watched".into());
+        }
         let profile_id = self
             .require_profile(
                 context,

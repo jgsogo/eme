@@ -337,6 +337,59 @@ impl TraktSyncService {
         Ok(())
     }
 
+    /// Mark a movie or show as watched in the linked Trakt account.
+    ///
+    /// The remote write is performed first. The local history event is only
+    /// recorded after Trakt confirms that it resolved the requested title.
+    pub async fn mark_watched(
+        &self,
+        owner_id: UserId,
+        profile_id: crate::MediaProfileId,
+        item: &MediaItem,
+    ) -> Result<(), TraktSyncError> {
+        let access_token = self.access_token_for_profile(owner_id, profile_id).await?;
+        let tmdb_id = item
+            .external_ids
+            .iter()
+            .find(|external_id| external_id.provider == "tmdb")
+            .and_then(|external_id| external_id.value.parse::<u64>().ok())
+            .ok_or(TraktSyncError::MissingExternalId)?;
+        let collection = match item.kind {
+            MediaKind::Movie => "movies",
+            MediaKind::TvShow => "shows",
+        };
+        let watched_at = Utc::now();
+        let payload = match item.kind {
+            MediaKind::Movie => json!({
+                "movies": [{
+                    "watched_at": watched_at.to_rfc3339(),
+                    "ids": {"tmdb": tmdb_id}
+                }]
+            }),
+            MediaKind::TvShow => json!({
+                "shows": [{
+                    "watched_at": watched_at.to_rfc3339(),
+                    "ids": {"tmdb": tmdb_id}
+                }]
+            }),
+        };
+        let response = self
+            .post_json("/sync/history", &payload, &access_token)
+            .await?;
+        ensure_trakt_item_found(&response, collection)?;
+
+        self.media.save_media_item(item).await?;
+        self.media
+            .record_watch_event(&MediaWatchEvent {
+                profile_id,
+                media_item_id: item.id,
+                watched_at,
+                source: WatchHistorySource::Trakt,
+            })
+            .await?;
+        Ok(())
+    }
+
     /// Write an EME rating through to Trakt, then persist its EME provenance.
     ///
     /// EME's 0..=5 scale maps linearly to Trakt's integer 1..=10 scale:
@@ -894,6 +947,15 @@ mod tests {
             .mount(&server)
             .await;
 
+        Mock::given(method("POST"))
+            .and(path("/sync/history"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "added": {"movies": 1}
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
         let media = MediaStore::open_in_memory().unwrap();
         let family_id = agent_storage::FamilyId::new();
         let mut profile = crate::MediaProfile::new(family_id, "Viewer");
@@ -969,6 +1031,18 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        sync.mark_watched(owner_id, profile.id, &movie)
+            .await
+            .unwrap();
+        let history = media.list_watch_history(profile.id).await.unwrap();
+        assert_eq!(
+            history
+                .iter()
+                .filter(|event| event.media_item_id == movie.id)
+                .count(),
+            2
+        );
+
         sync.set_watchlist_item(owner_id, profile.id, &movie, false)
             .await
             .unwrap();
