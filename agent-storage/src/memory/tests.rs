@@ -172,10 +172,18 @@ async fn task_run_store_associates_runs_and_lists_newest_first() {
     assert_eq!(runs.len(), 2);
     assert!(runs.iter().any(|run| run.id == first));
     assert!(runs.iter().any(|run| run.id == second));
-    assert!(store.list_task_runs(Uuid::new_v4()).await.unwrap().is_empty());
+    assert!(
+        store
+            .list_task_runs(Uuid::new_v4())
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     assert!(matches!(
-        store.associate_task_run(Uuid::new_v4(), Uuid::new_v4()).await,
+        store
+            .associate_task_run(Uuid::new_v4(), Uuid::new_v4())
+            .await,
         Err(StorageError::NotFound(_))
     ));
 }
