@@ -10,7 +10,7 @@ function installBottomNavigation() {
     { href: "/mobile/notes", label: "Notes", icon: '<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg>', active: path.startsWith("/mobile/notes") },
     { href: "/mobile/tasks", label: "Tasks", icon: '<svg viewBox="0 0 24 24"><path d="m4 7 2 2 4-4M12 7h8M4 16l2 2 4-4M12 16h8"/></svg>', active: path.startsWith("/mobile/tasks") },
     { href: "/mobile/meals", label: "Meals", icon: '<svg viewBox="0 0 24 24"><path d="M7 3v7M4 3v4a3 3 0 0 0 6 0V3M7 10v11M17 3v18M17 3c3 2 3 7 0 9"/></svg>', active: ["/mobile/meals", "/mobile/meal-planner", "/mobile/shopping-list", "/mobile/school-menus"].includes(path) },
-    { href: "/mobile/profile", label: "Profile", icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', active: ["/mobile/profile", "/mobile/families", "/mobile/integrations"].includes(path) }
+    { href: "/mobile/profile", label: "Profile", icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', active: ["/mobile/profile", "/mobile/families", "/mobile/integrations", "/mobile/admin/usage", "/mobile/admin/tools", "/mobile/admin/agents", "/mobile/admin/providers"].includes(path) }
   ];
 
   const nav = document.createElement("nav");
