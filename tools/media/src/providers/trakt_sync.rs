@@ -823,6 +823,31 @@ mod tests {
             .mount(&server)
             .await;
 
+        Mock::given(method("POST"))
+            .and(path("/sync/watchlist"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "added": {"movies": 1}
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/sync/watchlist/remove"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "deleted": {"movies": 1}
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/sync/ratings"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(serde_json::json!({
+                "added": {"movies": 1}
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
         let media = MediaStore::open_in_memory().unwrap();
         let family_id = agent_storage::FamilyId::new();
         let mut profile = crate::MediaProfile::new(family_id, "Viewer");
@@ -880,6 +905,37 @@ mod tests {
         assert_eq!(media.list_watch_history(profile.id).await.unwrap().len(), 2);
         assert_eq!(media.list_ratings(profile.id).await.unwrap().len(), 2);
         assert_eq!(media.list_watchlist(profile.id).await.unwrap().len(), 2);
+
+        let movie = media
+            .get_media_item(MediaItemId::from_external_id("tmdb", "100"))
+            .await
+            .unwrap()
+            .unwrap();
+        sync.set_watchlist_item(owner_id, profile.id, &movie, false)
+            .await
+            .unwrap();
+        assert_eq!(media.list_watchlist(profile.id).await.unwrap().len(), 1);
+        sync.set_watchlist_item(owner_id, profile.id, &movie, true)
+            .await
+            .unwrap();
+        assert_eq!(media.list_watchlist(profile.id).await.unwrap().len(), 2);
+
+        let eme_rating = MediaRating {
+            profile_id: profile.id,
+            media_item_id: movie.id,
+            value: 4.0,
+            rated_at: Utc::now(),
+            source: WatchHistorySource::Eme,
+        };
+        sync.push_rating(owner_id, profile.id, &movie, &eme_rating)
+            .await
+            .unwrap();
+        assert!(media
+            .list_ratings(profile.id)
+            .await
+            .unwrap()
+            .iter()
+            .any(|rating| rating.source == WatchHistorySource::Eme));
 
         let second = sync.sync_profile(owner_id, profile.id).await.unwrap();
         assert_eq!(second, TraktSyncSummary::default());
