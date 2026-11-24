@@ -1,10 +1,11 @@
 //! Internal state used to supervise an active or queued run.
 
-use crate::{Run, RunEvent, RunEventKind};
+use crate::{Run, RunEvent, RunEventKind, RunId};
 use agent_runtime::{
     CancellationToken, Message, RunEvent as RuntimeEvent, RunEventKind as RuntimeEventKind,
     ToolContext,
 };
+use tokio::sync::broadcast;
 
 pub(super) struct ManagedRun {
     pub(super) run: Run,
@@ -13,6 +14,7 @@ pub(super) struct ManagedRun {
     pub(super) history: Vec<Message>,
     pub(super) context: ToolContext,
     pub(super) persisted_message_count: Option<u64>,
+    pub(super) event_sender: broadcast::Sender<(RunId, RunEvent)>,
 }
 
 impl ManagedRun {
@@ -167,6 +169,7 @@ impl ManagedRun {
             error_category,
             occurred_at: std::time::SystemTime::now(),
         });
+        self.publish_last_event();
     }
 
     /// Records a service or lifecycle event in the shared ordered history.
@@ -183,6 +186,13 @@ impl ManagedRun {
             error_category: None,
             occurred_at: std::time::SystemTime::now(),
         });
+        self.publish_last_event();
+    }
+
+    fn publish_last_event(&self) {
+        if let Some(event) = self.events.last() {
+            let _ = self.event_sender.send((self.run.id, event.clone()));
+        }
     }
 }
 
