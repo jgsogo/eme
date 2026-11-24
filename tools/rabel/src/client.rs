@@ -70,32 +70,35 @@ impl RabelClient {
     }
 
     async fn search_page(&self, query: &str) -> Result<(Url, String), RabelError> {
-        let mut url = self.opac_url.clone();
-        url.query_pairs_mut()
-            .append_pair("SUBC", &self.subcatalog)
-            .append_pair("ACC", "DOSEARCH")
-            .append_pair("xsqf01", query);
-        let response = self.http.get(url).send().await?;
+        // Start at the public OPAC URL to establish an AbsysNet session. The
+        // bootstrap response redirects/meta-refreshes to a session root; the
+        // actual form action on that page is the session's /NT1 endpoint.
+        let response = self.http.get(self.opac_url.clone()).send().await?;
         if !response.status().is_success() {
             return Err(RabelError::Http(response.status()));
         }
-        let request_url = response.url().clone();
-        let html = response.text().await?;
-        let target = parser::meta_refresh_target(&html)
+        let bootstrap_url = response.url().clone();
+        let bootstrap_html = response.text().await?;
+        let target = parser::meta_refresh_target(&bootstrap_html)
             .ok_or_else(|| RabelError::Parse("search bootstrap did not contain a session URL".into()))?;
-        let mut session_url = request_url.join(&target)
+        let session_root = bootstrap_url.join(&target)
             .map_err(|error| RabelError::Parse(format!("invalid session URL: {error}")))?;
+        let (landing_url, landing_html) = self.read_html(session_root).await?;
 
-        // AbsysNet's meta-refresh commonly points only to the session's /NT1
-        // endpoint and drops the original search parameters. Carry the search
-        // request into that session URL; otherwise RABEL displays its landing
-        // page and the parser sees navigation links instead of search results.
-        for (key, value) in request_url.query_pairs() {
-            if !session_url.query_pairs().any(|(existing, _)| existing == key) {
-                session_url.query_pairs_mut().append_pair(&key, &value);
-            }
-        }
-        self.read_html(session_url).await
+        // AbsysNet serves the catalogue shell from the session root. Its
+        // forms post to /NT1, but direct catalogue searches are supported as
+        // GET requests using ACC=DOSEARCH and xsqf01 (Baratz OPAC URL-search
+        // convention). Sending the query to the root only returns the shell.
+        let mut search_url = parser::session_action(&landing_html, &landing_url)
+            .ok_or_else(|| RabelError::Parse(format!(
+                "RABEL landing page did not expose a session form action; {}",
+                parser::search_page_diagnostic(&landing_html, &landing_url)
+            )))?;
+        search_url.query_pairs_mut()
+            .append_pair("SUBC", &self.subcatalog)
+            .append_pair("ACC", "DOSEARCH")
+            .append_pair("xsqf01", query);
+        self.read_html(search_url).await
     }
 
     pub async fn search(&self, query: &str, limit: usize) -> Result<Vec<CatalogueSearchResult>, RabelError> {
