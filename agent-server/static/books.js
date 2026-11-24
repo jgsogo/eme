@@ -109,7 +109,7 @@
       content.replaceChildren();
       const fields = [
         ["Authors", (item.authors || []).join(", ")],
-        ["Title / responsibility", item.responsibility],
+        ["Statement of responsibility", item.responsibility],
         ["Publisher", item.publisher],
         ["Publication statement", item.publication_statement || result.publication],
         ["Publication year", item.publication_year],
