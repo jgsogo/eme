@@ -484,6 +484,16 @@ impl MediaTool {
             .await?;
         match action {
             "list" => {
+                if let Some(sync) = &self.services.sync {
+                    match sync
+                        .list_watchlist(authenticated_user_id(context)?, profile_id)
+                        .await
+                    {
+                        Ok(items) => return Ok(Value::Array(items)),
+                        Err(crate::TraktSyncError::NotLinked) => {}
+                        Err(error) => return Err(display(error)),
+                    }
+                }
                 let items = self
                     .services
                     .store
