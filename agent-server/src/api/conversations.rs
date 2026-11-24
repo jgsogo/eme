@@ -309,6 +309,7 @@ async fn delete_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<SqliteConversationStore>>,
+    manager: Data<RunManager>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
