@@ -521,3 +521,16 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 /* Notes list search and family filters. */
 .notes-filters{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .notes-filters input,.notes-filters select{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text);font:inherit;font-size:13px}
+
+
+/* Task details navigation: keep configuration and execution history in focused panes. */
+.task-section-nav{display:flex;align-items:center;gap:6px;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.task-section-tab{padding:8px 12px;background:transparent;border:1px solid transparent;border-radius:8px;color:var(--muted);font-size:13px;font-weight:600}
+.task-section-tab:hover:not(:disabled){background:var(--panel2);color:var(--text)}
+.task-section-tab.active{background:var(--panel2);border-color:var(--border);color:var(--text)}
+.task-section-tab:disabled{opacity:.4;cursor:not-allowed}
+.task-section-content[hidden]{display:none!important}
+#task-executions.task-section-content{padding:16px;overflow:visible}
+#task-executions .family-details-heading{margin-bottom:12px}
+#task-executions .notes-list{margin-top:0}
+@media(max-width:600px){.task-section-nav{position:sticky;top:0;z-index:2;background:var(--panel);padding:0 0 9px;overflow-x:auto}.task-section-tab{flex:none;padding:8px 10px}#task-executions.task-section-content{padding:12px}}
