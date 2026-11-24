@@ -485,6 +485,9 @@ mod tests {
             <td>Autor / Autora: Hayek, Friedrich A. von (1899-1992)</td>
             <td>Editor / Productor: Valencia : Fundación Ignacio Villalonga, 1961.</td>
             <td>Descripción física: 454 p. ; 22 cm.</td>
+            <td>Colección editorial: Biblioteca de estudios económicos</td>
+            <td>Nota de bibliografía: Índice de autores.</td>
+            <td>Materias: Libertad</td>
             <td>ISBN: 84-254-1151-3</td>
         </tr></table>"#;
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
@@ -497,6 +500,9 @@ mod tests {
         assert_eq!(result.publisher.as_deref(), Some("Valencia : Fundación Ignacio Villalonga"));
         assert_eq!(result.publication_year, Some(1961));
         assert_eq!(result.physical_description.as_deref(), Some("454 p. ; 22 cm."));
+        assert_eq!(result.series.as_deref(), Some("Biblioteca de estudios económicos"));
+        assert_eq!(result.notes, vec!["Índice de autores."]);
+        assert_eq!(result.subjects, vec!["Libertad"]);
         assert_eq!(result.isbn.as_deref(), Some("84-254-1151-3"));
     }
 
