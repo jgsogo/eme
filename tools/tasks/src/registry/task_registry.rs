@@ -361,8 +361,11 @@ impl TaskRegistry {
             enabled: t.enabled,
             next_run: t.next_run,
         };
-        fs::write(&tmp, toml::to_string_pretty(&stored).map_err(storage_error)?)
-            .map_err(storage_error)?;
+        fs::write(
+            &tmp,
+            toml::to_string_pretty(&stored).map_err(storage_error)?,
+        )
+        .map_err(storage_error)?;
         if let Err(e) = fs::rename(&tmp, &path) {
             let _ = fs::remove_file(tmp);
             return Err(storage_error(e));
