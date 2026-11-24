@@ -124,7 +124,6 @@ async fn run_scheduler(
                 continue;
             };
             let scheduled_at = task.scheduled_for;
-            let recurring = task.schedule.is_some();
             match manager
                 .submit_for_task(
                     task.id,
