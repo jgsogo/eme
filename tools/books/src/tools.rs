@@ -1,13 +1,13 @@
 //! Agent tools for the authenticated user's personal book collection and RABEL.
 use agent_runtime::{Tool, ToolContext, ToolDefinition, ToolError, ToolRegistry};
 use async_trait::async_trait;
-use rabel_tool::{CatalogueItem, CatalogueSearchResult, RabelClient};
+use rabel_tool::{CatalogueItem, RabelClient};
 use serde_json::{Value, json};
 
 use crate::{Book, BookInput, BookStore, BookUpdate};
 
 pub fn register_tools(registry: &mut ToolRegistry, store: BookStore) -> Result<(), agent_config::ConfigError> {
-    registry.register(def("books.list", "List books in the authenticated user's personal collection.", object(json!({}))), List(store.clone()))?;
+    registry.register(def("books.list", "List books in the authenticated user's personal collection.", object(json!({}), &[])), List(store.clone()))?;
     registry.register(def("books.get", "Get a book from the authenticated user's personal collection.", object(json!({"id":{"type":"string","minLength":1}}), &["id"]), Get(store.clone()))?;
     registry.register(def("books.add", "Add a book to the authenticated user's personal collection.", book_input_schema(), Add(store.clone()))?;
     registry.register(def("books.update", "Update catalogue or personal metadata for a book in the authenticated user's collection.", book_update_schema(), Update(store.clone()))?;
@@ -83,30 +83,29 @@ fn title_matches(search_title: &str, parsed_title: &str) -> bool {
     let parsed = normalize_title(parsed_title);
     search == parsed || (parsed.split_whitespace().count() >= 2 && search.ends_with(&format!(" {parsed}")))
 }
-fn exact_isbn(book: &Book, result: &CatalogueSearchResult, item: &CatalogueItem) -> bool {
+fn exact_isbn(book: &Book, result_isbn: Option<&str>, item: &CatalogueItem) -> bool {
     let Some(wanted) = book.isbn.as_deref().map(normalize_isbn) else { return false; };
-    item.isbn.as_deref().or(result.isbn.as_deref())
+    item.isbn.as_deref().or(result_isbn)
         .is_some_and(|candidate| normalize_isbn(candidate) == wanted)
 }
-async fn find_catalogue_item(client: &RabelClient, book: &Book) -> Result<Option<CatalogueItem>, ToolError> {
+async fn find_catalogue_record(client: &RabelClient, book: &Book) -> Result<Option<(String, CatalogueItem)>, ToolError> {
+    let isbn_query = book.isbn.as_deref().filter(|value| !value.trim().is_empty());
     let mut queries = Vec::new();
-    if let Some(isbn) = book.isbn.as_deref().filter(|value| !value.trim().is_empty()) {
-        queries.push(isbn.to_owned());
-    }
-    queries.push(book.title.clone());
-    for query in queries {
+    if let Some(isbn) = isbn_query { queries.push((isbn.to_owned(), true)); }
+    queries.push((book.title.clone(), false));
+    for (query, isbn_lookup) in queries {
         let results = client.search(&query, 20).await.map_err(execution)?;
         for result in results {
             let item = match client.get_item(&result.record_ref).await {
                 Ok(item) => item,
                 Err(_) => continue,
             };
-            let matched = if book.isbn.is_some() && query == book.isbn.as_deref().unwrap_or_default() {
-                exact_isbn(book, &result, &item)
+            let matched = if isbn_lookup {
+                exact_isbn(book, result.isbn.as_deref(), &item)
             } else {
                 item.title.as_deref().is_some_and(|title| title_matches(&result.title, title) && title_matches(&book.title, title))
             };
-            if matched { return Ok(Some(item)); }
+            if matched { return Ok(Some((result.record_ref, item))); }
         }
     }
     Ok(None)
@@ -206,29 +205,10 @@ impl Tool for CheckAvailability {
                 Ok(client) => client,
                 Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
             };
-            let record = match find_catalogue_item(&client, &book).await {
-                Ok(Some(item)) => item,
+            let (record_ref, record) = match find_catalogue_record(&client, &book).await {
+                Ok(Some(record)) => record,
                 Ok(None) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"not_found","copies":[]})); continue; }
                 Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
-            };
-            // Re-resolve the record within this client's session: record refs are
-            // intentionally not persisted or shared between catalogue sessions.
-            let query = book.isbn.as_deref().unwrap_or(&book.title);
-            let search = match client.search(query, 20).await {
-                Ok(results) => results,
-                Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
-            };
-            let mut record_ref = None;
-            for candidate in search {
-                let item = match client.get_item(&candidate.record_ref).await { Ok(item) => item, Err(_) => continue };
-                let matched = if book.isbn.is_some() { exact_isbn(&book, &candidate, &item) } else {
-                    item.title.as_deref().is_some_and(|title| title_matches(&candidate.title, title) && title_matches(&book.title, title))
-                };
-                if matched { record_ref = Some(candidate.record_ref); break; }
-            }
-            let Some(record_ref) = record_ref else {
-                results.push(json!({"library_id":library_id,"library_name":library_name,"status":"not_found","copies":[]}));
-                continue;
             };
             match client.get_holdings(&record_ref).await {
                 Ok(holdings) => results.push(json!({"library_id":library_id,"library_name":library_name,"status":"found","catalogue_title":record.title,"checked_at":holdings.checked_at,"copies":holdings.copies})),
@@ -245,7 +225,7 @@ impl Tool for RefreshCatalogue {
         let id = args["id"].as_str().filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("id is required"))?;
         let book = self.0.get(user, id).await.map_err(execution)?;
         let client = RabelClient::new().map_err(execution)?;
-        let item = find_catalogue_item(&client, &book).await?.ok_or_else(|| execution("No exact matching RABEL record was found; collection data was left unchanged"))?;
+        let (_, item) = find_catalogue_record(&client, &book).await?.ok_or_else(|| execution("No exact matching RABEL record was found; collection data was left unchanged"))?;
         let updated = self.0.update(user, id, BookUpdate {
             title: item.title.clone(),
             authors: Some(item.authors.clone()),
