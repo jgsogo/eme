@@ -353,7 +353,8 @@ impl TraktSyncService {
                 "ids":{"tmdb":tmdb_id},"rating":trakt_rating,"rated_at":rated_at
             }]}),
         };
-        self.post_json("/sync/ratings", &payload, &access_token).await?;
+        self.post_json("/sync/ratings", &payload, &access_token)
+            .await?;
         self.media.save_media_item(item).await?;
         self.media.save_rating(rating).await?;
         Ok(())
@@ -408,7 +409,9 @@ impl TraktSyncService {
                 .get(reqwest::header::RETRY_AFTER)
                 .and_then(|value| value.to_str().ok())
                 .and_then(|value| value.parse().ok());
-            return Err(TraktSyncError::RateLimited { retry_after_seconds });
+            return Err(TraktSyncError::RateLimited {
+                retry_after_seconds,
+            });
         }
         if !status.is_success() {
             let message = response
