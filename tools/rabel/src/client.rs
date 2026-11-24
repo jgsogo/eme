@@ -79,12 +79,22 @@ impl RabelClient {
         if !response.status().is_success() {
             return Err(RabelError::Http(response.status()));
         }
-        let bootstrap_url = response.url().clone();
+        let request_url = response.url().clone();
         let html = response.text().await?;
         let target = parser::meta_refresh_target(&html)
             .ok_or_else(|| RabelError::Parse("search bootstrap did not contain a session URL".into()))?;
-        let session_url = bootstrap_url.join(&target)
+        let mut session_url = request_url.join(&target)
             .map_err(|error| RabelError::Parse(format!("invalid session URL: {error}")))?;
+
+        // AbsysNet's meta-refresh commonly points only to the session's /NT1
+        // endpoint and drops the original search parameters. Carry the search
+        // request into that session URL; otherwise RABEL displays its landing
+        // page and the parser sees navigation links instead of search results.
+        for (key, value) in request_url.query_pairs() {
+            if !session_url.query_pairs().any(|(existing, _)| existing == key) {
+                session_url.query_pairs_mut().append_pair(&key, &value);
+            }
+        }
         self.read_html(session_url).await
     }
 
