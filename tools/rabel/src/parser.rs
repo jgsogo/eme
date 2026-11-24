@@ -65,7 +65,7 @@ pub(super) fn record(html: &str, source_url: &str) -> Result<CatalogueItem, Rabe
 }
 
 fn library_page_diagnostic(html: &str) -> String {
-    let title = Regex::new(r"(?is)<title\\b[^>]*>(.*?)</title>")
+    let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>")
         .ok()
         .and_then(|re| re.captures(html))
         .and_then(|captures| captures.get(1))
@@ -73,14 +73,14 @@ fn library_page_diagnostic(html: &str) -> String {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "(no title)".to_owned());
 
-    let selects = Regex::new(r"(?is)<select\\b([^>]*)>(.*?)</select>")
+    let selects = Regex::new(r"(?is)<select\b([^>]*)>(.*?)</select>")
         .ok()
         .map(|re| {
             re.captures_iter(html)
                 .map(|captures| {
                     let attrs = captures.get(1).map(|m| m.as_str()).unwrap_or("");
                     let body = captures.get(2).map(|m| m.as_str()).unwrap_or("");
-                    let options = Regex::new(r"(?is)<option\\b")
+                    let options = Regex::new(r"(?is)<option\b")
                         .map(|re| re.find_iter(body).count())
                         .unwrap_or(0);
                     format!("select[{attrs}] options={options}")
@@ -90,7 +90,7 @@ fn library_page_diagnostic(html: &str) -> String {
         })
         .unwrap_or_default();
 
-    let forms = Regex::new(r#"(?is)<form\\b([^>]*)>"#)
+    let forms = Regex::new(r#"(?is)<form\b([^>]*)>"#)
         .ok()
         .map(|re| re.captures_iter(html)
             .filter_map(|captures| captures.get(1).map(|m| m.as_str().trim().to_owned()))
@@ -98,7 +98,7 @@ fn library_page_diagnostic(html: &str) -> String {
             .collect::<Vec<_>>())
         .unwrap_or_default();
 
-    let body = Regex::new(r"(?is)<body\\b[^>]*>(.*?)</body>")
+    let body = Regex::new(r"(?is)<body\b[^>]*>(.*?)</body>")
         .ok()
         .and_then(|re| re.captures(html))
         .and_then(|captures| captures.get(1))
