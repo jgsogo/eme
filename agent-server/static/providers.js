@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
 const state={providers:[]};
+const testIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2L14 9V3M8 15h8"/></svg>';
 const escapeHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const formatCapability=value=>String(value??"").replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
 function renderResult(container,result){
@@ -27,7 +28,7 @@ function render(){
    const capabilities=(model.capabilities||[]).map(capability=>'<span class="tool-card-tag">'+escapeHtml(formatCapability(capability))+'</span>').join("");
    return '<div class="provider-model" data-model-index="'+index+'"><div class="provider-model-heading"><div><strong>'+escapeHtml(model.name)+'</strong><span class="tool-card-tag">'+(model.capabilities||[]).length+' capabilities</span></div><button class="secondary provider-test-button" type="button" data-test-model="'+escapeHtml(model.name)+'">Test</button></div><div class="agent-tags">'+(capabilities||'<span class="usage-empty">No capabilities declared</span>')+'</div><div class="provider-model-result" aria-live="polite"></div></div>';
   }).join("");
-  return '<article class="panel tool-card" data-provider="'+escapeHtml(provider.name)+'"><div class="tool-card-heading"><div><h3>'+escapeHtml(provider.name)+'</h3><p>Client adapter: '+escapeHtml(provider.client)+'</p></div><div class="provider-actions"><span class="tool-card-tag">'+(provider.models||[]).length+' models</span><button class="secondary provider-test-button" type="button" data-test-provider>Test all</button></div></div><div class="provider-models">'+models+'</div></article>';
+  return '<article class="panel tool-card" data-provider="'+escapeHtml(provider.name)+'"><div class="tool-card-heading"><div><h3>'+escapeHtml(provider.name)+'</h3><p>Client adapter: '+escapeHtml(provider.client)+'</p></div><div class="provider-actions"><span class="tool-card-tag">'+(provider.models||[]).length+' models</span><button class="secondary provider-test-button" type="button" data-test-provider>${testIcon}<span>Test all</span></button></div></div><div class="provider-models">'+models+'</div></article>';
  }).join(""):'<p class="usage-empty">No providers or models match this search.</p>';
  const count=state.providers.reduce((total,provider)=>total+(provider.models||[]).length,0);
  $("providers-status").textContent=providers.length+" of "+state.providers.length+" providers · "+count+" configured models";
@@ -37,7 +38,7 @@ async function testModel(button){
  const row=button.closest(".provider-model");
  const result=row.querySelector(".provider-model-result");
  button.disabled=true;
- button.textContent="Testing…";
+ button.innerHTML="<span>Testing…</span>";
  result.className="provider-model-result pending";
  result.textContent="Sending a test completion request…";
  try{
@@ -49,7 +50,7 @@ async function testModel(button){
   result.textContent="Test failed: "+error.message;
  }finally{
   button.disabled=false;
-  button.textContent="Test";
+  button.innerHTML=testIcon+"<span>Test</span>";
  }
 }
 async function testProvider(button){
@@ -80,7 +81,7 @@ async function testProvider(button){
   });
  }finally{
   button.disabled=false;
-  button.textContent="Test all";
+  button.innerHTML=testIcon+"<span>Test all</span>";
   modelButtons.forEach(modelButton=>modelButton.disabled=false);
  }
 }
