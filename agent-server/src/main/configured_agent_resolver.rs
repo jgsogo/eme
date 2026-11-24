@@ -30,8 +30,8 @@ pub(super) struct ConfiguredAgentResolver {
 }
 
 impl ConfiguredAgentResolver {
-    pub(super) fn provider_catalog(&self) -> Vec<agent_models::ProviderInfo> {
-        self.models.catalog()
+    pub(super) fn provider_catalog(&self) -> Arc<ModelRegistry> {
+        Arc::clone(&self.models)
     }
 
     pub(super) fn tool_catalog(&self) -> Vec<agent_runtime::ToolDefinition> {

@@ -1,7 +1,15 @@
 //! Serves the independent desktop and mobile web console pages and their shared assets.
 
-use actix_web::{HttpRequest, HttpResponse, Responder, get, http::header, web::Data};
-use agent_models::ProviderInfo;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+use actix_web::{
+    HttpRequest, HttpResponse, Responder, get, http::header, route,
+    web::{self, Data},
+};
+use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
 use agent_runtime::ToolDefinition;
 
 fn is_mobile_user_agent(user_agent: &str) -> bool {
@@ -59,11 +67,156 @@ pub(super) async fn providers_script() -> impl Responder {
         .body(include_str!("../../static/providers.js"))
 }
 
-#[get("/providers")]
+#[route("/providers", method = "GET", method = "POST")]
 pub(super) async fn list_configured_providers(
-    providers: Data<Vec<ProviderInfo>>,
-) -> impl Responder {
-    HttpResponse::Ok().json(providers.get_ref())
+    request: HttpRequest,
+    providers: Data<Arc<Registry>>,
+    body: Option<web::Json<serde_json::Value>>,
+) -> HttpResponse {
+    if request.method().as_str() == "GET" {
+        return HttpResponse::Ok().json(providers.catalog());
+    }
+
+    let Some(body) = body else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "A JSON body with a provider name is required"
+        }));
+    };
+    let Some(provider_name) = body.get("provider").and_then(serde_json::Value::as_str) else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The provider field must be a string"
+        }));
+    };
+    if provider_name.trim().is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The provider field cannot be empty"
+        }));
+    }
+
+    let Some(provider) = providers.catalog().into_iter().find(|item| item.name == provider_name)
+    else {
+        return HttpResponse::NotFound().json(serde_json::json!({
+            "error": format!("Provider '{provider_name}' is not configured")
+        }));
+    };
+
+    let requested_model = match body.get("model") {
+        Some(value) => match value.as_str() {
+            Some(model) if !model.trim().is_empty() => Some(model.to_owned()),
+            _ => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "The model field must be a non-empty string when provided"
+                }));
+            }
+        },
+        None => None,
+    };
+
+    let models = if let Some(model) = requested_model {
+        if !provider.models.iter().any(|configured| configured.name == model) {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "error": format!("Model '{provider_name}/{model}' is not configured")
+            }));
+        }
+        vec![model]
+    } else {
+        provider.models.into_iter().map(|model| model.name).collect()
+    };
+
+    let mut results = Vec::with_capacity(models.len());
+    for model in models {
+        results.push(test_configured_model(providers.get_ref(), provider_name, &model).await);
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "provider": provider_name,
+        "results": results
+    }))
+}
+
+async fn test_configured_model(
+    registry: &Registry,
+    provider: &str,
+    model: &str,
+) -> serde_json::Value {
+    let started = Instant::now();
+    let model_id = format!("{provider}/{model}");
+    let client = match registry.resolve_model(&model_id) {
+        Ok(client) => client,
+        Err(error) => {
+            return serde_json::json!({
+                "model": model,
+                "success": false,
+                "latency_ms": started.elapsed().as_millis(),
+                "error": safe_model_error(&error)
+            });
+        }
+    };
+
+    let request = ConversationRequest {
+        system: None,
+        messages: vec![ConversationMessage::User {
+            content: "Reply with exactly: EME model test OK".to_owned(),
+        }],
+        tools: Vec::new(),
+        temperature: Some(0.0),
+        max_tokens: Some(32),
+    };
+
+    match tokio::time::timeout(Duration::from_secs(30), client.complete_conversation(request)).await {
+        Ok(Ok(response)) => match response.content.filter(|content| !content.trim().is_empty()) {
+            Some(content) => serde_json::json!({
+                "model": model,
+                "provider_model": response.model,
+                "success": true,
+                "latency_ms": started.elapsed().as_millis(),
+                "response": content,
+                "usage": response.usage.map(|usage| serde_json::json!({
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens
+                }))
+            }),
+            None => serde_json::json!({
+                "model": model,
+                "success": false,
+                "latency_ms": started.elapsed().as_millis(),
+                "error": "The provider returned no text content"
+            }),
+        },
+        Ok(Err(error)) => serde_json::json!({
+            "model": model,
+            "success": false,
+            "latency_ms": started.elapsed().as_millis(),
+            "error": safe_model_error(&error)
+        }),
+        Err(_) => serde_json::json!({
+            "model": model,
+            "success": false,
+            "latency_ms": started.elapsed().as_millis(),
+            "error": "Timed out after 30 seconds"
+        }),
+    }
+}
+
+fn safe_model_error(error: &ModelError) -> String {
+    match error {
+        ModelError::InvalidModelName(_) => "Invalid model identifier".to_owned(),
+        ModelError::MissingApiKey(variable) => {
+            format!("Missing required environment variable '{variable}'")
+        }
+        ModelError::UnsupportedProvider(provider) => {
+            format!("Unsupported provider '{provider}'")
+        }
+        ModelError::UnsupportedModel(model) => format!("Unsupported model '{model}'"),
+        ModelError::Http(_) => "Provider request failed due to a network or transport error".to_owned(),
+        ModelError::Provider(_) => "The provider rejected the request".to_owned(),
+        ModelError::ProviderResponse { status, .. } => {
+            format!("The provider returned HTTP {status}")
+        }
+        ModelError::InvalidResponse(_) => "The provider returned an invalid response".to_owned(),
+        ModelError::Cancelled => "The model test was cancelled".to_owned(),
+        ModelError::AllCandidatesFailed(_) => "The model test failed".to_owned(),
+    }
 }
 
 #[get("/console/admin/agents")]

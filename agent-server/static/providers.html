@@ -7,6 +7,20 @@
   <title>Admin · Providers · EME</title>
   <link rel="stylesheet" href="/assets/console.css">
   <link rel="stylesheet" href="/assets/usage.css">
+  <style>
+    .provider-actions{display:flex;align-items:center;gap:10px}
+    .provider-model-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .provider-model-heading>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .provider-test-button{white-space:nowrap}
+    .provider-model-result{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px}
+    .provider-model-result p{flex-basis:100%;margin:0;overflow-wrap:anywhere;color:var(--muted)}
+    .provider-model-result.success strong{color:var(--success,#25865a)}
+    .provider-model-result.error strong,.provider-model-result.error{color:var(--danger,#b54747)}
+    .provider-model-result.pending{color:var(--muted)}
+    .provider-model-result:empty{display:none}
+    .provider-model{padding:14px 0;border-top:1px solid var(--line)}
+    .provider-model:first-child{border-top:0}
+  </style>
   <script src="/assets/desktop-header.js" defer></script>
   <script src="/assets/console-auth.js" defer></script>
   <script src="/assets/providers.js" defer></script>
