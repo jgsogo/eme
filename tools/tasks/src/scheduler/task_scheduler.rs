@@ -350,7 +350,10 @@ mod context_tests {
         assert_eq!(context.user_id.as_deref(), Some(expected_user_id.as_str()));
         assert_eq!(context.telegram_id.as_deref(), Some("42"));
         assert_eq!(
-            context.family.as_ref().map(|value| value.family_id.as_str()),
+            context
+                .family
+                .as_ref()
+                .map(|value| value.family_id.as_str()),
             Some(expected_family_id.as_str())
         );
         assert_eq!(context.families.len(), 1);
