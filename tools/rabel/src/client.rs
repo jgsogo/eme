@@ -176,7 +176,7 @@ mod tests {
     use super::*;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{method, path, query_param},
+        matchers::{header, method, path, query_param},
     };
 
     #[tokio::test]
@@ -202,6 +202,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/cgi-bin/abnetopac2/session-token"))
             .and(query_param("ACC", "161"))
+            .and(header("cookie", "session=abc"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .insert_header("content-type", "text/html; charset=iso-8859-1")
