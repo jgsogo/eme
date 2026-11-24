@@ -115,14 +115,31 @@ async fn refresh_catalogue(
             }
         };
         let matches = if let Some(wanted) = &wanted_isbn {
-            item.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) == *wanted)
-                || result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) == *wanted)
+            item.isbn.as_deref().or(result.isbn.as_deref())
+                .is_some_and(|candidate| normalize_isbn(candidate) == *wanted)
         } else {
             item.title.as_deref().is_some_and(|title| normalize_title(title) == wanted_title)
         };
         if matches {
             matched_item = Some(item);
             break;
+        }
+    }
+
+    // If the stored ISBN is absent from RABEL's search index or stale, make
+    // one conservative fallback pass and accept only an exact parsed-title match.
+    if matched_item.is_none() && wanted_isbn.is_some() {
+        if let Ok(fallback_results) = client.search(&book.title, 20).await {
+            for result in fallback_results {
+                let item = match client.get_item(&result.record_ref).await {
+                    Ok(item) => item,
+                    Err(_) => continue,
+                };
+                if item.title.as_deref().is_some_and(|title| normalize_title(title) == wanted_title) {
+                    matched_item = Some(item);
+                    break;
+                }
+            }
         }
     }
 
