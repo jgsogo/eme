@@ -131,6 +131,7 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
             title,
             authors: extract_authors(&context),
             publication: labelled_value(&context, &["Publicación", "Edición", "Datos de publicación"]),
+            category: extract_document_category(&context),
             isbn: extract_isbn(&context),
         });
     }
@@ -302,6 +303,33 @@ fn first_heading(html: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
+fn extract_document_category(row_html: &str) -> Option<String> {
+    let text = clean_text(row_html);
+    let labelled = labelled_value(
+        &text,
+        &["Tipo de documento", "Tipo de material", "Tipo de soporte", "Material"],
+    );
+    if labelled.is_some() {
+        return labelled;
+    }
+
+    // Some AbsysNet themes render the document class as an icon rather than
+    // visible text. Prefer its accessible title/alt text when available.
+    let attributes = Regex::new(r#"(?is)<img\\b[^>]*(?:alt|title)\\s*=\\s*["']([^"']+)["'][^>]*>"#).ok()?;
+    attributes.captures_iter(row_html).find_map(|capture| {
+        let value = clean_text(capture.get(1)?.as_str());
+        let normalized = value.to_lowercase();
+        let known = [
+            "monografía", "monografías", "libro", "videograbación", "videograbaciones",
+            "película", "grabación sonora", "grabaciones sonoras", "revista",
+            "revistas", "periódico", "periódicos", "artículo de revista",
+            "recurso electrónico", "material cartográfico", "manuscrito",
+            "material gráfico", "partitura",
+        ];
+        known.iter().any(|candidate| normalized.contains(candidate)).then_some(value)
+    })
+}
+
 fn extract_authors(text: &str) -> Vec<String> {
     labelled_value(text, &["Autor", "Autores"]).map(|value| {
         value.split(';').map(str::trim).filter(|v| !v.is_empty()).map(str::to_owned).collect()
@@ -317,7 +345,7 @@ fn labelled_value(text: &str, labels: &[&str]) -> Option<String> {
     // AbsysNet frequently puts several labelled fields in one table cell,
     // separated only by whitespace. Stop a value at the next known label.
     let next_field = Regex::new(
-        r"(?i)\\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Formato|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\\s*:?"
+        r"(?i)\\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Tipo de documento|Tipo de material|Tipo de soporte|Formato|Material|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\\s*:?"
     ).ok()?;
     for label in labels {
         let pattern = format!(r"(?i){}\\s*:?\\s*([^|;]{{2,120}})", regex::escape(label));
@@ -358,6 +386,14 @@ fn decode_entities(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extracts_document_category_from_catalogue_row() {
+        let html = r#"<tr><td><a href="/token/NT1?ACC=165&amp;DOC=42">El viaje</a></td><td>Tipo de documento: Videograbaciones</td></tr>"#;
+        let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
+        let results = search_results(html, &session).unwrap();
+        assert_eq!(results[0].category.as_deref(), Some("Videograbaciones"));
+    }
 
     #[test]
     fn parses_library_selector_options() {
