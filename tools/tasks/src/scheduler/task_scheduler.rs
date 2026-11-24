@@ -59,12 +59,25 @@ async fn task_tool_context(
     identities: &FileUserIdentityStore,
     family_service: &FamilyService,
 ) -> Result<ToolContext, String> {
-    let user_id = UserId::from_str(&task.user_id)
-        .map_err(|error| format!("invalid task owner identifier: {error}"))?;
-    let telegram_identity = identities
-        .find_identity_for_user("telegram", user_id)
-        .map_err(|error| format!("resolving task owner's Telegram identity: {error}"))?
-        .ok_or_else(|| "task owner has no linked Telegram identity".to_owned())?;
+    // New tasks are owned by stable EME user IDs. Resolve legacy transport-scoped
+    // owners as well, so tasks created before identity migration remain executable.
+    let telegram_identity = match UserId::from_str(&task.user_id) {
+        Ok(user_id) => identities
+            .find_identity_for_user("telegram", user_id)
+            .map_err(|error| format!("resolving task owner's Telegram identity: {error}"))?,
+        Err(_) => {
+            let subject = task
+                .user_id
+                .strip_prefix("telegram:")
+                .filter(|subject| !subject.is_empty())
+                .ok_or_else(|| "task owner identifier is invalid".to_owned())?;
+            identities
+                .find_identity("telegram", subject)
+                .map_err(|error| format!("resolving legacy task owner identity: {error}"))?
+        }
+    }
+    .ok_or_else(|| "task owner has no linked Telegram identity".to_owned())?;
+    let user_id = telegram_identity.user_id;
     let user = identities
         .get_user(user_id)
         .map_err(|error| format!("loading task owner profile: {error}"))?;
@@ -97,7 +110,7 @@ async fn task_tool_context(
     let families = family.iter().cloned().collect();
 
     Ok(ToolContext {
-        user_id: Some(task.user_id.clone()),
+        user_id: Some(user_id.to_string()),
         timezone: user.and_then(|profile| profile.timezone),
         telegram_id: Some(telegram_identity.subject),
         family,
