@@ -326,7 +326,7 @@ fn normalize_document_category(value: &str) -> String {
     } else if normalized.contains("videograb") || normalized.contains("película")
         || normalized == "vídeo" || normalized == "video" || normalized.contains("vídeo") {
         "Film / video".to_owned()
-    } else if normalized.contains("grabación sonora") || normalized.contains("grabaciones sonoras") || normalized.contains("grabacion sonora") || normalized.contains("grabaciones sonoras") {
+    } else if normalized.contains("grabación sonora") || normalized.contains("grabacion sonora") || normalized.contains("grabaciones sonoras") {
         "Audio".to_owned()
     } else if normalized.contains("artículo de revista") {
         "Journal article".to_owned()
