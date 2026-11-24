@@ -118,8 +118,17 @@ impl RabelClient {
         }
         let bootstrap_url = response.url().clone();
         let bootstrap_html = response.text().await?;
+
+        // The library selector belongs to the OPAC's landing page in some
+        // RABEL configurations. Unlike a search, listing libraries must not
+        // assume that the selector is present after following the session
+        // meta-refresh (the session page may already be scoped to one library).
+        if let Ok(libraries) = parser::libraries(&bootstrap_html) {
+            return Ok(libraries);
+        }
+
         let target = parser::meta_refresh_target(&bootstrap_html)
-            .ok_or_else(|| RabelError::Parse("library bootstrap did not contain a session URL".into()))?;
+            .ok_or_else(|| RabelError::Parse("library selector not found in RABEL bootstrap page; no session URL to inspect".into()))?;
         let session_url = bootstrap_url.join(&target)
             .map_err(|error| RabelError::Parse(format!("invalid session URL: {error}")))?;
         let (_, html) = self.read_html(session_url).await?;
