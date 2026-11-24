@@ -457,31 +457,36 @@ pub(super) async fn invitation_page(request: HttpRequest) -> impl Responder {
 
 #[get("/mobile/admin/usage")]
 pub(super) async fn mobile_admin_usage_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/mobile_admin_usage.html"))
 }
 
 #[get("/mobile/admin/providers")]
 pub(super) async fn mobile_admin_providers_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/mobile_admin_providers.html"))
 }
 
 #[get("/mobile/admin/agents")]
 pub(super) async fn mobile_admin_agents_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/mobile_admin_agents.html"))
 }
 
 #[get("/mobile/admin/tools")]
 pub(super) async fn mobile_admin_tools_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/mobile_admin_tools.html"))
 }
 
 #[get("/assets/mobile-admin.css")]
 pub(super) async fn mobile_admin_stylesheet() -> impl Responder {
-    HttpResponse::Ok().content_type("text/css; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/css; charset=utf-8")
         .body(include_str!("../../static/mobile-admin.css"))
 }
 
