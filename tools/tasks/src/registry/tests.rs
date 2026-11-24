@@ -150,7 +150,6 @@ fn task_definitions_can_be_updated_and_enabled_without_cross_user_access() {
     fs::remove_dir_all(directory).unwrap();
 }
 
-
 #[test]
 fn persists_pending_due_time_across_registry_restarts() {
     let directory = temp_dir();
@@ -202,7 +201,11 @@ enabled = true
     let registry = TaskRegistry::load(&directory).unwrap();
     assert_eq!(
         registry.snapshot()[0].next_run,
-        Some(chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z").unwrap().to_utc())
+        Some(
+            chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
+                .unwrap()
+                .to_utc()
+        )
     );
     fs::remove_dir_all(directory).unwrap();
 }
