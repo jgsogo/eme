@@ -1,5 +1,6 @@
 //! HTTP and session handling for the Salamanca RABEL OPAC.
 
+use std::collections::HashSet;
 use std::time::Duration;
 
 use reqwest::{Client, StatusCode};
@@ -24,7 +25,6 @@ pub enum RabelError {
     InvalidRecordReference,
 }
 
-/// Stateful client: one reqwest client owns the cookie jar used by AbsysNet.
 pub struct RabelClient {
     http: Client,
     opac_url: Url,
@@ -36,7 +36,6 @@ impl RabelClient {
         Self::with_endpoint(Url::parse(OPAC_URL).expect("valid OPAC URL"), SUBCATALOG)
     }
 
-    /// Create a client scoped to one library selector value returned by RABEL.
     pub fn for_subcatalog(subcatalog: &str) -> Result<Self, RabelError> {
         if subcatalog.trim().is_empty() {
             return Err(RabelError::Parse("subcatalog must not be empty".into()));
@@ -46,37 +45,23 @@ impl RabelClient {
     }
 
     fn with_endpoint(opac_url: Url, subcatalog: &str) -> Result<Self, reqwest::Error> {
-        let http = Client::builder()
-            .cookie_store(true)
-            .timeout(Duration::from_secs(20))
-            .user_agent(concat!("eme-rabel/", env!("CARGO_PKG_VERSION")))
-            .build()?;
+        let http = Client::builder().cookie_store(true).timeout(Duration::from_secs(20))
+            .user_agent(concat!("eme-rabel/", env!("CARGO_PKG_VERSION"))).build()?;
         Ok(Self { http, opac_url, subcatalog: subcatalog.to_owned() })
     }
 
     async fn read_html(&self, url: Url) -> Result<(Url, String), RabelError> {
         let response = self.http.get(url).send().await?;
-        if !response.status().is_success() {
-            return Err(RabelError::Http(response.status()));
-        }
+        if !response.status().is_success() { return Err(RabelError::Http(response.status())); }
         let final_url = response.url().clone();
-        // RABEL currently declares ISO-8859-1. reqwest's text() handles
-        // charset headers; use it for correct Spanish accents.
         let html = response.text().await?;
-        if html.len() > MAX_RESPONSE_BYTES {
-            return Err(RabelError::Parse("response exceeds 5 MiB limit".into()));
-        }
+        if html.len() > MAX_RESPONSE_BYTES { return Err(RabelError::Parse("response exceeds 5 MiB limit".into())); }
         Ok((final_url, html))
     }
 
     async fn search_page(&self, query: &str) -> Result<(Url, String), RabelError> {
-        // Start at the public OPAC URL to establish an AbsysNet session. The
-        // bootstrap response redirects/meta-refreshes to a session root; the
-        // actual form action on that page is the session's /NT1 endpoint.
         let response = self.http.get(self.opac_url.clone()).send().await?;
-        if !response.status().is_success() {
-            return Err(RabelError::Http(response.status()));
-        }
+        if !response.status().is_success() { return Err(RabelError::Http(response.status())); }
         let bootstrap_url = response.url().clone();
         let bootstrap_html = response.text().await?;
         let target = parser::meta_refresh_target(&bootstrap_html)
@@ -84,51 +69,47 @@ impl RabelClient {
         let session_root = bootstrap_url.join(&target)
             .map_err(|error| RabelError::Parse(format!("invalid session URL: {error}")))?;
         let (landing_url, landing_html) = self.read_html(session_root).await?;
-
-        // AbsysNet serves the catalogue shell from the session root. Its
-        // forms post to /NT1, but direct catalogue searches are supported as
-        // GET requests using ACC=DOSEARCH and xsqf01 (Baratz OPAC URL-search
-        // convention). Sending the query to the root only returns the shell.
         let mut search_url = parser::session_action(&landing_html, &landing_url)
-            .ok_or_else(|| RabelError::Parse(format!(
-                "RABEL landing page did not expose a session form action; {}",
-                parser::search_page_diagnostic(&landing_html, &landing_url)
-            )))?;
-        search_url.query_pairs_mut()
-            .append_pair("SUBC", &self.subcatalog)
-            .append_pair("ACC", "DOSEARCH")
-            .append_pair("xsqf01", query);
+            .ok_or_else(|| RabelError::Parse(format!("RABEL landing page did not expose a session form action; {}",
+                parser::search_page_diagnostic(&landing_html, &landing_url)))?;
+        search_url.query_pairs_mut().append_pair("SUBC", &self.subcatalog)
+            .append_pair("ACC", "DOSEARCH").append_pair("xsqf01", query);
         self.read_html(search_url).await
     }
 
     pub async fn search(&self, query: &str, limit: usize) -> Result<Vec<CatalogueSearchResult>, RabelError> {
-        if query.trim().is_empty() {
-            return Err(RabelError::Parse("query must not be empty".into()));
-        }
-        if !(1..=20).contains(&limit) {
-            return Err(RabelError::Parse("limit must be between 1 and 20".into()));
-        }
+        if query.trim().is_empty() { return Err(RabelError::Parse("query must not be empty".into())); }
+        if !(1..=20).contains(&limit) { return Err(RabelError::Parse("limit must be between 1 and 20".into())); }
 
-        // AbsysNet can interpret a multi-word title as an overly restrictive
-        // phrase, and some query forms occasionally fail upstream. Retry with
-        // meaningful title terms before returning an empty result or an error.
-        let fallback = fallback_search_query(query);
+        let fallbacks = fallback_search_queries(query);
         match self.search_once(query).await {
             Ok(results) if !results.is_empty() => Ok(results.into_iter().take(limit).collect()),
-            Ok(_) => match fallback {
-                Some(fallback) => self.search_once(&fallback).await
-                    .map(|results| results.into_iter().take(limit).collect()),
-                None => Ok(Vec::new()),
-            },
-            Err(original_error) => {
-                if let Some(fallback) = fallback {
-                    if let Ok(results) = self.search_once(&fallback).await {
-                        if !results.is_empty() {
-                            return Ok(results.into_iter().take(limit).collect());
+            first_attempt => {
+                let mut last_error = match first_attempt {
+                    Err(error) => Some(error),
+                    Ok(_) => None,
+                };
+                let mut combined = Vec::new();
+                let mut seen = HashSet::new();
+
+                for fallback in fallbacks {
+                    match self.search_once(&fallback).await {
+                        Ok(results) => {
+                            for result in results {
+                                if seen.insert(result.record_ref.clone()) {
+                                    combined.push(result);
+                                    if combined.len() >= limit { break; }
+                                }
+                            }
                         }
+                        Err(error) => last_error = Some(error),
                     }
+                    if combined.len() >= limit { break; }
                 }
-                Err(original_error)
+
+                if !combined.is_empty() { return Ok(combined); }
+                if let Some(error) = last_error { return Err(error); }
+                Ok(Vec::new())
             }
         }
     }
@@ -145,26 +126,13 @@ impl RabelClient {
     }
 
     pub async fn libraries(&self) -> Result<Vec<Library>, RabelError> {
-        // Like catalogue searches, the OPAC's first response is a bootstrap
-        // page containing a session-specific URL. The library selector is
-        // rendered on that session page, not reliably on the bootstrap page.
         let mut url = self.opac_url.clone();
         url.query_pairs_mut().append_pair("SUBC", &self.subcatalog);
         let response = self.http.get(url).send().await?;
-        if !response.status().is_success() {
-            return Err(RabelError::Http(response.status()));
-        }
+        if !response.status().is_success() { return Err(RabelError::Http(response.status())); }
         let bootstrap_url = response.url().clone();
         let bootstrap_html = response.text().await?;
-
-        // The library selector belongs to the OPAC's landing page in some
-        // RABEL configurations. Unlike a search, listing libraries must not
-        // assume that the selector is present after following the session
-        // meta-refresh (the session page may already be scoped to one library).
-        if let Ok(libraries) = parser::libraries(&bootstrap_html) {
-            return Ok(libraries);
-        }
-
+        if let Ok(libraries) = parser::libraries(&bootstrap_html) { return Ok(libraries); }
         let target = parser::meta_refresh_target(&bootstrap_html)
             .ok_or_else(|| RabelError::Parse("library selector not found in RABEL bootstrap page; no session URL to inspect".into()))?;
         let session_url = bootstrap_url.join(&target)
@@ -175,42 +143,53 @@ impl RabelClient {
 
     fn validate_record_ref(&self, value: &str) -> Result<Url, RabelError> {
         let url = self.opac_url.join(value).map_err(|_| RabelError::InvalidRecordReference)?;
-        if url.scheme() != "https"
-            || url.host_str() != self.opac_url.host_str()
+        if url.scheme() != "https" || url.host_str() != self.opac_url.host_str()
             || !url.path().starts_with("/cgi-bin/abnetopac2/")
-            || url.query_pairs().all(|(key, _)| key != "ACC")
-        {
+            || url.query_pairs().all(|(key, _)| key != "ACC") {
             return Err(RabelError::InvalidRecordReference);
         }
         Ok(url)
     }
 }
 
-
-fn fallback_search_query(query: &str) -> Option<String> {
+fn fallback_search_queries(query: &str) -> Vec<String> {
     const STOP_WORDS: &[&str] = &[
         "a", "al", "con", "como", "de", "del", "el", "en", "la", "las",
         "lo", "los", "para", "por", "un", "una", "unas", "unos", "y",
     ];
-
     let terms = query.split(|character: char| !character.is_alphanumeric())
         .filter(|term| !term.is_empty())
         .filter(|term| !STOP_WORDS.contains(&term.to_lowercase().as_str()))
         .collect::<Vec<_>>();
-    (terms.len() >= 2).then(|| terms.join(" "))
+    let mut candidates = Vec::new();
+    if terms.len() >= 2 { candidates.push(terms.join(" ")); }
+    let mut individual = terms.into_iter().filter(|term| term.chars().count() >= 4).collect::<Vec<_>>();
+    individual.sort_by_key(|term| std::cmp::Reverse(term.chars().count()));
+    for term in individual {
+        if !candidates.iter().any(|candidate| candidate.eq_ignore_ascii_case(term)) {
+            candidates.push(term.to_owned());
+        }
+    }
+    candidates
 }
 
 #[cfg(test)]
 mod search_query_tests {
-    use super::fallback_search_query;
+    use super::fallback_search_queries;
 
     #[test]
-    fn removes_spanish_stop_words_for_fallback_search() {
-        assert_eq!(fallback_search_query("La trampa de la diversidad").as_deref(), Some("trampa diversidad"));
+    fn removes_spanish_stop_words_and_adds_single_term_fallbacks() {
+        assert_eq!(fallback_search_queries("La trampa de la diversidad"),
+            vec!["trampa diversidad", "diversidad", "trampa"]);
     }
 
     #[test]
-    fn does_not_create_a_fallback_for_a_single_meaningful_term() {
-        assert_eq!(fallback_search_query("La diversidad"), None);
+    fn does_not_create_a_fallback_for_stop_words_only() {
+        assert!(fallback_search_queries("la de y").is_empty());
+    }
+
+    #[test]
+    fn keeps_short_title_terms_out_of_broad_fallbacks() {
+        assert_eq!(fallback_search_queries("El sol"), Vec::<String>::new());
     }
 }
