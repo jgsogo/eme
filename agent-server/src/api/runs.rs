@@ -601,6 +601,10 @@ async fn cancel_run(
             }
         }
         Err(CancelRunError::NotFound) => HttpResponse::NotFound().finish(),
+        Err(CancelRunError::Storage(error)) => {
+            tracing::error!(%run_id, %error, "failed to persist run cancellation");
+            HttpResponse::InternalServerError().body("could not cancel run")
+        }
     }
 }
 
