@@ -197,25 +197,101 @@
   }
   async function loadHoldings() {
     if (!state.selected) return;
-    const container = $("book-holdings"); container.textContent = "Checking selected libraries…";
+    const container = $("book-holdings");
+    container.textContent = "Checking selected libraries…";
     try {
-      const data = await api(`/books/${state.selected.id}/holdings`); container.replaceChildren();
-      if (!data.libraries.length) { container.textContent = "Choose preferred libraries to see copy signatures."; return; }
-      for (const library of data.libraries) {
-        const section = document.createElement("section"); section.className = "holding";
-        const heading = document.createElement("strong"); heading.textContent = library.library_name; section.append(heading);
-        if (library.status === "not_found") section.append(document.createTextNode(" · No matching catalogue record."));
-        else if (library.status === "ambiguous") section.append(document.createTextNode(` · ${library.error || "Multiple catalogue records match this book; availability is not reported."}`));
-        else if (library.status === "error") section.append(document.createTextNode(` · ${library.error}`));
-        else {
-          const timestamp = document.createElement("small"); timestamp.textContent = library.checked_at ? ` · Checked ${new Date(library.checked_at).toLocaleString()}` : ""; section.append(timestamp);
-          for (const copy of library.copies) { const line = document.createElement("p"); line.textContent = [copy.signature, copy.location, copy.material, copy.availability].filter(Boolean).join(" · ") || copy.catalogue_note || "Copy details unavailable"; section.append(line); }
-          if (!library.copies.length) section.append(document.createTextNode(" · No copy details reported."));
-        }
-        container.append(section);
+      const data = await api(`/books/${state.selected.id}/holdings`);
+      container.replaceChildren();
+      if (!data.libraries.length) {
+        container.textContent = "Choose preferred libraries to see copy signatures.";
+        return;
       }
-    } catch (error) { container.textContent = error.message; }
+
+      const tableWrap = document.createElement("div");
+      tableWrap.className = "books-table-wrap";
+      const table = document.createElement("table");
+      table.className = "books-table books-holdings-table";
+      const columns = ["Library", "Catalogue record", "ISBN", "Signature", "Location", "Material", "Availability", "Additional details"];
+      const thead = document.createElement("thead");
+      const header = document.createElement("tr");
+      for (const label of columns) {
+        const th = document.createElement("th");
+        th.textContent = label;
+        header.append(th);
+      }
+      thead.append(header);
+      table.append(thead);
+      const tbody = document.createElement("tbody");
+
+      const appendRow = (library, record, copy, message) => {
+        const tr = document.createElement("tr");
+        const values = [
+          library.library_name,
+          record ? [
+            record.catalogue_title,
+            (record.authors || []).join(", "),
+            [record.publisher, record.publication_year].filter(Boolean).join(", "),
+            record.physical_description,
+            record.series
+          ].filter(Boolean).join(" · ") : message,
+          record?.isbn,
+          copy?.signature,
+          copy?.location,
+          copy?.material,
+          copy?.availability,
+          [copy?.catalogue_note, record?.error].filter(Boolean).join(" · ")
+        ];
+        for (const value of values) {
+          const td = document.createElement("td");
+          td.textContent = value === null || value === undefined || value === "" ? "—" : String(value);
+          tr.append(td);
+        }
+        tbody.append(tr);
+      };
+
+      for (const library of data.libraries) {
+        if (library.status === "not_found") {
+          appendRow(library, null, null, "No matching catalogue record");
+          continue;
+        }
+        if (library.status === "error") {
+          appendRow(library, null, null, library.error || "Could not query this library");
+          continue;
+        }
+        if (library.status === "ambiguous") {
+          const notice = document.createElement("tr");
+          notice.className = "books-holdings-ambiguous";
+          const cell = document.createElement("td");
+          cell.colSpan = columns.length;
+          cell.textContent = `${library.library_name}: ${library.records.length} matching catalogue records. All matches are listed below.`;
+          notice.append(cell);
+          tbody.append(notice);
+        }
+        for (const record of library.records || []) {
+          const copies = record.copies || [];
+          if (!copies.length) {
+            appendRow(library, record, null, record.error || "No copy details reported");
+          } else {
+            for (const copy of copies) appendRow(library, record, copy, "");
+          }
+        }
+      }
+
+      table.append(tbody);
+      tableWrap.append(table);
+      container.append(tableWrap);
+      const checked = data.libraries.flatMap(library => (library.records || []).map(record => record.checked_at).filter(Boolean));
+      if (checked.length) {
+        const note = document.createElement("p");
+        note.className = "muted";
+        note.textContent = "Availability checked: " + [...new Set(checked.map(value => new Date(value).toLocaleString()))].join(" · ");
+        container.append(note);
+      }
+    } catch (error) {
+      container.textContent = error.message;
+    }
   }
+
   $("collection-search").addEventListener("input", event => { state.collectionQuery = event.target.value; renderBooks(); });
   $("close-book-details").addEventListener("click", () => $("book-details-dialog").close());
   $("book-details-dialog").addEventListener("click", event => { if (event.target === $("book-details-dialog")) $("book-details-dialog").close(); });
