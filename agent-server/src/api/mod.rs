@@ -4,6 +4,7 @@ mod agents;
 mod conversations;
 #[rustfmt::skip]
 mod books;
+mod libraries;
 mod families;
 mod google_oauth;
 mod meal_planner;
@@ -20,6 +21,7 @@ mod tests;
 
 pub use agents::agents_api;
 pub use books::books_api;
+pub use libraries::libraries_api;
 pub use conversations::{
     ContinueConversationRequest, ConversationSummary, CreateConversationRequest,
     UpdateConversationRequest, conversations_api,
