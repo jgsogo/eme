@@ -159,7 +159,7 @@
         card.append(details);
         const add = button("Add to my collection", async () => {
           try {
-            const item = await api("/books/catalogue/item?record_ref=" + encodeURIComponent(result.record_ref));
+            const item = await api(catalogueItemPath(result));
             const book = await api("/books", { method: "POST", body: JSON.stringify({
               title: item.title || result.title,
               authors: item.authors || result.authors || [],
