@@ -63,13 +63,16 @@ impl TaskRegistry {
                 next_run: None,
             };
             validate(&task)?;
-            task.next_run = if task.enabled {
-                match persisted_next_run {
-                    Some(next) => Some(next),
-                    None => next_run(&task, Utc::now())?,
-                }
-            } else {
+            task.next_run = if !task.enabled {
                 None
+            } else if let Some(next) = persisted_next_run {
+                Some(next)
+            } else if task.schedule.is_none() {
+                // Recover legacy one-time tasks whose due time passed before next_run
+                // was persisted by treating their original "at" value as pending.
+                task.at.map(|at| at.with_timezone(&Utc))
+            } else {
+                next_run(&task, Utc::now())?
             };
             if !names.insert((task.user_id.clone(), task.name.clone())) {
                 return Err(TaskError::Invalid(format!(
