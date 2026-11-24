@@ -83,16 +83,35 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         if !href.contains("ACC=165") || !href.contains("DOC=") { continue; }
         let record_url = session_url.join(&href)
             .map_err(|error| RabelError::Parse(format!("invalid record link: {error}")))?;
-        let title = clean_text(captures.get(2).unwrap().as_str());
-        if title.is_empty() { continue; }
+        let heading = clean_text(captures.get(2).unwrap().as_str());
+        if heading.is_empty() { continue; }
         let row_html = surrounding_row(html, captures.get(0).unwrap().start());
         let context = clean_text(&row_html);
+        let authors = extract_authors(&context);
+        let (heading_title, responsibility) = split_statement_of_responsibility(&heading);
+        let title = strip_search_author_prefix(&heading_title, &authors);
+        let publication_statement = labelled_value(&context, &[
+            "Editor / Productor", "Publicación", "Publicacion", "Edición", "Edicion",
+            "Datos de publicación", "Datos de publicacion",
+        ]);
+        let publication_year = publication_statement.as_deref().and_then(extract_publication_year);
+        let publisher = publication_statement.as_deref().map(strip_publication_year).and_then(non_empty)
+            .or_else(|| labelled_value(&context, &["Editorial"]));
         results.push(CatalogueSearchResult {
             record_ref: record_url.to_string(),
-            title: title.clone(),
-            authors: extract_authors(&context),
-            publication: labelled_value(&context, &["Publicación", "Edición", "Datos de publicación"]),
-            category: extract_document_category(&title, &row_html),
+            title,
+            authors,
+            publication: publication_statement.clone(),
+            publisher,
+            publication_year,
+            responsibility,
+            publication_statement,
+            physical_description: labelled_value(&context, &["Descripción física", "Descripcion fisica"]),
+            series: labelled_value(&context, &["Colección editorial", "Coleccion editorial", "Serie"]),
+            notes: labelled_value(&context, &["Nota de bibliografía", "Nota de bibliografia", "Notas"])
+                .into_iter().collect(),
+            subjects: labelled_value(&context, &["Materias", "Materia"]).into_iter().collect(),
+            category: extract_document_category(&heading, &row_html),
             isbn: extract_isbn(&context),
         });
     }
@@ -100,6 +119,23 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         return Err(RabelError::Parse(format!("no recognized record links found in RABEL search response; {}", search_page_diagnostic(html, session_url))));
     }
     Ok(results)
+}
+
+/// Search headings commonly render as "Author Title / Responsibility".
+/// The search row's author field lets us recover the title proper without
+/// requesting the record page again.
+fn strip_search_author_prefix(title: &str, authors: &[String]) -> String {
+    for author in authors {
+        if title.len() >= author.len()
+            && title.get(..author.len()).is_some_and(|prefix| prefix.eq_ignore_ascii_case(author))
+        {
+            let remainder = title[author.len()..].trim();
+            if !remainder.is_empty() {
+                return remainder.trim_start_matches([':', '-', '–']).trim().to_owned();
+            }
+        }
+    }
+    title.trim().to_owned()
 }
 
 fn is_empty_search_page(html: &str) -> bool {
