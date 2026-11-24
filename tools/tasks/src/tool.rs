@@ -31,8 +31,11 @@ impl Tool for TaskList {
 #[async_trait]
 impl Tool for TaskAdd {
     async fn execute(&self, context: &ToolContext, arguments: Value) -> Result<String, ToolError> {
-        let new_task: NewTask = serde_json::from_value(arguments)
+        let mut new_task: NewTask = serde_json::from_value(arguments)
             .map_err(|e| ToolError::Execution(format!("invalid task definition: {e}")))?;
+        // Family context is selected and authorized by the authenticated console API,
+        // never by model-generated tool arguments.
+        new_task.family_id = None;
         let task = self
             .0
             .add(user(context)?, new_task)

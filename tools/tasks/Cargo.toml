@@ -21,5 +21,3 @@ toml = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-[dev-dependencies]
-agent-storage = { path = "../../agent-storage" }

@@ -298,3 +298,57 @@ pub(super) fn next_occurrence(
         .next()
         .map(|date| date.with_timezone(&Utc))
 }
+
+#[cfg(test)]
+mod context_tests {
+    use super::*;
+    use agent_storage::{
+        FamilyRelationship, FileUserIdentityStore, InMemoryFamilyInvitationStore,
+        InMemoryFamilyStore, UserIdentityStore,
+    };
+    use chrono::Utc;
+    use std::{fs, sync::Arc};
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn resolves_legacy_owner_identity_and_selected_family_context() {
+        let directory = std::env::temp_dir().join(format!("task-context-{}", Uuid::new_v4()));
+        fs::create_dir_all(&directory).unwrap();
+        let identities = FileUserIdentityStore::open(directory.join("users.json")).unwrap();
+        let (user, _) = identities
+            .resolve_or_create("telegram", "42", Some("Owner"))
+            .unwrap();
+        let family_store = Arc::new(InMemoryFamilyStore::default());
+        let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(&family_store)));
+        let family_service = FamilyService::new(family_store, invitations);
+        let family = family_service
+            .create_family(user.id, "Home", FamilyRelationship::Other)
+            .await
+            .unwrap();
+        let now = Utc::now();
+        let task = ScheduledTask {
+            id: Uuid::new_v4(),
+            user_id: "telegram:42".into(),
+            name: "daily".into(),
+            agent: "assistant".into(),
+            prompt: "prepare report".into(),
+            family_id: Some(family.id),
+            schedule: None,
+            timezone: "UTC".parse().unwrap(),
+            scheduled_for: now,
+            next_run: now,
+            retry_attempts: 0,
+        };
+
+        let context = task_tool_context(&task, &identities, &family_service)
+            .await
+            .unwrap();
+        assert_eq!(context.user_id.as_deref(), Some(user.id.to_string().as_str()));
+        assert_eq!(context.telegram_id.as_deref(), Some("42"));
+        assert_eq!(context.family.as_ref().map(|value| value.family_id.as_str()), Some(family.id.to_string().as_str()));
+        assert_eq!(context.families.len(), 1);
+        assert_eq!(context.families[0].members[0].telegram_id.as_deref(), Some("42"));
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+}
