@@ -65,10 +65,10 @@ async function testProvider(button){
  modelButtons.forEach(modelButton=>modelButton.disabled=true);
  try{
   const results=await submitTest(card.dataset.provider,null);
-  results.forEach((result,index)=>{
-   if(rows[index])renderResult(rows[index].querySelector(".provider-model-result"),result);
+  results.forEach(result=>{
+   const row=rows.find(candidate=>candidate.querySelector("[data-test-model]")?.dataset.testModel===result.model);
+   if(row)renderResult(row.querySelector(".provider-model-result"),result);
   });
-  if(results.length!==rows.length)throw new Error("The server returned an unexpected number of model results");
  }catch(error){
   rows.forEach(row=>{
    const result=row.querySelector(".provider-model-result");

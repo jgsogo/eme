@@ -508,6 +508,64 @@ pub(super) async fn favicon() -> impl Responder {
 mod tests {
     use super::is_mobile_user_agent;
 
+    #[actix_web::test]
+    async fn model_test_reports_missing_credentials_for_the_selected_model() {
+        use actix_web::{App, http::StatusCode, test, web};
+        use agent_models::Registry;
+        use serde_json::{Value, json};
+        use std::{fs, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "eme-model-test-{}-{unique}",
+            std::process::id()
+        ));
+        let providers = directory.join("providers");
+        fs::create_dir_all(&providers).unwrap();
+        fs::write(
+            providers.join("test.toml"),
+            r#"
+name = "test"
+client = "gemini"
+api_key_env = "EME_TEST_MISSING_MODEL_KEY"
+
+[[models]]
+name = "mock-model"
+capabilities = ["chat"]
+"#,
+        )
+        .unwrap();
+
+        let registry = Arc::new(Registry::load(&directory).unwrap());
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(registry))
+                .service(list_configured_providers),
+        )
+        .await;
+
+        let request = test::TestRequest::post()
+            .uri("/providers")
+            .set_json(json!({"provider": "test", "model": "mock-model"}))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: Value = test::read_body_json(response).await;
+        assert_eq!(body["results"][0]["model"], "mock-model");
+        assert_eq!(body["results"][0]["success"], false);
+        assert!(
+            body["results"][0]["error"]
+                .as_str()
+                .unwrap()
+                .contains("EME_TEST_MISSING_MODEL_KEY")
+        );
+
+        fs::remove_dir_all(directory).unwrap();
+    }
+
     #[test]
     fn detects_common_mobile_user_agents() {
         assert!(is_mobile_user_agent(
