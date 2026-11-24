@@ -134,7 +134,7 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
 /// "Author (birth-death) Title" heading form without treating arbitrary
 /// leading words as an author.
 fn split_dated_author_prefix(value: &str) -> Option<(String, String)> {
-    let re = Regex::new(r"^(.+?\\(\\d{3,4}(?:\\s*[-–]\\s*\\d{3,4})?\\))\\s+(.+)$").ok()?;
+    let re = Regex::new(r"^(.+?\(\d{3,4}(?:\s*[-–]\s*\d{3,4})?\))\s+(.+)$").ok()?;
     let captures = re.captures(value)?;
     Some((captures.get(1)?.as_str().trim().to_owned(), captures.get(2)?.as_str().trim().to_owned()))
 }
