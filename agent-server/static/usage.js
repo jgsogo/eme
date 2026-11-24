@@ -65,14 +65,17 @@ function render(){
   if(record.cost)group.costs.set(record.cost.currency,(group.costs.get(record.cost.currency)||0)+record.cost.amount_micros);
  }
  const models=Array.from(groups.values()).sort((a,b)=>(b.input+b.output)-(a.input+a.output));
- const max=Math.max(1,...models.map(m=>m.input+m.output));
- $("usage-models").innerHTML=models.length?models.map(model=>{
+ const modelQuery=$("usage-model-search")?.value.trim().toLocaleLowerCase()||"";
+ const visibleModels=models.filter(model=>[model.provider,model.model].some(value=>String(value||"").toLocaleLowerCase().includes(modelQuery)));
+ const max=Math.max(1,...visibleModels.map(m=>m.input+m.output));
+ $("usage-model-count").textContent=modelQuery?visibleModels.length+" of "+models.length+" models":models.length+" models";
+ $("usage-models").innerHTML=visibleModels.length?visibleModels.map(model=>{
   const total=model.input+model.output;
   const inputWidth=total?model.input/max*100:0;
   const outputWidth=total?model.output/max*100:0;
   const costs=Array.from(model.costs).map(([currency,amount])=>money(amount,currency)).join(" · ")||"Unpriced";
   return '<div class="usage-model-row"><div class="usage-model-name"><strong>'+escapeHtml(model.provider)+'</strong><small>'+escapeHtml(model.model)+' · '+number(model.calls)+' calls</small></div><div class="usage-bar-track" title="Input '+number(model.input)+', output '+number(model.output)+'"><span class="usage-bar-input" style="width:'+inputWidth+'%"></span><span class="usage-bar-output" style="width:'+outputWidth+'%"></span></div><div class="usage-model-total">'+number(total)+' tokens<br><small>'+escapeHtml(costs)+'</small></div></div>';
- }).join("")+'<div class="usage-legend"><span>Input tokens</span><span>Output tokens</span></div>':'<p class="usage-empty">No usage records for this period.</p>';
+ }).join("")+'<div class="usage-legend"><span>Input tokens</span><span>Output tokens</span></div>':models.length?'<p class="usage-empty">No models match this filter. <button type="button" class="secondary" data-clear-model-filter>Clear filter</button></p>':'<p class="usage-empty">No usage records for this period.</p>';
 
  const recent=records.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at));
  const query=$("usage-record-search")?.value.trim().toLocaleLowerCase()||"";
@@ -186,6 +189,8 @@ async function savePricing(event){
 $("usage-refresh").addEventListener("click",()=>{load();loadPricing()});
 $("usage-period").addEventListener("change",render);
 $("usage-record-search")?.addEventListener("input",render);
+$("usage-model-search")?.addEventListener("input",render);
+$("usage-models")?.addEventListener("click",event=>{if(event.target.closest("[data-clear-model-filter]")){$("usage-model-search").value="";render()}});
 $("pricing-search")?.addEventListener("input",renderPricing);
 $("pricing-versions")?.addEventListener("click",event=>{
  if(event.target.closest("[data-clear-pricing-filter]")){$("pricing-search").value="";renderPricing()}
