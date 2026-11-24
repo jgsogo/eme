@@ -497,3 +497,21 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .conv-run-status{display:flex;align-items:center;gap:6px;margin-top:5px;color:var(--accent);font-size:11px;font-weight:650}
 .conv-run-dot{width:7px;height:7px;flex:none;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent);animation:conv-run-pulse 1.8s ease-in-out infinite}
 @keyframes conv-run-pulse{50%{opacity:.45}}
+
+
+/* Task execution history: aligned summary rows with full details in a modal. */
+.task-executions-table-wrap{width:100%;overflow-x:auto}
+.task-executions-table{width:100%;border-collapse:collapse;font-size:13px;text-align:left}
+.task-executions-table th,.task-executions-table td{padding:10px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+.task-executions-table th{color:var(--muted);font-size:11px;font-weight:650}
+.task-executions-table td:nth-child(1),.task-executions-table td:nth-child(3){white-space:nowrap;font-variant-numeric:tabular-nums}
+.task-executions-table .task-execution-action{text-align:right;white-space:nowrap}
+.task-executions-table .task-execution-action button{margin:0;padding:6px 10px;font-size:12px}
+.task-execution-dialog{width:min(860px,calc(100vw - 32px))}
+.task-execution-dialog-heading{position:sticky;top:-20px;z-index:1;margin:-4px 0 14px;padding:4px 0 12px;background:var(--panel);border-bottom:1px solid var(--border)}
+.task-execution-dialog-heading h3{margin:0}
+.task-execution-dialog-heading p{margin:4px 0 0}
+.task-execution-detail{min-width:0}
+.task-execution-detail .tool-section{margin-top:14px}
+.task-execution-detail pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:600px){.task-execution-dialog{width:calc(100vw - 20px)}.task-execution-dialog-heading{top:-14px}.task-executions-table th,.task-executions-table td{padding:8px 6px;font-size:11px}.task-executions-table .task-execution-action button{padding:6px 8px}}
