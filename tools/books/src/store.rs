@@ -173,7 +173,7 @@ mod tests {
     }
 
     fn input(title:&str)->BookInput{
-        BookInput{title:title.into(),authors:vec!["Miguel de Cervantes".into()],isbn:None,publisher:None,publication_year:None,catalogue_url:None,rating:Some(5),reading_status:ReadingStatus::Pending,want_to_buy:false,review:None}
+        BookInput{title:title.into(),authors:vec!["Miguel de Cervantes".into()],isbn:None,publisher:None,publication_year:None,responsibility:None,publication_statement:None,physical_description:None,series:None,notes:Vec::new(),subjects:Vec::new(),catalogue_url:None,rating:Some(5),reading_status:ReadingStatus::Pending,want_to_buy:false,review:None}
     }
 
     #[tokio::test]
