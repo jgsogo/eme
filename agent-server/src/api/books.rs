@@ -130,7 +130,7 @@ async fn refresh_catalogue(
     };
 
     let wanted_isbn = book.isbn.as_deref().map(normalize_isbn);
-    let mut matched_item = None;
+    let mut matched_items = Vec::new();
     for result in results {
         if wanted_isbn.as_ref().is_some_and(|wanted| {
             result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) != *wanted)
@@ -151,14 +151,13 @@ async fn refresh_catalogue(
             item.title.as_deref().is_some_and(|title| catalogue_title_matches(&book.title, title))
         };
         if matches {
-            matched_item = Some(item);
-            break;
+            matched_items.push(item);
         }
     }
 
     // If the stored ISBN is absent from RABEL's search index or stale, make
     // one conservative fallback pass and accept only an exact parsed-title match.
-    if matched_item.is_none() && wanted_isbn.is_some() {
+    if matched_items.is_empty() && wanted_isbn.is_some() {
         if let Ok(fallback_results) = client.search(&book.title, 20).await {
             for result in fallback_results {
                 let item = match client.get_item(&result.record_ref).await {
@@ -166,15 +165,16 @@ async fn refresh_catalogue(
                     Err(_) => continue,
                 };
                 if item.title.as_deref().is_some_and(|title| catalogue_title_matches(&book.title, title)) {
-                    matched_item = Some(item);
-                    break;
+                    matched_items.push(item);
                 }
             }
         }
     }
 
-    let Some(item) = matched_item else {
-        return HttpResponse::NotFound().body("No exact matching RABEL record was found; collection data was left unchanged");
+    let item = match matched_items.len() {
+        0 => return HttpResponse::NotFound().body("No exact matching RABEL record was found; collection data was left unchanged"),
+        1 => matched_items.pop().expect("one matched catalogue record"),
+        _ => return HttpResponse::Conflict().body("Multiple RABEL records match this book; collection data was left unchanged"),
     };
     let metadata_update = BookUpdate {
         title: item.title.clone(),
