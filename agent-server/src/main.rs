@@ -35,11 +35,11 @@ use args::Args;
 use auth_middleware::require_telegram_session;
 use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
-    agents_page, agents_script, books_page, books_script, console_auth_script, console_root,
+    agents_page, agents_script, books_libraries_page, books_page, books_script, console_auth_script, console_root,
     console_script, console_stylesheet, conversations_page, desktop_header_script, families_page,
-    favicon, integrations_page, invitation_page, list_configured_providers, list_registered_tools,
+    favicon, integrations_page, invitation_page, libraries_script, list_configured_providers, list_registered_tools,
     meals_family_script, meals_page, mobile_base_stylesheet, mobile_books_page,
-    mobile_conversations_page, mobile_families_page, mobile_integrations_page,
+    mobile_books_libraries_page, mobile_conversations_page, mobile_families_page, mobile_integrations_page,
     mobile_meal_planner_page, mobile_meals_page, mobile_notes_page, mobile_profile_page,
     mobile_root, mobile_school_menus_page, mobile_script, mobile_shopping_list_page,
     mobile_stylesheet, mobile_tasks_page, notes_page, profile_page, providers_page,
@@ -267,6 +267,7 @@ async fn main() -> Result<()> {
             .service(mobile_families_page)
             .service(mobile_notes_page)
             .service(mobile_books_page)
+            .service(mobile_books_libraries_page)
             .service(mobile_profile_page)
             .service(mobile_tasks_page)
             .service(mobile_meals_page)
@@ -292,7 +293,9 @@ async fn main() -> Result<()> {
             .service(families_page)
             .service(notes_page)
             .service(books_page)
+            .service(books_libraries_page)
             .service(books_script)
+            .service(libraries_script)
             .service(profile_page)
             .service(integrations_page)
             .service(tasks_page)
@@ -320,6 +323,7 @@ async fn main() -> Result<()> {
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
             .service(agent_server::books_api())
+            .service(agent_server::libraries_api())
             // Register the more specific scope before /meal-planner; otherwise
             // the broader scope captures school-menu requests and returns 404.
             .service(agent_server::school_menus_api())
