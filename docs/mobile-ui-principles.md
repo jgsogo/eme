@@ -15,7 +15,7 @@ This document records the design constraints for the mobile console. It describe
 - Keep the primary navigation compact and icon-only to preserve scarce screen space.
 - Icons must remain understandable and accessible: every destination needs an accessible name (for example, `aria-label`) and a useful tooltip/title. Decorative SVGs should be hidden from assistive technology.
 - Expose the current destination visually and semantically (including `aria-current="page"`).
-- Keep secondary navigation within its owning section. For example, meal-planning, shopping-list, and school-menu pages belong under Meals; families and integrations belong under Profile. They should highlight their parent destination rather than adding more primary tabs.
+- Keep secondary navigation within its owning section. For example, meal-planning, shopping-list, and school-menu pages belong under Meals; families, integrations, and administrative pages belong under Profile. They should highlight their parent destination rather than adding more primary tabs.
 - Keep the navigation destinations and their active-route matching together so route changes are easy to maintain.
 
 ## Mobile interaction
