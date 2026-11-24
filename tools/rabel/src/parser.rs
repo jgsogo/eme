@@ -479,6 +479,28 @@ mod tests {
     }
 
     #[test]
+    fn search_results_include_bibliographic_details_without_record_fetch() {
+        let html = r#"<table><tr>
+            <td><a href="/token/NT1?ACC=165&amp;DOC=42">Hayek, Friedrich A. von (1899-1992) Los fundamentos de la libertad / Friedrich A. Hayek.</a></td>
+            <td>Autor / Autora: Hayek, Friedrich A. von (1899-1992)</td>
+            <td>Editor / Productor: Valencia : Fundación Ignacio Villalonga, 1961.</td>
+            <td>Descripción física: 454 p. ; 22 cm.</td>
+            <td>ISBN: 84-254-1151-3</td>
+        </tr></table>"#;
+        let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
+        let results = search_results(html, &session).unwrap();
+        assert_eq!(results.len(), 1);
+        let result = &results[0];
+        assert_eq!(result.title, "Los fundamentos de la libertad");
+        assert_eq!(result.authors, vec!["Hayek, Friedrich A. von (1899-1992)"]);
+        assert_eq!(result.responsibility.as_deref(), Some("Friedrich A. Hayek"));
+        assert_eq!(result.publisher.as_deref(), Some("Valencia : Fundación Ignacio Villalonga"));
+        assert_eq!(result.publication_year, Some(1961));
+        assert_eq!(result.physical_description.as_deref(), Some("454 p. ; 22 cm."));
+        assert_eq!(result.isbn.as_deref(), Some("84-254-1151-3"));
+    }
+
+    #[test]
     fn recognizes_common_empty_catalogue_responses() {
         for message in ["No se han encontrado registros", "No hay resultados para la búsqueda", "0 documentos"] {
             let html = format!("<html><body>{message}</body></html>");
