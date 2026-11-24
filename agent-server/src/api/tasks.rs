@@ -131,7 +131,9 @@ async fn create_task(
         Err(response) => return response,
     };
     let body = body.into_inner();
-    if let Err(response) = validate_family_selection(&user, body.family_id, families.as_ref()).await {
+    if let Err(response) =
+        validate_family_selection(&user, body.family_id, families.as_ref()).await
+    {
         return response;
     }
     let enabled = body.enabled;
@@ -253,7 +255,9 @@ async fn update_task(
         Err(_) => return HttpResponse::BadRequest().body("invalid task identifier"),
     };
     let body = body.into_inner();
-    if let Err(response) = validate_family_selection(&user, body.family_id, families.as_ref()).await {
+    if let Err(response) =
+        validate_family_selection(&user, body.family_id, families.as_ref()).await
+    {
         return response;
     }
     let enabled = body.enabled;

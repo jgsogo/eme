@@ -93,7 +93,9 @@ async fn task_tool_context(
                     .map_err(|error| format!("invalid family member identifier: {error}"))?;
                 member.telegram_id = identities
                     .find_identity_for_user("telegram", member_id)
-                    .map_err(|error| format!("resolving family member Telegram identity: {error}"))?
+                    .map_err(|error| {
+                        format!("resolving family member Telegram identity: {error}")
+                    })?
                     .map(|identity| identity.subject);
                 if let Some(profile) = identities
                     .get_user(member_id)
@@ -347,9 +349,15 @@ mod context_tests {
         let expected_family_id = family.id.to_string();
         assert_eq!(context.user_id.as_deref(), Some(expected_user_id.as_str()));
         assert_eq!(context.telegram_id.as_deref(), Some("42"));
-        assert_eq!(context.family.as_ref().map(|value| value.family_id.as_str()), Some(expected_family_id.as_str()));
+        assert_eq!(
+            context.family.as_ref().map(|value| value.family_id.as_str()),
+            Some(expected_family_id.as_str())
+        );
         assert_eq!(context.families.len(), 1);
-        assert_eq!(context.families[0].members[0].telegram_id.as_deref(), Some("42"));
+        assert_eq!(
+            context.families[0].members[0].telegram_id.as_deref(),
+            Some("42")
+        );
 
         fs::remove_dir_all(directory).unwrap();
     }

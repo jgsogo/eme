@@ -4,7 +4,9 @@ use super::{next_occurrence, submission_retry_delay};
 use crate::{NewTask, TaskRegistry, TaskScheduler};
 use agent_runtime::{CancellationToken, ToolContext};
 use agent_service::{ExecutionOutcome, ExecutionReport, FamilyService, RunExecutor, RunManager};
-use agent_storage::{FileUserIdentityStore, InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore};
+use agent_storage::{
+    FileUserIdentityStore, InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore,
+};
 use async_trait::async_trait;
 use chrono::{Duration as ChronoDuration, Timelike, Utc};
 use cron::Schedule;
@@ -52,7 +54,13 @@ impl RunExecutor for RecordingExecutor {
     }
 }
 
-fn test_registry() -> (TaskRegistry, std::path::PathBuf, Arc<FileUserIdentityStore>, Arc<FamilyService>, String) {
+fn test_registry() -> (
+    TaskRegistry,
+    std::path::PathBuf,
+    Arc<FileUserIdentityStore>,
+    Arc<FamilyService>,
+    String,
+) {
     let directory = std::env::temp_dir().join(format!("task-scheduler-{}", Uuid::new_v4()));
     let registry = TaskRegistry::load(&directory).unwrap();
     registry.validate_agents(["assistant".to_owned()]).unwrap();
