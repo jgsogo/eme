@@ -172,7 +172,7 @@
               catalogue_url: null
             }) });
             $("add-book-dialog").close(); $("catalogue-results").replaceChildren(); $("catalogue-results-summary").textContent = "Enter a search term to find books."; $("catalogue-query").value = "";
-            $("catalogue-category-filter").replaceChildren(new Option("All document categories", "")); $("catalogue-category-filter").hidden = true;
+            $("catalogue-category-filter").replaceChildren(new Option("All document categories", "")); $("catalogue-filter-controls").hidden = true;
             await loadBooks(); state.collectionQuery = ""; $("collection-search").value = ""; await selectBook(book); status("Book added.");
           } catch (error) { status(error.message); }
         });
