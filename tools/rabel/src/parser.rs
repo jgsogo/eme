@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn parses_deposit_signature_without_repeating_the_raw_row() {
-        let html = r#"<table><tr data-disp="Disponible"><td>Depósito D-2 5331 Tipo de ejemplar Libro adultos Soporte Papel Disponibilidad Disponible</td></tr></table>"#;
+        let html = r#"<table><tr data-disp="Disponible"><td>Signatura Depósito D-2 5331 Tipo de ejemplar Libro adultos Soporte Papel Disponibilidad Disponible</td></tr></table>"#;
         let holdings = extract_holdings(html);
         assert_eq!(holdings.len(), 1);
         assert_eq!(holdings[0].signature.as_deref(), Some("D-2 5331"));
