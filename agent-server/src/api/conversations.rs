@@ -246,6 +246,7 @@ async fn get_conversation(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<SqliteConversationStore>>,
+    manager: Data<RunManager>,
     conversation_id: Path<String>,
 ) -> impl Responder {
     let owner = match authenticated_owner(&request, &auth) {
@@ -318,6 +319,13 @@ async fn delete_conversation(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
     };
+
+    if let Err(error) = manager.cancel_conversation(
+        uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID")
+    ).await {
+        tracing::error!(conversation_id = %id, %error, "failed to stop conversation runs before deletion");
+        return HttpResponse::InternalServerError().body("could not stop conversation runs");
+    }
 
     match store.delete(&owner, id) {
         Ok(()) => HttpResponse::NoContent().finish(),
