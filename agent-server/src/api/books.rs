@@ -69,6 +69,89 @@ async fn catalogue_item(
     }
 }
 
+#[post("/{id}/refresh-catalogue")]
+async fn refresh_catalogue(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    store: Data<BookStore>,
+    id: Path<String>,
+) -> impl Responder {
+    let user = match actor(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let book = match store.get(&user, &id).await {
+        Ok(book) => book,
+        Err(error) => return book_error(error),
+    };
+    let client = match RabelClient::new() {
+        Ok(client) => client,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    let query = book.isbn.as_deref().unwrap_or(&book.title);
+    let results = match client.search(query, 20).await {
+        Ok(results) => results,
+        Err(error) => {
+            tracing::warn!(error = %error, book_id = %book.id, "RABEL catalogue refresh search failed");
+            return HttpResponse::BadGateway().body("Could not search RABEL for this book");
+        }
+    };
+
+    let wanted_isbn = book.isbn.as_deref().map(normalize_isbn);
+    let wanted_title = normalize_title(&book.title);
+    let mut matched_item = None;
+    for result in results {
+        if wanted_isbn.as_ref().is_some_and(|wanted| {
+            result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) != *wanted)
+        }) {
+            continue;
+        }
+        let item = match client.get_item(&result.record_ref).await {
+            Ok(item) => item,
+            Err(error) => {
+                tracing::debug!(error = %error, "Skipping unreadable RABEL record during refresh");
+                continue;
+            }
+        };
+        let matches = if let Some(wanted) = &wanted_isbn {
+            item.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) == *wanted)
+                || result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) == *wanted)
+        } else {
+            item.title.as_deref().is_some_and(|title| normalize_title(title) == wanted_title)
+        };
+        if matches {
+            matched_item = Some(item);
+            break;
+        }
+    }
+
+    let Some(item) = matched_item else {
+        return HttpResponse::NotFound().body("No exact matching RABEL record was found; collection data was left unchanged");
+    };
+    let update = BookUpdate {
+        title: item.title.clone(),
+        authors: Some(item.authors.clone()),
+        isbn: Some(item.isbn.clone()),
+        publisher: Some(item.publisher.clone()),
+        publication_year: Some(item.publication_year),
+        responsibility: Some(item.responsibility.clone()),
+        publication_statement: Some(item.publication_statement.clone()),
+        physical_description: Some(item.physical_description.clone()),
+        series: Some(item.series.clone()),
+        notes: Some(item.notes.clone()),
+        subjects: Some(item.subjects.clone()),
+        ..Default::default()
+    };
+    match store.update(&user, &book.id, update).await {
+        Ok(updated) => HttpResponse::Ok().json(serde_json::json!({
+            "book": updated,
+            "catalogue_item": item
+        })),
+        Err(error) => book_error(error),
+    }
+}
+
 #[get("/{id}/holdings")]
 async fn holdings(
     request: HttpRequest,
@@ -176,4 +259,4 @@ fn normalize_title(value: &str) -> String {
 #[get("/{id}")] async fn get(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.get(&u,&id).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
 #[put("/{id}")] async fn update(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>,b:Json<BookUpdate>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.update(&u,&id,b.into_inner()).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
 #[delete("/{id}")] async fn remove(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.remove(&u,&id).await{Ok(())=>HttpResponse::NoContent().finish(),Err(e)=>book_error(e)}}
-pub fn books_api()->Scope{web::scope("/books").service(search_catalogue).service(catalogue_item).service(list).service(add).service(holdings).service(get).service(update).service(remove)}
+pub fn books_api()->Scope{web::scope("/books").service(search_catalogue).service(catalogue_item).service(list).service(add).service(refresh_catalogue).service(holdings).service(get).service(update).service(remove)}
