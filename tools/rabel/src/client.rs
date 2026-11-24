@@ -107,10 +107,23 @@ impl RabelClient {
     }
 
     pub async fn libraries(&self) -> Result<Vec<Library>, RabelError> {
+        // Like catalogue searches, the OPAC's first response is a bootstrap
+        // page containing a session-specific URL. The library selector is
+        // rendered on that session page, not reliably on the bootstrap page.
         let mut url = self.opac_url.clone();
         url.query_pairs_mut().append_pair("SUBC", &self.subcatalog);
-        let (_, html) = self.read_html(url).await?;
-        Ok(parser::libraries(&html))
+        let response = self.http.get(url).send().await?;
+        if !response.status().is_success() {
+            return Err(RabelError::Http(response.status()));
+        }
+        let bootstrap_url = response.url().clone();
+        let bootstrap_html = response.text().await?;
+        let target = parser::meta_refresh_target(&bootstrap_html)
+            .ok_or_else(|| RabelError::Parse("library bootstrap did not contain a session URL".into()))?;
+        let session_url = bootstrap_url.join(&target)
+            .map_err(|error| RabelError::Parse(format!("invalid session URL: {error}")))?;
+        let (_, html) = self.read_html(session_url).await?;
+        parser::libraries(&html)
     }
 
     fn validate_record_ref(&self, value: &str) -> Result<Url, RabelError> {
