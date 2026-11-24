@@ -189,12 +189,14 @@ async fn test_configured_model(
                 .iter()
                 .map(|call| call.name.clone())
                 .collect::<Vec<_>>();
-            let usage = response.usage.map(|usage| serde_json::json!({
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-                "cached_input_tokens": usage.cached_input_tokens,
-                "reasoning_tokens": usage.reasoning_tokens
-            }));
+            let usage = response.usage.map(|usage| {
+                serde_json::json!({
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens,
+                    "cached_input_tokens": usage.cached_input_tokens,
+                    "reasoning_tokens": usage.reasoning_tokens
+                })
+            });
 
             match response
                 .content
@@ -210,8 +212,7 @@ async fn test_configured_model(
                 }),
                 None => {
                     let error = if tool_calls.is_empty() {
-                        "The provider returned an empty text response (no tool calls)"
-                            .to_owned()
+                        "The provider returned an empty text response (no tool calls)".to_owned()
                     } else {
                         format!(
                             "The provider returned no text content and emitted {} tool call(s): {}",
@@ -233,7 +234,7 @@ async fn test_configured_model(
                     })
                 }
             }
-        },
+        }
         Ok(Err(error)) => serde_json::json!({
             "model": model,
             "success": false,
