@@ -60,7 +60,7 @@ fn test_registry() -> (TaskRegistry, std::path::PathBuf) {
 
 fn recording_manager(
     block_first: bool,
- ) -> (
+) -> (
     RunManager,
     mpsc::UnboundedReceiver<String>,
     Arc<Notify>,
