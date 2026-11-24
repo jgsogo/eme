@@ -130,7 +130,8 @@ async fn run_scheduler(
                 }
             }
             match manager
-                .submit(
+                .submit_for_task(
+                    task.id,
                     task.agent.clone(),
                     task.prompt.clone(),
                     Vec::new(),
@@ -146,7 +147,7 @@ async fn run_scheduler(
                     "failed to submit scheduled task"),
             }
             if !recurring {
-                registry.remove_after_execution(id);
+                registry.disable_after_execution(id);
             }
         }
     }
