@@ -243,3 +243,53 @@ enabled = true
     );
     fs::remove_dir_all(directory).unwrap();
 }
+
+
+#[test]
+fn initial_cron_occurrence_respects_timezone_across_daylight_saving() {
+    let schedule = Some("0 0 8 * * *".to_owned());
+    let timezone = Some("Europe/Madrid".to_owned());
+    let task = Task {
+        id: Uuid::new_v4(),
+        user_id: "telegram:dst".into(),
+        name: "daily".into(),
+        description: String::new(),
+        agent: "assistant".into(),
+        prompt: "run".into(),
+        schedule,
+        at: None,
+        timezone,
+        enabled: true,
+        next_run: None,
+    };
+
+    // After 08:01 CET on the day before the spring transition, the next
+    // local 08:00 is 06:00 UTC (08:00 CEST).
+    let before_spring = chrono::DateTime::parse_from_rfc3339("2026-03-28T07:01:00Z")
+        .unwrap()
+        .to_utc();
+    let spring_next = super::task_registry::next_run(&task, before_spring)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        spring_next,
+        chrono::DateTime::parse_from_rfc3339("2026-03-29T06:00:00Z")
+            .unwrap()
+            .to_utc()
+    );
+
+    // After 08:01 CEST on the day before the autumn transition, the next
+    // local 08:00 is 07:00 UTC (08:00 CET).
+    let before_autumn = chrono::DateTime::parse_from_rfc3339("2026-10-24T06:01:00Z")
+        .unwrap()
+        .to_utc();
+    let autumn_next = super::task_registry::next_run(&task, before_autumn)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        autumn_next,
+        chrono::DateTime::parse_from_rfc3339("2026-10-25T07:00:00Z")
+            .unwrap()
+            .to_utc()
+    );
+}
