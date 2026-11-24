@@ -33,7 +33,6 @@ fn form_diagnostics(html: &str) -> Vec<String> {
     let Ok(controls) = Regex::new(r#"(?is)<(?:input|select|textarea|button)\b[^>]*>"#) else { return Vec::new(); };
     let Ok(attribute) = Regex::new(r#"(?is)\b([a-z_:][-a-z0-9_:]*)\s*=\s*["']([^"']*)["']"#) else { return Vec::new(); };
     forms.captures_iter(html).take(12).map(|form| {
-        let attrs = form.get(1).map(|m| m.as_str().trim()).unwrap_or("");
         let body = form.get(2).map(|m| m.as_str()).unwrap_or("");
         let fields = controls.find_iter(body).take(24).map(|matched| {
             let tag = matched.as_str();
@@ -52,7 +51,7 @@ fn form_diagnostics(html: &str) -> Vec<String> {
                 else { attributes.get("value").cloned() };
             format!("{}:{}{}", kind, name, value.map(|v| format!("={v:?}")).unwrap_or_default())
         }).collect::<Vec<_>>();
-        format!("form[{attrs}] controls={fields:?}")
+        format!("form controls={fields:?}")
     }).collect()
 }
 
@@ -64,15 +63,15 @@ pub(super) fn search_page_diagnostic(html: &str, response_url: &Url) -> String {
     let forms = form_diagnostics(html);
     let links = Regex::new(r#"(?is)<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>"#).ok()
         .map(|re| re.captures_iter(html).filter_map(|captures| {
-            let href = captures.get(1)?.as_str();
             let label = clean_text(captures.get(2)?.as_str());
-            Some(format!("{href:?} => {label:?}"))
+            (!label.is_empty()).then(|| label.chars().take(100).collect::<String>())
         }).take(8).collect::<Vec<_>>()).unwrap_or_default();
     let body = Regex::new(r"(?is)<body\b[^>]*>(.*?)</body>").ok()
         .and_then(|re| re.captures(html)).and_then(|captures| captures.get(1))
         .map(|value| clean_text(value.as_str())).unwrap_or_else(|| clean_text(html));
     let excerpt: String = body.chars().take(320).collect();
-    format!("response_url={response_url}; page title={title:?}; forms={forms:?}; links={links:?}; body excerpt={excerpt:?}")
+    let _ = response_url;
+    format!("page title={title:?}; forms={forms:?}; result links={links:?}; body excerpt={excerpt:?}")
 }
 
 pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<CatalogueSearchResult>, RabelError> {
