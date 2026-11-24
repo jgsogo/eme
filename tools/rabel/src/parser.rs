@@ -351,7 +351,7 @@ fn normalize_document_category(value: &str) -> String {
 }
 
 fn extract_authors(text: &str) -> Vec<String> {
-    labelled_value(text, &["Autor", "Autores"]).map(|value| {
+    labelled_value(text, &["Autor / Autora", "Autor", "Autores", "Autoría", "Autoria"]).map(|value| {
         value.split(';').map(str::trim).filter(|v| !v.is_empty()).map(str::to_owned).collect()
     }).unwrap_or_default()
 }
