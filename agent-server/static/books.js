@@ -106,6 +106,7 @@
     dialog.showModal();
     try {
       const item = await api("/books/catalogue/item?record_ref=" + encodeURIComponent(result.record_ref));
+      $("catalogue-item-heading").textContent = item.title || result.title;
       content.replaceChildren();
       const fields = [
         ["Authors", (item.authors || []).join(", ")],
