@@ -577,7 +577,7 @@ pub(super) async fn favicon() -> impl Responder {
 
 #[cfg(test)]
 mod tests {
-    use super::is_mobile_user_agent;
+    use super::{is_mobile_user_agent, list_configured_providers, test_configured_providers};
 
     #[actix_web::test]
     async fn model_test_reports_missing_credentials_for_the_selected_model() {
@@ -616,7 +616,8 @@ capabilities = ["chat"]
         let app = test::init_service(
             App::new()
                 .app_data(web::Data::new(registry))
-                .service(list_configured_providers),
+                .service(list_configured_providers)
+                .service(test_configured_providers),
         )
         .await;
 
