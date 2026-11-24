@@ -357,7 +357,7 @@ body[data-layout="mobile"] .provider-test-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 44px;
 }
 
 body[data-layout="mobile"] .provider-test-button svg {
@@ -373,7 +373,7 @@ body[data-layout="mobile"] .provider-test-button svg {
 body[data-layout="mobile"] details > summary {
   display: flex;
   align-items: center;
-  min-height: 40px;
+  min-height: 44px;
   cursor: pointer;
 }
 
