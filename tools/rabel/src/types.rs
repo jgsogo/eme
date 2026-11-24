@@ -34,9 +34,13 @@ pub struct CatalogueItem {
     pub publisher: Option<String>,
     pub publication_year: Option<u16>,
     pub isbn: Option<String>,
-    pub holdings: Vec<CopyHolding>,
+}
+
+/// Copy-level availability is deliberately separate from bibliographic data.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CatalogueHoldings {
+    pub copies: Vec<CopyHolding>,
     pub checked_at: DateTime<Utc>,
-    pub source_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
