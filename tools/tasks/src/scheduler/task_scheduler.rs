@@ -198,7 +198,7 @@ async fn run_scheduler(
     tracing::info!("task scheduler stopped");
 }
 
-fn submission_retry_delay(attempt: u32) -> Duration {
+pub(super) fn submission_retry_delay(attempt: u32) -> Duration {
     match attempt {
         0 | 1 => Duration::from_secs(1),
         2 => Duration::from_secs(5),
