@@ -321,6 +321,12 @@ async fn delete_conversation(
         Err(_) => return HttpResponse::BadRequest().body("invalid conversation identifier"),
     };
 
+    match store.get(id) {
+        Ok(conversation) if conversation.owner == owner => {}
+        Ok(_) => return HttpResponse::NotFound().finish(),
+        Err(error) => return conversation_error(error),
+    }
+
     if let Err(error) = manager.cancel_conversation(
         uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID")
     ).await {
