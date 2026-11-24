@@ -3,7 +3,7 @@
 use super::State;
 use crate::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
-    StoredRunEvent, UsageStore,
+    StoredRunEvent, TaskRunStore, UsageStore,
 };
 use agent_metering::{ModelPricing, UsageRecord};
 use async_trait::async_trait;
@@ -52,6 +52,44 @@ impl RunStore for InMemoryStorage {
             .filter(|run| conversation_id.is_none_or(|id| run.conversation_id == Some(id)))
             .cloned()
             .collect();
+        runs.sort_by(|left, right| {
+            right
+                .created_at
+                .cmp(&left.created_at)
+                .then_with(|| right.id.cmp(&left.id))
+        });
+        Ok(runs)
+    }
+}
+
+#[async_trait]
+impl TaskRunStore for InMemoryStorage {
+    async fn associate_task_run(&self, task_id: Uuid, run_id: Uuid) -> Result<(), StorageError> {
+        let mut state = self.state.write().await;
+        if !state.runs.contains_key(&run_id) {
+            return Err(StorageError::NotFound(format!("run {run_id}")));
+        }
+        if let Some(existing) = state.task_runs.get(&run_id) {
+            return if *existing == task_id {
+                Ok(())
+            } else {
+                Err(StorageError::InvalidAssociation(format!(
+                    "run {run_id} is already associated with task {existing}"
+                )))
+            };
+        }
+        state.task_runs.insert(run_id, task_id);
+        Ok(())
+    }
+
+    async fn list_task_runs(&self, task_id: Uuid) -> Result<Vec<StoredRun>, StorageError> {
+        let state = self.state.read().await;
+        let mut runs = state
+            .task_runs
+            .iter()
+            .filter(|(_, associated_task)| **associated_task == task_id)
+            .filter_map(|(run_id, _)| state.runs.get(run_id).cloned())
+            .collect::<Vec<_>>();
         runs.sort_by(|left, right| {
             right
                 .created_at

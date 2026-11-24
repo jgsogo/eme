@@ -12,4 +12,5 @@ pub(super) struct State {
     pub(super) messages: HashMap<Uuid, Vec<StoredMessage>>,
     pub(super) usage: HashMap<Uuid, UsageRecord>,
     pub(super) pricing: HashMap<(String, String, String), ModelPricing>,
+    pub(super) task_runs: HashMap<Uuid, Uuid>,
 }

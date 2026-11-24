@@ -21,7 +21,7 @@ pub use connected_calendar::{
 };
 pub use contracts::{
     ConversationMessageStore, ExecutionStore, RunEventStore, RunStore, StorageError, StoredMessage,
-    StoredRun, StoredRunEvent, StoredRunStatus, UsageStore,
+    StoredRun, StoredRunEvent, StoredRunStatus, TaskRunStore, UsageStore,
 };
 pub use conversation::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
 pub use external_connection::{
