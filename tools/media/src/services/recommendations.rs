@@ -238,7 +238,8 @@ impl RecommendationService {
         // Ratings are stored per source so their provenance is retained.
         // list_ratings is newest-first; use only the newest EME/Trakt rating
         // for each title so a synchronized copy is not double-counted and an
-        // externally changed Trakt rating supersedes an older EME rating.
+        // externally changed Trakt rating supersedes an older EME rating; an
+        // exact timestamp tie prefers EME to preserve its finer-grained value.
         let mut seen_items = HashSet::new();
         // Infer genre affinity dynamically from recent ratings. Trakt's sync
         // payload is intentionally compact, so enrich rated items from TMDB
