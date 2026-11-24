@@ -184,7 +184,6 @@ fn completed_one_time_tasks_are_retained_as_disabled_definitions() {
     fs::remove_dir_all(directory).unwrap();
 }
 
-
 #[test]
 fn persists_pending_due_time_across_registry_restarts() {
     let directory = temp_dir();
