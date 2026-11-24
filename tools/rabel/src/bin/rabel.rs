@@ -20,7 +20,7 @@ enum Command {
     /// Search the catalogue and print either parsed JSON or the raw search HTML.
     Search {
         query: String,
-        #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+        #[arg(long, value_enum, default_value = "json")]
         format: OutputFormat,
         #[arg(long, default_value_t = 10)]
         limit: usize,
