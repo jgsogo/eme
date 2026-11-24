@@ -109,6 +109,10 @@ impl RunManager {
                     let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
                     let event_sink: Arc<dyn EventSink> =
                         Arc::new(RuntimeEventChannel(event_sender));
+                    // Do not rely on every executor/tool implementation to
+                    // cooperate with the token. Dropping the execution future
+                    // here guarantees that cancellation stops the active work.
+                    let cancellation_signal = cancellation.clone();
                     let execution = executor.execute_with_event_sink(
                         run.id,
                         run.agent.clone(),
@@ -122,6 +126,13 @@ impl RunManager {
                     let mut events_open = true;
                     let result = loop {
                         tokio::select! {
+                            _ = cancellation_signal.cancelled() => {
+                                break Ok(ExecutionReport {
+                                    outcome: ExecutionOutcome::Cancelled,
+                                    runtime_events: Vec::new(),
+                                    messages: None,
+                                });
+                            }
                             runtime_event = event_receiver.recv(), if events_open => {
                                 match runtime_event {
                                     Some(event) => persist_runtime_event(
