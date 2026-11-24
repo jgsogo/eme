@@ -310,12 +310,18 @@ impl TaskRegistry {
         self.notify();
         Ok(())
     }
-    pub(crate) fn remove_after_execution(&self, id: Uuid) {
+    /// Retains a completed one-time task as a disabled definition so its
+    /// execution history remains discoverable from the task details.
+    pub(crate) fn disable_after_execution(&self, id: Uuid) {
         if let Ok(mut tasks) = self.inner.tasks.write()
-            && tasks.remove(&id).is_some()
+            && let Some(mut task) = tasks.get(&id).cloned()
         {
-            let _ = fs::remove_file(self.path(id));
-            self.notify();
+            task.enabled = false;
+            task.next_run = None;
+            if self.persist(&task).is_ok() {
+                tasks.insert(id, task);
+                self.notify();
+            }
         }
     }
     fn path(&self, id: Uuid) -> PathBuf {
