@@ -529,7 +529,9 @@ async fn stream_run_events(
         .insert_header((header::CONTENT_TYPE, "text/event-stream"))
         .insert_header((header::CACHE_CONTROL, "no-cache"))
         .insert_header(("X-Accel-Buffering", "no"))
-        .streaming(futures_util::stream::unfold(receiver, |mut receiver| async move {\n            receiver.recv().await.map(|bytes| (Ok::<Bytes, actix_web::Error>(bytes), receiver))\n        }))
+        .streaming(futures_util::stream::unfold(receiver, |mut receiver| async move {
+            receiver.recv().await.map(|bytes| (Ok::<Bytes, actix_web::Error>(bytes), receiver))
+        }))
 }
 
 async fn send_sse_event(
