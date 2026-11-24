@@ -151,7 +151,7 @@ impl TraktOAuthService {
                 provider: "trakt".into(),
                 state: state.clone(),
                 pkce_verifier,
-                requested_scopes: Vec::new(),
+                requested_scopes: vec!["public".into(), "private".into(), "sync".into()],
                 expires_at,
             })
             .await
@@ -163,6 +163,7 @@ impl TraktOAuthService {
             .append_pair("response_type", "code")
             .append_pair("client_id", &self.config.client_id)
             .append_pair("redirect_uri", &self.config.redirect_uri)
+            .append_pair("scope", "public,private,sync")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("code_challenge_method", "S256")
             .append_pair("state", &state);
@@ -201,7 +202,7 @@ impl TraktOAuthService {
                 provider: "trakt".into(),
                 state: state.clone(),
                 pkce_verifier,
-                requested_scopes: Vec::new(),
+                requested_scopes: vec!["public".into(), "private".into(), "sync".into()],
                 expires_at,
             })
             .await
@@ -212,6 +213,7 @@ impl TraktOAuthService {
             .append_pair("response_type", "code")
             .append_pair("client_id", &self.config.client_id)
             .append_pair("redirect_uri", &self.config.redirect_uri)
+            .append_pair("scope", "public,private,sync")
             .append_pair("code_challenge", &code_challenge)
             .append_pair("code_challenge_method", "S256")
             .append_pair("state", &state);
