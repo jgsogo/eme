@@ -32,6 +32,12 @@ pub fn register_tools(registry: &mut ToolRegistry, store: BookStore) -> Result<(
         CheckAvailability(store.clone()),
     ))?;
     registry.register(def(
+        "books.check_catalogue_availability",
+        "Check a catalogue title or ISBN in every preferred RABEL library without first adding it to the personal collection. Returns fresh copy-level holdings per library.",
+        object(json!({"title":{"type":"string","minLength":1},"isbn":{"type":["string","null"]}}), &["title"]),
+        CheckCatalogueAvailability(store.clone()),
+    ))?;
+    registry.register(def(
         "books.refresh_catalogue",
         "Refresh bibliographic metadata for a collection book from RABEL, matching by ISBN first and exact parsed title as a fallback. Personal rating, reading status, purchase intent and review are preserved.",
         object(json!({"id":{"type":"string","minLength":1}}), &["id"]),
@@ -89,10 +95,17 @@ fn exact_isbn(book: &Book, result_isbn: Option<&str>, item: &CatalogueItem) -> b
         .is_some_and(|candidate| normalize_isbn(candidate) == wanted)
 }
 async fn find_catalogue_record(client: &RabelClient, book: &Book) -> Result<Option<(String, CatalogueItem)>, ToolError> {
-    let isbn_query = book.isbn.as_deref().filter(|value| !value.trim().is_empty());
+    find_catalogue_record_by_identity(client, book.isbn.as_deref(), &book.title).await
+}
+async fn find_catalogue_record_by_identity(
+    client: &RabelClient,
+    isbn: Option<&str>,
+    title: &str,
+) -> Result<Option<(String, CatalogueItem)>, ToolError> {
+    let isbn_query = isbn.filter(|value| !value.trim().is_empty());
     let mut queries = Vec::new();
     if let Some(isbn) = isbn_query { queries.push((isbn.to_owned(), true)); }
-    queries.push((book.title.clone(), false));
+    queries.push((title.to_owned(), false));
     for (query, isbn_lookup) in queries {
         let results = client.search(&query, 20).await.map_err(execution)?;
         for result in results {
@@ -101,9 +114,11 @@ async fn find_catalogue_record(client: &RabelClient, book: &Book) -> Result<Opti
                 Err(_) => continue,
             };
             let matched = if isbn_lookup {
-                exact_isbn(book, result.isbn.as_deref(), &item)
+                let wanted = normalize_isbn(isbn_query.unwrap_or_default());
+                item.isbn.as_deref().or(result.isbn.as_deref())
+                    .is_some_and(|candidate| normalize_isbn(candidate) == wanted)
             } else {
-                item.title.as_deref().is_some_and(|title| title_matches(&result.title, title) && title_matches(&book.title, title))
+                item.title.as_deref().is_some_and(|parsed| title_matches(&result.title, parsed) && title_matches(title, parsed))
             };
             if matched { return Ok(Some((result.record_ref, item))); }
         }
@@ -119,6 +134,7 @@ struct Remove(BookStore);
 struct ListLibraries(BookStore);
 struct SetPreferredLibraries(BookStore);
 struct CheckAvailability(BookStore);
+struct CheckCatalogueAvailability(BookStore);
 struct RefreshCatalogue(BookStore);
 
 #[async_trait]
@@ -218,6 +234,33 @@ impl Tool for CheckAvailability {
         serde_json::to_string(&json!({"book_id":book.id,"libraries":results})).map_err(execution)
     }
 }
+#[async_trait]
+impl Tool for CheckCatalogueAvailability {
+    async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
+        let user = user(context)?;
+        let title = args["title"].as_str().filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("title is required"))?;
+        let isbn = args["isbn"].as_str().filter(|value| !value.trim().is_empty());
+        let libraries = self.0.preferred_libraries(user).await.map_err(execution)?;
+        let mut results = Vec::new();
+        for (library_id, library_name) in libraries {
+            let client = match RabelClient::for_subcatalog(&library_id) {
+                Ok(client) => client,
+                Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
+            };
+            let (record_ref, record) = match find_catalogue_record_by_identity(&client, isbn, title).await {
+                Ok(Some(record)) => record,
+                Ok(None) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"not_found","copies":[]})); continue; }
+                Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
+            };
+            match client.get_holdings(&record_ref).await {
+                Ok(holdings) => results.push(json!({"library_id":library_id,"library_name":library_name,"status":"found","catalogue_title":record.title,"checked_at":holdings.checked_at,"copies":holdings.copies})),
+                Err(error) => results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})),
+            }
+        }
+        serde_json::to_string(&json!({"title":title,"isbn":isbn,"libraries":results})).map_err(execution)
+    }
+}
+
 #[async_trait]
 impl Tool for RefreshCatalogue {
     async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
