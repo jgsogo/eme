@@ -37,25 +37,32 @@
   }
   async function searchCatalogue(event) {
     event.preventDefault(); const q = $("catalogue-query").value.trim(); if (!q) return;
-    $("catalogue-results").textContent = "Searching RABEL…";
+    const summary = $("catalogue-results-summary");
+    const container = $("catalogue-results");
+    summary.textContent = "Searching RABEL…";
+    container.replaceChildren();
     try {
       const results = await api(`/books/catalogue/search?q=${encodeURIComponent(q)}`);
-      const container = $("catalogue-results"); container.replaceChildren();
+      container.replaceChildren();
+      summary.textContent = results.length ? `${results.length} catalogue result${results.length === 1 ? "" : "s"}` : "No matching records";
       for (const result of results) {
-        const card = document.createElement("div"); card.className = "catalogue-entry";
-        const title = document.createElement("strong"); title.textContent = result.title; card.append(title);
-        const meta = document.createElement("p"); meta.textContent = [result.authors.join(", "), result.isbn].filter(Boolean).join(" · "); card.append(meta);
-        card.append(button("Add to my collection", async () => {
+        const card = document.createElement("article"); card.className = "catalogue-entry";
+        const details = document.createElement("div"); details.className = "catalogue-entry-details";
+        const title = document.createElement("strong"); title.className = "catalogue-entry-title"; title.textContent = result.title; details.append(title);
+        const meta = document.createElement("p"); meta.className = "catalogue-entry-meta"; meta.textContent = [result.authors.join(", "), result.isbn ? `ISBN ${result.isbn}` : ""].filter(Boolean).join(" · ") || "Bibliographic details not provided"; details.append(meta);
+        card.append(details);
+        const add = button("Add to my collection", async () => {
           try {
             const book = await api("/books", { method: "POST", body: JSON.stringify({ title: result.title, authors: result.authors, isbn: result.isbn, catalogue_url: null }) });
-            $("add-book-dialog").close(); $("catalogue-results").replaceChildren(); $("catalogue-query").value = "";
+            $("add-book-dialog").close(); $("catalogue-results").replaceChildren(); $("catalogue-results-summary").textContent = "Enter a search term to find books."; $("catalogue-query").value = "";
             await loadBooks(); state.collectionQuery = ""; $("collection-search").value = ""; await selectBook(book); status("Book added.");
           } catch (error) { status(error.message); }
-        }));
+        });
+        add.classList.add("catalogue-entry-add");
+        card.append(add);
         container.append(card);
       }
-      if (!results.length) container.textContent = "No matching catalogue records.";
-    } catch (error) { $("catalogue-results").textContent = error.message; }
+    } catch (error) { summary.textContent = "Catalogue search failed"; container.textContent = error.message; }
   }
   async function saveBook(event) {
     event.preventDefault(); if (!state.selected) return;
