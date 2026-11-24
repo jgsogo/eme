@@ -18,9 +18,21 @@ pub struct CatalogueSearchResult {
     /// Opaque record reference returned by RABEL. It is session-scoped; pass it
     /// unchanged to rabel.get_item rather than constructing an OPAC URL.
     pub record_ref: String,
+    /// Parsed title proper, without author prefix or statement of responsibility.
     pub title: String,
     pub authors: Vec<String>,
+    /// Original publication statement exposed in the search result.
     pub publication: Option<String>,
+    pub publisher: Option<String>,
+    pub publication_year: Option<u16>,
+    pub responsibility: Option<String>,
+    pub publication_statement: Option<String>,
+    pub physical_description: Option<String>,
+    pub series: Option<String>,
+    #[serde(default)]
+    pub notes: Vec<String>,
+    #[serde(default)]
+    pub subjects: Vec<String>,
     /// Catalogue document class (for example monograph, video recording, or periodical).
     #[serde(default)]
     pub category: Option<String>,
