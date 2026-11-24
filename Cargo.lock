@@ -271,6 +271,7 @@ dependencies = [
  "alexa-tool",
  "anyhow",
  "async-trait",
+ "books-tool",
  "chrono",
  "clap",
  "common-tools",
@@ -281,18 +282,18 @@ dependencies = [
  "mercadona-tool",
  "meteosource-tool",
  "notes-tools",
+ "rabel-tool",
  "serde",
  "serde_json",
  "tasks-tool",
  "tavily-tool",
  "telegram-tool",
  "tokio",
+ "tokio-stream",
  "toml",
  "tracing",
  "tracing-subscriber",
  "uuid",
- "rabel-tool",
- "books-tool",
 ]
 
 [[package]]
@@ -598,6 +599,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.10",
+]
+
+[[package]]
+name = "books-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
+ "chrono",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2698,6 +2715,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
+name = "rabel-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
+ "chrono",
+ "regex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
+ "wiremock",
+]
+
+[[package]]
 name = "rand"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3668,6 +3703,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-stream"
+version = "0.1.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3d06f0b082ba57c26b79407372e57cf2a1e28124f78e9479fe80322cf53420b"
+dependencies = [
+ "futures-core",
+ "pin-project-lite",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "tokio-util"
 version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4463,40 +4510,4 @@ checksum = "f729a06d0257428fd9d997ac8db7e1407bd0262ab016b085b36bc52957c0052d"
 dependencies = [
  "cc",
  "pkg-config",
-]
-
-
-[[package]]
-name = "rabel-tool"
-version = "0.1.0"
-dependencies = [
- "agent-config",
- "agent-runtime",
- "async-trait",
- "chrono",
- "regex",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "url",
- "wiremock",
-]
-
-
-[[package]]
-name = "books-tool"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
- "uuid",
- "agent-config",
- "agent-runtime",
- "async-trait",
 ]
