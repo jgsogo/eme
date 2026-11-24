@@ -472,26 +472,9 @@ impl RunManager {
             StoredRunStatus::Running => CancelRunOutcome::Requested,
             _ => return Ok(CancelRunOutcome::AlreadyFinished),
         };
-        stored.status = StoredRunStatus::Cancelled;
-        stored.finished_at = Some(Utc::now());
-        stored.error = Some("execution was interrupted by an application restart".into());
-        storage.update_run(stored).await
+        recover_interrupted_run(storage.as_ref(), stored)
+            .await
             .map_err(|error| CancelRunError::Storage(error.to_string()))?;
-        let events = storage.list_events(run_id.as_uuid(), None).await
-            .map_err(|error| CancelRunError::Storage(error.to_string()))?;
-        storage.append_event(StoredRunEvent {
-            run_id: run_id.as_uuid(),
-            sequence: events.len() as u64,
-            kind: "cancelled".into(),
-            iteration: None,
-            tool_name: None,
-            model_id: None,
-            next_model_id: None,
-            model_candidates: None,
-            attempted_candidates: None,
-            error_category: None,
-            occurred_at: Utc::now(),
-        }).await.map_err(|error| CancelRunError::Storage(error.to_string()))?;
         Ok(outcome)
     }
 
@@ -531,9 +514,23 @@ impl RunManager {
     pub async fn list(&self) -> Vec<Run> {
         let mut by_id = HashMap::new();
         if let Some(storage) = current_storage(&self.persistence) {
+            let in_memory_ids = self.runs.lock().await.keys()
+                .map(|id| id.as_uuid())
+                .collect::<std::collections::HashSet<_>>();
             match storage.list_runs(None).await {
                 Ok(stored) => {
                     for run in stored {
+                        let run = if !in_memory_ids.contains(&run.id) {
+                            match recover_interrupted_run(storage.as_ref(), run.clone()).await {
+                                Ok(recovered) => recovered,
+                                Err(error) => {
+                                    error!(run_id = %run.id, %error, "failed to recover interrupted run");
+                                    run
+                                }
+                            }
+                        } else {
+                            run
+                        };
                         by_id.insert(run.id, from_stored_run(run));
                     }
                 }
@@ -760,6 +757,36 @@ async fn persist_snapshot_and_event(
 ) -> Result<(), agent_storage::StorageError> {
     storage.update_run(to_stored_run(run)).await?;
     storage.append_event(to_stored_event(run.id, event)).await
+}
+
+async fn recover_interrupted_run(
+    storage: &dyn ExecutionStore,
+    mut run: StoredRun,
+) -> Result<StoredRun, agent_storage::StorageError> {
+    if !matches!(run.status, StoredRunStatus::Queued | StoredRunStatus::Running) {
+        return Ok(run);
+    }
+
+    run.status = StoredRunStatus::Cancelled;
+    run.finished_at = Some(Utc::now());
+    run.error = Some("execution was interrupted by an application restart".into());
+    storage.update_run(run.clone()).await?;
+
+    let events = storage.list_events(run.id, None).await?;
+    storage.append_event(StoredRunEvent {
+        run_id: run.id,
+        sequence: events.len() as u64,
+        kind: "cancelled".into(),
+        iteration: None,
+        tool_name: None,
+        model_id: None,
+        next_model_id: None,
+        model_candidates: None,
+        attempted_candidates: None,
+        error_category: None,
+        occurred_at: Utc::now(),
+    }).await?;
+    Ok(run)
 }
 
 fn to_stored_run(run: &Run) -> StoredRun {
