@@ -1,14 +1,14 @@
 //! Authenticated CRUD endpoints and execution history for user-owned scheduled tasks.
 
 use super::types::RunEventResponse;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder, Scope, delete, get, post, put,
     web::{self, Data, Json, Path},
 };
-use agent_service::{RunManager, RunStatus};
-use agent_storage::{FileUserIdentityStore, UserIdentityStore};
+use agent_service::{FamilyService, FamilyServiceError, RunManager, RunStatus};
+use agent_storage::{FamilyId, FileUserIdentityStore, UserId, UserIdentityStore};
 use chrono::{DateTime, FixedOffset};
 use serde::Deserialize;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -28,6 +28,8 @@ struct TaskRequest {
     at: Option<DateTime<FixedOffset>>,
     #[serde(default)]
     timezone: Option<String>,
+    #[serde(default)]
+    family_id: Option<FamilyId>,
     #[serde(default = "default_enabled")]
     enabled: bool,
 }
@@ -46,6 +48,7 @@ impl From<TaskRequest> for NewTask {
             schedule: value.schedule,
             at: value.at,
             timezone: value.timezone,
+            family_id: value.family_id,
         }
     }
 }
@@ -72,6 +75,24 @@ fn actor(
         .migrate_owner(&owner, &user_id)
         .map_err(error_response)?;
     Ok(user_id)
+}
+
+async fn validate_family_selection(
+    user: &str,
+    family_id: Option<FamilyId>,
+    families: &FamilyService,
+) -> Result<(), HttpResponse> {
+    let Some(family_id) = family_id else {
+        return Ok(());
+    };
+    let user_id = UserId::from_str(user).map_err(|_| HttpResponse::Unauthorized().finish())?;
+    match families.context_for_member(user_id, family_id).await {
+        Ok(_) => Ok(()),
+        Err(FamilyServiceError::NotFound | FamilyServiceError::NotMember) => {
+            Err(HttpResponse::NotFound().finish())
+        }
+        Err(_) => Err(HttpResponse::InternalServerError().finish()),
+    }
 }
 
 fn error_response(error: TaskError) -> HttpResponse {
@@ -102,6 +123,7 @@ async fn create_task(
     auth: Data<crate::auth::TelegramAuth>,
     identities: Data<Arc<FileUserIdentityStore>>,
     tasks: Data<TaskRegistry>,
+    families: Data<Arc<FamilyService>>,
     body: Json<TaskRequest>,
 ) -> impl Responder {
     let user = match actor(&request, &auth, &identities, &tasks) {
@@ -109,6 +131,9 @@ async fn create_task(
         Err(response) => return response,
     };
     let body = body.into_inner();
+    if let Err(response) = validate_family_selection(&user, body.family_id, families.as_ref()).await {
+        return response;
+    }
     let enabled = body.enabled;
     match tasks.add(&user, body.into()) {
         Ok(task) if enabled => HttpResponse::Created().json(task),
@@ -215,6 +240,7 @@ async fn update_task(
     auth: Data<crate::auth::TelegramAuth>,
     identities: Data<Arc<FileUserIdentityStore>>,
     tasks: Data<TaskRegistry>,
+    families: Data<Arc<FamilyService>>,
     task_id: Path<String>,
     body: Json<TaskRequest>,
 ) -> impl Responder {
@@ -227,6 +253,9 @@ async fn update_task(
         Err(_) => return HttpResponse::BadRequest().body("invalid task identifier"),
     };
     let body = body.into_inner();
+    if let Err(response) = validate_family_selection(&user, body.family_id, families.as_ref()).await {
+        return response;
+    }
     let enabled = body.enabled;
     match tasks.update(&user, id, body.into(), enabled) {
         Ok(task) => HttpResponse::Ok().json(task),

@@ -3,7 +3,8 @@
 use super::{next_occurrence, submission_retry_delay};
 use crate::{NewTask, TaskRegistry, TaskScheduler};
 use agent_runtime::{CancellationToken, ToolContext};
-use agent_service::{ExecutionOutcome, ExecutionReport, RunExecutor, RunManager};
+use agent_service::{ExecutionOutcome, ExecutionReport, FamilyService, RunExecutor, RunManager};
+use agent_storage::{FileUserIdentityStore, InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore};
 use async_trait::async_trait;
 use chrono::{Duration as ChronoDuration, Timelike, Utc};
 use cron::Schedule;
@@ -51,11 +52,16 @@ impl RunExecutor for RecordingExecutor {
     }
 }
 
-fn test_registry() -> (TaskRegistry, std::path::PathBuf) {
+fn test_registry() -> (TaskRegistry, std::path::PathBuf, Arc<FileUserIdentityStore>, Arc<FamilyService>, String) {
     let directory = std::env::temp_dir().join(format!("task-scheduler-{}", Uuid::new_v4()));
     let registry = TaskRegistry::load(&directory).unwrap();
     registry.validate_agents(["assistant".to_owned()]).unwrap();
-    (registry, directory)
+    let identities = Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
+    let (user, _) = identities.resolve_or_create("telegram", "42", None).unwrap();
+    let family_store = Arc::new(InMemoryFamilyStore::default());
+    let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(&family_store)));
+    let families = Arc::new(FamilyService::new(family_store, invitations));
+    (registry, directory, identities, families, user.id.to_string())
 }
 
 fn recording_manager(
@@ -95,6 +101,7 @@ fn new_task(schedule: Option<&str>, at: Option<chrono::DateTime<chrono::FixedOff
         schedule: schedule.map(str::to_owned),
         at,
         timezone: schedule.map(|_| "UTC".into()),
+        family_id: None,
     }
 }
 
@@ -117,12 +124,12 @@ fn skips_missed_occurrences() {
 
 #[tokio::test]
 async fn due_cron_task_is_submitted_to_the_run_manager() {
-    let (registry, directory) = test_registry();
+    let (registry, directory, identities, families, user_id) = test_registry();
     registry
-        .add("user-1", new_task(Some("*/1 * * * * *"), None))
+        .add(&user_id, new_task(Some("*/1 * * * * *"), None))
         .unwrap();
     let (manager, mut calls, _, _) = recording_manager(false);
-    let scheduler = TaskScheduler::start(registry.clone(), manager);
+    let scheduler = TaskScheduler::start(registry.clone(), manager, identities, families);
 
     let input = tokio::time::timeout(Duration::from_secs(3), calls.recv())
         .await
@@ -153,7 +160,7 @@ async fn one_time_task_is_retained_and_retried_when_the_run_queue_is_full() {
     let (registry, directory) = test_registry();
     let task = registry
         .add(
-            "user-1",
+            &user_id,
             new_task(
                 None,
                 Some((Utc::now() + ChronoDuration::milliseconds(700)).fixed_offset()),

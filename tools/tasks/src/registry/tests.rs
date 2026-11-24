@@ -51,6 +51,7 @@ fn task_listing_and_removal_are_scoped_to_the_authenticated_user() {
                 schedule: Some("0 0 8 * * *".into()),
                 at: None,
                 timezone: Some("Europe/Madrid".into()),
+                family_id: None,
             },
         )
         .unwrap();
@@ -82,6 +83,7 @@ fn persists_tasks_across_registry_restarts() {
                 schedule: None,
                 at: Some((Utc::now() + chrono::Duration::hours(1)).fixed_offset()),
                 timezone: None,
+                family_id: None,
             },
         )
         .unwrap();
@@ -258,6 +260,7 @@ fn initial_cron_occurrence_respects_timezone_across_daylight_saving() {
         schedule,
         at: None,
         timezone,
+        family_id: None,
         enabled: true,
         next_run: None,
     };
