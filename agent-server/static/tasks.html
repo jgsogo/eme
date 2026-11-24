@@ -26,7 +26,9 @@
 </form>
 </section>
 <section id="task-executions" class="task-section-content" data-task-section="history" hidden aria-live="polite">
-  <div class="notes-actions">
+  <div class="notes-actions task-execution-controls">
+    <label for="task-executions-search">Filter executions</label>
+    <input id="task-executions-search" type="search" placeholder="Status, date or agent…" autocomplete="off">
     <button id="task-executions-refresh" type="button" class="secondary">Refresh</button>
   </div>
   <div id="task-executions-list" class="notes-list"><div class="empty">Select a task to inspect its executions.</div></div>
