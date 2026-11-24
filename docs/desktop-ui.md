@@ -43,3 +43,55 @@ These principles apply to the desktop web console. They consolidate the existing
 
 - These principles describe the desktop web console only.
 - The mobile UI is isolated and must remain unchanged by desktop UI consolidation. Keep desktop-only layout and styling changes scoped so they do not alter mobile views, mobile components or mobile stylesheets.
+
+## Consistency without uniformity
+
+- Consistency does not mean uniformity. Use the same interaction patterns and visual language across views, but choose the layout and controls that best fit each view's purpose.
+- Do not force every screen into the same template when its content or workflow calls for a different structure.
+
+## Interaction states and feedback
+
+- Make asynchronous work visible with clear loading or in-progress states.
+- Distinguish between an empty collection, a loading collection, an error, and a search/filter result with no matches.
+- Provide clear success or failure feedback after actions that modify data.
+- Prevent accidental duplicate submissions while an operation is in progress.
+- Preserve the user's context and entered input when an operation fails.
+
+## Accessibility and keyboard interaction
+
+- All interactive elements must be usable with a keyboard.
+- Provide visible focus indicators and accessible labels.
+- Use semantic HTML and appropriate accessible roles.
+- Dialogs must manage focus correctly, support Escape where appropriate, and return focus to the element that opened them.
+- Do not rely on color alone to communicate status, meaning, or validation.
+
+## Collection navigation and presentation
+
+- Provide sorting when the displayed fields have meaningful ordering.
+- Keep column headings and values aligned and easy to scan.
+- Avoid unnecessary columns; prioritize information needed to identify entries and act on them.
+- Consider pagination or progressive loading for large collections.
+- Preserve filters and sorting when navigating away and returning, where practical.
+- Apply these behaviors when useful; do not add sorting or pagination where they do not help.
+
+## Forms and destructive actions
+
+- Validate inputs and explain errors next to the relevant fields.
+- Preserve entered values when validation or server-side operations fail.
+- Distinguish primary and secondary actions clearly.
+- Require confirmation for destructive or difficult-to-reverse actions.
+- Explain the consequences of a destructive action before asking for confirmation.
+
+## Visual consistency
+
+- Reuse consistent spacing, typography, colors, borders, and control sizes.
+- Maintain a clear visual hierarchy for page titles, section headings, descriptions, and actions.
+- Prefer existing components and visual patterns over introducing new ones for the same purpose.
+- Use status indicators consistently across views.
+
+## Implementation and regression boundaries
+
+- Prefer shared components and styles over duplicated view-specific implementations.
+- Scope styles to the relevant component or desktop layout. Avoid broad selectors that can cause unintended changes elsewhere.
+- Check desktop changes at representative viewport sizes, including around the desktop/mobile breakpoint.
+- Verify that desktop changes do not regress existing mobile behavior.
