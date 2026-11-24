@@ -21,16 +21,14 @@ pub(super) fn meta_refresh_target(html: &str) -> Option<String> {
 pub(super) fn session_action(html: &str, base_url: &Url) -> Option<Url> {
     // The public catalogue shell renders the session-specific endpoint in
     // its form actions (normally /<session-token>/NT1).
-    let forms = Regex::new(r#"(?is)<form\\b([^>]*)>"#).ok()?;
-    let attr = Regex::new(r#"(?is)\\baction\\s*=\\s*["']([^"']+)["']"#).ok()?;
+    let forms = Regex::new(r#"(?is)<form\b([^>]*)>"#).ok()?;
+    let attr = Regex::new(r#"(?is)\baction\s*=\s*["']([^"']+)["']"#).ok()?;
     forms.captures_iter(html).find_map(|form| {
         let attrs = form.get(1)?.as_str();
         let action = attr.captures(attrs)?.get(1)?.as_str();
         base_url.join(action).ok()
     })
 }
-
-
 
 pub(super) fn search_page_diagnostic(html: &str, response_url: &Url) -> String {
     let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>")
