@@ -216,6 +216,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn schema_migration_preserves_existing_collection_rows() {
+        let (path, _) = temp_db();
+        {
+            let connection = Connection::open(&path).unwrap();
+            connection.execute_batch(include_str!("../migrations/0001_books.sql")).unwrap();
+            connection.execute(
+                "INSERT INTO user_books(id,user_id,title,authors_json,reading_status,want_to_buy,created_at,updated_at)
+                 VALUES ('legacy','user-a','Existing title','[]','pending',0,'2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')",
+                [],
+            ).unwrap();
+        }
+        let store = BookStore::open(&path).unwrap();
+        let book = store.get("user-a", "legacy").await.unwrap();
+        assert_eq!(book.title, "Existing title");
+        assert!(book.notes.is_empty());
+        assert!(book.subjects.is_empty());
+        assert_eq!(book.responsibility, None);
+        drop(store);
+        let _ = fs::remove_file(path);
+    }
+
+    #[tokio::test]
     async fn library_preferences_are_scoped_to_user(){
         let (path, _) = temp_db();
         let store=BookStore::open(&path).unwrap();
