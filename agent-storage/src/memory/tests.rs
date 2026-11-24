@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::contracts::{
     ConversationMessageStore, RunEventStore, RunStore, StorageError, StoredMessage, StoredRun,
-    StoredRunEvent, StoredRunStatus,
+    StoredRunEvent, StoredRunStatus, TaskRunStore,
 };
 
 use super::InMemoryStorage;
@@ -152,5 +152,30 @@ async fn message_store_preserves_order_and_runtime_message_payloads() {
     assert!(matches!(
         store.append_message(mismatched).await,
         Err(StorageError::InvalidAssociation(_))
+    ));
+}
+
+#[tokio::test]
+async fn task_run_store_associates_runs_and_lists_newest_first() {
+    let store = InMemoryStorage::default();
+    let task_id = Uuid::new_v4();
+    let first = Uuid::new_v4();
+    let second = Uuid::new_v4();
+    store.insert_run(run(first, None)).await.unwrap();
+    store.insert_run(run(second, None)).await.unwrap();
+
+    store.associate_task_run(task_id, first).await.unwrap();
+    store.associate_task_run(task_id, first).await.unwrap();
+    store.associate_task_run(task_id, second).await.unwrap();
+
+    let runs = store.list_task_runs(task_id).await.unwrap();
+    assert_eq!(runs.len(), 2);
+    assert!(runs.iter().any(|run| run.id == first));
+    assert!(runs.iter().any(|run| run.id == second));
+    assert!(store.list_task_runs(Uuid::new_v4()).await.unwrap().is_empty());
+
+    assert!(matches!(
+        store.associate_task_run(Uuid::new_v4(), Uuid::new_v4()).await,
+        Err(StorageError::NotFound(_))
     ));
 }
