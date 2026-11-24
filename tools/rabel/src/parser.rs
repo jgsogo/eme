@@ -84,13 +84,28 @@ fn extract_holdings(html: &str) -> Vec<CopyHolding> {
         let text = clean_text(raw);
             Some(CopyHolding {
             library: labelled_value(&text, &["Biblioteca", "Sucursal"]),
-            signature: labelled_value(&text, &["Signatura", "SIGN"]),
-            location: labelled_value(&text, &["Localización", "Ubicación", "Depósito"]),
-            material: labelled_value(&text, &["Tipo de ejemplar", "Tipo", "Formato"]),
+            signature: labelled_value(&text, &["Signatura", "SIGN"])
+                .or_else(|| extract_signature(&text)),
+            location: labelled_value(&text, &["Localización", "Ubicación"])
+                .or_else(|| known_value(&text, &["Depósito", "Sala de préstamo", "Sala de lectura", "Sala infantil"])),
+            material: labelled_value(&text, &["Tipo de ejemplar", "Tipo", "Formato"])
+                .or_else(|| known_value(&text, &["Libro adultos", "Libro infantil", "Papel", "DVD", "CD"])),
             availability: normalize_availability(status),
             catalogue_note: (!text.is_empty()).then_some(text),
         })
     }).collect()
+}
+
+fn extract_signature(text: &str) -> Option<String> {
+    Regex::new(r"\\b[A-Z]{1,4}-[A-Z0-9-]{2,20}\\b")
+        .ok()?
+        .find(text)
+        .map(|matched| matched.as_str().to_owned())
+}
+
+fn known_value(text: &str, values: &[&str]) -> Option<String> {
+    values.iter().find(|value| text.to_lowercase().contains(&value.to_lowercase()))
+        .map(|value| (*value).to_owned())
 }
 
 fn normalize_availability(value: &str) -> Availability {
@@ -183,6 +198,9 @@ mod tests {
         let html = r#"<table><tr><td data-disp="Disponible">D-18214 Depósito Libro adultos Papel</td></tr></table>"#;
         let holdings = extract_holdings(html);
         assert_eq!(holdings[0].availability, Availability::Available);
+        assert_eq!(holdings[0].signature.as_deref(), Some("D-18214"));
+        assert_eq!(holdings[0].location.as_deref(), Some("Depósito"));
+        assert_eq!(holdings[0].material.as_deref(), Some("Libro adultos"));
         assert!(holdings[0].catalogue_note.as_deref().unwrap().contains("D-18214"));
     }
 }
