@@ -145,17 +145,22 @@ pub fn register_media_tools(
         ),
         (
             "media_watchlist",
-            "Read the authenticated user's own watchlist. Omit profile_id to use their personal media profile; only provide it for an explicitly selected family-managed profile.",
+            "Read, add to, or remove from the authenticated user's linked Trakt watchlist. Omit profile_id to use their personal media profile; writes require that profile's own Trakt connection.",
             json!({
                 "type":"object",
-                "properties":{"profile_id":{"type":"string"}},
+                "properties":{
+                    "action":{"type":"string","enum":["list","add","remove"]},
+                    "profile_id":{"type":"string"},
+                    "tmdb_id":{"type":"integer","minimum":1},
+                    "kind":{"type":"string","enum":["movie","tv_show"]}
+                },
                 "additionalProperties":false
             }),
             MediaAction::Watchlist,
         ),
         (
             "media_rate",
-            "Record an explicit 0–5 EME rating for a movie or TV show.",
+            "Record a 0–5 EME rating and write it through to Trakt when the selected profile has the caller's Trakt account linked. Omit profile_id to use their personal media profile.",
             json!({
                 "type":"object",
                 "properties":{
@@ -164,7 +169,7 @@ pub fn register_media_tools(
                     "kind":{"type":"string","enum":["movie","tv_show"]},
                     "rating":{"type":"number","minimum":0,"maximum":5}
                 },
-                "required":["profile_id","tmdb_id","kind","rating"],
+                "required":["tmdb_id","kind","rating"],
                 "additionalProperties":false
             }),
             MediaAction::Rate,
@@ -469,27 +474,60 @@ impl MediaTool {
     }
 
     async fn watchlist(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
+        let action = args.get("action").and_then(Value::as_str).unwrap_or("list");
         let profile_id = self
             .require_profile(
                 context,
                 args.get("profile_id").and_then(Value::as_str),
-                false,
+                action != "list",
             )
             .await?;
-        let items = self
-            .services
-            .store
-            .list_watchlist(profile_id)
-            .await
-            .map_err(display)?;
-        serde_json::to_value(items).map_err(display)
+        match action {
+            "list" => {
+                let items = self
+                    .services
+                    .store
+                    .list_watchlist(profile_id)
+                    .await
+                    .map_err(display)?;
+                serde_json::to_value(items).map_err(display)
+            }
+            "add" | "remove" => {
+                let user_id = authenticated_user_id(context)?;
+                let tmdb_id = required_u64(args, "tmdb_id")?;
+                let kind = parse_kind(required_string(args, "kind")?)?;
+                let item = match kind {
+                    MediaKind::Movie => self.tmdb()?.movie_details(tmdb_id).await,
+                    MediaKind::TvShow => self.tmdb()?.tv_details(tmdb_id).await,
+                }
+                .map_err(display)?;
+                let sync = self
+                    .services
+                    .sync
+                    .as_ref()
+                    .ok_or_else(|| "Trakt write synchronization is not configured".to_owned())?;
+                sync.set_watchlist_item(user_id, profile_id, &item, action == "add")
+                    .await
+                    .map_err(display)?;
+                Ok(json!({
+                    "action": action,
+                    "profile_id": profile_id.to_string(),
+                    "item": item
+                }))
+            }
+            _ => Err("action must be list, add or remove".into()),
+        }
     }
 
     async fn rate(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
         let profile_id = self
-            .require_profile(context, Some(required_string(args, "profile_id")?), true)
+            .require_profile(
+                context,
+                args.get("profile_id").and_then(Value::as_str),
+                true,
+            )
             .await?;
-        let tmdb = self.tmdb()?;
+        let user_id = authenticated_user_id(context)?;
         let tmdb_id = required_u64(args, "tmdb_id")?;
         let kind = parse_kind(required_string(args, "kind")?)?;
         let rating = args
@@ -500,15 +538,10 @@ impl MediaTool {
             return Err("rating must be between 0 and 5".into());
         }
         let item = match kind {
-            MediaKind::Movie => tmdb.movie_details(tmdb_id).await,
-            MediaKind::TvShow => tmdb.tv_details(tmdb_id).await,
+            MediaKind::Movie => self.tmdb()?.movie_details(tmdb_id).await,
+            MediaKind::TvShow => self.tmdb()?.tv_details(tmdb_id).await,
         }
         .map_err(display)?;
-        self.services
-            .store
-            .save_media_item(&item)
-            .await
-            .map_err(display)?;
         let record = MediaRating {
             profile_id,
             media_item_id: item.id,
@@ -516,12 +549,46 @@ impl MediaTool {
             rated_at: Utc::now(),
             source: WatchHistorySource::Eme,
         };
-        self.services
+
+        let link = self
+            .services
             .store
-            .save_rating(&record)
+            .get_external_connection_link(profile_id, "trakt")
             .await
             .map_err(display)?;
-        serde_json::to_value(record).map_err(display)
+        let trakt_synced = if let Some(link) = link {
+            if link.owner_id != user_id {
+                return Err(
+                    "the linked Trakt account belongs to another profile owner; only that owner can change its Trakt ratings"
+                        .into(),
+                );
+            }
+            let sync = self
+                .services
+                .sync
+                .as_ref()
+                .ok_or_else(|| "Trakt write synchronization is not configured".to_owned())?;
+            sync.push_rating(user_id, profile_id, &item, &record)
+                .await
+                .map_err(display)?;
+            true
+        } else {
+            self.services
+                .store
+                .save_media_item(&item)
+                .await
+                .map_err(display)?;
+            self.services
+                .store
+                .save_rating(&record)
+                .await
+                .map_err(display)?;
+            false
+        };
+        Ok(json!({
+            "rating": record,
+            "trakt_synced": trakt_synced
+        }))
     }
 
     async fn preferences(&self, context: &ToolContext, args: &Value) -> Result<Value, String> {
