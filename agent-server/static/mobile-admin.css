@@ -1,48 +1,399 @@
 /* Mobile-only presentation for the Admin console. Desktop admin pages are unaffected. */
-body[data-layout="mobile"] .mobile-admin-main{padding:12px 12px calc(92px + env(safe-area-inset-bottom));max-width:760px;overflow-x:hidden}
-.mobile-admin-title{font-size:14px;font-weight:650;white-space:nowrap}
-.mobile-admin-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:0 0 18px;padding:4px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
-.mobile-admin-nav a{display:flex;align-items:center;justify-content:center;min-height:38px;padding:6px 3px;border-radius:8px;color:var(--muted);font-size:12px;font-weight:650;text-decoration:none}
-.mobile-admin-nav a.active{background:var(--panel2);color:var(--text)}
-.mobile-admin-heading{display:flex;flex-direction:column;align-items:stretch;gap:12px;margin:0 0 14px}
-.mobile-admin-heading h2{font-size:21px;line-height:1.2}
-.mobile-admin-heading .usage-intro{font-size:12px;line-height:1.45}
-.mobile-admin-actions{display:flex;align-items:center;gap:8px;width:100%}
-.mobile-admin-actions>label{font-size:12px}
-.mobile-admin-actions select{flex:1;min-width:0;width:auto}
-.icon-button{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;min-width:42px;min-height:42px;padding:9px!important}
-.icon-button svg,.pricing-form-footer button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
-.mobile-search{position:relative;display:flex;align-items:center;flex:1;min-width:0}
-.mobile-search svg{position:absolute;left:11px;width:17px;height:17px;fill:none;stroke:var(--muted);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
-.mobile-search input{width:100%;min-width:0;margin:0;padding-left:36px}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-body[data-layout="mobile"] .usage-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-body[data-layout="mobile"] .usage-card{padding:12px}
-body[data-layout="mobile"] .usage-card strong{font-size:21px}
-body[data-layout="mobile"] .usage-card small{font-size:10px;line-height:1.35}
-body[data-layout="mobile"] .usage-panels{grid-template-columns:minmax(0,1fr);gap:10px}
-body[data-layout="mobile"] .usage-panel,body[data-layout="mobile"] .usage-history{padding:13px}
-body[data-layout="mobile"] .usage-model-row{grid-template-columns:minmax(0,1fr) auto;gap:7px}
-body[data-layout="mobile"] .usage-model-name{grid-column:1}
-body[data-layout="mobile"] .usage-bar-track{grid-column:1/-1;grid-row:2}
-body[data-layout="mobile"] .usage-model-total{grid-column:2;grid-row:1;font-size:10px}
-body[data-layout="mobile"] .quality-list>div{gap:10px}
-body[data-layout="mobile"] .quality-list>div span{font-size:11px}
-body[data-layout="mobile"] .quality-list>div strong{font-size:11px;text-align:right}
-body[data-layout="mobile"] .pricing-form-grid,body[data-layout="mobile"] .pricing-rates{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-body[data-layout="mobile"] .pricing-form-grid label,body[data-layout="mobile"] .pricing-rates label{min-width:0;font-size:11px}
-body[data-layout="mobile"] .pricing-form-footer{align-items:stretch;flex-direction:column}
-body[data-layout="mobile"] .pricing-form-footer button{align-self:flex-start;display:inline-flex;align-items:center;gap:7px}
-body[data-layout="mobile"] .pricing-versions,body[data-layout="mobile"] .usage-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-body[data-layout="mobile"] .pricing-table,body[data-layout="mobile"] .usage-table{min-width:760px}
-body[data-layout="mobile"] .tools-grid{grid-template-columns:minmax(0,1fr);gap:10px}
-body[data-layout="mobile"] .tool-card{padding:14px}
-body[data-layout="mobile"] .tool-card-heading{align-items:flex-start;gap:8px}
-body[data-layout="mobile"] .tool-card-heading h3{overflow-wrap:anywhere}
-body[data-layout="mobile"] .provider-model-heading{align-items:center}
-body[data-layout="mobile"] .provider-test-button{min-height:40px;display:inline-flex;align-items:center;gap:6px}body[data-layout="mobile"] .provider-test-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-body[data-layout="mobile"] .usage-status{overflow-wrap:anywhere}
-body[data-layout="mobile"] .pricing-panel,body[data-layout="mobile"] .usage-history{margin-top:10px}
-body[data-layout="mobile"] .usage-footnote{font-size:10px;line-height:1.45}
-body[data-layout="mobile"] details>summary{min-height:40px;display:flex;align-items:center;cursor:pointer}
-@media(min-width:600px){body[data-layout="mobile"] .mobile-admin-main{padding-left:20px;padding-right:20px}body[data-layout="mobile"] .mobile-admin-heading{flex-direction:row;align-items:flex-end}body[data-layout="mobile"] .mobile-admin-actions{width:auto;min-width:280px}body[data-layout="mobile"] .usage-panels{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}}
+body[data-layout="mobile"] {
+  --mobile-admin-page-gap: 12px;
+  --mobile-admin-panel-padding: 12px;
+  --mobile-admin-control-gap: 8px;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+/* The header stays in place; the page content owns vertical scrolling. */
+body[data-layout="mobile"] .mobile-admin-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--mobile-admin-page-gap) var(--mobile-admin-page-gap)
+    calc(88px + env(safe-area-inset-bottom));
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.mobile-admin-title {
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.mobile-admin-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0 0 var(--mobile-admin-page-gap);
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.mobile-admin-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 3px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: center;
+  text-decoration: none;
+}
+
+.mobile-admin-nav a.active {
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.mobile-admin-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--mobile-admin-control-gap);
+  margin: 0 0 var(--mobile-admin-page-gap);
+}
+
+.mobile-admin-heading h2 {
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.mobile-admin-heading .usage-intro {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.mobile-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-admin-control-gap);
+  width: 100%;
+  min-width: 0;
+}
+
+.mobile-admin-actions > label {
+  flex: none;
+  font-size: 12px;
+}
+
+.mobile-admin-actions select {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.icon-button {
+  display: inline-flex !important;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 9px !important;
+}
+
+.icon-button svg,
+.pricing-form-footer button svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mobile-search {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
+.mobile-search svg {
+  position: absolute;
+  left: 11px;
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.mobile-search input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-left: 36px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Use one spacing rhythm across the Usage page. */
+body[data-layout="mobile"] .usage-status {
+  margin: 0 0 var(--mobile-admin-page-gap);
+  overflow-wrap: anywhere;
+}
+
+body[data-layout="mobile"] .usage-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mobile-admin-control-gap);
+  margin-bottom: var(--mobile-admin-page-gap);
+}
+
+body[data-layout="mobile"] .usage-card {
+  min-width: 0;
+  padding: var(--mobile-admin-panel-padding);
+}
+
+body[data-layout="mobile"] .usage-card strong {
+  font-size: 21px;
+  overflow-wrap: anywhere;
+}
+
+body[data-layout="mobile"] .usage-card small {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+body[data-layout="mobile"] .usage-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mobile-admin-page-gap);
+  margin-bottom: var(--mobile-admin-page-gap);
+}
+
+body[data-layout="mobile"] .usage-panel,
+body[data-layout="mobile"] .usage-history,
+body[data-layout="mobile"] .pricing-panel {
+  min-width: 0;
+  padding: var(--mobile-admin-panel-padding);
+}
+
+body[data-layout="mobile"] .usage-panel-heading {
+  gap: var(--mobile-admin-control-gap);
+  margin-bottom: var(--mobile-admin-page-gap);
+}
+
+body[data-layout="mobile"] .usage-models {
+  gap: var(--mobile-admin-page-gap);
+}
+
+body[data-layout="mobile"] .usage-model-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--mobile-admin-control-gap);
+}
+
+body[data-layout="mobile"] .usage-model-name {
+  grid-column: 1;
+  min-width: 0;
+}
+
+body[data-layout="mobile"] .usage-bar-track {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+body[data-layout="mobile"] .usage-model-total {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 10px;
+}
+
+body[data-layout="mobile"] .quality-list > div {
+  gap: var(--mobile-admin-control-gap);
+  padding: 9px 0;
+}
+
+body[data-layout="mobile"] .quality-list > div span,
+body[data-layout="mobile"] .quality-list > div strong {
+  min-width: 0;
+  font-size: 11px;
+}
+
+body[data-layout="mobile"] .quality-list > div strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+body[data-layout="mobile"] .usage-footnote {
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+body[data-layout="mobile"] .pricing-panel,
+body[data-layout="mobile"] .usage-history {
+  margin-top: var(--mobile-admin-page-gap);
+}
+
+body[data-layout="mobile"] .pricing-form-grid,
+body[data-layout="mobile"] .pricing-rates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mobile-admin-control-gap);
+  margin-bottom: var(--mobile-admin-page-gap);
+}
+
+body[data-layout="mobile"] .pricing-form-grid label,
+body[data-layout="mobile"] .pricing-rates label {
+  min-width: 0;
+  font-size: 11px;
+}
+
+body[data-layout="mobile"] .pricing-form-grid input,
+body[data-layout="mobile"] .pricing-rates input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+body[data-layout="mobile"] .pricing-form-footer {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: var(--mobile-admin-control-gap);
+}
+
+body[data-layout="mobile"] .pricing-form-footer .usage-status {
+  margin: 0;
+}
+
+body[data-layout="mobile"] .pricing-form-footer button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Dense tables scroll horizontally; long schemas/details scroll vertically. */
+body[data-layout="mobile"] .pricing-versions,
+body[data-layout="mobile"] .usage-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+body[data-layout="mobile"] .pricing-table,
+body[data-layout="mobile"] .usage-table {
+  min-width: 760px;
+}
+
+body[data-layout="mobile"] .tools-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--mobile-admin-page-gap);
+  min-width: 0;
+}
+
+body[data-layout="mobile"] .tool-card {
+  min-width: 0;
+  padding: var(--mobile-admin-panel-padding);
+}
+
+body[data-layout="mobile"] .tool-card-heading {
+  align-items: flex-start;
+  gap: var(--mobile-admin-control-gap);
+}
+
+body[data-layout="mobile"] .tool-card-heading h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+body[data-layout="mobile"] .tool-card pre {
+  max-width: 100%;
+  max-height: min(45vh, 360px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+body[data-layout="mobile"] .provider-model-heading {
+  align-items: center;
+}
+
+body[data-layout="mobile"] .provider-test-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+}
+
+body[data-layout="mobile"] .provider-test-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+body[data-layout="mobile"] details > summary {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+@media (min-width: 600px) {
+  body[data-layout="mobile"] .mobile-admin-main {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  body[data-layout="mobile"] .mobile-admin-heading {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  body[data-layout="mobile"] .mobile-admin-actions {
+    width: auto;
+    min-width: 280px;
+  }
+
+  body[data-layout="mobile"] .usage-panels {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+}
