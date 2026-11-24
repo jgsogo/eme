@@ -960,16 +960,8 @@ mod tests {
             .unwrap();
         let live_watchlist = sync.list_watchlist(owner_id, profile.id).await.unwrap();
         assert_eq!(live_watchlist.len(), 2);
-        assert!(
-            live_watchlist
-                .iter()
-                .any(|item| item["title"] == "Movie")
-        );
-        assert!(
-            live_watchlist
-                .iter()
-                .any(|item| item["title"] == "Show")
-        );
+        assert!(live_watchlist.iter().any(|item| item["title"] == "Movie"));
+        assert!(live_watchlist.iter().any(|item| item["title"] == "Show"));
         assert!(media.list_watchlist(profile.id).await.unwrap().is_empty());
 
         let movie = media
