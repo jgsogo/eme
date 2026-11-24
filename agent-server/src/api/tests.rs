@@ -291,10 +291,10 @@ async fn streams_run_events_and_resumes_after_last_event_id() {
     );
     let body = test::read_body(response).await;
     let body = String::from_utf8(body.to_vec()).unwrap();
-    assert!(body.contains("id: 0\\n"));
+    assert!(body.contains("id: 0\n"));
     assert!(body.contains("\\"kind\\":\\"queued\\""));
-    assert!(body.contains("id: 1\\n"));
-    assert!(body.contains("id: 2\\n"));
+    assert!(body.contains("id: 1\n"));
+    assert!(body.contains("id: 2\n"));
     assert!(body.contains("\\"kind\\":\\"completed\\""));
 
     let request = test::TestRequest::get()
@@ -304,9 +304,9 @@ async fn streams_run_events_and_resumes_after_last_event_id() {
     let response = test::call_service(&app, request).await;
     let body = test::read_body(response).await;
     let body = String::from_utf8(body.to_vec()).unwrap();
-    assert!(!body.contains("id: 0\\n"));
-    assert!(body.contains("id: 1\\n"));
-    assert!(body.contains("id: 2\\n"));
+    assert!(!body.contains("id: 0\n"));
+    assert!(body.contains("id: 1\n"));
+    assert!(body.contains("id: 2\n"));
 }
 
 #[actix_web::test]

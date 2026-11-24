@@ -25,7 +25,7 @@ use agent_storage::{
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::{StreamExt, wrappers::ReceiverStream};
 
 fn owns_run(
     run: &Run,
@@ -454,7 +454,7 @@ async fn stream_run_events(
         .get("Last-Event-ID")
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse::<u64>().ok());
-    let (sender, receiver) = mpsc::channel::<Result<Bytes, actix_web::Error>>(32);
+    let (sender, receiver) = mpsc::channel::<Bytes>(32);
     let manager = manager.clone();
 
     actix_web::rt::spawn(async move {
@@ -517,7 +517,7 @@ async fn stream_run_events(
                     }
                 }
                 _ = heartbeat.tick() => {
-                    if sender.send(Ok(Bytes::from_static(b": keep-alive\\n\\n"))).await.is_err() {
+                    if sender.send(Ok(Bytes::from_static(b": keep-alive\n\n"))).await.is_err() {
                         return;
                     }
                 }
@@ -529,11 +529,11 @@ async fn stream_run_events(
         .insert_header((header::CONTENT_TYPE, "text/event-stream"))
         .insert_header((header::CACHE_CONTROL, "no-cache"))
         .insert_header(("X-Accel-Buffering", "no"))
-        .streaming(ReceiverStream::new(receiver))
+        .streaming(ReceiverStream::new(receiver).map(Ok::<Bytes, actix_web::Error>))
 }
 
 async fn send_sse_event(
-    sender: &mpsc::Sender<Result<Bytes, actix_web::Error>>,
+    sender: &mpsc::Sender<Bytes>,
     event: agent_service::RunEvent,
 ) -> Option<(u64, bool)> {
     let response = RunEventResponse::from(event);
@@ -543,8 +543,8 @@ async fn send_sse_event(
         "completed" | "failed" | "cancelled" | "timed_out" | "max_iterations_reached"
     );
     let payload = serde_json::to_string(&response).ok()?;
-    let frame = format!("id: {sequence}\\ndata: {payload}\\n\\n");
-    sender.send(Ok(Bytes::from(frame))).await.ok()?;
+    let frame = format!("id: {sequence}\ndata: {payload}\n\n");
+    sender.send(Bytes::from(frame)).await.ok()?;
     Some((sequence, terminal))
 }
 
