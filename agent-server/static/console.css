@@ -517,3 +517,7 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .agent-metadata h4{margin:0 0 8px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
 .agent-tags{display:flex;flex-wrap:wrap;gap:6px}
 @media(max-width:600px){.agent-metadata{grid-template-columns:1fr}}
+
+/* Notes list search and family filters. */
+.notes-filters{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.notes-filters input,.notes-filters select{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text);font:inherit;font-size:13px}

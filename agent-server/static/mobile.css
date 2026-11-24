@@ -50,3 +50,6 @@ body[data-layout="mobile"] .integration-details{min-width:0}
 body[data-layout="mobile"] .integration-actions{flex-wrap:wrap;align-items:stretch}
 body[data-layout="mobile"] .integration-field{min-width:0;flex:1 1 100%}
 body[data-layout="mobile"] .integration-actions button{width:100%}
+
+body[data-layout="mobile"] .notes-filters{gap:6px}
+body[data-layout="mobile"] .notes-filters input,body[data-layout="mobile"] .notes-filters select{width:100%;min-height:38px}
