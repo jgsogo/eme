@@ -11,7 +11,7 @@ It is implemented in the single Rust crate `tools/media` (`media-tools`). Provid
 | [TMDB](https://developer.themoviedb.org/docs) | Movie/TV search, popular discovery, normalized metadata, genres, runtime, audience ratings and regional certification |
 | [Watchmode](https://api.watchmode.com/docs/) | Primary availability source: resolve TMDB IDs to Watchmode titles and retrieve regional streaming offers |
 | TMDB watch providers | Fallback availability source when Watchmode has no usable offers |
-| [Trakt](https://trakt.docs.apiary.io/) | Optional OAuth account linking and import of watched movies/shows, ratings and watchlists |
+| [Trakt](https://trakt.docs.apiary.io/) | Optional OAuth account linking, bidirectional ratings, watchlist writes and import of watched movies/shows, ratings and watchlists |
 
 EME does not log in to Netflix, Prime Video, Disney+ or Max. Household subscriptions are configuration used to filter Watchmode offers; they are not streaming-service credentials.
 
@@ -62,7 +62,7 @@ Provider credentials are environment variables, never TOML values:
 | `TRAKT_REDIRECT_URI` | Must match the registered callback URL, normally `https://<host>/media/trakt/callback` |
 | `EME_CREDENTIAL_ENCRYPTION_KEY` | Existing 32-byte key encoded as 64 hexadecimal characters; encrypts external credentials |
 
-TMDB and Watchmode tools are registered even when their credentials are absent, so the server can start in a partially configured environment. Calls that require an unconfigured provider return a clear configuration error. Recommendations require TMDB. Watchmode is preferred for availability; TMDB's regional watch-provider endpoint is the fallback when Watchmode is absent, errors or has no matching configured subscription. Trakt linking and synchronization are enabled only when all three Trakt-related variables are configured.
+TMDB and Watchmode tools are registered even when their credentials are absent, so the server can start in a partially configured environment. Calls that require an unconfigured provider return a clear configuration error. Recommendations require TMDB. Watchmode is preferred for availability; TMDB's regional watch-provider endpoint is the fallback when Watchmode is absent, errors or has no matching configured subscription. Trakt linking and synchronization are enabled only when all three Trakt-related variables are configured. OAuth requests `public`, `private` and `sync` scopes: the `sync` scope is required for agent-driven watchlist and rating writes. Users who linked Trakt before this scope was requested must reconnect to grant it.
 
 ## Personal and family profiles
 
@@ -113,7 +113,18 @@ Authenticated API endpoints:
 - `POST /media/trakt/profiles/{profile_id}/sync` — synchronize a personal profile; add `?family_id=…` only for a family-managed profile.
 - `DELETE /media/trakt/profiles/{profile_id}` — empty JSON body for a personal profile; include `family_id` only for a family-managed profile.
 
-The Profile → Integrations view always lists the signed-in user's personal media profile and any assigned family profiles, with Connect, Sync and Disconnect actions. No family membership or family-admin action is required to connect a personal Trakt account. The initial and incremental sync imports watched movies/shows, ratings and watchlist entries. Activity timestamps determine which categories need refreshing. Sync is explicit; recommendations do not trigger a Trakt sync. No playback scraping or automatic scrobbling is performed.
+The Profile → Integrations view always lists the signed-in user's personal media profile and any assigned family profiles, with Connect, Sync and Disconnect actions. No family membership or family-admin action is required to connect a personal Trakt account. The initial and incremental sync imports watched movies/shows, ratings and watchlist entries. Activity timestamps determine which categories need refreshing. Sync is explicit; recommendations do not trigger a Trakt sync. Agent watchlist mutations and EME ratings are written through immediately when the profile's Trakt connection belongs to the authenticated user.
+
+### Ownership and write semantics
+
+- Every watchlist and rating operation is scoped to one media profile. The profile's stored Trakt connection is the only account the agent can mutate; the model cannot supply a Trakt username, account ID or credential.
+- A watchlist `add` or `remove` requires a linked Trakt account owned by the authenticated user and a TMDB ID plus media kind. EME sends the mutation to Trakt first, then updates the local Trakt mirror only after a successful provider response. Repeating an add or remove is safe. A failed provider write leaves the local mirror unchanged. The next explicit sync imports changes made directly on Trakt.
+- Watchlist `list` reads the synchronized local mirror. It does not trigger a network request.
+- `media_rate` always records an EME-originated rating. If the selected profile has no Trakt link, the rating is stored locally. If it has a Trakt link owned by the caller, EME writes the rating to Trakt before persisting the local EME record. If the linked account belongs to another user, the write is rejected; family-admin access does not grant permission to act as another user's Trakt account.
+- EME ratings use 0–5; Trakt accepts integer ratings from 1–10. Conversion is linear with rounding: EME `0` maps to Trakt `1`, EME `5` maps to Trakt `10`; intermediate values are quantized. Imported Trakt ratings use the inverse mapping, `(trakt_rating - 1) * 5 / 9`.
+- EME and Trakt rating records retain separate source provenance. When both exist for a title, recommendation genre affinity uses the newest `rated_at` record; an externally changed Trakt rating therefore supersedes an older EME rating without deleting either record.
+
+No playback scraping or automatic scrobbling is performed.
 
 ## Agent tools
 
@@ -130,7 +141,7 @@ The configured assistant registers:
 - `media_preferences`
 - `media_sync_history`
 
-The availability tool returns all supported offer types (subscription, rent, buy, free and ad-supported). Recommendations require a configured subscription by default and therefore retain only matching subscription offers. If Watchmode has no usable offer, EME falls back to TMDB's regional watch-provider response.
+The availability tool returns all supported offer types (subscription, rent, buy, free and ad-supported). Recommendations require a configured subscription by default and therefore retain only matching subscription offers. If Watchmode has no usable offer, EME falls back to TMDB's regional watch-provider response. The `media_watchlist` tool accepts `action=list|add|remove`; add/remove require `tmdb_id` and `kind`. The `media_rate` tool accepts an optional `profile_id` and writes through to the caller-owned Trakt connection when one is linked.
 
 Recommendation output includes normalized catalogue metadata, score, reasons, matching subscription offers, known watched participants and profiles with incomplete history.
 
@@ -157,5 +168,5 @@ For a live assistant smoke test, create a managed profile with `media_profiles` 
 - Catalogue region defaults to Spain; metadata language defaults to `es-ES`, while original-language metadata is retained.
 - Watchmode provider/source IDs are resolved from API responses, not hard-coded.
 - Trakt watched episodes are represented at the TV-show level for watched-title exclusion.
-- Watchlist tools currently expose synchronized entries for reading; they do not write to Trakt.
+- Agent watchlist add/remove and EME rating writes are supported for a profile's caller-owned Trakt connection; the local watchlist mirror is updated only after successful provider writes.
 - No direct streaming-platform authentication, playback, scraping, ML/embedding ranking or proactive release notifications are included.
