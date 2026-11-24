@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null,activeRuns:{}};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null,activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -696,34 +696,40 @@ const taskExecutionLabels={
 
 function renderTaskExecutionEvent(event){
  const timestamp=Number(event.occurred_at_unix_ms);
- const time=Number.isFinite(timestamp)?new Date(timestamp).toLocaleString():"";
+ const time=Number.isFinite(timestamp)?new Date(timestamp).toLocaleString():"Unknown time";
  const details=[
   event.iteration!==null&&event.iteration!==undefined?"Iteration "+event.iteration:null,
-  event.tool_name,event.model_id,
-  event.next_model_id?"Next: "+event.next_model_id:null,
+  event.tool_name?"Tool: "+event.tool_name:null,
+  event.model_id?"Model: "+event.model_id:null,
+  event.next_model_id?"Next model: "+event.next_model_id:null,
   event.model_candidates?.length?"Candidates: "+event.model_candidates.join(", "):null,
-  event.error_category
+  event.error_category?"Error: "+event.error_category.replaceAll("_"," "):null
  ].filter(Boolean).join(" · ");
- return '<li class="run-event"><div><strong>'+escapeHtml(taskExecutionLabels[event.kind]||event.kind)+'</strong><span class="hint">'+escapeHtml(time)+'</span></div>'+(details?'<div class="hint">'+escapeHtml(details)+'</div>':'')+'<details><summary>Event payload</summary><pre>'+escapeHtml(JSON.stringify(event,null,2))+'</pre></details></li>';
+ return '<tr><td class="task-execution-event-time">'+escapeHtml(time)+'</td><td><strong>'+escapeHtml(taskExecutionLabels[event.kind]||event.kind)+'</strong></td><td>'+(details?'<span>'+escapeHtml(details)+'</span>':'<span class="hint">—</span>')+'<details class="task-execution-event-payload"><summary>Payload</summary><pre>'+escapeHtml(JSON.stringify(event,null,2))+'</pre></details></td></tr>';
 }
 
 function renderTaskExecution(execution){
- const created=Number(execution.created_at_unix_ms);
- const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
- const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
- const status=String(execution.status||"unknown").replaceAll("_"," ");
- const events=(execution.events||[]).map(renderTaskExecutionEvent).join("");
+ const events=execution.events||[],usage=execution.usage||[];
  const output=execution.response
-  ?'<section class="tool-section"><h4>Final output</h4><div class="markdown-content">'+renderMarkdown(execution.response)+'</div></section>'
-  :'<section class="tool-section"><h4>Final output</h4><p class="hint">No final response was recorded.</p></section>';
+  ?'<div class="markdown-content">'+renderMarkdown(execution.response)+'</div>'
+  :'<p class="hint">No final response was recorded.</p>';
  const failure=execution.error
   ?'<section class="tool-section"><h4>Error</h4><pre class="tool-error">'+escapeHtml(execution.error)+'</pre></section>':"";
- const input='<section class="tool-section"><h4>Submitted prompt</h4><pre>'+escapeHtml(execution.input||"")+'</pre></section>';
- const timeline='<details class="tool-details"><summary>Execution timeline · '+(execution.events||[]).length+' events</summary><ol class="run-events">'+(events||'<li class="hint">No events recorded.</li>')+'</ol></details>';
- const usage='<details class="tool-details"><summary>Model usage · '+(execution.usage||[]).length+' invocations</summary><pre>'+escapeHtml(JSON.stringify(execution.usage||[],null,2))+'</pre></details>';
- return '<details class="task-execution tool-details"><summary><strong>'+escapeHtml(date)+'</strong> · <span class="task-execution-status">'+escapeHtml(status)+'</span> · '+escapeHtml(duration)+'</summary><div class="tool-detail-body"><div class="hint">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div>'+failure+output+input+timeline+usage+'</div></details>';
+ const input=execution.input
+  ?'<pre>'+escapeHtml(execution.input)+'</pre>'
+  :'<p class="hint">No submitted prompt was recorded.</p>';
+ const timeline='<div class="task-execution-table-wrap"><table class="task-execution-events-table"><thead><tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Details</th></tr></thead><tbody>'+(events.length?events.map(renderTaskExecutionEvent).join(""):'<tr><td colspan="3" class="hint">No events recorded.</td></tr>')+'</tbody></table></div>';
+ const usageContent=usage.length
+  ?'<pre>'+escapeHtml(JSON.stringify(usage,null,2))+'</pre>'
+  :'<p class="hint">No model usage was recorded.</p>';
+ const sections=[
+  {id:"output",label:"Final output",count:null,content:output+failure},
+  {id:"prompt",label:"Submitted prompt",count:null,content:input},
+  {id:"timeline",label:"Execution timeline",count:events.length,content:timeline},
+  {id:"usage",label:"Model usage",count:usage.length,content:usageContent}
+ ];
+ return '<div class="task-execution-detail"><div class="hint task-execution-run-meta">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div><nav class="task-execution-section-nav" aria-label="Execution detail sections" role="tablist">'+sections.map((section,index)=>'<button type="button" class="task-execution-section-tab'+(index===0?' active':'')+'" id="task-execution-tab-'+section.id+'" role="tab" aria-selected="'+(index===0?'true':'false')+'" aria-controls="task-execution-panel-'+section.id+'" tabindex="'+(index===0?'0':'-1')+'" data-execution-section="'+section.id+'">'+section.label+(section.count===null?'':' <span>'+section.count+'</span>')+'</button>').join("")+'</nav>'+sections.map((section,index)=>'<section class="task-execution-section" id="task-execution-panel-'+section.id+'" role="tabpanel" aria-labelledby="task-execution-tab-'+section.id+'" '+(index===0?'':'hidden')+'><h4>'+section.label+'</h4>'+section.content+'</section>').join("")+'</div>';
 }
-
 async function loadTaskExecutions(taskId){
  const panel=$("task-executions"),target=$("task-executions-list");
  if(!panel||!target||!taskId||taskId==="new")return;
@@ -732,12 +738,19 @@ async function loadTaskExecutions(taskId){
  try{
   const executions=await api("/tasks/"+encodeURIComponent(taskId)+"/executions");
   if(state.selectedTask!==taskId)return;
+  state.taskExecutions=executions;
   if(!executions.length){
    target.innerHTML='<div class="empty">No executions recorded for this task yet.</div>';
    return;
   }
   const visible=executions.slice(0,25);
-  target.innerHTML=visible.map(renderTaskExecution).join("")+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
+  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th></tr></thead><tbody>'+visible.map((execution,index)=>{
+   const created=Number(execution.created_at_unix_ms);
+   const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+   const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
+   const status=String(execution.status||"unknown").replaceAll("_"," ");
+   return '<tr data-execution-index="'+index+'" tabindex="0" role="button" aria-label="Execution on '+escapeHtml(date)+', '+escapeHtml(status)+'. Open details"><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td></tr>';
+  }).join("")+'</tbody></table></div>'+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
  }catch(error){
   if(state.selectedTask===taskId)target.innerHTML='<div class="empty">Unable to load execution history: '+escapeHtml(error.message)+'</div>';
  }finally{
@@ -746,4 +759,62 @@ async function loadTaskExecutions(taskId){
 }
 $("task-executions-refresh")?.addEventListener("click",()=>{
  if(state.selectedTask&&state.selectedTask!=="new")void loadTaskExecutions(state.selectedTask);
+});
+function openTaskExecution(index){
+ const execution=state.taskExecutions[index];
+ if(!execution)return;
+ const created=Number(execution.created_at_unix_ms);
+ const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+ const status=String(execution.status||"unknown").replaceAll("_"," ");
+ $("task-execution-dialog-meta").textContent=date+" · "+status+" · "+(execution.agent||"");
+ $("task-execution-detail").innerHTML=renderTaskExecution(execution);
+ $("task-execution-dialog").showModal();
+}
+$("task-executions-list")?.addEventListener("click",event=>{
+ const row=event.target.closest("tr[data-execution-index]");
+ if(row)openTaskExecution(Number(row.dataset.executionIndex));
+});
+$("task-executions-list")?.addEventListener("keydown",event=>{
+ const row=event.target.closest("tr[data-execution-index]");
+ if(!row||!(event.key==="Enter"||event.key===" "))return;
+ event.preventDefault();
+ openTaskExecution(Number(row.dataset.executionIndex));
+});
+$("task-execution-detail")?.addEventListener("click",event=>{
+ const tab=event.target.closest("[data-execution-section]");
+ if(!tab)return;
+ activateTaskExecutionSection(tab.dataset.executionSection);
+});
+function activateTaskExecutionSection(section){
+ const root=$("task-execution-detail");
+ const tabs=[...root.querySelectorAll("[data-execution-section]")];
+ const selected=tabs.find(tab=>tab.dataset.executionSection===section);
+ if(!selected)return;
+ for(const tab of tabs){
+  const active=tab===selected;
+  tab.classList.toggle("active",active);
+  tab.setAttribute("aria-selected",String(active));
+  tab.tabIndex=active?0:-1;
+  const panel=$(tab.getAttribute("aria-controls"));
+  if(panel)panel.hidden=!active;
+ }
+ selected.focus();
+}
+$("task-execution-detail")?.addEventListener("keydown",event=>{
+ const tab=event.target.closest("[data-execution-section]");
+ if(!tab)return;
+ const tabs=[...$("task-execution-detail").querySelectorAll("[data-execution-section]")];
+ const index=tabs.indexOf(tab);
+ let next=index;
+ if(event.key==="ArrowRight")next=(index+1)%tabs.length;
+ else if(event.key==="ArrowLeft")next=(index-1+tabs.length)%tabs.length;
+ else if(event.key==="Home")next=0;
+ else if(event.key==="End")next=tabs.length-1;
+ else return;
+ event.preventDefault();
+ activateTaskExecutionSection(tabs[next].dataset.executionSection);
+});
+$("task-execution-dialog-close")?.addEventListener("click",()=>$("task-execution-dialog").close());
+$("task-execution-dialog")?.addEventListener("click",event=>{
+ if(event.target===$("task-execution-dialog"))$("task-execution-dialog").close();
 });
