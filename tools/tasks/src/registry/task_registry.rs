@@ -43,6 +43,7 @@ impl TaskRegistry {
             let raw = fs::read_to_string(&path).map_err(storage_error)?;
             let old: StoredTask = toml::from_str(&raw)
                 .map_err(|e| TaskError::Invalid(format!("{}: {e}", path.display())))?;
+            let persisted_next_run = old.next_run;
             let id = old.id.unwrap_or_else(Uuid::new_v4);
             let user_id = old.user_id.unwrap_or_else(|| LEGACY_TASK_OWNER.into());
             if user_id.trim().is_empty() {
@@ -62,7 +63,14 @@ impl TaskRegistry {
                 next_run: None,
             };
             validate(&task)?;
-            task.next_run = next_run(&task, Utc::now())?;
+            task.next_run = if task.enabled {
+                match persisted_next_run {
+                    Some(next) => Some(next),
+                    None => next_run(&task, Utc::now())?,
+                }
+            } else {
+                None
+            };
             if !names.insert((task.user_id.clone(), task.name.clone())) {
                 return Err(TaskError::Invalid(format!(
                     "duplicate task name '{}' for user '{}'",
@@ -73,7 +81,11 @@ impl TaskRegistry {
                 return Err(TaskError::Invalid(format!("duplicate task id {id}")));
             }
             let canonical = directory.join(format!("{id}.toml"));
-            if path != canonical || !raw.contains("user_id") || !raw.contains("id") {
+            if path != canonical
+                || !raw.contains("user_id")
+                || !raw.contains("id")
+                || persisted_next_run.is_none()
+            {
                 registry.persist(&task)?;
                 if path != canonical {
                     fs::remove_file(path).map_err(storage_error)?;
@@ -293,12 +305,13 @@ impl TaskRegistry {
         )
     }
 
-    pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) {
-        if let Ok(mut tasks) = self.inner.tasks.write()
-            && let Some(task) = tasks.get_mut(&id)
-        {
-            task.next_run = Some(next);
-        }
+    pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) -> Result<(), TaskError> {
+        let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
+        let mut task = tasks.get(&id).cloned().ok_or(TaskError::NotFound)?;
+        task.next_run = Some(next);
+        self.persist(&task)?;
+        tasks.insert(id, task);
+        Ok(())
     }
     pub fn remove(&self, user: &str, id: Uuid) -> Result<(), TaskError> {
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
@@ -310,13 +323,18 @@ impl TaskRegistry {
         self.notify();
         Ok(())
     }
-    pub(crate) fn remove_after_execution(&self, id: Uuid) {
-        if let Ok(mut tasks) = self.inner.tasks.write()
-            && tasks.remove(&id).is_some()
-        {
-            let _ = fs::remove_file(self.path(id));
+    pub(crate) fn remove_after_execution(&self, id: Uuid) -> Result<(), TaskError> {
+        let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
+        if tasks.contains_key(&id) {
+            match fs::remove_file(self.path(id)) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(storage_error(error)),
+            }
+            tasks.remove(&id);
             self.notify();
         }
+        Ok(())
     }
     fn path(&self, id: Uuid) -> PathBuf {
         self.inner.directory.join(format!("{id}.toml"))
@@ -327,7 +345,20 @@ impl TaskRegistry {
             .inner
             .directory
             .join(format!(".{}.tmp", Uuid::new_v4()));
-        fs::write(&tmp, toml::to_string_pretty(t).map_err(storage_error)?)
+        let stored = StoredTask {
+            id: Some(t.id),
+            user_id: Some(t.user_id.clone()),
+            name: t.name.clone(),
+            description: t.description.clone(),
+            agent: t.agent.clone(),
+            prompt: t.prompt.clone(),
+            schedule: t.schedule.clone(),
+            at: t.at,
+            timezone: t.timezone.clone(),
+            enabled: t.enabled,
+            next_run: t.next_run,
+        };
+        fs::write(&tmp, toml::to_string_pretty(&stored).map_err(storage_error)?)
             .map_err(storage_error)?;
         if let Err(e) = fs::rename(&tmp, &path) {
             let _ = fs::remove_file(tmp);
