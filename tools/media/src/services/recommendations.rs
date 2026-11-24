@@ -235,10 +235,19 @@ impl RecommendationService {
         ratings: &[MediaRating],
     ) -> Result<HashMap<String, f32>, RecommendationError> {
         let mut totals: HashMap<String, (f32, usize)> = HashMap::new();
+        // Ratings are stored per source so their provenance is retained.
+        // list_ratings is newest-first; use only the newest EME/Trakt rating
+        // for each title so a synchronized copy is not double-counted and an
+        // externally changed Trakt rating supersedes an older EME rating.
+        let mut seen_items = HashSet::new();
         // Infer genre affinity dynamically from recent ratings. Trakt's sync
         // payload is intentionally compact, so enrich rated items from TMDB
         // when their local catalogue metadata does not yet include genres.
-        for rating in ratings.iter().take(100) {
+        for rating in ratings
+            .iter()
+            .filter(|rating| seen_items.insert(rating.media_item_id))
+            .take(100)
+        {
             let Some(mut item) = self.media.get_media_item(rating.media_item_id).await? else {
                 continue;
             };
