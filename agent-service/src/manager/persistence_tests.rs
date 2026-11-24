@@ -267,7 +267,8 @@ async fn runtime_events_are_durable_before_the_run_finishes() {
 
 #[tokio::test]
 async fn scheduled_task_run_association_survives_manager_restart() {
-    let directory = std::env::temp_dir().join(format!("eme-task-run-history-{}", Uuid::new_v4()));
+    let directory = std::env::temp_dir()
+        .join(format!("eme-task-run-history-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&directory).unwrap();
     let database = directory.join("executions.sqlite");
     let execution = Arc::new(SqliteExecutionStore::open(&database).unwrap());
@@ -276,22 +277,31 @@ async fn scheduled_task_run_association_survives_manager_restart() {
     let manager = RunManager::new(Arc::new(TranscriptExecutor), 1, 2)
         .unwrap()
         .with_storage(execution.clone());
-    let run_id = manager.submit_for_task(
-        task_id,
-        "assistant",
-        "scheduled prompt",
-        Vec::new(),
-        ToolContext::default(),
-    ).await.unwrap();
+    let run_id = manager
+        .submit_for_task(
+            task_id,
+            "assistant",
+            "scheduled prompt",
+            Vec::new(),
+            ToolContext::default(),
+        )
+        .await
+        .unwrap();
 
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if manager.get(run_id).await.is_some_and(|run| run.status == crate::RunStatus::Completed) {
+            if manager
+                .get(run_id)
+                .await
+                .is_some_and(|run| run.status == crate::RunStatus::Completed)
+            {
                 break;
             }
             tokio::task::yield_now().await;
         }
-    }).await.expect("scheduled run should complete");
+    })
+    .await
+    .expect("scheduled run should complete");
 
     let runs = manager.task_runs(task_id).await.unwrap();
     assert_eq!(runs.len(), 1);
