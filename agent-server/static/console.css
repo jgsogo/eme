@@ -861,3 +861,23 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
     font:inherit;
   }
 }
+@media (min-width: 761px) {
+  .usage-model-controls {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:10px;
+  }
+  .usage-model-controls input[type="search"] {
+    width:min(240px,28vw);
+    min-width:150px;
+    min-height:36px;
+    margin:0;
+    padding:7px 9px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+}
