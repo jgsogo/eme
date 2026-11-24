@@ -811,32 +811,38 @@ function renderTaskExecution(execution){
  ];
  return '<div class="task-execution-detail"><div class="hint task-execution-run-meta">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div><nav class="task-execution-section-nav" aria-label="Execution detail sections" role="tablist">'+sections.map((section,index)=>'<button type="button" class="task-execution-section-tab'+(index===0?' active':'')+'" id="task-execution-tab-'+section.id+'" role="tab" aria-selected="'+(index===0?'true':'false')+'" aria-controls="task-execution-panel-'+section.id+'" tabindex="'+(index===0?'0':'-1')+'" data-execution-section="'+section.id+'">'+section.label+(section.count===null?'':' <span>'+section.count+'</span>')+'</button>').join("")+'</nav>'+sections.map((section,index)=>'<section class="task-execution-section" id="task-execution-panel-'+section.id+'" role="tabpanel" aria-labelledby="task-execution-tab-'+section.id+'" '+(index===0?'':'hidden')+'><h4>'+section.label+'</h4>'+section.content+'</section>').join("")+'</div>';
 }
+function renderTaskExecutions(){
+ const target=$("task-executions-list");if(!target)return;
+ const query=$("task-executions-search")?.value.trim().toLocaleLowerCase()||"";
+ const matches=state.taskExecutions.map((execution,index)=>({execution,index})).filter(({execution})=>{
+  const created=Number(execution.created_at_unix_ms),date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+  return [execution.status,date,execution.agent,execution.id].some(value=>String(value||"").toLocaleLowerCase().includes(query));
+ });
+ const visible=matches.slice(0,25);
+ if(!visible.length){
+  target.innerHTML='<div class="empty">'+(state.taskExecutions.length?'No executions match this filter. <button type="button" class="secondary" data-clear-execution-filter>Clear filter</button>':'No executions recorded for this task yet.')+'</div>';
+  return;
+ }
+ target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th></tr></thead><tbody>'+visible.map(({execution,index})=>{
+  const created=Number(execution.created_at_unix_ms);
+  const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+  const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
+  const status=String(execution.status||"unknown").replaceAll("_"," ");
+  return '<tr data-execution-index="'+index+'" tabindex="0" role="button" aria-label="Execution on '+escapeHtml(date)+', '+escapeHtml(status)+'. Open details"><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td></tr>';
+ }).join("")+'</tbody></table></div>'+(matches.length>visible.length?'<p class="hint">Showing the latest 25 of '+matches.length+' matching executions.</p>':"");
+}
 async function loadTaskExecutions(taskId){
  const panel=$("task-executions"),target=$("task-executions-list");
  if(!panel||!target||!taskId||taskId==="new")return;
- target.innerHTML='<div class="empty">Loading execution history…</div>';
+ target.innerHTML='<div class="empty" role="status">Loading execution history…</div>';
  const refresh=$("task-executions-refresh");if(refresh)refresh.disabled=true;
  try{
   const executions=await api("/tasks/"+encodeURIComponent(taskId)+"/executions");
   if(state.selectedTask!==taskId)return;
-  state.taskExecutions=executions;
-  if(!executions.length){
-   target.innerHTML='<div class="empty">No executions recorded for this task yet.</div>';
-   return;
-  }
-  const visible=executions.slice(0,25);
-  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th></tr></thead><tbody>'+visible.map((execution,index)=>{
-   const created=Number(execution.created_at_unix_ms);
-   const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
-   const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
-   const status=String(execution.status||"unknown").replaceAll("_"," ");
-   return '<tr data-execution-index="'+index+'" tabindex="0" role="button" aria-label="Execution on '+escapeHtml(date)+', '+escapeHtml(status)+'. Open details"><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td></tr>';
-  }).join("")+'</tbody></table></div>'+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
+  state.taskExecutions=executions;renderTaskExecutions();
  }catch(error){
-  if(state.selectedTask===taskId)target.innerHTML='<div class="empty">Unable to load execution history: '+escapeHtml(error.message)+'</div>';
- }finally{
-  if(refresh)refresh.disabled=false;
- }
+  if(state.selectedTask===taskId)target.innerHTML='<div class="empty" role="alert">Unable to load execution history: '+escapeHtml(error.message)+'<p><button type="button" class="secondary" data-retry-executions>Try again</button></p></div>';
+ }finally{if(refresh)refresh.disabled=false}
 }
 $("task-executions-refresh")?.addEventListener("click",()=>{
  if(state.selectedTask&&state.selectedTask!=="new")void loadTaskExecutions(state.selectedTask);
@@ -851,7 +857,10 @@ function openTaskExecution(index){
  $("task-execution-detail").innerHTML=renderTaskExecution(execution);
  $("task-execution-dialog").showModal();
 }
+$("task-executions-search")?.addEventListener("input",renderTaskExecutions);
 $("task-executions-list")?.addEventListener("click",event=>{
+ if(event.target.closest("[data-retry-executions]")){if(state.selectedTask)loadTaskExecutions(state.selectedTask);return}
+ if(event.target.closest("[data-clear-execution-filter]")){$("task-executions-search").value="";renderTaskExecutions();return}
  const row=event.target.closest("tr[data-execution-index]");
  if(row)openTaskExecution(Number(row.dataset.executionIndex));
 });
