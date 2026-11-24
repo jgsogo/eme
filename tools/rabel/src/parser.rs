@@ -125,13 +125,14 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
             .map_err(|error| RabelError::Parse(format!("invalid record link: {error}")))?;
         let title = clean_text(captures.get(2).unwrap().as_str());
         if title.is_empty() { continue; }
-        let context = surrounding_row(html, captures.get(0).unwrap().start());
+        let row_html = surrounding_row(html, captures.get(0).unwrap().start());
+        let context = clean_text(&row_html);
         results.push(CatalogueSearchResult {
             record_ref: record_url.to_string(),
             title,
             authors: extract_authors(&context),
             publication: labelled_value(&context, &["Publicación", "Edición", "Datos de publicación"]),
-            category: extract_document_category(&context),
+            category: extract_document_category(&row_html),
             isbn: extract_isbn(&context),
         });
     }
@@ -339,10 +340,10 @@ fn normalize_document_category(value: &str) -> String {
         "Film / video".to_owned()
     } else if normalized.contains("grabación sonora") || normalized.contains("grabaciones sonoras") {
         "Audio".to_owned()
-    } else if normalized.contains("revista") || normalized.contains("periódico") {
-        "Magazine / newspaper".to_owned()
     } else if normalized.contains("artículo de revista") {
         "Journal article".to_owned()
+    } else if normalized.contains("revista") || normalized.contains("periódico") {
+        "Magazine / newspaper".to_owned()
     } else if normalized.contains("recurso electrónico") {
         "Digital resource".to_owned()
     } else if normalized.contains("material cartográfico") {
@@ -393,7 +394,7 @@ fn labelled_value(text: &str, labels: &[&str]) -> Option<String> {
 fn surrounding_row(html: &str, offset: usize) -> String {
     let start = html[..offset].rfind("<tr").unwrap_or(offset.saturating_sub(800));
     let end = html[offset..].find("</tr>").map(|n| offset + n + 5).unwrap_or((offset + 800).min(html.len()));
-    clean_text(&html[start..end])
+    html[start..end].to_owned()
 }
 
 fn clean_text(html: &str) -> String {
@@ -418,6 +419,14 @@ mod tests {
     #[test]
     fn extracts_document_category_from_catalogue_row() {
         let html = r#"<tr><td><a href="/token/NT1?ACC=165&amp;DOC=42">El viaje</a></td><td>Tipo de documento: Videograbaciones</td></tr>"#;
+        let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
+        let results = search_results(html, &session).unwrap();
+        assert_eq!(results[0].category.as_deref(), Some("Film / video"));
+    }
+
+    #[test]
+    fn extracts_category_from_accessible_document_icon() {
+        let html = r#"<tr><td><a href="/token/NT1?ACC=165&amp;DOC=43">La película</a><img title="Videograbaciones" src="video.gif"></td></tr>"#;
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
         let results = search_results(html, &session).unwrap();
         assert_eq!(results[0].category.as_deref(), Some("Film / video"));
