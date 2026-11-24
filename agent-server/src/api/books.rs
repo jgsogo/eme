@@ -99,7 +99,6 @@ async fn refresh_catalogue(
     };
 
     let wanted_isbn = book.isbn.as_deref().map(normalize_isbn);
-    let wanted_title = normalize_title(&book.title);
     let mut matched_item = None;
     for result in results {
         if wanted_isbn.as_ref().is_some_and(|wanted| {
