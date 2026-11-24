@@ -272,10 +272,23 @@ mod tests {
         );
     }
 
-    #[test]
-    fn submits_encoded_search_to_the_configured_subcatalogue() {
-        // Query encoding and URL construction are exercised by the wiremock
-        // search-session test above.
-        assert!(meta_refresh_target("<html></html>").is_none());
+    #[tokio::test]
+    async fn preserves_non_success_http_status_for_diagnostics() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(503).set_body_string("temporarily unavailable"))
+            .mount(&server)
+            .await;
+
+        let client = RabelClient::with_endpoint(
+            Url::parse(&format!("{}/cgi-bin/abnetopac2", server.uri())).unwrap(),
+            SUBCATALOG,
+        )
+        .unwrap();
+
+        let response = client.search("test").await.unwrap();
+
+        assert_eq!(response.status, 503);
+        assert_eq!(response.html, "temporarily unavailable");
     }
 }
