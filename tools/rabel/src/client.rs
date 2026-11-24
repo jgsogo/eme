@@ -81,20 +81,9 @@ impl RabelClient {
     /// links (for example, `ACC=165&DOC=1`).
     pub async fn record(
         &self,
-        search: &SearchResponse,
+        session_url: &str,
         document: u32,
     ) -> Result<SearchResponse, reqwest::Error> {
-        let Some(session_url) = search.session_url.as_deref() else {
-            // Use a normal reqwest error path for an invalid state would hide
-            // the actual problem. Callers should check has_session() instead.
-            return Err(reqwest::Error::from(
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "search response did not contain an AbsysNet session URL",
-                ),
-            ));
-        };
-
         let mut url = Url::parse(session_url).expect("session URL came from a parsed URL");
         url.set_path(&format!("{}/NT1", url.path().trim_end_matches('/')));
         url.set_query(None);
@@ -265,7 +254,7 @@ mod tests {
             html: "<html>Results</html>".to_owned(),
         };
 
-        let record = client.record(&search, 7).await.unwrap();
+        let record = client.record(search.session_url.as_deref().unwrap(), 7).await.unwrap();
         assert_eq!(record.status, 200);
         assert!(record.html.contains("Record 7"));
         assert!(record.final_url.contains("DOC=7"));
