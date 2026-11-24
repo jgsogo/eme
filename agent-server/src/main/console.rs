@@ -6,8 +6,9 @@ use std::{
 };
 
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, get, post,
+    HttpRequest, HttpResponse, Responder, get,
     http::header,
+    post,
     web::{self, Data},
 };
 use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
