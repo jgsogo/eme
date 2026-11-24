@@ -11,8 +11,8 @@ use agent_service::{RunManager, RunStatus};
 use agent_storage::{FileUserIdentityStore, UserIdentityStore};
 use chrono::{DateTime, FixedOffset};
 use serde::Deserialize;
-use tasks_tool::{NewTask, TaskError, TaskRegistry};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tasks_tool::{NewTask, TaskError, TaskRegistry};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -120,7 +120,6 @@ async fn create_task(
     }
 }
 
-
 fn status_name(status: RunStatus) -> &'static str {
     match status {
         RunStatus::Queued => "queued",
@@ -134,7 +133,10 @@ fn status_name(status: RunStatus) -> &'static str {
 }
 
 fn unix_ms(value: SystemTime) -> u128 {
-    value.duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()
+    value
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
 }
 
 #[get("/{task_id}/executions")]
@@ -162,28 +164,37 @@ async fn list_task_executions(
         Ok(runs) => runs,
         Err(error) => {
             tracing::error!(%task_id, %error, "failed to load task execution history");
-            return HttpResponse::InternalServerError().body("could not load task execution history");
+            return HttpResponse::InternalServerError()
+                .body("could not load task execution history");
         }
     };
     let mut executions = Vec::with_capacity(runs.len());
     for run in runs {
         let events = match manager.events(run.id).await {
-            Some(events) => events.into_iter().map(RunEventResponse::from).collect::<Vec<_>>(),
+            Some(events) => events
+                .into_iter()
+                .map(RunEventResponse::from)
+                .collect::<Vec<_>>(),
             None => {
                 tracing::error!(run_id = %run.id, "failed to load task execution events");
-                return HttpResponse::InternalServerError().body("could not load execution events");
+                return HttpResponse::InternalServerError()
+                    .body("could not load execution events");
             }
         };
         let usage = match manager.usage_records(Some(run.id)).await {
             Ok(records) => records,
             Err(error) => {
                 tracing::error!(run_id = %run.id, %error, "failed to load task execution usage");
-                return HttpResponse::InternalServerError().body("could not load execution usage");
+                return HttpResponse::InternalServerError()
+                    .body("could not load execution usage");
             }
         };
-        let duration_ms = run.started_at.zip(run.finished_at).map(|(start, finish)| {
-            finish.duration_since(start).unwrap_or_default().as_millis()
-        });
+        let duration_ms = run
+            .started_at
+            .zip(run.finished_at)
+            .map(|(start, finish)| {
+                finish.duration_since(start).unwrap_or_default().as_millis()
+            });
         executions.push(serde_json::json!({
             "run_id": run.id.to_string(),
             "agent": run.agent,
