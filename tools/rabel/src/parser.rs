@@ -297,7 +297,7 @@ fn extract_document_category(title: &str, row_html: &str) -> Option<String> {
     // RABEL sometimes emits an unbalanced title marker, e.g.
     // "El agua y la vida . Vídeo]. ... ["; match known classes as tokens.
     let title_marker = Regex::new(
-        r"(?i)(?:\[?\s*|\b)(vídeo|video|videograbaciones?|películas?|grabaciones?\s+sonoras?|recursos?\s+electrónicos?|monografías?|libros?|revistas?|periódicos?|artículos?\s+de\s+revista|material\s+cartográfico|manuscritos?|material\s+gráfico|partituras?)(?:\s*\]|\b)"
+        r"(?i)(?:\[?\s*|\b)(vídeo|video|videograbaciones?|películas?|grabaci[oó]n(?:es)?\s+sonor[ao]s?|recursos?\s+electrónicos?|monografías?|libros?|revistas?|periódicos?|artículos?\s+de\s+revista|material\s+cartográfico|manuscritos?|material\s+gráfico|partituras?)(?:\s*\]|\b)"
     ).ok()?;
     if let Some(value) = title_marker.captures(title).and_then(|capture| capture.get(1)) {
         return Some(normalize_document_category(value.as_str()));
