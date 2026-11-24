@@ -43,6 +43,45 @@
     state.books = await api("/books"); $("collection-status").textContent = `${state.books.length} books in your collection`; renderBooks();
     if (state.selected) { const current = state.books.find(b => b.id === state.selected.id); if (current) await selectBook(current); else { state.selected = null; enableDetails(false); $("book-heading").textContent = "Book details"; $("book-holdings").textContent = "Select a book."; } }
   }
+  async function showCatalogueItem(result) {
+    const dialog = $("catalogue-item-dialog");
+    $("catalogue-item-heading").textContent = result.title;
+    $("catalogue-item-category").textContent = result.category || "Document type not specified";
+    const content = $("catalogue-item-content");
+    content.textContent = "Loading bibliographic details…";
+    dialog.showModal();
+    try {
+      const item = await api("/books/catalogue/item?record_ref=" + encodeURIComponent(result.record_ref));
+      content.replaceChildren();
+      const fields = [
+        ["Authors", (item.authors || []).join(", ")],
+        ["Publisher", item.publisher],
+        ["Publication year", item.publication_year],
+        ["ISBN", item.isbn]
+      ].filter(([,value]) => value !== null && value !== undefined && value !== "");
+      if (fields.length) {
+        const dl = document.createElement("dl");
+        for (const [label,value] of fields) {
+          const dt=document.createElement("dt"); dt.textContent=label;
+          const dd=document.createElement("dd"); dd.textContent=String(value);
+          dl.append(dt,dd);
+        }
+        content.append(dl);
+      }
+      const holdingsHeading=document.createElement("h3"); holdingsHeading.textContent="Copies and availability"; content.append(holdingsHeading);
+      if (!(item.holdings || []).length) {
+        const empty=document.createElement("p"); empty.textContent="No copy information reported."; content.append(empty);
+      } else {
+        for (const copy of item.holdings) {
+          const line=document.createElement("p"); line.className="holding";
+          line.textContent=[copy.signature,copy.location,copy.material,copy.availability].filter(Boolean).join(" · ") || copy.catalogue_note || "Copy details unavailable";
+          content.append(line);
+        }
+      }
+      const checked=document.createElement("p"); checked.className="muted"; checked.textContent=item.checked_at ? "Checked "+new Date(item.checked_at).toLocaleString() : ""; content.append(checked);
+    } catch (error) { content.textContent=error.message || "Could not load catalogue details."; }
+  }
+
   async function searchCatalogue(event) {
     event.preventDefault(); const q = $("catalogue-query").value.trim(); if (!q) return;
     const summary = $("catalogue-results-summary");
@@ -57,7 +96,10 @@
         const card = document.createElement("article"); card.className = "catalogue-entry";
         const details = document.createElement("div"); details.className = "catalogue-entry-details";
         const title = document.createElement("strong"); title.className = "catalogue-entry-title"; title.textContent = result.title; details.append(title);
-        const meta = document.createElement("p"); meta.className = "catalogue-entry-meta"; meta.textContent = [result.category || "", result.authors.join(", "), result.isbn ? `ISBN ${result.isbn}` : ""].filter(Boolean).join(" · ") || "Bibliographic details not provided"; details.append(meta);
+        const meta = document.createElement("p"); meta.className = "catalogue-entry-meta"; meta.textContent = result.category || "Document type not specified"; details.append(meta);
+        const openDetails = button(result.title, () => showCatalogueItem(result));
+        openDetails.className = "catalogue-result-title";
+        details.replaceChild(openDetails, title);
         card.append(details);
         const add = button("Add to my collection", async () => {
           try {
@@ -106,6 +148,8 @@
   $("collection-search").addEventListener("input", event => { state.collectionQuery = event.target.value; renderBooks(); });
   $("close-book-details").addEventListener("click", () => $("book-details-dialog").close());
   $("book-details-dialog").addEventListener("click", event => { if (event.target === $("book-details-dialog")) $("book-details-dialog").close(); });
+  $("close-catalogue-item").addEventListener("click", () => $("catalogue-item-dialog").close());
+  $("catalogue-item-dialog").addEventListener("click", event => { if (event.target === $("catalogue-item-dialog")) $("catalogue-item-dialog").close(); });
   $("open-add-book").addEventListener("click", () => $("add-book-dialog").showModal());
   $("close-add-book").addEventListener("click", () => $("add-book-dialog").close());
   $("add-book-dialog").addEventListener("click", event => { if (event.target === $("add-book-dialog")) $("add-book-dialog").close(); });
