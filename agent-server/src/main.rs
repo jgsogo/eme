@@ -42,9 +42,9 @@ use console::{
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_school_menus_page, mobile_script,
     mobile_shopping_list_page, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
     providers_page, providers_script, recipes_page, recipes_script, school_menus_page,
-    school_menus_script, shopping_list_page, shopping_list_script, tasks_page, tools_page,
-    tools_script, usage_page, usage_script, usage_stylesheet, weekly_planner_page,
-    weekly_planner_script,
+    school_menus_script, shopping_list_page, shopping_list_script, tasks_page,
+    test_configured_providers, tools_page, tools_script, usage_page, usage_script,
+    usage_stylesheet, weekly_planner_page, weekly_planner_script,
 };
 use media_integration::MediaIntegration;
 
@@ -273,6 +273,7 @@ async fn main() -> Result<()> {
             .service(providers_page)
             .service(providers_script)
             .service(list_configured_providers)
+            .service(test_configured_providers)
             .service(tools_script)
             .service(list_registered_tools)
             .service(usage_script)

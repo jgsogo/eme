@@ -1,7 +1,17 @@
 //! Serves the independent desktop and mobile web console pages and their shared assets.
 
-use actix_web::{HttpRequest, HttpResponse, Responder, get, http::header, web::Data};
-use agent_models::ProviderInfo;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
+use actix_web::{
+    HttpRequest, HttpResponse, Responder, get,
+    http::header,
+    post,
+    web::{self, Data},
+};
+use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
 use agent_runtime::ToolDefinition;
 
 fn is_mobile_user_agent(user_agent: &str) -> bool {
@@ -60,10 +70,224 @@ pub(super) async fn providers_script() -> impl Responder {
 }
 
 #[get("/providers")]
-pub(super) async fn list_configured_providers(
-    providers: Data<Vec<ProviderInfo>>,
-) -> impl Responder {
-    HttpResponse::Ok().json(providers.get_ref())
+pub(super) async fn list_configured_providers(providers: Data<Arc<Registry>>) -> HttpResponse {
+    HttpResponse::Ok().json(providers.catalog())
+}
+
+#[post("/providers")]
+pub(super) async fn test_configured_providers(
+    providers: Data<Arc<Registry>>,
+    body: Option<web::Json<serde_json::Value>>,
+) -> HttpResponse {
+    let Some(body) = body else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "A JSON body with a provider name is required"
+        }));
+    };
+    let Some(provider_name) = body.get("provider").and_then(serde_json::Value::as_str) else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The provider field must be a string"
+        }));
+    };
+    if provider_name.trim().is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The provider field cannot be empty"
+        }));
+    }
+
+    let Some(provider) = providers
+        .catalog()
+        .into_iter()
+        .find(|item| item.name == provider_name)
+    else {
+        return HttpResponse::NotFound().json(serde_json::json!({
+            "error": format!("Provider '{provider_name}' is not configured")
+        }));
+    };
+
+    let requested_model = match body.get("model") {
+        Some(value) => match value.as_str() {
+            Some(model) if !model.trim().is_empty() => Some(model.to_owned()),
+            _ => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "The model field must be a non-empty string when provided"
+                }));
+            }
+        },
+        None => None,
+    };
+
+    let models = if let Some(model) = requested_model {
+        if !provider
+            .models
+            .iter()
+            .any(|configured| configured.name == model)
+        {
+            return HttpResponse::NotFound().json(serde_json::json!({
+                "error": format!("Model '{provider_name}/{model}' is not configured")
+            }));
+        }
+        vec![model]
+    } else {
+        provider
+            .models
+            .into_iter()
+            .map(|model| model.name)
+            .collect()
+    };
+
+    let mut results = Vec::with_capacity(models.len());
+    for model in models {
+        results.push(test_configured_model(providers.get_ref(), provider_name, &model).await);
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "provider": provider_name,
+        "results": results
+    }))
+}
+
+async fn test_configured_model(
+    registry: &Registry,
+    provider: &str,
+    model: &str,
+) -> serde_json::Value {
+    let started = Instant::now();
+    let model_id = format!("{provider}/{model}");
+    let client = match registry.resolve_model(&model_id) {
+        Ok(client) => client,
+        Err(error) => {
+            return serde_json::json!({
+                "model": model,
+                "success": false,
+                "latency_ms": started.elapsed().as_millis(),
+                "error": safe_model_error(&error)
+            });
+        }
+    };
+
+    // Reasoning models may spend a substantial part of their completion budget
+    // on internal reasoning before producing visible text.
+    const TEST_MAX_OUTPUT_TOKENS: u32 = 256;
+    let request = ConversationRequest {
+        system: None,
+        messages: vec![ConversationMessage::User {
+            content: "Reply with exactly: EME model test OK".to_owned(),
+        }],
+        tools: Vec::new(),
+        temperature: Some(0.0),
+        max_tokens: Some(TEST_MAX_OUTPUT_TOKENS),
+    };
+
+    match tokio::time::timeout(
+        Duration::from_secs(30),
+        client.complete_conversation(request),
+    )
+    .await
+    {
+        Ok(Ok(response)) => {
+            let provider_model = response.model;
+            let tool_calls = response
+                .tool_calls
+                .iter()
+                .map(|call| call.name.clone())
+                .collect::<Vec<_>>();
+            let output_tokens = response.usage.as_ref().map(|usage| usage.output_tokens);
+            let reasoning_tokens = response
+                .usage
+                .as_ref()
+                .and_then(|usage| usage.reasoning_tokens);
+            let usage = response.usage.map(|usage| {
+                serde_json::json!({
+                    "input_tokens": usage.input_tokens,
+                    "output_tokens": usage.output_tokens,
+                    "cached_input_tokens": usage.cached_input_tokens,
+                    "reasoning_tokens": usage.reasoning_tokens
+                })
+            });
+
+            match response
+                .content
+                .filter(|content| !content.trim().is_empty())
+            {
+                Some(content) => serde_json::json!({
+                    "model": model,
+                    "provider_model": provider_model,
+                    "success": true,
+                    "latency_ms": started.elapsed().as_millis(),
+                    "response": content,
+                    "usage": usage
+                }),
+                None => {
+                    let error = if tool_calls.is_empty()
+                        && output_tokens.is_some_and(|tokens| tokens >= TEST_MAX_OUTPUT_TOKENS)
+                    {
+                        format!(
+                            "The model exhausted the {TEST_MAX_OUTPUT_TOKENS}-token completion budget without returning text{}",
+                            reasoning_tokens
+                                .map(|tokens| format!(" ({tokens} tokens used for reasoning)"))
+                                .unwrap_or_default()
+                        )
+                    } else if tool_calls.is_empty() {
+                        "The provider returned an empty text response without exhausting the completion budget".to_owned()
+                    } else {
+                        format!(
+                            "The provider returned no text content and emitted {} tool call(s): {}",
+                            tool_calls.len(),
+                            tool_calls.join(", ")
+                        )
+                    };
+
+                    serde_json::json!({
+                        "model": model,
+                        "success": false,
+                        "latency_ms": started.elapsed().as_millis(),
+                        "error": error,
+                        "diagnostics": {
+                            "provider_model": provider_model,
+                            "tool_calls": tool_calls,
+                            "usage": usage
+                        }
+                    })
+                }
+            }
+        }
+        Ok(Err(error)) => serde_json::json!({
+            "model": model,
+            "success": false,
+            "latency_ms": started.elapsed().as_millis(),
+            "error": safe_model_error(&error)
+        }),
+        Err(_) => serde_json::json!({
+            "model": model,
+            "success": false,
+            "latency_ms": started.elapsed().as_millis(),
+            "error": "Timed out after 30 seconds"
+        }),
+    }
+}
+
+fn safe_model_error(error: &ModelError) -> String {
+    match error {
+        ModelError::InvalidModelName(_) => "Invalid model identifier".to_owned(),
+        ModelError::MissingApiKey(variable) => {
+            format!("Missing required environment variable '{variable}'")
+        }
+        ModelError::UnsupportedProvider(provider) => {
+            format!("Unsupported provider '{provider}'")
+        }
+        ModelError::UnsupportedModel(model) => format!("Unsupported model '{model}'"),
+        ModelError::Http(_) => {
+            "Provider request failed due to a network or transport error".to_owned()
+        }
+        ModelError::Provider(_) => "The provider rejected the request".to_owned(),
+        ModelError::ProviderResponse { status, .. } => {
+            format!("The provider returned HTTP {status}")
+        }
+        ModelError::InvalidResponse(_) => "The provider returned an invalid response".to_owned(),
+        ModelError::Cancelled => "The model test was cancelled".to_owned(),
+        ModelError::AllCandidatesFailed(_) => "The model test failed".to_owned(),
+    }
 }
 
 #[get("/console/admin/agents")]
@@ -353,7 +577,68 @@ pub(super) async fn favicon() -> impl Responder {
 
 #[cfg(test)]
 mod tests {
-    use super::is_mobile_user_agent;
+    use super::{is_mobile_user_agent, list_configured_providers, test_configured_providers};
+
+    #[actix_web::test]
+    async fn model_test_reports_missing_credentials_for_the_selected_model() {
+        use actix_web::{App, http::StatusCode, test, web};
+        use agent_models::Registry;
+        use serde_json::{Value, json};
+        use std::{
+            fs,
+            sync::Arc,
+            time::{SystemTime, UNIX_EPOCH},
+        };
+
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory =
+            std::env::temp_dir().join(format!("eme-model-test-{}-{unique}", std::process::id()));
+        let providers = directory.join("providers");
+        fs::create_dir_all(&providers).unwrap();
+        fs::write(
+            providers.join("test.toml"),
+            r#"
+name = "test"
+client = "gemini"
+api_key_env = "EME_TEST_MISSING_MODEL_KEY"
+
+[[models]]
+name = "mock-model"
+capabilities = ["chat"]
+"#,
+        )
+        .unwrap();
+
+        let registry = Arc::new(Registry::load(&directory).unwrap());
+        let app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(registry))
+                .service(list_configured_providers)
+                .service(test_configured_providers),
+        )
+        .await;
+
+        let request = test::TestRequest::post()
+            .uri("/providers")
+            .set_json(json!({"provider": "test", "model": "mock-model"}))
+            .to_request();
+        let response = test::call_service(&app, request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: Value = test::read_body_json(response).await;
+        assert_eq!(body["results"][0]["model"], "mock-model");
+        assert_eq!(body["results"][0]["success"], false);
+        assert!(
+            body["results"][0]["error"]
+                .as_str()
+                .unwrap()
+                .contains("EME_TEST_MISSING_MODEL_KEY")
+        );
+
+        fs::remove_dir_all(directory).unwrap();
+    }
 
     #[test]
     fn detects_common_mobile_user_agents() {
