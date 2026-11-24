@@ -306,7 +306,7 @@ impl TraktSyncService {
         } else {
             let mut existing = self.media.list_watchlist(profile_id).await?;
             existing.retain(|entry| {
-                entry.media_item_id != item.id || entry.source != WatchHistorySource::Trakt
+                entry.media_item_id != item.id && entry.source == WatchHistorySource::Trakt
             });
             self.media
                 .replace_watchlist(profile_id, WatchHistorySource::Trakt, &existing)
