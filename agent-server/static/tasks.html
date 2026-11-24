@@ -4,11 +4,12 @@
 <section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
 <main hidden><section class="notes-view"><div class="notes-layout">
 <section class="panel notes-list-panel"><h3>Your tasks</h3><button id="new-task" type="button">＋ New task</button><button id="refresh-tasks" type="button" class="secondary" style="margin-left:6px">Refresh</button><div id="tasks-list" class="notes-list"><div class="empty">Loading tasks…</div></div></section>
-<section class="panel notes-editor-panel"><div class="family-details-heading"><div><h3 id="task-heading">Select a task</h3><p class="hint">Manage recurring schedules and one-time agent tasks.</p></div></div>
+<div class="notes-editor-column">
 <nav id="task-section-nav" class="task-section-nav" aria-label="Task details sections">
 <button type="button" class="task-section-tab active" data-task-section-tab="details" aria-controls="task-details" aria-selected="true">Details</button>
 <button type="button" class="task-section-tab" data-task-section-tab="history" aria-controls="task-executions" aria-selected="false" disabled>Execution history</button>
 </nav>
+<section class="panel notes-editor-panel"><div class="family-details-heading"><div><h3 id="task-heading">Select a task</h3><p class="hint">Manage recurring schedules and one-time agent tasks.</p></div></div>
 <section id="task-details" class="task-section-content" data-task-section="details">
 <form id="task-form" class="notes-editor">
 <label for="task-name">Name</label><input id="task-name" type="text" maxlength="120" required placeholder="Daily summary" disabled>
@@ -30,4 +31,5 @@
   </div>
   <div id="task-executions-list" class="notes-list"><div class="empty">Select a task to inspect its executions.</div></div>
 </section>
+</div>
 </section></div></section></main></body></html>
