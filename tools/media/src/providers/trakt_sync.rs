@@ -258,7 +258,8 @@ impl TraktSyncService {
         Ok(summary)
     }
 
-    /// Read the linked Trakt account's current watchlist without consulting or updating the local mirror.
+    /// Read the linked Trakt account's current watchlist without consulting or
+    /// updating the local mirror.
     ///
     /// Trakt is the source of truth for linked profiles. Returning provider data
     /// directly prevents stale local state from being presented as the account's
@@ -959,8 +960,16 @@ mod tests {
             .unwrap();
         let live_watchlist = sync.list_watchlist(owner_id, profile.id).await.unwrap();
         assert_eq!(live_watchlist.len(), 2);
-        assert!(live_watchlist.iter().any(|item| item["title"] == "Movie"));
-        assert!(live_watchlist.iter().any(|item| item["title"] == "Show"));
+        assert!(
+            live_watchlist
+                .iter()
+                .any(|item| item["title"] == "Movie")
+        );
+        assert!(
+            live_watchlist
+                .iter()
+                .any(|item| item["title"] == "Show")
+        );
         assert!(media.list_watchlist(profile.id).await.unwrap().is_empty());
 
         let movie = media
