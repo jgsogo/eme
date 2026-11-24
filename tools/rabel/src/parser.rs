@@ -397,7 +397,7 @@ fn extract_isbn(text: &str) -> Option<String> {
 fn labelled_value(text: &str, labels: &[&str]) -> Option<String> {
     let next_field = Regex::new(r"(?i)\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Tipo de documento|Tipo de material|Tipo de soporte|Formato|Material|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\s*:?").ok()?;
     for label in labels {
-        let pattern = format!(r"(?i){}\s*:?\s*([^|;]{{2,120}})", regex::escape(label));
+        let pattern = format!(r"(?i){}\s*:?\s*([^|]{{2,120}})", regex::escape(label));
         let re = Regex::new(&pattern).ok()?;
         if let Some(value) = re.captures(text).and_then(|c| c.get(1)) {
             let raw = value.as_str();
