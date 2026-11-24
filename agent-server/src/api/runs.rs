@@ -11,8 +11,9 @@ use super::types::{
     CancelRunResponse, GetRunResponse, RunEventResponse, SubmitRunRequest, SubmitRunResponse,
 };
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, Scope, get, post,
+    HttpRequest, HttpResponse, Responder, Scope, get,
     http::header,
+    post,
     web::{self, Bytes, Data, Json, Path},
 };
 use agent_runtime::ToolContext;
@@ -25,7 +26,6 @@ use agent_storage::{
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::mpsc;
-
 
 fn owns_run(
     run: &Run,
@@ -529,9 +529,15 @@ async fn stream_run_events(
         .insert_header((header::CONTENT_TYPE, "text/event-stream"))
         .insert_header((header::CACHE_CONTROL, "no-cache"))
         .insert_header(("X-Accel-Buffering", "no"))
-        .streaming(futures_util::stream::unfold(receiver, |mut receiver| async move {
-            receiver.recv().await.map(|bytes| (Ok::<Bytes, actix_web::Error>(bytes), receiver))
-        }))
+        .streaming(futures_util::stream::unfold(
+            receiver,
+            |mut receiver| async move {
+                receiver
+                    .recv()
+                    .await
+                    .map(|bytes| (Ok::<Bytes, actix_web::Error>(bytes), receiver))
+            },
+        ))
 }
 
 async fn send_sse_event(
