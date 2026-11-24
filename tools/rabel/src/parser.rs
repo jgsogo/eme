@@ -18,7 +18,48 @@ pub(super) fn meta_refresh_target(html: &str) -> Option<String> {
     Some(url.to_owned())
 }
 
-fn search_page_diagnostic(html: &str) -> String {
+fn form_diagnostics(html: &str) -> Vec<String> {
+    let Ok(forms) = Regex::new(r"(?is)<form\b([^>]*)>(.*?)</form>") else {
+        return Vec::new();
+    };
+    let Ok(controls) = Regex::new(r"(?is)<(?:input|select|textarea|button)\b[^>]*>") else {
+        return Vec::new();
+    };
+    let attr = |tag: &str, name: &str| -> Option<String> {
+        let pattern = format!(r#"(?is)\b{}\s*=\s*["']([^"']*)["']"#, regex::escape(name));
+        Regex::new(&pattern).ok()?.captures(tag)?.get(1).map(|m| m.as_str().to_owned())
+    };
+
+    forms.captures_iter(html).take(12).map(|form| {
+        let attrs = form.get(1).map(|m| m.as_str().trim()).unwrap_or("");
+        let body = form.get(2).map(|m| m.as_str()).unwrap_or("");
+        let fields = controls.find_iter(body).take(24).map(|matched| {
+            let tag = matched.as_str();
+            let name = attr(tag, "name").unwrap_or_default();
+            let kind = if tag.to_ascii_lowercase().starts_with("<input") {
+                attr(tag, "type").unwrap_or_else(|| "text".to_owned())
+            } else {
+                tag.trim_start_matches('<').split(|c: char| c.is_whitespace() || c == '>').next().unwrap_or("").to_owned()
+            };
+            let value = if kind.eq_ignore_ascii_case("password") {
+                Some("[redacted]".to_owned())
+            } else {
+                attr(tag, "value").or_else(|| {
+                    if kind.eq_ignore_ascii_case("select") {
+                        Regex::new(r#"(?is)<option\b[^>]*selected[^>]*>(.*?)</option>"#)
+                            .ok()?.captures(body).and_then(|c| c.get(1)).map(|m| clean_text(m.as_str()))
+                    } else {
+                        None
+                    }
+                })
+            };
+            format!("{}:{}{}{}", kind, name, value.as_ref().map(|v| format!("={v:?}")).unwrap_or_default(), "")
+        }).collect::<Vec<_>>();
+        format!("form[{attrs}] controls={fields:?}")
+    }).collect()
+}
+
+fn search_page_diagnostic(html: &str, response_url: &Url) -> String {
     let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>")
         .ok()
         .and_then(|re| re.captures(html))
@@ -27,20 +68,14 @@ fn search_page_diagnostic(html: &str) -> String {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "(no title)".to_owned());
 
-    let forms = Regex::new(r#"(?is)<form\b([^>]*)>"#)
-        .ok()
-        .map(|re| re.captures_iter(html)
-            .filter_map(|captures| captures.get(1).map(|m| m.as_str().trim().to_owned()))
-            .take(4)
-            .collect::<Vec<_>>())
-        .unwrap_or_default();
+    let forms = form_diagnostics(html);
 
-    let links = Regex::new(r#"(?is)<a\b([^>]*)href\s*=\s*["']([^"']+)["']([^>]*)>(.*?)</a>"#)
+    let links = Regex::new(r#"(?is)<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>"#)
         .ok()
         .map(|re| re.captures_iter(html)
             .filter_map(|captures| {
-                let href = captures.get(2)?.as_str();
-                let label = clean_text(captures.get(4)?.as_str());
+                let href = captures.get(1)?.as_str();
+                let label = clean_text(captures.get(2)?.as_str());
                 Some(format!("{href:?} => {label:?}"))
             })
             .take(8)
@@ -55,7 +90,7 @@ fn search_page_diagnostic(html: &str) -> String {
         .unwrap_or_else(|| clean_text(html));
     let excerpt: String = body.chars().take(320).collect();
 
-    format!("page title={title:?}; forms={forms:?}; links={links:?}; body excerpt={excerpt:?}")
+    format!("response_url={response_url}; page title={title:?}; forms={forms:?}; links={links:?}; body excerpt={excerpt:?}")
 }
 
 pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<CatalogueSearchResult>, RabelError> {
@@ -83,7 +118,7 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         });
     }
     if results.is_empty() && !html.to_ascii_lowercase().contains("no se han encontrado") {
-        return Err(RabelError::Parse(format!("no recognized record links found in RABEL search response; {}", search_page_diagnostic(html))));
+        return Err(RabelError::Parse(format!("no recognized record links found in RABEL search response; {}", search_page_diagnostic(html, session_url))));
     }
     Ok(results)
 }
