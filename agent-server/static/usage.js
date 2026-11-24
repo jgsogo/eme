@@ -109,19 +109,22 @@ async function load(){
 function renderPricing(){
  const rate=value=>value==null?"—":(value/1000000).toFixed(6);
  const date=value=>value?new Date(value).toLocaleString():"No end date";
- $("pricing-versions").innerHTML=state.pricing.length?'<table class="pricing-table"><thead><tr><th>Provider / model</th><th>Version</th><th>Currency</th><th>Effective</th><th>Input / 1M</th><th>Output / 1M</th><th>Cached / 1M</th><th>Reasoning / 1M</th></tr></thead><tbody>'+state.pricing.map(price=>{
+ const query=$("pricing-search")?.value.trim().toLocaleLowerCase()||"";
+ const prices=state.pricing.filter(price=>[price.provider,price.model,price.version,price.currency,price.effective_from,price.effective_until].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ $("pricing-count").textContent=query?prices.length+" of "+state.pricing.length+" versions":state.pricing.length+" versions";
+ $("pricing-versions").innerHTML=prices.length?'<table class="pricing-table"><thead><tr><th scope="col">Provider / model</th><th scope="col">Version</th><th scope="col">Currency</th><th scope="col">Effective</th><th scope="col">Input / 1M</th><th scope="col">Output / 1M</th><th scope="col">Cached / 1M</th><th scope="col">Reasoning / 1M</th></tr></thead><tbody>'+prices.map(price=>{
   const rates=price.rates_per_million||{};
   return '<tr><td>'+escapeHtml(price.provider)+'<span class="usage-model-id">'+escapeHtml(price.model)+'</span></td><td>'+escapeHtml(price.version)+'</td><td>'+escapeHtml(price.currency)+'</td><td>'+escapeHtml(date(price.effective_from))+'<span class="usage-model-id">'+escapeHtml(price.effective_until?date(price.effective_until):"Open-ended")+'</span></td><td>'+rate(rates.input_tokens)+'</td><td>'+rate(rates.output_tokens)+'</td><td>'+rate(rates.cached_input_tokens)+'</td><td>'+rate(rates.reasoning_tokens)+'</td></tr>';
- }).join("")+'</tbody></table>':'<p class="usage-empty">No pricing versions configured yet.</p>';
+ }).join("")+'</tbody></table>':query?'<p class="usage-empty">No pricing versions match this filter. <button type="button" class="secondary" data-clear-pricing-filter>Clear filter</button></p>':'<p class="usage-empty">No pricing versions configured yet.</p>';
 }
 async function loadPricing(){
+ $("pricing-versions").innerHTML='<p class="usage-empty" role="status">Loading pricing catalogue…</p>';
  try{
   const response=await fetch("/runs/pricing",{headers:{Accept:"application/json"}});
   if(!response.ok)throw new Error(await response.text()||response.statusText);
-  state.pricing=await response.json();
-  renderPricing();
+  state.pricing=await response.json();renderPricing();
  }catch(error){
-  $("pricing-versions").innerHTML='<p class="usage-empty">Could not load pricing catalogue: '+escapeHtml(error.message)+'</p>';
+  $("pricing-versions").innerHTML='<p class="usage-empty" role="alert">Could not load pricing catalogue: '+escapeHtml(error.message)+' <button type="button" class="secondary" data-retry-pricing>Try again</button></p>';
  }
 }
 async function savePricing(event){
@@ -176,6 +179,11 @@ async function savePricing(event){
 $("usage-refresh").addEventListener("click",()=>{load();loadPricing()});
 $("usage-period").addEventListener("change",render);
 $("usage-record-search")?.addEventListener("input",render);
+$("pricing-search")?.addEventListener("input",renderPricing);
+$("pricing-versions")?.addEventListener("click",event=>{
+ if(event.target.closest("[data-clear-pricing-filter]")){$("pricing-search").value="";renderPricing()}
+ if(event.target.closest("[data-retry-pricing]"))loadPricing();
+});
 $("pricing-form").addEventListener("submit",savePricing);
 load();
 loadPricing();
