@@ -71,7 +71,7 @@ impl RabelClient {
         let (landing_url, landing_html) = self.read_html(session_root).await?;
         let mut search_url = parser::session_action(&landing_html, &landing_url)
             .ok_or_else(|| RabelError::Parse(format!("RABEL landing page did not expose a session form action; {}",
-                parser::search_page_diagnostic(&landing_html, &landing_url)))?;
+                parser::search_page_diagnostic(&landing_html, &landing_url))))?;
         search_url.query_pairs_mut().append_pair("SUBC", &self.subcatalog)
             .append_pair("ACC", "DOSEARCH").append_pair("xsqf01", query);
         self.read_html(search_url).await
