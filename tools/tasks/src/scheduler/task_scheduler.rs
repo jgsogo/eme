@@ -84,6 +84,7 @@ fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
 /// Runs at most one catch-up execution for each persisted due occurrence after restart.
 /// Missed recurring ticks are coalesced; after a successful submission the next future
 /// cron occurrence is calculated from the current time.
+async fn run_scheduler(
     registry: TaskRegistry,
     manager: RunManager,
     mut shutdown: watch::Receiver<bool>,
