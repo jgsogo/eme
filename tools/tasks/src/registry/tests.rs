@@ -244,7 +244,6 @@ enabled = true
     fs::remove_dir_all(directory).unwrap();
 }
 
-
 #[test]
 fn initial_cron_occurrence_respects_timezone_across_daylight_saving() {
     let schedule = Some("0 0 8 * * *".to_owned());
