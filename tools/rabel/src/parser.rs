@@ -97,7 +97,7 @@ fn extract_holdings(html: &str) -> Vec<CopyHolding> {
 }
 
 fn extract_signature(text: &str) -> Option<String> {
-    Regex::new(r"\\b[A-Z]{1,4}-[A-Z0-9-]{2,20}\\b")
+    Regex::new(r"\b[A-Z]{1,4}-[A-Z0-9-]{2,20}\b")
         .ok()?
         .find(text)
         .map(|matched| matched.as_str().to_owned())
