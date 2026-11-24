@@ -14,5 +14,9 @@ pub struct ScheduledTask {
     pub prompt: String,
     pub schedule: Option<Schedule>,
     pub timezone: Tz,
+    /// The cron occurrence currently awaiting successful submission.
+    pub scheduled_for: DateTime<Utc>,
+    /// Next time the scheduler should attempt submission (may be a retry deadline).
     pub next_run: DateTime<Utc>,
+    pub retry_attempts: u32,
 }
