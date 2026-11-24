@@ -17,6 +17,12 @@ impl BookStore {
         let connection = Connection::open(path)?;
         connection.busy_timeout(std::time::Duration::from_secs(5))?;
         connection.execute_batch(include_str!("../migrations/0001_books.sql"))?;
+        connection.execute_batch("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY NOT NULL);")?;
+        let applied: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=2)", [], |row| row.get(0))?;
+        if !applied {
+            connection.execute_batch(include_str!("../migrations/0002_bibliographic_metadata.sql"))?;
+            connection.execute("INSERT INTO schema_migrations(version) VALUES (2)", [])?;
+        }
         Ok(Self { connection: Arc::new(Mutex::new(connection)) })
     }
 
@@ -26,11 +32,13 @@ impl BookStore {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
         let authors = serde_json::to_string(&input.authors)?;
+        let notes = serde_json::to_string(&input.notes)?;
+        let subjects = serde_json::to_string(&input.subjects)?;
         let connection = self.connection.lock().await;
         connection.execute(
-            "INSERT INTO user_books(id,user_id,title,authors_json,isbn,publisher,publication_year,catalogue_url,rating,reading_status,want_to_buy,review,created_at,updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?13)",
-            params![id,user_id,input.title.trim(),authors,input.isbn,input.publisher,input.publication_year,input.catalogue_url,input.rating,input.reading_status.as_str(),input.want_to_buy as i64,input.review,now],
+            "INSERT INTO user_books(id,user_id,title,authors_json,isbn,publisher,publication_year,responsibility,publication_statement,physical_description,series,notes_json,subjects_json,catalogue_url,rating,reading_status,want_to_buy,review,created_at,updated_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?19)",
+            params![id,user_id,input.title.trim(),authors,input.isbn,input.publisher,input.publication_year,input.responsibility,input.publication_statement,input.physical_description,input.series,notes,subjects,input.catalogue_url,input.rating,input.reading_status.as_str(),input.want_to_buy as i64,input.review,now],
         )?;
         load(&connection, user_id, &id)?.ok_or(BookStoreError::NotFound)
     }
@@ -39,7 +47,7 @@ impl BookStore {
         validate_user(user_id)?;
         let connection = self.connection.lock().await;
         let mut statement = connection.prepare(
-            "SELECT id,title,authors_json,isbn,publisher,publication_year,catalogue_url,rating,reading_status,want_to_buy,review,created_at,updated_at
+            "SELECT id,title,authors_json,isbn,publisher,publication_year,responsibility,publication_statement,physical_description,series,notes_json,subjects_json,catalogue_url,rating,reading_status,want_to_buy,review,created_at,updated_at
              FROM user_books WHERE user_id=?1 ORDER BY updated_at DESC,id"
         )?;
         let rows = statement.query_map([user_id], row_to_book)?;
@@ -60,6 +68,12 @@ impl BookStore {
         if let Some(isbn)=update.isbn { book.isbn=isbn; }
         if let Some(publisher)=update.publisher { book.publisher=publisher; }
         if let Some(year)=update.publication_year { book.publication_year=year; }
+        if let Some(value)=update.responsibility { book.responsibility=value; }
+        if let Some(value)=update.publication_statement { book.publication_statement=value; }
+        if let Some(value)=update.physical_description { book.physical_description=value; }
+        if let Some(value)=update.series { book.series=value; }
+        if let Some(value)=update.notes { book.notes=value; }
+        if let Some(value)=update.subjects { book.subjects=value; }
         if let Some(url)=update.catalogue_url { book.catalogue_url=url; }
         if let Some(rating)=update.rating { book.rating=rating; }
         if let Some(status)=update.reading_status { book.reading_status=status; }
@@ -68,10 +82,12 @@ impl BookStore {
         validate_rating(book.rating)?;
         let now=Utc::now();
         let authors=serde_json::to_string(&book.authors)?;
+        let notes=serde_json::to_string(&book.notes)?;
+        let subjects=serde_json::to_string(&book.subjects)?;
         let connection=self.connection.lock().await;
         connection.execute(
-            "UPDATE user_books SET title=?1,authors_json=?2,isbn=?3,publisher=?4,publication_year=?5,catalogue_url=?6,rating=?7,reading_status=?8,want_to_buy=?9,review=?10,updated_at=?11 WHERE id=?12 AND user_id=?13",
-            params![book.title,authors,book.isbn,book.publisher,book.publication_year,book.catalogue_url,book.rating,book.reading_status.as_str(),book.want_to_buy as i64,book.review,now.to_rfc3339(),id,user_id],
+            "UPDATE user_books SET title=?1,authors_json=?2,isbn=?3,publisher=?4,publication_year=?5,responsibility=?6,publication_statement=?7,physical_description=?8,series=?9,notes_json=?10,subjects_json=?11,catalogue_url=?12,rating=?13,reading_status=?14,want_to_buy=?15,review=?16,updated_at=?17 WHERE id=?18 AND user_id=?19",
+            params![book.title,authors,book.isbn,book.publisher,book.publication_year,book.responsibility,book.publication_statement,book.physical_description,book.series,notes,subjects,book.catalogue_url,book.rating,book.reading_status.as_str(),book.want_to_buy as i64,book.review,now.to_rfc3339(),id,user_id],
         )?;
         load(&connection,user_id,id)?.ok_or(BookStoreError::NotFound)
     }
@@ -122,7 +138,7 @@ fn validate_rating(rating: Option<u8>) -> Result<(), BookStoreError> {
 }
 fn load(connection: &Connection,user:&str,id:&str)->Result<Option<Book>,BookStoreError>{
     connection.query_row(
-        "SELECT id,title,authors_json,isbn,publisher,publication_year,catalogue_url,rating,reading_status,want_to_buy,review,created_at,updated_at FROM user_books WHERE user_id=?1 AND id=?2",
+        "SELECT id,title,authors_json,isbn,publisher,publication_year,responsibility,publication_statement,physical_description,series,notes_json,subjects_json,catalogue_url,rating,reading_status,want_to_buy,review,created_at,updated_at FROM user_books WHERE user_id=?1 AND id=?2",
         params![user,id],row_to_book
     ).optional().map_err(BookStoreError::Storage)
 }
@@ -135,9 +151,13 @@ fn row_to_book(row:&rusqlite::Row<'_>)->Result<Book,rusqlite::Error>{
     Ok(Book{
         id:row.get(0)?,title:row.get(1)?,
         authors:serde_json::from_str(&authors).map_err(|e|rusqlite::Error::FromSqlConversionFailure(2,rusqlite::types::Type::Text,Box::new(e)))?,
-        isbn:row.get(3)?,publisher:row.get(4)?,publication_year:row.get(5)?,catalogue_url:row.get(6)?,rating:row.get(7)?,
-        reading_status:ReadingStatus::try_from(status.as_str()).map_err(|e|rusqlite::Error::FromSqlConversionFailure(8,rusqlite::types::Type::Text,Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData,e))))?,
-        want_to_buy:row.get::<_,i64>(9)?!=0,review:row.get(10)?,
+        isbn:row.get(3)?,publisher:row.get(4)?,publication_year:row.get(5)?,
+        responsibility:row.get(6)?,publication_statement:row.get(7)?,physical_description:row.get(8)?,series:row.get(9)?,
+        notes:serde_json::from_str(&row.get::<_,String>(10)?).map_err(|e|rusqlite::Error::FromSqlConversionFailure(10,rusqlite::types::Type::Text,Box::new(e)))?,
+        subjects:serde_json::from_str(&row.get::<_,String>(11)?).map_err(|e|rusqlite::Error::FromSqlConversionFailure(11,rusqlite::types::Type::Text,Box::new(e)))?,
+        catalogue_url:row.get(12)?,rating:row.get(13)?,
+        reading_status:ReadingStatus::try_from(status.as_str()).map_err(|e|rusqlite::Error::FromSqlConversionFailure(14,rusqlite::types::Type::Text,Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData,e))))?,
+        want_to_buy:row.get::<_,i64>(15)?!=0,review:row.get(16)?,
         created_at:parse_time(&created)?,updated_at:parse_time(&updated)?,
     })
 }
