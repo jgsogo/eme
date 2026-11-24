@@ -18,6 +18,46 @@ pub(super) fn meta_refresh_target(html: &str) -> Option<String> {
     Some(url.to_owned())
 }
 
+fn search_page_diagnostic(html: &str) -> String {
+    let title = Regex::new(r"(?is)<title\\b[^>]*>(.*?)</title>")
+        .ok()
+        .and_then(|re| re.captures(html))
+        .and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str()))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "(no title)".to_owned());
+
+    let forms = Regex::new(r#"(?is)<form\\b([^>]*)>"#)
+        .ok()
+        .map(|re| re.captures_iter(html)
+            .filter_map(|captures| captures.get(1).map(|m| m.as_str().trim().to_owned()))
+            .take(4)
+            .collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let links = Regex::new(r#"(?is)<a\\b([^>]*)href\\s*=\\s*["']([^"']+)["']([^>]*)>(.*?)</a>"#)
+        .ok()
+        .map(|re| re.captures_iter(html)
+            .filter_map(|captures| {
+                let href = captures.get(2)?.as_str();
+                let label = clean_text(captures.get(4)?.as_str());
+                Some(format!("{href:?} => {label:?}"))
+            })
+            .take(8)
+            .collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let body = Regex::new(r"(?is)<body\\b[^>]*>(.*?)</body>")
+        .ok()
+        .and_then(|re| re.captures(html))
+        .and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str()))
+        .unwrap_or_else(|| clean_text(html));
+    let excerpt: String = body.chars().take(320).collect();
+
+    format!("page title={title:?}; forms={forms:?}; links={links:?}; body excerpt={excerpt:?}")
+}
+
 pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<CatalogueSearchResult>, RabelError> {
     let link = Regex::new(r#"(?is)<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>"#)
         .map_err(|error| RabelError::Parse(error.to_string()))?;
@@ -41,7 +81,7 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         });
     }
     if results.is_empty() && !html.to_ascii_lowercase().contains("no se han encontrado") {
-        return Err(RabelError::Parse("no record links found in RABEL search response".into()));
+        return Err(RabelError::Parse(format!("no recognized record links found in RABEL search response; {}", search_page_diagnostic(html))));
     }
     Ok(results)
 }
