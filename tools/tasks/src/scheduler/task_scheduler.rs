@@ -99,7 +99,7 @@ async fn task_tool_context(
                     .get_user(member_id)
                     .map_err(|error| format!("loading family member profile: {error}"))?
                 {
-                    member.name = Some(profile.display_name);
+                    member.name = profile.display_name;
                     member.birthday = profile.birthday;
                 }
             }
@@ -343,9 +343,11 @@ mod context_tests {
         let context = task_tool_context(&task, &identities, &family_service)
             .await
             .unwrap();
-        assert_eq!(context.user_id.as_deref(), Some(user.id.to_string().as_str()));
+        let expected_user_id = user.id.to_string();
+        let expected_family_id = family.id.to_string();
+        assert_eq!(context.user_id.as_deref(), Some(expected_user_id.as_str()));
         assert_eq!(context.telegram_id.as_deref(), Some("42"));
-        assert_eq!(context.family.as_ref().map(|value| value.family_id.as_str()), Some(family.id.to_string().as_str()));
+        assert_eq!(context.family.as_ref().map(|value| value.family_id.as_str()), Some(expected_family_id.as_str()));
         assert_eq!(context.families.len(), 1);
         assert_eq!(context.families[0].members[0].telegram_id.as_deref(), Some("42"));
 
