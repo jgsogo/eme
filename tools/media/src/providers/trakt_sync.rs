@@ -853,7 +853,7 @@ mod tests {
                     "movie": {"title": "Movie", "ids": {"trakt": 1, "tmdb": 100}}
                 }])),
             )
-            .expect(1)
+            .expect(2)
             .mount(&server)
             .await;
         Mock::given(method("GET"))
@@ -864,7 +864,7 @@ mod tests {
                     "show": {"title": "Show", "ids": {"trakt": 2, "tmdb": 200}}
                 }])),
             )
-            .expect(1)
+            .expect(2)
             .mount(&server)
             .await;
 
@@ -951,6 +951,18 @@ mod tests {
         assert_eq!(media.list_ratings(profile.id).await.unwrap().len(), 2);
         assert_eq!(media.list_watchlist(profile.id).await.unwrap().len(), 2);
 
+        // A linked profile reads the provider's live state even when its local
+        // mirror is empty, and the read does not repopulate that mirror.
+        media
+            .replace_watchlist(profile.id, WatchHistorySource::Trakt, &[])
+            .await
+            .unwrap();
+        let live_watchlist = sync.list_watchlist(owner_id, profile.id).await.unwrap();
+        assert_eq!(live_watchlist.len(), 2);
+        assert!(live_watchlist.iter().any(|item| item["title"] == "Movie"));
+        assert!(live_watchlist.iter().any(|item| item["title"] == "Show"));
+        assert!(media.list_watchlist(profile.id).await.unwrap().is_empty());
+
         let movie = media
             .get_media_item(MediaItemId::from_external_id("tmdb", "100"))
             .await
@@ -959,11 +971,11 @@ mod tests {
         sync.set_watchlist_item(owner_id, profile.id, &movie, false)
             .await
             .unwrap();
-        assert_eq!(media.list_watchlist(profile.id).await.unwrap().len(), 1);
+        assert!(media.list_watchlist(profile.id).await.unwrap().is_empty());
         sync.set_watchlist_item(owner_id, profile.id, &movie, true)
             .await
             .unwrap();
-        assert_eq!(media.list_watchlist(profile.id).await.unwrap().len(), 2);
+        assert!(media.list_watchlist(profile.id).await.unwrap().is_empty());
 
         let eme_rating = MediaRating {
             profile_id: profile.id,
