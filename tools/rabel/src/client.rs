@@ -121,7 +121,7 @@ impl RabelClient {
 
     pub async fn get_item(&self, record_ref: &str) -> Result<CatalogueItem, RabelError> {
         let url = self.validate_record_ref(record_ref)?;
-        let (final_url, html) = self.read_html(url).await?;
+        let (_, html) = self.read_html(url).await?;
         parser::record(&html)
     }
 
