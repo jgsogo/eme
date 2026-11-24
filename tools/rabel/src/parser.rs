@@ -497,6 +497,17 @@ mod tests {
     }
 
     #[test]
+    fn recovers_dated_author_from_search_heading_when_row_has_no_author_field() {
+        assert_eq!(
+            split_dated_author_prefix("Hayek, Friedrich A. von (1899-1992) Los fundamentos de la libertad"),
+            Some((
+                "Hayek, Friedrich A. von (1899-1992)".to_owned(),
+                "Los fundamentos de la libertad".to_owned()
+            ))
+        );
+    }
+
+    #[test]
     fn search_results_include_bibliographic_details_without_record_fetch() {
         let html = r#"<table><tr>
             <td><a href="/token/NT1?ACC=165&amp;DOC=42">Hayek, Friedrich A. von (1899-1992) Los fundamentos de la libertad / Friedrich A. Hayek.</a></td>
