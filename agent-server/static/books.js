@@ -128,14 +128,14 @@
     summary.textContent = "Searching RABEL…";
     container.replaceChildren();
     categoryFilter.replaceChildren(new Option("All document categories", ""));
-    categoryFilter.hidden = true;
+    $("catalogue-filter-controls").hidden = true;
     try {
       const results = await api(`/books/catalogue/search?q=${encodeURIComponent(q)}`);
       container.replaceChildren();
       const categories = [...new Set(results.map(result => result.category || "Document type not specified"))]
         .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
       for (const category of categories) categoryFilter.add(new Option(category, category));
-      categoryFilter.hidden = results.length === 0;
+      $("catalogue-filter-controls").hidden = results.length === 0;
       for (const result of results) {
         const category = result.category || "Document type not specified";
         const card = document.createElement("article");
