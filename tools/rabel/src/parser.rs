@@ -189,12 +189,12 @@ fn split_statement_of_responsibility(value: &str) -> (String, Option<String>) {
 }
 
 fn extract_publication_year(value: &str) -> Option<u16> {
-    Regex::new(r"\\b(1[5-9]\d{2}|20\d{2})\\b").ok()?
+    Regex::new(r"\b(1[5-9]\d{2}|20\d{2})\b").ok()?
         .find_iter(value).filter_map(|m| m.as_str().parse::<u16>().ok()).last()
 }
 
 fn strip_publication_year(value: &str) -> String {
-    Regex::new(r"\\b(?:1[5-9]\d{2}|20\d{2})\\b").ok()
+    Regex::new(r"\b(?:1[5-9]\d{2}|20\d{2})\b").ok()
         .map(|re| re.replace_all(value, "").into_owned()).unwrap_or_else(|| value.to_owned())
         .trim().trim_end_matches([',', '.', ';', ':']).trim().to_owned()
 }
