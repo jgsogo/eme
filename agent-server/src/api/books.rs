@@ -45,27 +45,58 @@ async fn search_catalogue(
     }
 }
 
+#[derive(Deserialize)]
+struct CatalogueItemQuery {
+    q: String,
+    title: Option<String>,
+    isbn: Option<String>,
+}
+
 #[get("/catalogue/item")]
 async fn catalogue_item(
     request: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
     identities: Data<Arc<FileUserIdentityStore>>,
-    query: web::Query<std::collections::HashMap<String, String>>,
+    query: web::Query<CatalogueItemQuery>,
 ) -> impl Responder {
     if let Err(response) = actor(&request, &auth, &identities) { return response; }
-    let Some(record_ref) = query.get("record_ref").filter(|value| !value.trim().is_empty()) else {
-        return HttpResponse::BadRequest().body("record_ref must not be empty");
-    };
+    if query.q.trim().is_empty() {
+        return HttpResponse::BadRequest().body("q must not be empty");
+    }
     let client = match RabelClient::new() {
         Ok(client) => client,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
-    match client.get_item(record_ref).await {
-        Ok(item) => HttpResponse::Ok().json(item),
-        Err(RabelError::Http(status)) => HttpResponse::BadGateway().body(format!("RABEL returned HTTP {status}")),
-        Err(RabelError::Request(_)) => HttpResponse::BadGateway().body("Could not connect to RABEL"),
-        Err(RabelError::Parse(_)) => HttpResponse::BadGateway().body("RABEL returned an unexpected record response"),
-        Err(RabelError::InvalidRecordReference) => HttpResponse::BadRequest().body("Invalid RABEL record reference"),
+    // Record references contain an AbsysNet session path. Never accept a
+    // reference from a previous HTTP request: search and detail retrieval must
+    // happen through this request's single cookie-preserving client.
+    let results = match client.search(&query.q, 20).await {
+        Ok(results) => results,
+        Err(_) => return HttpResponse::BadGateway().body("Could not search RABEL for the selected record"),
+    };
+    let wanted_isbn = query.isbn.as_deref().filter(|value| !value.trim().is_empty()).map(normalize_isbn);
+    let wanted_title = query.title.as_deref().unwrap_or(&query.q);
+    let mut matches = Vec::new();
+    for result in results {
+        let item = match client.get_item(&result.record_ref).await {
+            Ok(item) => item,
+            Err(_) => continue,
+        };
+        let matched = if let Some(wanted) = &wanted_isbn {
+            item.isbn.as_deref().or(result.isbn.as_deref())
+                .is_some_and(|candidate| normalize_isbn(candidate) == *wanted)
+        } else {
+            item.title.as_deref().is_some_and(|title| {
+                catalogue_title_matches(wanted_title, title)
+                    && catalogue_title_matches(&result.title, title)
+            })
+        };
+        if matched { matches.push(item); }
+    }
+    match matches.len() {
+        0 => HttpResponse::NotFound().body("No matching RABEL record was found"),
+        1 => HttpResponse::Ok().json(matches.remove(0)),
+        _ => HttpResponse::Conflict().body("More than one RABEL record matches; provide an ISBN to identify the edition"),
     }
 }
 
