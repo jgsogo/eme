@@ -402,6 +402,34 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parses_structured_rabel_bibliography_without_confusing_author_dates_for_edition_year() {
+        let html = r#"
+            <h2>Menú responsive</h2>
+            <div id="docu_body" class="docu_body">
+              <dl><dt>Autor / Autora:</dt><dd><a>Hayek, Friedrich A. von (1899-1992)</a></dd></dl>
+              <dl><dt>Título:</dt><dd><span>Los fundamentos de la libertad</span> / F. A. Hayek.</dd></dl>
+              <dl><dt>Editor / Productor:</dt><dd>Valencia : Fundación Ignacio Villalonga, 1961.</dd></dl>
+              <dl><dt>Descripción física:</dt><dd>454 p. ; 22 cm.</dd></dl>
+              <dl><dt>Colección editorial:</dt><dd>Biblioteca de estudios económicos</dd><dd>Biblioteca de Estudios Económicos</dd></dl>
+              <dl><dt>Nota de bibliografía:</dt><dd>Índice de autores.</dd></dl>
+              <dl><dt>Materias:</dt><dd>Libertad</dd><dd>Política económica</dd><dd>Derechos humanos</dd><dd>Política social</dd></dl>
+              <dl><dt>ISBN:</dt><dd>84-254-1151-3</dd></dl>
+            </div>"#;
+        let item = record(html).unwrap();
+        assert_eq!(item.title.as_deref(), Some("Los fundamentos de la libertad"));
+        assert_eq!(item.authors, vec!["Hayek, Friedrich A. von (1899-1992)"]);
+        assert_eq!(item.responsibility.as_deref(), Some("F. A. Hayek"));
+        assert_eq!(item.publisher.as_deref(), Some("Valencia : Fundación Ignacio Villalonga"));
+        assert_eq!(item.publication_year, Some(1961));
+        assert_eq!(item.publication_statement.as_deref(), Some("Valencia : Fundación Ignacio Villalonga, 1961."));
+        assert_eq!(item.physical_description.as_deref(), Some("454 p. ; 22 cm."));
+        assert_eq!(item.series.as_deref(), Some("Biblioteca de estudios económicos"));
+        assert_eq!(item.notes, vec!["Índice de autores"]);
+        assert_eq!(item.subjects, vec!["Libertad", "Política económica", "Derechos humanos", "Política social"]);
+        assert_eq!(item.isbn.as_deref(), Some("84-254-1151-3"));
+    }
+
+    #[test]
     fn record_details_contain_bibliographic_data_only() {
         let html = r#"<html><h1>The Example Book</h1>
             <p>Autor: Ada Lovelace Editorial: Example Press ISBN: 978-1234567890</p>
