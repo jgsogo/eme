@@ -108,9 +108,25 @@ impl RabelClient {
         if !(1..=20).contains(&limit) {
             return Err(RabelError::Parse("limit must be between 1 and 20".into()));
         }
+
+        let results = self.search_once(query).await?;
+        if !results.is_empty() {
+            return Ok(results.into_iter().take(limit).collect());
+        }
+
+        // AbsysNet can interpret a multi-word title as an overly restrictive
+        // phrase. Retry with the meaningful title terms before reporting no matches.
+        if let Some(fallback) = fallback_search_query(query) {
+            let results = self.search_once(&fallback).await?;
+            return Ok(results.into_iter().take(limit).collect());
+        }
+
+        Ok(Vec::new())
+    }
+
+    async fn search_once(&self, query: &str) -> Result<Vec<CatalogueSearchResult>, RabelError> {
         let (session_url, html) = self.search_page(query).await?;
-        let results = parser::search_results(&html, &session_url)?;
-        Ok(results.into_iter().take(limit).collect())
+        parser::search_results(&html, &session_url)
     }
 
     pub async fn get_item(&self, record_ref: &str) -> Result<CatalogueItem, RabelError> {
@@ -158,5 +174,34 @@ impl RabelClient {
             return Err(RabelError::InvalidRecordReference);
         }
         Ok(url)
+    }
+}
+
+
+fn fallback_search_query(query: &str) -> Option<String> {
+    const STOP_WORDS: &[&str] = &[
+        "a", "al", "con", "como", "de", "del", "el", "en", "la", "las",
+        "lo", "los", "para", "por", "un", "una", "unas", "unos", "y",
+    ];
+
+    let terms = query.split(|character: char| !character.is_alphanumeric())
+        .filter(|term| !term.is_empty())
+        .filter(|term| !STOP_WORDS.contains(&term.to_lowercase().as_str()))
+        .collect::<Vec<_>>();
+    (terms.len() >= 2).then(|| terms.join(" "))
+}
+
+#[cfg(test)]
+mod search_query_tests {
+    use super::fallback_search_query;
+
+    #[test]
+    fn removes_spanish_stop_words_for_fallback_search() {
+        assert_eq!(fallback_search_query("La trampa de la diversidad").as_deref(), Some("trampa diversidad"));
+    }
+
+    #[test]
+    fn does_not_create_a_fallback_for_a_single_meaningful_term() {
+        assert_eq!(fallback_search_query("La diversidad"), None);
     }
 }
