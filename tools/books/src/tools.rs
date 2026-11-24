@@ -1,0 +1,23 @@
+//! Agent tools for the authenticated user's personal book collection.
+use agent_runtime::{Tool,ToolContext,ToolDefinition,ToolError,ToolRegistry};
+use async_trait::async_trait;
+use serde_json::{Value,json};
+use crate::{BookInput,BookStore,BookUpdate};
+
+pub fn register_tools(registry:&mut ToolRegistry,store:BookStore)->Result<(),agent_config::ConfigError>{
+ registry.register(def("books.list","List books in the authenticated user's personal collection.",json!({"type":"object","properties":{},"additionalProperties":false})),List(store.clone()))?;
+ registry.register(def("books.get","Get a book from the authenticated user's personal collection.",json!({"type":"object","properties":{"id":{"type":"string","minLength":1}},"required":["id"],"additionalProperties":false})),Get(store.clone()))?;
+ registry.register(def("books.add","Add a book to the authenticated user's personal collection.",json!({"type":"object","properties":{"title":{"type":"string","minLength":1},"authors":{"type":"array","items":{"type":"string"}},"isbn":{"type":["string","null"]},"publisher":{"type":["string","null"]},"publication_year":{"type":["integer","null"]},"catalogue_url":{"type":["string","null"]},"rating":{"type":["integer","null"],"minimum":1,"maximum":5},"reading_status":{"type":"string","enum":["pending","reading","read"]},"want_to_buy":{"type":"boolean"},"review":{"type":["string","null"]}},"required":["title"],"additionalProperties":false})),Add(store.clone()))?;
+ registry.register(def("books.update","Update personal metadata for a book in the authenticated user's collection.",json!({"type":"object","properties":{"id":{"type":"string","minLength":1},"title":{"type":"string","minLength":1},"authors":{"type":"array","items":{"type":"string"}},"isbn":{"type":["string","null"]},"publisher":{"type":["string","null"]},"publication_year":{"type":["integer","null"]},"catalogue_url":{"type":["string","null"]},"rating":{"type":["integer","null"],"minimum":1,"maximum":5},"reading_status":{"type":"string","enum":["pending","reading","read"]},"want_to_buy":{"type":"boolean"},"review":{"type":["string","null"]}},"required":["id"],"additionalProperties":false})),Update(store.clone()))?;
+ registry.register(def("books.remove","Remove a book from the authenticated user's personal collection.",json!({"type":"object","properties":{"id":{"type":"string","minLength":1}},"required":["id"],"additionalProperties":false})),Remove(store))?;
+ Ok(())
+}
+fn def(name:&str,description:&str,parameters:Value)->ToolDefinition{ToolDefinition{name:name.into(),description:description.into(),parameters}}
+fn user(c:&ToolContext)->Result<&str,ToolError>{c.user_id.as_deref().filter(|v|!v.trim().is_empty()).ok_or_else(||ToolError::Execution("book collection requires an authenticated user context".into()))}
+fn err(e:impl std::fmt::Display)->ToolError{ToolError::Execution(e.to_string())}
+struct List(BookStore); struct Get(BookStore); struct Add(BookStore); struct Update(BookStore); struct Remove(BookStore);
+#[async_trait] impl Tool for List{async fn execute(&self,c:&ToolContext,_:Value)->Result<String,ToolError>{serde_json::to_string(&self.0.list(user(c)?).await.map_err(err)?).map_err(err)}}
+#[async_trait] impl Tool for Get{async fn execute(&self,c:&ToolContext,a:Value)->Result<String,ToolError>{let id=a["id"].as_str().filter(|v|!v.trim().is_empty()).ok_or_else(||err("id is required"))?;serde_json::to_string(&self.0.get(user(c)?,id).await.map_err(err)?).map_err(err)}}
+#[async_trait] impl Tool for Add{async fn execute(&self,c:&ToolContext,a:Value)->Result<String,ToolError>{let input:BookInput=serde_json::from_value(a).map_err(err)?;serde_json::to_string(&self.0.add(user(c)?,input).await.map_err(err)?).map_err(err)}}
+#[async_trait] impl Tool for Update{async fn execute(&self,c:&ToolContext,mut a:Value)->Result<String,ToolError>{let o=a.as_object_mut().ok_or_else(||err("arguments must be an object"))?;let id=o.remove("id").and_then(|v|v.as_str().map(str::to_owned)).filter(|v|!v.trim().is_empty()).ok_or_else(||err("id is required"))?;let u:BookUpdate=serde_json::from_value(a).map_err(err)?;serde_json::to_string(&self.0.update(user(c)?,&id,u).await.map_err(err)?).map_err(err)}}
+#[async_trait] impl Tool for Remove{async fn execute(&self,c:&ToolContext,a:Value)->Result<String,ToolError>{let id=a["id"].as_str().filter(|v|!v.trim().is_empty()).ok_or_else(||err("id is required"))?;self.0.remove(user(c)?,id).await.map_err(err)?;Ok(json!({"removed":true}).to_string())}}

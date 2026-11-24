@@ -149,6 +149,7 @@ async fn main() -> Result<()> {
     let tools_catalog = resolver.tool_catalog();
     let providers_catalog = resolver.provider_catalog();
     let notes_store = resolver.notes.clone();
+    let books_store = resolver.books.clone();
     let telegram_agents = resolver
         .agents
         .definitions()
@@ -250,6 +251,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
             .app_data(web::Data::new(notes_store.clone()))
+            .app_data(web::Data::new(books_store.clone()))
             .app_data(web::Data::new(task_registry.clone()))
             .app_data(web::Data::new(meal_planner_store.clone()))
             .app_data(web::Data::new(google_oauth_state.clone()))
@@ -313,6 +315,7 @@ async fn main() -> Result<()> {
             .service(agent_server::conversations_api())
             .service(agent_server::families_api())
             .service(agent_server::notes_api())
+            .service(agent_server::books_api())
             // Register the more specific scope before /meal-planner; otherwise
             // the broader scope captures school-menu requests and returns 404.
             .service(agent_server::school_menus_api())

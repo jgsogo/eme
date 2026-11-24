@@ -5,6 +5,9 @@ edition = "2024"
 description = "User-owned personal book collection and library preferences."
 
 [dependencies]
+agent-config = { path = "../../agent-config" }
+agent-runtime = { path = "../../agent-runtime" }
+async-trait = { workspace = true }
 chrono = { workspace = true }
 rusqlite = { workspace = true }
 serde = { workspace = true }

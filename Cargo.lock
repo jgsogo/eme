@@ -292,6 +292,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "rabel-tool",
+ "books-tool",
 ]
 
 [[package]]
@@ -4495,4 +4496,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "uuid",
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
 ]

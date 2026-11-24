@@ -8,7 +8,10 @@ mod error;
 mod model;
 #[rustfmt::skip]
 mod store;
+#[rustfmt::skip]
+mod tools;
 
 pub use error::BookStoreError;
 pub use model::{Book, BookInput, BookUpdate, ReadingStatus};
 pub use store::BookStore;
+pub use tools::register_tools;

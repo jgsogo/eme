@@ -12,6 +12,7 @@ agent-runtime = { path = "../agent-runtime" }
 agent-metering = { path = "../agent-metering" }
 agent-service = { path = "../agent-service" }
 agent-storage = { path = "../agent-storage" }
+books-tool = { path = "../tools/books" }
 alexa-tool = { path = "../tools/alexa" }
 telegram-tool = { path = "../tools/telegram" }
 meteosource-tool = { path = "../tools/meteosource" }
