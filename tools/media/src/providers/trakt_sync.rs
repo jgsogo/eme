@@ -277,6 +277,10 @@ impl TraktSyncService {
             .find(|external_id| external_id.provider == "tmdb")
             .and_then(|external_id| external_id.value.parse::<u64>().ok())
             .ok_or(TraktSyncError::MissingExternalId)?;
+        let collection = match item.kind {
+            MediaKind::Movie => "movies",
+            MediaKind::TvShow => "shows",
+        };
         let payload = match item.kind {
             MediaKind::Movie => json!({"movies":[{"ids":{"tmdb":tmdb_id}}]}),
             MediaKind::TvShow => json!({"shows":[{"ids":{"tmdb":tmdb_id}}]}),
@@ -286,7 +290,8 @@ impl TraktSyncService {
         } else {
             "/sync/watchlist/remove"
         };
-        self.post_json(path, &payload, &access_token).await?;
+        let response = self.post_json(path, &payload, &access_token).await?;
+        ensure_trakt_item_found(&response, collection)?;
 
         self.media.save_media_item(item).await?;
         if add {
@@ -328,6 +333,7 @@ impl TraktSyncService {
         rating: &MediaRating,
     ) -> Result<(), TraktSyncError> {
         if rating.profile_id != profile_id
+            || rating.media_item_id != item.id
             || rating.source != WatchHistorySource::Eme
             || !rating.value.is_finite()
             || !(0.0..=5.0).contains(&rating.value)
@@ -345,6 +351,10 @@ impl TraktSyncService {
             .ok_or(TraktSyncError::MissingExternalId)?;
         let trakt_rating = trakt_rating_from_eme(rating.value)?;
         let rated_at = rating.rated_at.to_rfc3339();
+        let collection = match item.kind {
+            MediaKind::Movie => "movies",
+            MediaKind::TvShow => "shows",
+        };
         let payload = match item.kind {
             MediaKind::Movie => json!({"movies":[{
                 "ids":{"tmdb":tmdb_id},"rating":trakt_rating,"rated_at":rated_at
@@ -353,8 +363,10 @@ impl TraktSyncService {
                 "ids":{"tmdb":tmdb_id},"rating":trakt_rating,"rated_at":rated_at
             }]}),
         };
-        self.post_json("/sync/ratings", &payload, &access_token)
+        let response = self
+            .post_json("/sync/ratings", &payload, &access_token)
             .await?;
+        ensure_trakt_item_found(&response, collection)?;
         self.media.save_media_item(item).await?;
         self.media.save_rating(rating).await?;
         Ok(())
@@ -384,7 +396,7 @@ impl TraktSyncService {
         path: &str,
         payload: &Value,
         access_token: &str,
-    ) -> Result<(), TraktSyncError> {
+    ) -> Result<Value, TraktSyncError> {
         let started = std::time::Instant::now();
         let response = self
             .http
@@ -420,7 +432,7 @@ impl TraktSyncService {
                 .unwrap_or_else(|_| "request failed".into());
             return Err(TraktSyncError::Api { status, message });
         }
-        Ok(())
+        response.json().await.map_err(TraktSyncError::Request)
     }
 
     async fn get_json<T: for<'de> Deserialize<'de>>(
@@ -470,6 +482,23 @@ impl TraktSyncService {
         }
         response.json().await.map_err(TraktSyncError::Request)
     }
+}
+
+fn ensure_trakt_item_found(
+    response: &Value,
+    collection: &str,
+) -> Result<(), TraktSyncError> {
+    let missing = response
+        .get("not_found")
+        .and_then(|value| value.get(collection))
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    if missing {
+        return Err(TraktSyncError::InvalidResponse(format!(
+            "Trakt could not resolve the requested {collection} item"
+        )));
+    }
+    Ok(())
 }
 
 fn trakt_rating_from_eme(value: f32) -> Result<u8, TraktSyncError> {
