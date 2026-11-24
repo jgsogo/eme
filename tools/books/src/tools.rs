@@ -89,11 +89,6 @@ fn title_matches(search_title: &str, parsed_title: &str) -> bool {
     let parsed = normalize_title(parsed_title);
     search == parsed || (parsed.split_whitespace().count() >= 2 && search.ends_with(&format!(" {parsed}")))
 }
-fn exact_isbn(book: &Book, result_isbn: Option<&str>, item: &CatalogueItem) -> bool {
-    let Some(wanted) = book.isbn.as_deref().map(normalize_isbn) else { return false; };
-    item.isbn.as_deref().or(result_isbn)
-        .is_some_and(|candidate| normalize_isbn(candidate) == wanted)
-}
 async fn find_catalogue_record(client: &RabelClient, book: &Book) -> Result<Option<(String, CatalogueItem)>, ToolError> {
     find_catalogue_record_by_identity(client, book.isbn.as_deref(), &book.title).await
 }
