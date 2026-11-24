@@ -36,6 +36,15 @@ impl RabelClient {
         Self::with_endpoint(Url::parse(OPAC_URL).expect("valid OPAC URL"), SUBCATALOG)
     }
 
+    /// Create a client scoped to one library selector value returned by RABEL.
+    pub fn for_subcatalog(subcatalog: &str) -> Result<Self, RabelError> {
+        if subcatalog.trim().is_empty() {
+            return Err(RabelError::Parse("subcatalog must not be empty".into()));
+        }
+        Self::with_endpoint(Url::parse(OPAC_URL).expect("valid OPAC URL"), subcatalog)
+            .map_err(RabelError::Request)
+    }
+
     fn with_endpoint(opac_url: Url, subcatalog: &str) -> Result<Self, reqwest::Error> {
         let http = Client::builder()
             .cookie_store(true)

@@ -369,6 +369,20 @@ pub(super) async fn notes_page() -> impl Responder {
         .body(include_str!("../../static/notes.html"))
 }
 
+#[get("/console/books")]
+pub(super) async fn books_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/books.html"))
+}
+
+#[get("/assets/books.js")]
+pub(super) async fn books_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/books.js"))
+}
+
 #[get("/console/integrations")]
 pub(super) async fn integrations_page() -> impl Responder {
     HttpResponse::Ok()
@@ -474,6 +488,13 @@ pub(super) async fn mobile_notes_page() -> impl Responder {
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/mobile_notes.html"))
+}
+
+#[get("/mobile/books")]
+pub(super) async fn mobile_books_page() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/mobile_books.html"))
 }
 
 #[get("/mobile/profile")]
