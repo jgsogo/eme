@@ -68,17 +68,7 @@
         }
         content.append(dl);
       }
-      const holdingsHeading=document.createElement("h3"); holdingsHeading.textContent="Copies and availability"; content.append(holdingsHeading);
-      if (!(item.holdings || []).length) {
-        const empty=document.createElement("p"); empty.textContent="No copy information reported."; content.append(empty);
-      } else {
-        for (const copy of item.holdings) {
-          const line=document.createElement("p"); line.className="holding";
-          line.textContent=[copy.signature,copy.location,copy.material,copy.availability].filter(Boolean).join(" · ") || copy.catalogue_note || "Copy details unavailable";
-          content.append(line);
-        }
-      }
-      const checked=document.createElement("p"); checked.className="muted"; checked.textContent=item.checked_at ? "Checked "+new Date(item.checked_at).toLocaleString() : ""; content.append(checked);
+
     } catch (error) { content.textContent=error.message || "Could not load catalogue details."; }
   }
 
