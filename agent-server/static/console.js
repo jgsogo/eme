@@ -593,11 +593,17 @@ function selectIntegration(name){
 function renderGoogleConnections(){
  renderIntegrationNav();
  const target=$("google-connections");if(!target)return;
+ const query=$("google-search")?.value.trim().toLocaleLowerCase()||"";
  if(!state.googleConnections.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No Google accounts connected yet.</div></div>';return}
- target.innerHTML=state.googleConnections.map(connection=>{
-  const calendars=state.googleCalendars[connection.id]||[],writeScope=googleHasWriteScope(connection),status=connection.status==="active"?"Active":"Disconnected";
-  return '<section class="panel google-account" data-connection-id="'+escapeHtml(connection.id)+'"><div class="google-account-heading"><div><h3>'+escapeHtml(connection.email||"Google account")+'</h3><p class="hint">'+status+' · '+(googleHasReadScope(connection)?"Calendar read access":"No calendar read scope")+' · '+(writeScope?"Google write scope granted":"Read-only Google scope")+'</p></div><button type="button" class="danger" data-google-action="disconnect" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Disconnect</button></div><div class="calendar-toolbar"><div><h4>Calendars</h4><p class="hint">New calendars are not selected automatically.</p></div><button type="button" class="secondary" data-google-action="sync" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Sync calendars</button></div>'+(connection.status!=="active"?'<p class="hint">Reconnect this Google account to restore access.</p>':calendars.length?calendars.map(calendar=>renderGoogleCalendar(connection,calendar,writeScope)).join(""):'<p class="hint">No calendars discovered yet. Select “Sync calendars” to load them from Google.</p>')+'</section>'
- }).join("");
+ const connections=state.googleConnections.map(connection=>{
+  const calendars=state.googleCalendars[connection.id]||[];
+  const accountMatches=[connection.email,connection.status].some(value=>String(value||"").toLocaleLowerCase().includes(query));
+  return {connection,calendars:!query||accountMatches?calendars:calendars.filter(calendar=>[calendar.name,calendar.summary,calendar.id].some(value=>String(value||"").toLocaleLowerCase().includes(query))),accountMatches};
+ }).filter(item=>!query||item.accountMatches||item.calendars.length);
+ target.innerHTML=connections.length?connections.map(({connection,calendars})=>{
+  const writeScope=googleHasWriteScope(connection),status=connection.status==="active"?"Active":"Disconnected";
+  return '<section class="panel google-account" data-connection-id="'+escapeHtml(connection.id)+'"><div class="google-account-heading"><div><h3>'+escapeHtml(connection.email||"Google account")+'</h3><p class="hint">'+status+' · '+(googleHasReadScope(connection)?"Calendar read access":"No calendar read scope")+' · '+(writeScope?"Google write scope granted":"Read-only Google scope")+'</p></div><button type="button" class="danger" data-google-action="disconnect" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Disconnect</button></div><div class="calendar-toolbar"><div><h4>Calendars</h4><p class="hint">New calendars are not selected automatically.</p></div><button type="button" class="secondary" data-google-action="sync" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Sync calendars</button></div>'+(connection.status!=="active"?'<p class="hint">Reconnect this Google account to restore access.</p>':calendars.length?calendars.map(calendar=>renderGoogleCalendar(connection,calendar,writeScope)).join(""):'<p class="hint">'+(query?"No calendars match this filter.":"No calendars discovered yet. Select “Sync calendars” to load them from Google.")+'</p>')+'</section>';
+ }).join(""):'<div class="panel integrations-empty"><div class="empty">No accounts or calendars match this filter. <button type="button" class="secondary" data-clear-google-filter>Clear filter</button></div></div>';
 }
 function renderGoogleCalendar(connection,calendar,writeScope){
  const familyOptions=state.families.map(f=>'<option value="'+escapeHtml(f.id)+'" '+(calendar.family_id===f.id?"selected":"")+'>'+escapeHtml(f.name)+'</option>').join(""),familyEnabled=calendar.selected&&state.families.length>0,familyAccess=calendar.family_access||"viewer";
@@ -615,14 +621,14 @@ function renderTraktProfiles(){
  const connectable=state.traktProfiles.filter(profile=>!profile.trakt);
  const selector=$("trakt-connect-profile"),connectButton=$("trakt-connect");
  if(selector){
-  selector.innerHTML=connectable.length
-   ?connectable.map(profile=>'<option value="'+escapeHtml(profile.profile_id)+'">'+escapeHtml(profile.profile_name)+' · '+escapeHtml(profile.family_name)+'</option>').join("")
-   :'<option value="">No unconnected profile available</option>';
+  selector.innerHTML=connectable.length?connectable.map(profile=>'<option value="'+escapeHtml(profile.profile_id)+'">'+escapeHtml(profile.profile_name)+' · '+escapeHtml(profile.family_name)+'</option>').join(""):'<option value="">No unconnected profile available</option>';
   selector.disabled=connectable.length===0;
  }
  if(connectButton)connectButton.disabled=connectable.length===0;
+ const query=$("trakt-search")?.value.trim().toLocaleLowerCase()||"";
  if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet. Refresh to retry provisioning.</div></div>';return}
- target.innerHTML=state.traktProfiles.map(profile=>{
+ const profiles=state.traktProfiles.filter(profile=>[profile.profile_name,profile.family_name,profile.trakt?.username,profile.trakt?.display_name].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ target.innerHTML=profiles.length?profiles.map(profile=>{
   const trakt=profile.trakt,sync=profile.sync||{},lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
   const account=trakt?'<strong>'+escapeHtml(trakt.display_name||trakt.username)+'</strong><small>Trakt account · @'+escapeHtml(trakt.username)+'</small>':'<span class="hint">No Trakt account connected</span>';
   const summary=state.traktSummaries[profile.profile_id]||{};
@@ -631,7 +637,7 @@ function renderTraktProfiles(){
   const stats=hasImportedData?'<div class="trakt-stats"><div><strong>'+Number(summary.watched_movies||0).toLocaleString()+'</strong><span>Movies watched</span></div><div><strong>'+Number(summary.watched_shows||0).toLocaleString()+'</strong><span>Shows watched</span></div><div><strong>'+Number(summary.ratings||0).toLocaleString()+'</strong><span>Ratings</span></div><div><strong>'+Number(summary.watchlist_items||0).toLocaleString()+'</strong><span>Watchlist</span></div></div>':'<p class="hint trakt-no-data">'+(trakt?"No imported Trakt activity yet. Select Sync now to import your history, ratings and watchlist.":"No imported Trakt data for this profile.")+'</p>';
   const recent=(summary.recently_watched||[]).length?'<div class="trakt-recent"><h4>Recently watched</h4><ul>'+summary.recently_watched.map(item=>'<li><span>'+escapeHtml(item.title)+'</span><small>'+((item.kind==="movie")?"Movie":"TV show")+' · '+escapeHtml(new Date(item.watched_at).toLocaleDateString())+'</small></li>').join("")+'</ul></div>':'';
   return '<section class="panel google-account"><div class="google-account-heading"><div><h3>'+escapeHtml(profile.profile_name)+'</h3><p class="hint">'+escapeHtml(profile.family_name)+' · '+(trakt?"Connected":"Not connected")+'</p></div></div><div class="calendar-toolbar"><div>'+account+'<p class="hint">'+(trakt?"Last synchronized: "+escapeHtml(lastSync):"Imported media data is retained when Trakt is disconnected.")+'</p></div><div class="integration-button-row">'+actions+'</div></div><div class="trakt-data">'+stats+recent+'</div></section>';
- }).join("");
+ }).join(""):'<div class="panel integrations-empty"><div class="empty">No media profiles match this filter. <button type="button" class="secondary" data-clear-trakt-filter>Clear filter</button></div></div>';
 }
 async function loadTraktProfiles(loadSummaries=true){
  state.traktProfiles=await api("/media/trakt/profiles");
@@ -743,9 +749,9 @@ on("integrations-sidebar","click",event=>{
  const button=event.target.closest("[data-integration]");
  if(button)selectIntegration(button.dataset.integration);
 });
-on("google-connections","click",handleGoogleIntegrationAction);
+on("google-search","input",renderGoogleConnections);on("google-connections","click",e=>{if(e.target.closest("[data-clear-google-filter]")){$("google-search").value="";renderGoogleConnections();return}handleGoogleIntegrationAction(e)});
 on("google-connections","change",handleGoogleCalendarChange);
-on("trakt-profiles","click",handleTraktIntegrationAction);
+on("trakt-search","input",renderTraktProfiles);on("trakt-profiles","click",e=>{if(e.target.closest("[data-clear-trakt-filter]")){$("trakt-search").value="";renderTraktProfiles();return}handleTraktIntegrationAction(e)});
 on("trakt-connect","click",async()=>{
  const profileId=$("trakt-connect-profile")?.value;
  const profile=state.traktProfiles.find(item=>item.profile_id===profileId&&!item.trakt);
