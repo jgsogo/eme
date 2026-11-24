@@ -122,7 +122,7 @@ The Profile → Integrations view always lists the signed-in user's personal med
 - Watchlist `list` reads the synchronized local mirror. It does not trigger a network request.
 - `media_rate` always records an EME-originated rating. If the selected profile has no Trakt link, the rating is stored locally. If it has a Trakt link owned by the caller, EME writes the rating to Trakt before persisting the local EME record. If the linked account belongs to another user, the write is rejected; family-admin access does not grant permission to act as another user's Trakt account.
 - EME ratings use 0–5; Trakt accepts integer ratings from 1–10. Conversion is linear with rounding: EME `0` maps to Trakt `1`, EME `5` maps to Trakt `10`; intermediate values are quantized. Imported Trakt ratings use the inverse mapping, `(trakt_rating - 1) * 5 / 9`.
-- EME and Trakt rating records retain separate source provenance. When both exist for a title, recommendation genre affinity uses the newest `rated_at` record; an externally changed Trakt rating therefore supersedes an older EME rating without deleting either record.
+- EME and Trakt rating records retain separate source provenance. When both exist for a title, recommendation genre affinity uses the newest `rated_at` record. EME wins exact timestamp ties to preserve its finer-grained value after write-through; a later Trakt rating supersedes it without deleting either record.
 
 No playback scraping or automatic scrobbling is performed.
 
