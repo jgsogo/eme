@@ -3,11 +3,12 @@
 use super::ScheduledTask;
 use crate::{Task, TaskRegistry};
 use agent_runtime::ToolContext;
-use agent_service::RunManager;
+use agent_service::{FamilyService, RunManager};
+use agent_storage::{FileUserIdentityStore, UserIdentityStore, UserId};
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 use tokio::{sync::watch, task::JoinHandle, time};
 
 pub struct TaskScheduler {
@@ -16,12 +17,19 @@ pub struct TaskScheduler {
 }
 
 impl TaskScheduler {
-    pub fn start(registry: TaskRegistry, manager: RunManager) -> Self {
+    pub fn start(
+        registry: TaskRegistry,
+        manager: RunManager,
+        identities: Arc<FileUserIdentityStore>,
+        families: Arc<FamilyService>,
+    ) -> Self {
         let (shutdown, receiver) = watch::channel(false);
         let changed = registry.subscribe();
         let initial = scheduled_tasks(registry.snapshot());
         let count = initial.len();
-        let handle = tokio::spawn(run_scheduler(registry, manager, receiver, changed, initial));
+        let handle = tokio::spawn(run_scheduler(
+            registry, manager, identities, families, receiver, changed, initial,
+        ));
         tracing::info!(tasks = count, "task scheduler started");
         Self {
             shutdown,
@@ -42,6 +50,60 @@ impl Drop for TaskScheduler {
     fn drop(&mut self) {
         let _ = self.shutdown.send(true);
     }
+}
+
+/// Resolve trusted execution metadata from the task owner and selected family.
+/// Telegram identities and family membership are looked up at execution time.
+async fn task_tool_context(
+    task: &ScheduledTask,
+    identities: &FileUserIdentityStore,
+    family_service: &FamilyService,
+) -> Result<ToolContext, String> {
+    let user_id = UserId::from_str(&task.user_id)
+        .map_err(|error| format!("invalid task owner identifier: {error}"))?;
+    let telegram_identity = identities
+        .find_identity_for_user("telegram", user_id)
+        .map_err(|error| format!("resolving task owner's Telegram identity: {error}"))?
+        .ok_or_else(|| "task owner has no linked Telegram identity".to_owned())?;
+    let user = identities
+        .get_user(user_id)
+        .map_err(|error| format!("loading task owner profile: {error}"))?;
+
+    let family = match task.family_id {
+        Some(family_id) => {
+            let mut context = family_service
+                .context_for_member(user_id, family_id)
+                .await
+                .map_err(|error| format!("resolving selected family context: {error}"))?;
+            for member in &mut context.members {
+                let member_id = UserId::from_str(&member.user_id)
+                    .map_err(|error| format!("invalid family member identifier: {error}"))?;
+                member.telegram_id = identities
+                    .find_identity_for_user("telegram", member_id)
+                    .map_err(|error| format!("resolving family member Telegram identity: {error}"))?
+                    .map(|identity| identity.subject);
+                if let Some(profile) = identities
+                    .get_user(member_id)
+                    .map_err(|error| format!("loading family member profile: {error}"))?
+                {
+                    member.name = Some(profile.display_name);
+                    member.birthday = profile.birthday;
+                }
+            }
+            Some(context)
+        }
+        None => None,
+    };
+    let families = family.iter().cloned().collect();
+
+    Ok(ToolContext {
+        user_id: Some(task.user_id.clone()),
+        timezone: user.and_then(|profile| profile.timezone),
+        telegram_id: Some(telegram_identity.subject),
+        family,
+        families,
+        ..ToolContext::default()
+    })
 }
 
 fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
@@ -70,6 +132,7 @@ fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
                     name: task.name,
                     agent: task.agent,
                     prompt: task.prompt,
+                    family_id: task.family_id,
                     schedule,
                     timezone,
                     scheduled_for: next_run,
@@ -87,6 +150,8 @@ fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
 async fn run_scheduler(
     registry: TaskRegistry,
     manager: RunManager,
+    identities: Arc<FileUserIdentityStore>,
+    families: Arc<FamilyService>,
     mut shutdown: watch::Receiver<bool>,
     mut changed: watch::Receiver<u64>,
     mut tasks: HashMap<uuid::Uuid, ScheduledTask>,
@@ -124,16 +189,20 @@ async fn run_scheduler(
                 continue;
             };
             let scheduled_at = task.scheduled_for;
-            match manager
-                .submit_for_task(
-                    task.id,
-                    task.agent.clone(),
-                    task.prompt.clone(),
-                    Vec::new(),
-                    ToolContext::new(task.user_id.clone()),
-                )
-                .await
-            {
+            let submission = match task_tool_context(&task, &identities, &families).await {
+                Ok(context) => manager
+                    .submit_for_task(
+                        task.id,
+                        task.agent.clone(),
+                        task.prompt.clone(),
+                        Vec::new(),
+                        context,
+                    )
+                    .await
+                    .map_err(|error| error.to_string()),
+                Err(error) => Err(error),
+            };
+            match submission {
                 Ok(run_id) => {
                     tracing::info!(
                         task = %task.name,
