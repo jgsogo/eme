@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn parses_meta_refresh_and_search_links() {
-        let html = r#"<meta http-equiv="Refresh" content="0; URL=/cgi-bin/abnetopac2/token?ACC=161"><tr><td><a href="/cgi-bin/abnetopac2/token/NT1?ACC=165&DOC=2">El Quijote</a></td></tr>"#;
+        let html = r#"<meta http-equiv="Refresh" content="0; URL=/cgi-bin/abnetopac2/token?ACC=161"><tr><td><a href="/cgi-bin/abnetopac2/token/NT1?ACC=165&amp;DOC=2">El Quijote</a></td></tr>"#;
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token?ACC=161").unwrap();
         let target = meta_refresh_target(html).unwrap();
         assert!(target.contains("token"));
