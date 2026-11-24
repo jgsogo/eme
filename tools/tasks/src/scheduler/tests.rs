@@ -115,7 +115,6 @@ fn skips_missed_occurrences() {
     assert!(next_occurrence(&schedule, "UTC".parse().unwrap(), after).unwrap() > after);
 }
 
-
 #[tokio::test]
 async fn due_cron_task_is_submitted_to_the_run_manager() {
     let (registry, directory) = test_registry();
