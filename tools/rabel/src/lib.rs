@@ -3,9 +3,13 @@
 //! The client keeps AbsysNet's session and cookie handling behind a small API.
 //! Agent-facing tools return compact structured data rather than catalogue HTML.
 
+#[rustfmt::skip]
 mod client;
+#[rustfmt::skip]
 mod parser;
+#[rustfmt::skip]
 mod tool;
+#[rustfmt::skip]
 mod types;
 
 use std::{path::PathBuf, sync::Arc};
@@ -17,6 +21,7 @@ pub use client::RabelClient;
 pub use types::{Availability, CatalogueItem, CatalogueSearchResult, CopyHolding, Library};
 
 /// Register catalogue search, record-detail and library-list tools.
+#[rustfmt::skip]
 pub fn register_tools(registry: &mut ToolRegistry) -> Result<(), ConfigError> {
     let client = Arc::new(RabelClient::new().map_err(|error| {
         ConfigError::invalid("tool", None, format!("cannot create RABEL client: {error}"))
