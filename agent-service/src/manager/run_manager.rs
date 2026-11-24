@@ -113,6 +113,12 @@ impl RunManager {
                     // cooperate with the token. Dropping the execution future
                     // here guarantees that cancellation stops the active work.
                     let cancellation_signal = cancellation.clone();
+                    let cancellation_requested = async {
+                        while !cancellation_signal.is_cancelled() {
+                            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                        }
+                    };
+                    tokio::pin!(cancellation_requested);
                     let execution = executor.execute_with_event_sink(
                         run.id,
                         run.agent.clone(),
@@ -126,7 +132,7 @@ impl RunManager {
                     let mut events_open = true;
                     let result = loop {
                         tokio::select! {
-                            _ = cancellation_signal.cancelled() => {
+                            _ = &mut cancellation_requested => {
                                 break Ok(ExecutionReport {
                                     outcome: ExecutionOutcome::Cancelled,
                                     runtime_events: Vec::new(),
@@ -471,7 +477,7 @@ impl RunManager {
         // workers, but leaves the durable run snapshot behind. Such a run is
         // not executing anymore and can be safely moved to a terminal state.
         let storage = current_storage(&self.persistence).ok_or(CancelRunError::NotFound)?;
-        let Some(mut stored) = storage
+        let Some(stored) = storage
             .get_run(run_id.as_uuid())
             .await
             .map_err(|error| CancelRunError::Storage(error.to_string()))?
