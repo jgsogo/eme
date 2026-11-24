@@ -378,7 +378,8 @@ pub(super) async fn books_page() -> impl Responder {
 
 #[get("/console/books/libraries")]
 pub(super) async fn books_libraries_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/books_libraries.html"))
 }
 
@@ -505,13 +506,15 @@ pub(super) async fn mobile_notes_page() -> impl Responder {
 
 #[get("/mobile/books")]
 pub(super) async fn mobile_books_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/mobile_books.html"))
 }
 
 #[get("/mobile/books/libraries")]
 pub(super) async fn mobile_books_libraries_page() -> impl Responder {
-    HttpResponse::Ok().content_type("text/html; charset=utf-8")
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
         .body(include_str!("../../static/mobile_books_libraries.html"))
 }
 
