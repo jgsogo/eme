@@ -18,7 +18,20 @@ pub(super) fn meta_refresh_target(html: &str) -> Option<String> {
     Some(url.to_owned())
 }
 
-fn form_diagnostics(html: &str) -> Vec<String> {
+pub(super) fn session_action(html: &str, base_url: &Url) -> Option<Url> {
+    // The public catalogue shell renders the session-specific endpoint in
+    // its form actions (normally /<session-token>/NT1).
+    let forms = Regex::new(r#"(?is)<form\\b([^>]*)>"#).ok()?;
+    let attr = Regex::new(r#"(?is)\\baction\\s*=\\s*["']([^"']+)["']"#).ok()?;
+    forms.captures_iter(html).find_map(|form| {
+        let attrs = form.get(1)?.as_str();
+        let action = attr.captures(attrs)?.get(1)?.as_str();
+        base_url.join(action).ok()
+    })
+}
+
+pub(super) pub(super) fn search_page_diagnostic(html: &str, response_url: &Url) -> String {
+
     let Ok(forms) = Regex::new(r"(?is)<form\b([^>]*)>(.*?)</form>") else {
         return Vec::new();
     };
@@ -361,6 +374,14 @@ mod tests {
         assert!(error.to_string().contains("library selector not found"));
         assert!(error.to_string().contains("page title"));
         assert!(error.to_string().contains("body excerpt"));
+    }
+
+    #[test]
+    fn extracts_session_endpoint_from_landing_form() {
+        let html = r#"<form id="abnformSearch" action="/cgi-bin/abnetopac2/token/NT1" method="post"></form>"#;
+        let base = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token").unwrap();
+        let endpoint = session_action(html, &base).unwrap();
+        assert_eq!(endpoint.as_str(), "https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1");
     }
 
     #[test]
