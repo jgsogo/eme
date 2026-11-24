@@ -75,12 +75,14 @@ function render(){
  }).join("")+'<div class="usage-legend"><span>Input tokens</span><span>Output tokens</span></div>':'<p class="usage-empty">No usage records for this period.</p>';
 
  const recent=records.slice().sort((a,b)=>new Date(b.occurred_at)-new Date(a.occurred_at));
- $("usage-record-count").textContent=number(recent.length)+" records";
- $("usage-records").innerHTML=recent.length?recent.map(record=>{
+ const query=$("usage-record-search")?.value.trim().toLocaleLowerCase()||"";
+ const visible=recent.filter(record=>[record.run_id,record.agent,record.provider,record.model,record.outcome,record.cost?.origin,record.cost?.pricing_version].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ $("usage-record-count").textContent=query?number(visible.length)+" of "+number(recent.length)+" records":number(recent.length)+" records";
+ $("usage-records").innerHTML=visible.length?visible.map(record=>{
   const input=quantity(record,"input_tokens"),output=quantity(record,"output_tokens");
   const source=record.cost?record.cost.origin.replaceAll("_"," ")+" · "+record.cost.status+" · "+record.cost.pricing_version:"No matching price";
   return '<tr><td>'+escapeHtml(new Date(record.occurred_at).toLocaleString())+'</td><td title="'+escapeHtml(record.run_id)+'"><a href="/console/admin/usage?run_id='+encodeURIComponent(record.run_id)+'">'+escapeHtml(String(record.run_id).slice(0,8))+'</a></td><td>'+escapeHtml(record.agent)+'</td><td>'+escapeHtml(record.provider)+'<span class="usage-model-id">'+escapeHtml(record.model)+'</span></td><td><span class="usage-outcome '+escapeHtml(record.outcome)+'">'+escapeHtml(record.outcome.replaceAll("_"," "))+'</span></td><td>'+(input===null?"—":number(input))+'</td><td>'+(output===null?"—":number(output))+'</td><td>'+escapeHtml(costLabel(record.cost))+'<span class="usage-cost-detail">'+escapeHtml(source)+'</span></td></tr>';
- }).join(""):'<tr><td colspan="8" class="usage-empty">No usage records for this period.</td></tr>';
+ }).join(""):'<tr><td colspan="8" class="usage-empty">'+(query?'No invocations match this filter.':'No usage records for this period.')+'</td></tr>';
 }
 async function load(){
  const runId=new URLSearchParams(window.location.search).get("run_id");
@@ -173,6 +175,7 @@ async function savePricing(event){
 }
 $("usage-refresh").addEventListener("click",()=>{load();loadPricing()});
 $("usage-period").addEventListener("change",render);
+$("usage-record-search")?.addEventListener("input",render);
 $("pricing-form").addEventListener("submit",savePricing);
 load();
 loadPricing();
