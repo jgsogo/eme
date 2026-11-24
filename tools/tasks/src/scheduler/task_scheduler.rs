@@ -303,7 +303,7 @@ pub(super) fn next_occurrence(
 mod context_tests {
     use super::*;
     use agent_storage::{
-        FamilyRelationship, FileUserIdentityStore, InMemoryFamilyInvitationStore,
+        FamilyRelationship, FamilyStore, FileUserIdentityStore, InMemoryFamilyInvitationStore,
         InMemoryFamilyStore, UserIdentityStore,
     };
     use chrono::Utc;
@@ -318,7 +318,7 @@ mod context_tests {
         let (user, _) = identities
             .resolve_or_create("telegram", "42", Some("Owner"))
             .unwrap();
-        let family_store = Arc::new(InMemoryFamilyStore::default());
+        let family_store: Arc<dyn FamilyStore> = Arc::new(InMemoryFamilyStore::default());
         let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(
             &family_store,
         )));

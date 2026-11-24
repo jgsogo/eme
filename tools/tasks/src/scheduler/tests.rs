@@ -5,7 +5,8 @@ use crate::{NewTask, TaskRegistry, TaskScheduler};
 use agent_runtime::{CancellationToken, ToolContext};
 use agent_service::{ExecutionOutcome, ExecutionReport, FamilyService, RunExecutor, RunManager};
 use agent_storage::{
-    FileUserIdentityStore, InMemoryFamilyInvitationStore, InMemoryFamilyStore, UserIdentityStore,
+    FamilyStore, FileUserIdentityStore, InMemoryFamilyInvitationStore, InMemoryFamilyStore,
+    UserIdentityStore,
 };
 use async_trait::async_trait;
 use chrono::{Duration as ChronoDuration, Timelike, Utc};
@@ -68,7 +69,7 @@ fn test_registry() -> (
     let (user, _) = identities
         .resolve_or_create("telegram", "42", None)
         .unwrap();
-    let family_store = Arc::new(InMemoryFamilyStore::default());
+    let family_store: Arc<dyn FamilyStore> = Arc::new(InMemoryFamilyStore::default());
     let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(
         &family_store,
     )));
