@@ -780,6 +780,40 @@ $("task-executions-list")?.addEventListener("keydown",event=>{
  event.preventDefault();
  openTaskExecution(Number(row.dataset.executionIndex));
 });
+$("task-execution-detail")?.addEventListener("click",event=>{
+ const tab=event.target.closest("[data-execution-section]");
+ if(!tab)return;
+ activateTaskExecutionSection(tab.dataset.executionSection);
+});
+function activateTaskExecutionSection(section){
+ const root=$("task-execution-detail");
+ const tabs=[...root.querySelectorAll("[data-execution-section]")];
+ const selected=tabs.find(tab=>tab.dataset.executionSection===section);
+ if(!selected)return;
+ for(const tab of tabs){
+  const active=tab===selected;
+  tab.classList.toggle("active",active);
+  tab.setAttribute("aria-selected",String(active));
+  tab.tabIndex=active?0:-1;
+  const panel=$(tab.getAttribute("aria-controls"));
+  if(panel)panel.hidden=!active;
+ }
+ selected.focus();
+}
+$("task-execution-detail")?.addEventListener("keydown",event=>{
+ const tab=event.target.closest("[data-execution-section]");
+ if(!tab)return;
+ const tabs=[...$("task-execution-detail").querySelectorAll("[data-execution-section]")];
+ const index=tabs.indexOf(tab);
+ let next=index;
+ if(event.key==="ArrowRight")next=(index+1)%tabs.length;
+ else if(event.key==="ArrowLeft")next=(index-1+tabs.length)%tabs.length;
+ else if(event.key==="Home")next=0;
+ else if(event.key==="End")next=tabs.length-1;
+ else return;
+ event.preventDefault();
+ activateTaskExecutionSection(tabs[next].dataset.executionSection);
+});
 $("task-execution-dialog-close")?.addEventListener("click",()=>$("task-execution-dialog").close());
 $("task-execution-dialog")?.addEventListener("click",event=>{
  if(event.target===$("task-execution-dialog"))$("task-execution-dialog").close();
