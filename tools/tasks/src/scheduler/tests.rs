@@ -222,7 +222,6 @@ fn submission_retry_backoff_is_bounded() {
     assert_eq!(submission_retry_delay(20), Duration::from_secs(30));
 }
 
-
 #[test]
 fn recurring_cron_occurrences_respect_timezone_across_daylight_saving() {
     let schedule = Schedule::from_str("0 0 8 * * *").unwrap();
