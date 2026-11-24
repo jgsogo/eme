@@ -322,6 +322,7 @@ async fn scheduled_task_run_association_survives_manager_restart() {
     let _ = std::fs::remove_dir_all(directory);
 }
 
+// Regression coverage for durable runs whose original worker disappeared at restart.
 #[tokio::test]
 async fn persisted_running_run_can_be_cancelled_after_manager_restart() {
     let directory = std::env::temp_dir().join(format!("eme-restart-cancel-{}", Uuid::new_v4()));
