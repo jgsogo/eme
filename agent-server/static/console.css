@@ -534,3 +534,5 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 #task-executions .family-details-heading{margin-bottom:12px}
 #task-executions .notes-list{margin-top:0}
 @media(max-width:600px){.task-section-nav{position:sticky;top:0;z-index:2;background:var(--panel);padding:0 0 9px;overflow-x:auto}.task-section-tab{flex:none;padding:8px 10px}#task-executions.task-section-content{padding:12px}}
+
+/* Keep this branch's UI checks covered by the repository's feature/** CI trigger. */
