@@ -48,7 +48,7 @@ body[data-layout="mobile"] .mobile-admin-main {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  min-height: 40px;
+  min-height: 44px;
   padding: 6px 3px;
   border-radius: 8px;
   color: var(--muted);
@@ -340,7 +340,7 @@ body[data-layout="mobile"] .tool-card-heading h3 {
 
 body[data-layout="mobile"] .tool-card pre {
   max-width: 100%;
-  max-height: min(45vh, 360px);
+  max-height: min(45dvh, 360px);
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
