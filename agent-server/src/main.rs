@@ -41,10 +41,10 @@ use console::{
     mobile_families_page, mobile_integrations_page, mobile_meal_planner_page, mobile_meals_page,
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_school_menus_page, mobile_script,
     mobile_shopping_list_page, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
-    providers_page, providers_script, test_configured_providers, recipes_page, recipes_script, school_menus_page,
-    school_menus_script, shopping_list_page, shopping_list_script, tasks_page, tools_page,
-    tools_script, usage_page, usage_script, usage_stylesheet, weekly_planner_page,
-    weekly_planner_script,
+    providers_page, providers_script, recipes_page, recipes_script, school_menus_page,
+    school_menus_script, shopping_list_page, shopping_list_script, tasks_page,
+    test_configured_providers, tools_page, tools_script, usage_page, usage_script,
+    usage_stylesheet, weekly_planner_page, weekly_planner_script,
 };
 use media_integration::MediaIntegration;
 

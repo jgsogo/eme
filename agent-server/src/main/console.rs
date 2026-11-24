@@ -117,14 +117,22 @@ pub(super) async fn test_configured_providers(
     };
 
     let models = if let Some(model) = requested_model {
-        if !provider.models.iter().any(|configured| configured.name == model) {
+        if !provider
+            .models
+            .iter()
+            .any(|configured| configured.name == model)
+        {
             return HttpResponse::NotFound().json(serde_json::json!({
                 "error": format!("Model '{provider_name}/{model}' is not configured")
             }));
         }
         vec![model]
     } else {
-        provider.models.into_iter().map(|model| model.name).collect()
+        provider
+            .models
+            .into_iter()
+            .map(|model| model.name)
+            .collect()
     };
 
     let mut results = Vec::with_capacity(models.len());
