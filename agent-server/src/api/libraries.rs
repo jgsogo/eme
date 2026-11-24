@@ -1,7 +1,10 @@
 //! Authenticated RABEL library discovery and per-user preferred-library settings.
 use std::sync::Arc;
 
-use actix_web::{HttpRequest, HttpResponse, Responder, Scope, get, put, web::{self, Data, Json}};
+use actix_web::{
+    HttpRequest, HttpResponse, Responder, Scope, get, put,
+    web::{self, Data, Json},
+};
 use agent_storage::FileUserIdentityStore;
 use books_tool::BookStore;
 use rabel_tool::RabelClient;
@@ -70,7 +73,9 @@ async fn save(
     for id in &body.library_ids {
         if let Some(library) = available.iter().find(|library| &library.id == id) {
             selected.push((library.id.clone(), library.name.clone()));
-        } else if let Some((saved_id, saved_name)) = previous.iter().find(|(saved_id, _)| saved_id == id) {
+        } else if let Some((saved_id, saved_name)) =
+            previous.iter().find(|(saved_id, _)| saved_id == id)
+        {
             selected.push((saved_id.clone(), saved_name.clone()));
         } else {
             return HttpResponse::BadRequest().body(format!("unknown RABEL library id: {id}"));
