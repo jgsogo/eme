@@ -20,8 +20,13 @@ impl BookStore {
         connection.execute_batch("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY NOT NULL);")?;
         let applied: bool = connection.query_row("SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=2)", [], |row| row.get(0))?;
         if !applied {
-            connection.execute_batch(include_str!("../migrations/0002_bibliographic_metadata.sql"))?;
+            connection.execute_batch("BEGIN IMMEDIATE;")?;
+            if let Err(error) = connection.execute_batch(include_str!("../migrations/0002_bibliographic_metadata.sql")) {
+                let _ = connection.execute_batch("ROLLBACK;");
+                return Err(error.into());
+            }
             connection.execute("INSERT INTO schema_migrations(version) VALUES (2)", [])?;
+            connection.execute_batch("COMMIT;")?;
         }
         Ok(Self { connection: Arc::new(Mutex::new(connection)) })
     }
