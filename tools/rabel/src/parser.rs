@@ -122,8 +122,10 @@ pub(super) fn record(html: &str) -> Result<CatalogueItem, RabelError> {
         .unwrap_or_else(|| (None, None));
     let authors = field_values(&fields, &["Autor / Autora", "Autor", "Autores", "Autoría", "Autoria"]);
     let publication_statement = field_value(&fields, &["Editor / Productor", "Editor", "Productor", "Publicación", "Publicacion"]);
-    let publication_year = publication_statement.as_deref().and_then(extract_publication_year);
-    let publisher = publication_statement.as_deref().map(strip_publication_year).and_then(non_empty);
+    let publication_year = publication_statement.as_deref().and_then(extract_publication_year)
+        .or_else(|| field_value(&fields, &["Fecha de publicación", "Fecha de publicacion", "Año de publicación", "Ano de publicacion", "Fecha de edición", "Fecha de edicion"]).as_deref().and_then(extract_publication_year));
+    let publisher = publication_statement.as_deref().map(strip_publication_year).and_then(non_empty)
+        .or_else(|| field_value(&fields, &["Editorial", "Editor"]));
     let physical_description = field_value(&fields, &["Descripción física", "Descripcion fisica"]);
     let series = field_value(&fields, &["Colección editorial", "Coleccion editorial", "Serie"]);
     let notes = field_values(&fields, &["Nota de bibliografía", "Nota de bibliografia", "Notas"]);
