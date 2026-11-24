@@ -149,3 +149,35 @@ fn task_definitions_can_be_updated_and_enabled_without_cross_user_access() {
 
     fs::remove_dir_all(directory).unwrap();
 }
+
+#[test]
+fn completed_one_time_tasks_are_retained_as_disabled_definitions() {
+    let directory = temp_dir();
+    let registry = TaskRegistry::load(&directory).unwrap();
+    registry.validate_agents(["assistant".to_owned()]).unwrap();
+    let task = registry.add(
+        "telegram:12",
+        NewTask {
+            name: "once".into(),
+            description: String::new(),
+            agent: "assistant".into(),
+            prompt: "do it".into(),
+            schedule: None,
+            at: Some((Utc::now() + chrono::Duration::hours(1)).fixed_offset()),
+            timezone: None,
+        },
+    ).unwrap();
+
+    registry.disable_after_execution(task.id);
+    let retained = registry.list("telegram:12");
+    assert_eq!(retained.len(), 1);
+    assert_eq!(retained[0].id, task.id);
+    assert!(!retained[0].enabled);
+    assert!(retained[0].next_run.is_none());
+
+    drop(registry);
+    let reloaded = TaskRegistry::load(&directory).unwrap();
+    assert_eq!(reloaded.list("telegram:12").len(), 1);
+    assert!(!reloaded.list("telegram:12")[0].enabled);
+    fs::remove_dir_all(directory).unwrap();
+}
