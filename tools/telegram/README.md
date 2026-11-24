@@ -23,7 +23,7 @@ The crate also exposes a shared `TelegramGateway`. The server owns one gateway p
 | Environment variable | Required | Description |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | yes | Bot token from [@BotFather](https://t.me/BotFather) |
-| `TELEGRAM_ASK_TIMEOUT_SECS` | no | How long `tg_ask_user` waits for a reply (default: 120) |
+| `TELEGRAM_ASK_TIMEOUT_SECS` | no | How long `tg_ask_user` waits for a reply (default: 300 seconds / 5 minutes) |
 
 Each recipient must have already started a private conversation with the bot. The server's inbound adapter additionally requires `TELEGRAM_ALLOWED_USERS`.
 
@@ -44,8 +44,8 @@ Sends a question and blocks until the user answers or the timeout elapses.
 
 Arguments:
 
-- `question` (string, required)
-- `kind` (string, optional): `"text"` (default) or `"yes_no"`
+- `question` (string, required). The Telegram message explicitly asks the recipient to use **Reply** on that message; standalone messages/comments are not accepted.
+- `kind` (string, optional): `"text"` (default) or `"yes_no"`. For `yes_no`, reply to the question with `yes` or `no` (Spanish `sí`/`si` is also accepted).
 - `recipient` (string, optional): a `recipient_id` from the trusted family context; omitted means the conversation owner.
 
 Returns:

@@ -11,16 +11,13 @@ use super::{IncomingMessage, PendingReply, TelegramError, markdown::markdown_to_
 use frankenstein::{
     AsyncTelegramApi, ParseMode,
     client_reqwest::Bot,
-    methods::{AnswerCallbackQueryParams, GetUpdatesParams, SendMessageParams},
-    types::{
-        AllowedUpdate, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage,
-        ReplyMarkup,
-    },
+    methods::{GetUpdatesParams, SendMessageParams},
+    types::AllowedUpdate,
     updates::UpdateContent,
 };
 use tokio::sync::{Mutex, broadcast, oneshot};
 
-const DEFAULT_TIMEOUT_SECS: u64 = 120;
+const DEFAULT_TIMEOUT_SECS: u64 = 300;
 const POLL_TIMEOUT_SECS: u32 = 20;
 const EVENT_CAPACITY: usize = 256;
 
@@ -38,7 +35,7 @@ pub struct TelegramGateway {
 
 /// Add a concise marker to questions that require a user response.
 fn format_question(question: &str) -> String {
-    format!("❓ Question\n\n{question}")
+    format!("❓ Question\n\n{question}\n\n↩️ To answer, use Telegram’s Reply action on this message. New messages or standalone comments will not be accepted.")
 }
 
 /// Distinguish one-way notifications from questions that require a response.
@@ -133,25 +130,11 @@ impl TelegramGateway {
         let (sender, receiver) = oneshot::channel();
         let dispatch = self.dispatch_lock.lock().await;
 
-        let keyboard = InlineKeyboardMarkup {
-            inline_keyboard: vec![vec![
-                InlineKeyboardButton::builder()
-                    .text("Yes")
-                    .callback_data("yes")
-                    .build(),
-                InlineKeyboardButton::builder()
-                    .text("No")
-                    .callback_data("no")
-                    .build(),
-            ]],
-            force_reply: None,
-        };
         let rendered = markdown_to_telegram_html(&format_question(question));
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
             .text(rendered)
             .parse_mode(ParseMode::Html)
-            .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
             .build();
 
         let sent = self
@@ -183,7 +166,7 @@ impl TelegramGateway {
         loop {
             let mut params = GetUpdatesParams::builder()
                 .timeout(POLL_TIMEOUT_SECS)
-                .allowed_updates(vec![AllowedUpdate::Message, AllowedUpdate::CallbackQuery])
+                .allowed_updates(vec![AllowedUpdate::Message])
                 .build();
             params.offset = offset;
 
@@ -215,29 +198,6 @@ impl TelegramGateway {
                                 };
                                 let mut pending = self.pending.lock().await;
                                 dispatch_message(event, &mut pending, &self.events);
-                            }
-                            UpdateContent::CallbackQuery(query) => {
-                                let message_key =
-                                    query.message.as_ref().and_then(|message| match message {
-                                        MaybeInaccessibleMessage::Message(message) => {
-                                            Some((message.chat.id, message.message_id))
-                                        }
-                                        _ => None,
-                                    });
-                                let answer = match query.data.as_deref() {
-                                    Some("yes") => Some(true),
-                                    Some("no") => Some(false),
-                                    _ => None,
-                                };
-                                let mut pending = self.pending.lock().await;
-                                let consumed = dispatch_callback(message_key, answer, &mut pending);
-
-                                if consumed {
-                                    let ack = AnswerCallbackQueryParams::builder()
-                                        .callback_query_id(query.id)
-                                        .build();
-                                    let _ = self.bot.answer_callback_query(&ack).await;
-                                }
                             }
                             _ => {}
                         }
@@ -304,30 +264,12 @@ fn dispatch_message(
     }
 }
 
-/// Route an inline-button response to the matching yes/no interaction.
-fn dispatch_callback(
-    message_key: Option<(i64, i32)>,
-    answer: Option<bool>,
-    pending: &mut HashMap<(i64, i32), PendingReply>,
-) -> bool {
-    pending.retain(|_, reply| match reply {
-        PendingReply::Text { sender } => !sender.is_closed(),
-        PendingReply::YesNo { sender } => !sender.is_closed(),
-    });
-
-    match (message_key, answer) {
-        (Some(key), Some(value)) => match pending.remove(&key) {
-            Some(PendingReply::YesNo { sender }) => {
-                let _ = sender.send(value);
-                true
-            }
-            Some(reply @ PendingReply::Text { .. }) => {
-                pending.insert(key, reply);
-                false
-            }
-            None => false,
-        },
-        _ => false,
+/// Parse an explicit yes/no text answer, accepting common Spanish variants too.
+fn parse_yes_no(answer: &str) -> Option<bool> {
+    match answer.trim().to_lowercase().as_str() {
+        "yes" | "y" | "sí" | "si" => Some(true),
+        "no" | "n" => Some(false),
+        _ => None,
     }
 }
 
@@ -421,6 +363,38 @@ mod tests {
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
         assert_eq!(subscriber.try_recv().unwrap().chat_id, 43);
+    }
+
+    #[tokio::test]
+    async fn matching_yes_no_reply_delivers_answer() {
+        let (events, _) = broadcast::channel(4);
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+        let mut event = incoming(Some(100));
+        event.text = Some(" YES ".to_owned());
+
+        dispatch_message(event, &mut pending, &events);
+
+        assert!(receiver.await.unwrap());
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn invalid_yes_no_reply_keeps_question_pending() {
+        let (events, _) = broadcast::channel(4);
+        let mut subscriber = events.subscribe();
+        let (sender, mut receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::YesNo { sender });
+        let mut event = incoming(Some(100));
+        event.text = Some("maybe".to_owned());
+
+        dispatch_message(event, &mut pending, &events);
+
+        assert!(receiver.try_recv().is_err());
+        assert!(pending.contains_key(&(42, 100)));
+        assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, Some(100));
     }
 
     #[tokio::test]
@@ -530,54 +504,21 @@ mod tests {
         assert!(subscriber.try_recv().unwrap().is_bot);
     }
 
-    #[tokio::test]
-    async fn callback_for_matching_yes_no_message_delivers_answer() {
-        let (sender, receiver) = oneshot::channel();
-        let mut pending = HashMap::new();
-        pending.insert((42, 100), PendingReply::YesNo { sender });
-
-        assert!(dispatch_callback(Some((42, 100)), Some(true), &mut pending));
-        assert!(receiver.await.unwrap());
-        assert!(pending.is_empty());
-    }
-
-    #[test]
-    fn callback_for_wrong_message_does_not_consume_pending_question() {
-        let (sender, mut receiver) = oneshot::channel();
-        let mut pending = HashMap::new();
-        pending.insert((42, 100), PendingReply::YesNo { sender });
-
-        assert!(!dispatch_callback(
-            Some((42, 999)),
-            Some(false),
-            &mut pending
-        ));
-        assert!(receiver.try_recv().is_err());
-        assert!(pending.contains_key(&(42, 100)));
-    }
-
-    #[test]
-    fn callback_does_not_consume_text_question_or_unknown_button_data() {
-        let (sender, mut receiver) = oneshot::channel();
-        let mut pending = HashMap::new();
-        pending.insert((42, 100), PendingReply::Text { sender });
-
-        assert!(!dispatch_callback(
-            Some((42, 100)),
-            Some(true),
-            &mut pending
-        ));
-        assert!(!dispatch_callback(Some((42, 100)), None, &mut pending));
-        assert!(receiver.try_recv().is_err());
-        assert!(pending.contains_key(&(42, 100)));
-    }
-
     #[test]
     fn questions_have_a_concise_question_marker() {
         assert_eq!(
             format_question("Which option should I use?"),
-            "❓ Question\n\nWhich option should I use?"
+            "❓ Question\n\nWhich option should I use?\n\n↩️ To answer, use Telegram’s Reply action on this message. New messages or standalone comments will not be accepted."
         );
+    }
+
+    #[test]
+    fn yes_no_parser_accepts_english_and_spanish_answers() {
+        assert_eq!(parse_yes_no("YES"), Some(true));
+        assert_eq!(parse_yes_no("sí"), Some(true));
+        assert_eq!(parse_yes_no("si"), Some(true));
+        assert_eq!(parse_yes_no("No"), Some(false));
+        assert_eq!(parse_yes_no("maybe"), None);
     }
 
     #[test]
