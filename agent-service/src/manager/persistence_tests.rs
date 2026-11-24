@@ -335,32 +335,38 @@ async fn persisted_running_run_can_be_cancelled_after_manager_restart() {
     let run_id = Uuid::new_v4();
     let now = chrono::Utc::now();
 
-    execution.insert_run(StoredRun {
-        id: run_id,
-        conversation_id: Some(conversation_id),
-        agent: "assistant".into(),
-        input: "interrupted prompt".into(),
-        status: StoredRunStatus::Running,
-        created_at: now,
-        started_at: Some(now),
-        finished_at: None,
-        response: None,
-        error: None,
-    }).await.unwrap();
+    execution
+        .insert_run(StoredRun {
+            id: run_id,
+            conversation_id: Some(conversation_id),
+            agent: "assistant".into(),
+            input: "interrupted prompt".into(),
+            status: StoredRunStatus::Running,
+            created_at: now,
+            started_at: Some(now),
+            finished_at: None,
+            response: None,
+            error: None,
+        })
+        .await
+        .unwrap();
     for (sequence, kind) in [(0, "queued"), (1, "started")] {
-        execution.append_event(StoredRunEvent {
-            run_id,
-            sequence,
-            kind: kind.into(),
-            iteration: None,
-            tool_name: None,
-            model_id: None,
-            next_model_id: None,
-            model_candidates: None,
-            attempted_candidates: None,
-            error_category: None,
-            occurred_at: now,
-        }).await.unwrap();
+        execution
+            .append_event(StoredRunEvent {
+                run_id,
+                sequence,
+                kind: kind.into(),
+                iteration: None,
+                tool_name: None,
+                model_id: None,
+                next_model_id: None,
+                model_candidates: None,
+                attempted_candidates: None,
+                error_category: None,
+                occurred_at: now,
+            })
+            .await
+            .unwrap();
     }
 
     // This manager has no worker or cancellation token for the persisted run.
@@ -369,8 +375,14 @@ async fn persisted_running_run_can_be_cancelled_after_manager_restart() {
         .with_storage(execution.clone());
     let id = RunId::from_uuid(run_id);
     assert_eq!(manager.cancel(id).await, Ok(CancelRunOutcome::Requested));
-    assert_eq!(manager.get(id).await.unwrap().status, crate::RunStatus::Cancelled);
-    assert_eq!(manager.cancel(id).await, Ok(CancelRunOutcome::AlreadyFinished));
+    assert_eq!(
+        manager.get(id).await.unwrap().status,
+        crate::RunStatus::Cancelled
+    );
+    assert_eq!(
+        manager.cancel(id).await,
+        Ok(CancelRunOutcome::AlreadyFinished)
+    );
     let events = execution.list_events(run_id, None).await.unwrap();
     assert_eq!(events.last().unwrap().kind, "cancelled");
 
@@ -413,28 +425,43 @@ async fn deleting_conversation_waits_for_running_execution_cancellation() {
     let manager = RunManager::new(Arc::new(WaitForCancellation), 1, 2)
         .unwrap()
         .with_storage(execution.clone());
-    let run_id = manager.submit(
-        "assistant",
-        "running prompt",
-        Vec::new(),
-        ToolContext {
-            conversation_id: Some(conversation.id.to_string()),
-            ..ToolContext::default()
-        },
-    ).await.unwrap();
+    let run_id = manager
+        .submit(
+            "assistant",
+            "running prompt",
+            Vec::new(),
+            ToolContext {
+                conversation_id: Some(conversation.id.to_string()),
+                ..ToolContext::default()
+            },
+        )
+        .await
+        .unwrap();
 
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if manager.get(run_id).await.is_some_and(|run| run.status == crate::RunStatus::Running) {
+            if manager
+                .get(run_id)
+                .await
+                .is_some_and(|run| run.status == crate::RunStatus::Running)
+            {
                 break;
             }
             tokio::task::yield_now().await;
         }
-    }).await.expect("run should start");
+    })
+    .await
+    .expect("run should start");
 
     let conversation_uuid = Uuid::parse_str(&conversation.id.to_string()).unwrap();
-    manager.cancel_conversation(conversation_uuid).await.unwrap();
-    assert_eq!(manager.get(run_id).await.unwrap().status, crate::RunStatus::Cancelled);
+    manager
+        .cancel_conversation(conversation_uuid)
+        .await
+        .unwrap();
+    assert_eq!(
+        manager.get(run_id).await.unwrap().status,
+        crate::RunStatus::Cancelled
+    );
     conversations.delete("owner", conversation.id).unwrap();
     assert!(conversations.get(conversation.id).is_err());
 
