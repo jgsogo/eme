@@ -3,7 +3,7 @@ use std::sync::Arc;
 use actix_web::{HttpRequest,HttpResponse,Responder,Scope,delete,get,post,put,web::{self,Data,Json,Path}};
 use agent_storage::{FileUserIdentityStore,UserIdentityStore};
 use books_tool::{BookInput,BookStore,BookStoreError,BookUpdate};
-use rabel_tool::RabelClient;
+use rabel_tool::{RabelClient, client::RabelError};
 use serde::Deserialize;
 pub(super) fn actor(r:&HttpRequest,a:&crate::auth::TelegramAuth,i:&FileUserIdentityStore)->Result<String,HttpResponse>{
  let owner=a.owner_for_request(r).ok_or_else(||HttpResponse::Unauthorized().finish())?;
@@ -30,7 +30,18 @@ async fn search_catalogue(
     };
     match client.search(&query.q, 20).await {
         Ok(results) => HttpResponse::Ok().json(results),
-        Err(_) => HttpResponse::BadGateway().finish(),
+        Err(error) => {
+            // Keep the response useful without exposing the searched term or
+            // session-scoped OPAC URL (both can appear in reqwest diagnostics).
+            let message = match error {
+                RabelError::Http(status) => format!("RABEL returned HTTP {status}"),
+                RabelError::Request(_) => "Could not connect to RABEL".to_owned(),
+                RabelError::Parse(_) => "RABEL returned an unexpected catalogue response".to_owned(),
+                RabelError::InvalidRecordReference => "RABEL returned an invalid record reference".to_owned(),
+            };
+            tracing::warn!(error_kind = %message, "RABEL catalogue search failed");
+            HttpResponse::BadGateway().body(message)
+        },
     }
 }
 
