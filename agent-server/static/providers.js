@@ -6,8 +6,9 @@ function renderResult(container,result){
  const success=Boolean(result.success);
  const latency=Number.isFinite(Number(result.latency_ms))?" · "+Number(result.latency_ms)+" ms":"";
  const detail=success?result.response:result.error;
+ const diagnostics=result.diagnostics?'<details class="provider-test-diagnostics"><summary>Response diagnostics</summary><pre>'+escapeHtml(JSON.stringify(result.diagnostics,null,2))+'</pre></details>':"";
  container.className="provider-model-result "+(success?"success":"error");
- container.innerHTML='<strong>'+(success?"Connection successful":"Test failed")+'</strong><span>'+escapeHtml(latency)+'</span>'+(detail?'<p>'+escapeHtml(detail)+'</p>':"");
+ container.innerHTML='<strong>'+(success?"Connection successful":"Test failed")+'</strong><span>'+escapeHtml(latency)+'</span>'+(detail?'<p>'+escapeHtml(detail)+'</p>':"")+diagnostics;
 }
 async function submitTest(provider,model){
  const response=await fetch("/providers",{method:"POST",headers:{"Accept":"application/json","Content-Type":"application/json"},body:JSON.stringify({provider,...(model?{model}:{})})});

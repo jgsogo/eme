@@ -182,27 +182,57 @@ async fn test_configured_model(
     )
     .await
     {
-        Ok(Ok(response)) => match response
-            .content
-            .filter(|content| !content.trim().is_empty())
-        {
-            Some(content) => serde_json::json!({
-                "model": model,
-                "provider_model": response.model,
-                "success": true,
-                "latency_ms": started.elapsed().as_millis(),
-                "response": content,
-                "usage": response.usage.map(|usage| serde_json::json!({
-                    "input_tokens": usage.input_tokens,
-                    "output_tokens": usage.output_tokens
-                }))
-            }),
-            None => serde_json::json!({
-                "model": model,
-                "success": false,
-                "latency_ms": started.elapsed().as_millis(),
-                "error": "The provider returned no text content"
-            }),
+        Ok(Ok(response)) => {
+            let provider_model = response.model;
+            let tool_calls = response
+                .tool_calls
+                .iter()
+                .map(|call| call.name.clone())
+                .collect::<Vec<_>>();
+            let usage = response.usage.map(|usage| serde_json::json!({
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "cached_input_tokens": usage.cached_input_tokens,
+                "reasoning_tokens": usage.reasoning_tokens
+            }));
+
+            match response
+                .content
+                .filter(|content| !content.trim().is_empty())
+            {
+                Some(content) => serde_json::json!({
+                    "model": model,
+                    "provider_model": provider_model,
+                    "success": true,
+                    "latency_ms": started.elapsed().as_millis(),
+                    "response": content,
+                    "usage": usage
+                }),
+                None => {
+                    let error = if tool_calls.is_empty() {
+                        "The provider returned an empty text response (no tool calls)"
+                            .to_owned()
+                    } else {
+                        format!(
+                            "The provider returned no text content and emitted {} tool call(s): {}",
+                            tool_calls.len(),
+                            tool_calls.join(", ")
+                        )
+                    };
+
+                    serde_json::json!({
+                        "model": model,
+                        "success": false,
+                        "latency_ms": started.elapsed().as_millis(),
+                        "error": error,
+                        "diagnostics": {
+                            "provider_model": provider_model,
+                            "tool_calls": tool_calls,
+                            "usage": usage
+                        }
+                    })
+                }
+            }
         },
         Ok(Err(error)) => serde_json::json!({
             "model": model,
