@@ -7,7 +7,7 @@ use reqwest::{Client, StatusCode};
 use thiserror::Error;
 use url::Url;
 
-use crate::{parser, types::{CatalogueItem, CatalogueSearchResult, Library}};
+use crate::{parser, types::{CatalogueHoldings, CatalogueItem, CatalogueSearchResult, Library}};
 
 const OPAC_URL: &str = "https://rabel.jcyl.es/cgi-bin/abnetopac2";
 const SUBCATALOG: &str = "SAL/BPSA";
@@ -122,7 +122,17 @@ impl RabelClient {
     pub async fn get_item(&self, record_ref: &str) -> Result<CatalogueItem, RabelError> {
         let url = self.validate_record_ref(record_ref)?;
         let (final_url, html) = self.read_html(url).await?;
-        parser::record(&html, final_url.as_str())
+        parser::record(&html)
+    }
+
+    /// Fetch live copy-level availability separately from bibliographic data.
+    pub async fn get_holdings(&self, record_ref: &str) -> Result<CatalogueHoldings, RabelError> {
+        let url = self.validate_record_ref(record_ref)?;
+        let (_, html) = self.read_html(url).await?;
+        Ok(CatalogueHoldings {
+            copies: parser::holdings(&html),
+            checked_at: chrono::Utc::now(),
+        })
     }
 
     pub async fn libraries(&self) -> Result<Vec<Library>, RabelError> {
