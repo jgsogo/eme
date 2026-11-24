@@ -64,13 +64,63 @@ pub(super) fn record(html: &str, source_url: &str) -> Result<CatalogueItem, Rabe
     })
 }
 
+fn library_page_diagnostic(html: &str) -> String {
+    let title = Regex::new(r"(?is)<title\\b[^>]*>(.*?)</title>")
+        .ok()
+        .and_then(|re| re.captures(html))
+        .and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str()))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "(no title)".to_owned());
+
+    let selects = Regex::new(r"(?is)<select\\b([^>]*)>(.*?)</select>")
+        .ok()
+        .map(|re| {
+            re.captures_iter(html)
+                .map(|captures| {
+                    let attrs = captures.get(1).map(|m| m.as_str()).unwrap_or("");
+                    let body = captures.get(2).map(|m| m.as_str()).unwrap_or("");
+                    let options = Regex::new(r"(?is)<option\\b")
+                        .map(|re| re.find_iter(body).count())
+                        .unwrap_or(0);
+                    format!("select[{attrs}] options={options}")
+                })
+                .take(8)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let forms = Regex::new(r#"(?is)<form\\b([^>]*)>"#)
+        .ok()
+        .map(|re| re.captures_iter(html)
+            .filter_map(|captures| captures.get(1).map(|m| m.as_str().trim().to_owned()))
+            .take(5)
+            .collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    let body = Regex::new(r"(?is)<body\\b[^>]*>(.*?)</body>")
+        .ok()
+        .and_then(|re| re.captures(html))
+        .and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str()))
+        .unwrap_or_else(|| clean_text(html));
+    let excerpt: String = body.chars().take(240).collect();
+
+    format!(
+        "page title={title:?}; selects={selects:?}; forms={forms:?}; body excerpt={excerpt:?}"
+    )
+}
+
 pub(super) fn libraries(html: &str) -> Result<Vec<Library>, RabelError> {
     let selects = Regex::new(r#"(?is)<select\b[^>]*(?:name|id)\s*=\s*["'](?:SUBC|subc)["'][^>]*>(.*?)</select>"#)
         .map_err(|error| RabelError::Parse(error.to_string()))?;
     let options = Regex::new(r#"(?is)<option\b[^>]*value\s*=\s*["']([^"']+)["'][^>]*>(.*?)</option>"#)
         .map_err(|error| RabelError::Parse(error.to_string()))?;
     let select = selects.captures(html).and_then(|c| c.get(1))
-        .ok_or_else(|| RabelError::Parse("library selector not found in RABEL session page".into()))?;
+        .ok_or_else(|| RabelError::Parse(format!(
+            "library selector not found; {}",
+            library_page_diagnostic(html)
+        )))?;
     let libraries: Vec<Library> = options.captures_iter(select.as_str()).filter_map(|c| {
         let id = c.get(1)?.as_str().trim().to_owned();
         let name = clean_text(c.get(2)?.as_str());
@@ -197,6 +247,8 @@ mod tests {
     fn missing_library_selector_is_a_parse_error() {
         let error = libraries("<html><body>Welcome</body></html>").unwrap_err();
         assert!(error.to_string().contains("library selector not found"));
+        assert!(error.to_string().contains("page title"));
+        assert!(error.to_string().contains("body excerpt"));
     }
 
     #[test]
