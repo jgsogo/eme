@@ -579,3 +579,102 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .task-execution-event-payload summary{cursor:pointer}
 .task-execution-event-payload pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:600px){.task-execution-section-nav{gap:12px}.task-execution-section-tab{font-size:11px}.task-execution-events-table th,.task-execution-events-table td{padding:7px 5px;font-size:10px}.task-execution-events-table td:nth-child(2){min-width:100px}}
+
+
+/* Shared desktop console layout. Mobile views use their own stylesheets. */
+@media (min-width: 761px) {
+  main.console-main {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  main.console-main:has(.workspace) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  main.console-main:has(.workspace) > .workspace {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+  main.console-main > section,
+  main.console-main > .notes-view,
+  main.console-main > .integrations-view,
+  main.console-main > .recipes-view {
+    min-width: 0;
+  }
+  .profile-section-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+    margin: 0 0 20px;
+    padding: 0 0 10px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+  .profile-section-link {
+    padding: 7px 11px;
+    border-radius: 7px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color .15s ease, background .15s ease;
+  }
+  .profile-section-link:hover { color: var(--text); background: rgba(255,255,255,.035); }
+  .profile-section-link.active { color: var(--text); background: var(--panel2); }
+  .meals-header-row {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 12px;
+    margin: 0 0 20px;
+  }
+  .meals-header-row .profile-section-nav { margin: 0; }
+  .meals-family-selector { align-self: flex-end; max-width: 320px; width: 100%; }
+  .list-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .list-panel-heading h3 { margin: 0; }
+  .list-panel-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .list-panel-tools input[type="search"] {
+    width: min(100%, 260px);
+    min-width: 150px;
+    margin: 0;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+  .list-panel-tools label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .list-panel-tools input[type="checkbox"] { accent-color: var(--accent); }
+  .usage-main { max-width: 1440px; }
+  .usage-heading { align-items: center; }
+  .usage-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .usage-history-controls { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+  .usage-history-controls input[type="search"] {
+    width: min(280px, 35vw);
+    margin: 0;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+  .recipes-view { min-height: 0; }
+}
