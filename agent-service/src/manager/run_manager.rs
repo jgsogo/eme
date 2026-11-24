@@ -482,23 +482,28 @@ impl RunManager {
     /// until its worker has observed cancellation before returning.
     pub async fn cancel_conversation(&self, conversation_id: Uuid) -> Result<(), String> {
         let runs = self.list().await;
-        let active = runs.into_iter()
-            .filter(|run| run.conversation_id == Some(conversation_id)
-                && matches!(run.status, RunStatus::Queued | RunStatus::Running))
+        let active = runs
+            .into_iter()
+            .filter(|run| {
+                run.conversation_id == Some(conversation_id)
+                    && matches!(run.status, RunStatus::Queued | RunStatus::Running)
+            })
             .map(|run| run.id)
             .collect::<Vec<_>>();
 
         for run_id in &active {
-            self.cancel(*run_id).await.map_err(|error| error.to_string())?;
+            self.cancel(*run_id)
+                .await
+                .map_err(|error| error.to_string())?;
         }
 
         tokio::time::timeout(std::time::Duration::from_secs(10), async {
             loop {
                 let mut unfinished = false;
                 for run_id in &active {
-                    if self.get(*run_id).await.is_some_and(|run|
-                        matches!(run.status, RunStatus::Queued | RunStatus::Running))
-                    {
+                    if self.get(*run_id).await.is_some_and(|run| {
+                        matches!(run.status, RunStatus::Queued | RunStatus::Running)
+                    }) {
                         unfinished = true;
                         break;
                     }
@@ -508,13 +513,19 @@ impl RunManager {
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
-        }).await.map_err(|_| "timed out waiting for conversation runs to stop".to_owned())
+        })
+        .await
+        .map_err(|_| "timed out waiting for conversation runs to stop".to_owned())
     }
 
     pub async fn list(&self) -> Vec<Run> {
         let mut by_id = HashMap::new();
         if let Some(storage) = current_storage(&self.persistence) {
-            let in_memory_ids = self.runs.lock().await.keys()
+            let in_memory_ids = self
+                .runs
+                .lock()
+                .await
+                .keys()
                 .map(|id| id.as_uuid())
                 .collect::<std::collections::HashSet<_>>();
             match storage.list_runs(None).await {
@@ -763,7 +774,10 @@ async fn recover_interrupted_run(
     storage: &dyn ExecutionStore,
     mut run: StoredRun,
 ) -> Result<StoredRun, agent_storage::StorageError> {
-    if !matches!(run.status, StoredRunStatus::Queued | StoredRunStatus::Running) {
+    if !matches!(
+        run.status,
+        StoredRunStatus::Queued | StoredRunStatus::Running
+    ) {
         return Ok(run);
     }
 
@@ -773,19 +787,21 @@ async fn recover_interrupted_run(
     storage.update_run(run.clone()).await?;
 
     let events = storage.list_events(run.id, None).await?;
-    storage.append_event(StoredRunEvent {
-        run_id: run.id,
-        sequence: events.len() as u64,
-        kind: "cancelled".into(),
-        iteration: None,
-        tool_name: None,
-        model_id: None,
-        next_model_id: None,
-        model_candidates: None,
-        attempted_candidates: None,
-        error_category: None,
-        occurred_at: Utc::now(),
-    }).await?;
+    storage
+        .append_event(StoredRunEvent {
+            run_id: run.id,
+            sequence: events.len() as u64,
+            kind: "cancelled".into(),
+            iteration: None,
+            tool_name: None,
+            model_id: None,
+            next_model_id: None,
+            model_candidates: None,
+            attempted_candidates: None,
+            error_category: None,
+            occurred_at: Utc::now(),
+        })
+        .await?;
     Ok(run)
 }
 
