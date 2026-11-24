@@ -38,10 +38,6 @@
       name.textContent = library.name + (availableIds.has(library.id) ? "" : " (not currently listed by RABEL)");
       const depth = Math.max(0, Math.min(Number(library.depth) || 0, 4));
       label.style.paddingLeft = (depth * 18 + 4) + "px";
-      if (depth > 0) {
-        label.classList.add("library-choice-nested");
-        label.setAttribute("aria-label", "  ".repeat(depth) + library.name);
-      }
       label.append(checkbox, name);
       container.append(label);
     }
