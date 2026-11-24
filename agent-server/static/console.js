@@ -696,30 +696,40 @@ const taskExecutionLabels={
 
 function renderTaskExecutionEvent(event){
  const timestamp=Number(event.occurred_at_unix_ms);
- const time=Number.isFinite(timestamp)?new Date(timestamp).toLocaleString():"";
+ const time=Number.isFinite(timestamp)?new Date(timestamp).toLocaleString():"Unknown time";
  const details=[
   event.iteration!==null&&event.iteration!==undefined?"Iteration "+event.iteration:null,
-  event.tool_name,event.model_id,
-  event.next_model_id?"Next: "+event.next_model_id:null,
+  event.tool_name?"Tool: "+event.tool_name:null,
+  event.model_id?"Model: "+event.model_id:null,
+  event.next_model_id?"Next model: "+event.next_model_id:null,
   event.model_candidates?.length?"Candidates: "+event.model_candidates.join(", "):null,
-  event.error_category
+  event.error_category?"Error: "+event.error_category.replaceAll("_"," "):null
  ].filter(Boolean).join(" · ");
- return '<li class="run-event"><div><strong>'+escapeHtml(taskExecutionLabels[event.kind]||event.kind)+'</strong><span class="hint">'+escapeHtml(time)+'</span></div>'+(details?'<div class="hint">'+escapeHtml(details)+'</div>':'')+'<details><summary>Event payload</summary><pre>'+escapeHtml(JSON.stringify(event,null,2))+'</pre></details></li>';
+ return '<tr><td class="task-execution-event-time">'+escapeHtml(time)+'</td><td><strong>'+escapeHtml(taskExecutionLabels[event.kind]||event.kind)+'</strong></td><td>'+(details?'<span>'+escapeHtml(details)+'</span>':'<span class="hint">—</span>')+'<details class="task-execution-event-payload"><summary>Payload</summary><pre>'+escapeHtml(JSON.stringify(event,null,2))+'</pre></details></td></tr>';
 }
 
 function renderTaskExecution(execution){
- const events=(execution.events||[]).map(renderTaskExecutionEvent).join("");
+ const events=execution.events||[],usage=execution.usage||[];
  const output=execution.response
-  ?'<section class="tool-section"><h4>Final output</h4><div class="markdown-content">'+renderMarkdown(execution.response)+'</div></section>'
-  :'<section class="tool-section"><h4>Final output</h4><p class="hint">No final response was recorded.</p></section>';
+  ?'<div class="markdown-content">'+renderMarkdown(execution.response)+'</div>'
+  :'<p class="hint">No final response was recorded.</p>';
  const failure=execution.error
   ?'<section class="tool-section"><h4>Error</h4><pre class="tool-error">'+escapeHtml(execution.error)+'</pre></section>':"";
- const input='<section class="tool-section"><h4>Submitted prompt</h4><pre>'+escapeHtml(execution.input||"")+'</pre></section>';
- const timeline='<details class="tool-details"><summary>Execution timeline · '+(execution.events||[]).length+' events</summary><ol class="run-events">'+(events||'<li class="hint">No events recorded.</li>')+'</ol></details>';
- const usage='<details class="tool-details"><summary>Model usage · '+(execution.usage||[]).length+' invocations</summary><pre>'+escapeHtml(JSON.stringify(execution.usage||[],null,2))+'</pre></details>';
- return '<div class="task-execution-detail"><div class="hint">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div>'+failure+output+input+timeline+usage+'</div>';
+ const input=execution.input
+  ?'<pre>'+escapeHtml(execution.input)+'</pre>'
+  :'<p class="hint">No submitted prompt was recorded.</p>';
+ const timeline='<div class="task-execution-table-wrap"><table class="task-execution-events-table"><thead><tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Details</th></tr></thead><tbody>'+(events.length?events.map(renderTaskExecutionEvent).join(""):'<tr><td colspan="3" class="hint">No events recorded.</td></tr>')+'</tbody></table></div>';
+ const usageContent=usage.length
+  ?'<pre>'+escapeHtml(JSON.stringify(usage,null,2))+'</pre>'
+  :'<p class="hint">No model usage was recorded.</p>';
+ const sections=[
+  {id:"output",label:"Final output",count:null,content:output+failure},
+  {id:"prompt",label:"Submitted prompt",count:null,content:input},
+  {id:"timeline",label:"Execution timeline",count:events.length,content:timeline},
+  {id:"usage",label:"Model usage",count:usage.length,content:usageContent}
+ ];
+ return '<div class="task-execution-detail"><div class="hint task-execution-run-meta">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div><nav class="task-execution-section-nav" aria-label="Execution detail sections" role="tablist">'+sections.map((section,index)=>'<button type="button" class="task-execution-section-tab'+(index===0?' active':'')+'" id="task-execution-tab-'+section.id+'" role="tab" aria-selected="'+(index===0?'true':'false')+'" aria-controls="task-execution-panel-'+section.id+'" tabindex="'+(index===0?'0':'-1')+'" data-execution-section="'+section.id+'">'+section.label+(section.count===null?'':' <span>'+section.count+'</span>')+'</button>').join("")+'</nav>'+sections.map((section,index)=>'<section class="task-execution-section" id="task-execution-panel-'+section.id+'" role="tabpanel" aria-labelledby="task-execution-tab-'+section.id+'" '+(index===0?'':'hidden')+'><h4>'+section.label+'</h4>'+section.content+'</section>').join("")+'</div>';
 }
-
 async function loadTaskExecutions(taskId){
  const panel=$("task-executions"),target=$("task-executions-list");
  if(!panel||!target||!taskId||taskId==="new")return;
