@@ -117,7 +117,7 @@ The Profile → Integrations view always lists the signed-in user's personal med
 
 ### Ownership and write semantics
 
-- Every watchlist and rating operation is scoped to one media profile. The profile's stored Trakt connection is the only account the agent can mutate; the model cannot supply a Trakt username, account ID or credential.
+- Every watchlist and rating operation is scoped to one media profile and must follow an explicit user request; the agent must never infer a rating or mutate a watchlist proactively. The profile's stored Trakt connection is the only account the agent can mutate; the model cannot supply a Trakt username, account ID or credential.
 - A watchlist `add` or `remove` requires a linked Trakt account owned by the authenticated user and a TMDB ID plus media kind. EME sends the mutation to Trakt first, then updates the local Trakt mirror only after a successful provider response. Repeating an add or remove is safe. A failed provider write leaves the local mirror unchanged. The next explicit sync imports changes made directly on Trakt.
 - Watchlist `list` reads the synchronized local mirror. It does not trigger a network request.
 - `media_rate` always records an EME-originated rating. If the selected profile has no Trakt link, the rating is stored locally. If it has a Trakt link owned by the caller, EME writes the rating to Trakt before persisting the local EME record. If the linked account belongs to another user, the write is rejected; family-admin access does not grant permission to act as another user's Trakt account.
