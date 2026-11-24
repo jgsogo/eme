@@ -1,5 +1,6 @@
 //! On-disk task representation, including fields migrated from older files.
 
+use agent_storage::FamilyId;
 use chrono::{DateTime, FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -22,6 +23,8 @@ pub(super) struct StoredTask {
     pub(super) at: Option<DateTime<FixedOffset>>,
     #[serde(default)]
     pub(super) timezone: Option<String>,
+    #[serde(default)]
+    pub(super) family_id: Option<FamilyId>,
     #[serde(default = "super::default_enabled")]
     pub(super) enabled: bool,
     #[serde(default)]

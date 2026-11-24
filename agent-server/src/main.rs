@@ -192,7 +192,12 @@ async fn main() -> Result<()> {
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?
         .with_storage(execution_store);
-    let task_scheduler = TaskScheduler::start(task_registry.clone(), manager.clone());
+    let task_scheduler = TaskScheduler::start(
+        task_registry.clone(),
+        manager.clone(),
+        Arc::clone(&identity_store),
+        Arc::clone(&family_service),
+    );
     info!("task scheduler started");
     if let Some((gateway, allowed)) = telegram_gateway {
         // Subscribe before starting the poller so the first update cannot be lost.

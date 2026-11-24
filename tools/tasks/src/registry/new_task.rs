@@ -1,5 +1,6 @@
 //! Input required to create a scheduled or one-time task.
 
+use agent_storage::FamilyId;
 use chrono::{DateTime, FixedOffset};
 use serde::Deserialize;
 
@@ -17,4 +18,7 @@ pub struct NewTask {
     pub at: Option<DateTime<FixedOffset>>,
     #[serde(default)]
     pub timezone: Option<String>,
+    /// Optional family whose current context is supplied to scheduled executions.
+    #[serde(default)]
+    pub family_id: Option<FamilyId>,
 }

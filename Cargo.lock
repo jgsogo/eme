@@ -3458,6 +3458,7 @@ dependencies = [
  "agent-config",
  "agent-runtime",
  "agent-service",
+ "agent-storage",
  "async-trait",
  "chrono",
  "chrono-tz",

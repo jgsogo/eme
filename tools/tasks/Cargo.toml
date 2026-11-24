@@ -8,6 +8,7 @@ description = "User-scoped task definitions, scheduling and agent tools."
 agent-config = { path = "../../agent-config" }
 agent-runtime = { path = "../../agent-runtime" }
 agent-service = { path = "../../agent-service" }
+agent-storage = { path = "../../agent-storage" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
@@ -20,5 +21,3 @@ toml = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 
-[dev-dependencies]
-agent-storage = { path = "../../agent-storage" }
