@@ -82,8 +82,7 @@ fn extract_holdings(html: &str) -> Vec<CopyHolding> {
         let raw = row.get(1)?.as_str();
         let status = status_attr.captures(raw)?.get(1)?.as_str();
         let text = clean_text(raw);
-        let lower = text.to_lowercase();
-        Some(CopyHolding {
+            Some(CopyHolding {
             library: labelled_value(&text, &["Biblioteca", "Sucursal"]),
             signature: labelled_value(&text, &["Signatura", "SIGN"]),
             location: labelled_value(&text, &["Localización", "Ubicación", "Depósito"]),
@@ -105,7 +104,10 @@ fn normalize_availability(value: &str) -> Availability {
 
 fn first_heading(html: &str) -> Option<String> {
     let re = Regex::new(r#"(?is)<h[1-3]\b[^>]*>(.*?)</h[1-3]>"#).ok()?;
-    re.captures(html).map(|c| clean_text(c.get(1)?.as_str())).filter(|s| !s.is_empty())
+    re.captures(html)
+        .and_then(|captures| captures.get(1))
+        .map(|capture| clean_text(capture.as_str()))
+        .filter(|value| !value.is_empty())
 }
 
 fn extract_authors(text: &str) -> Vec<String> {
