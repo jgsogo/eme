@@ -138,14 +138,14 @@ async fn holdings(
             }));
             continue;
         };
-        match client.get_item(&record.record_ref).await {
-            Ok(item) => library_results.push(serde_json::json!({
+        match client.get_holdings(&record.record_ref).await {
+            Ok(holdings) => library_results.push(serde_json::json!({
                 "library_id": library_id,
                 "library_name": library_name,
                 "status": "found",
-                "catalogue_title": item.title,
-                "checked_at": item.checked_at,
-                "copies": item.holdings
+                "catalogue_title": record.title,
+                "checked_at": holdings.checked_at,
+                "copies": holdings.copies
             })),
             Err(error) => library_results.push(serde_json::json!({
                 "library_id": library_id,
