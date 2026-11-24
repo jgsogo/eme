@@ -196,7 +196,7 @@ fn extract_publication_year(value: &str) -> Option<u16> {
 fn strip_publication_year(value: &str) -> String {
     Regex::new(r"\b(?:1[5-9]\d{2}|20\d{2})\b").ok()
         .map(|re| re.replace_all(value, "").into_owned()).unwrap_or_else(|| value.to_owned())
-        .trim().trim_end_matches([',', '.', ';', ':']).trim().to_owned()
+        .trim().trim_end_matches(|character: char| matches!(character, ',' | '.' | ';' | ':')).trim().to_owned()
 }
 
 fn non_empty(value: String) -> Option<String> {
