@@ -38,7 +38,7 @@ use console::{
     console_stylesheet, conversations_page, desktop_header_script, families_page, favicon,
     integrations_page, invitation_page, list_configured_providers, list_registered_tools,
     meals_family_script, meals_page, mobile_base_stylesheet, mobile_conversations_page,
-    mobile_families_page, mobile_integrations_page, mobile_meal_planner_page, mobile_meals_page,
+    mobile_admin_agents_page, mobile_admin_providers_page, mobile_admin_tools_page,\n    mobile_admin_usage_page, mobile_admin_stylesheet, mobile_families_page, mobile_integrations_page, mobile_meal_planner_page, mobile_meals_page,
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_school_menus_page, mobile_script,
     mobile_shopping_list_page, mobile_stylesheet, mobile_tasks_page, notes_page, profile_page,
     providers_page, providers_script, recipes_page, recipes_script, school_menus_page,
@@ -259,7 +259,7 @@ async fn main() -> Result<()> {
         }
         app.service(console_root)
             .service(mobile_root)
-            .service(mobile_conversations_page)
+            .service(mobile_conversations_page)\n            .service(mobile_admin_usage_page)\n            .service(mobile_admin_providers_page)\n            .service(mobile_admin_agents_page)\n            .service(mobile_admin_tools_page)\n            .service(mobile_admin_stylesheet)
             .service(mobile_families_page)
             .service(mobile_notes_page)
             .service(mobile_profile_page)
