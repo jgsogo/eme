@@ -678,3 +678,44 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
   }
   .recipes-view { min-height: 0; }
 }
+
+@media (min-width: 761px) {
+  .family-list-panel > input[type="search"] {
+    display: block;
+    width: 100%;
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  .family-list-panel > input[type="search"]:focus-visible,
+  .list-panel-tools input[type="search"]:focus-visible,
+  .usage-history-controls input[type="search"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .task-list-filters { margin-bottom: 12px; }
+  .shopping-list-filters {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 12px;
+  }
+  .shopping-list-filters input[type="search"] {
+    width: min(100%, 280px);
+    margin: 0;
+    padding: 8px 10px;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  .shopping-list-filters label { display: inline-flex; align-items: center; gap: 6px; }
+  .shopping-list-filters input[type="checkbox"] { accent-color: var(--accent); }
+}
