@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,noteSearch:"",noteFamilyFilter:"",tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null,activeRuns:{}};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null,activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -88,14 +88,7 @@ async function loadConversations(){const [conversations,runs]=await Promise.all(
 async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies()}
 function renderNotes(){
  const target=$("notes-list");if(!target)return;
- const query=state.noteSearch.trim().toLocaleLowerCase();
- const visible=state.notes.filter(note=>{
-  if(state.noteFamilyFilter==="private"&&note.family_id)return false;
-  if(state.noteFamilyFilter&&state.noteFamilyFilter!=="private"&&note.family_id!==state.noteFamilyFilter)return false;
-  const family=state.families.find(item=>item.id===note.family_id);
-  return !query||note.title.toLocaleLowerCase().includes(query)||(family?.name||"").toLocaleLowerCase().includes(query);
- });
- target.innerHTML=visible.length?visible.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):(state.notes.length?'<div class="empty">No notes match these filters.</div>':'<div class="empty">No notes yet. Create one to get started.</div>');
+ target.innerHTML=state.notes.length?state.notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">No notes yet. Create one to get started.</div>';
 }
 function resetNoteEditor(){
  state.selectedNote=null;renderNotes();
@@ -125,15 +118,9 @@ async function selectNote(id){
  }catch(e){$("notes-status").textContent=e.message}
 }
 function renderNoteFamilies(){
- const select=$("note-family");if(select){const selected=select.value;
-  select.innerHTML='<option value="">Private — only me</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
-  if([...select.options].some(option=>option.value===selected))select.value=selected;
- }
- const filter=$("note-family-filter");if(!filter)return;
- const selectedFilter=state.noteFamilyFilter;
- filter.innerHTML='<option value="">All notes</option><option value="private">Private notes</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">Shared with '+escapeHtml(f.name)+'</option>').join("");
- state.noteFamilyFilter=[...filter.options].some(option=>option.value===selectedFilter)?selectedFilter:"";
- filter.value=state.noteFamilyFilter;
+ const select=$("note-family");if(!select)return;const selected=select.value;
+ select.innerHTML='<option value="">Private — only me</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
+ if([...select.options].some(option=>option.value===selected))select.value=selected;
 }
 async function loadNotes(){
  try{state.notes=await api("/notes");renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
@@ -364,7 +351,7 @@ async function sendMessage(){const input=$("prompt").value.trim();if(!input||!st
 async function retryMessage(){const retry=state.retry;if(!retry||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount;state.retry=null;renderMessages(state.messages,{label:"Retrying…",cancelEnabled:false});setComposerEnabled(false);setStatus("Retrying…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input:retry.input,retry:true})});state.activeRuns[id]={run_id:result.run_id,conversation_id:id,input:retry.input,status:result.status};await loadConversations();if(state.selected!==id)return;state.runId=result.run_id;renderMessages(state.messages,{label:"Thinking…",cancelEnabled:true});setStatus("Running · "+result.run_id.slice(0,8));await pollRun(id,result.run_id,previousMessageCount,retry.input)}catch(error){if(state.selected===id){state.retry=retry;renderMessages(state.messages,null,state.retry);setStatus(error.message,"error");setComposerEnabled(true)}}}
 async function pollRun(conversationId,runId,previousMessageCount,input){clearInterval(state.pollTimer);state.pollTimer=null;const poll=async()=>{if(state.selected!==conversationId||state.runId!==runId)return;try{const [run,events]=await Promise.all([api("/runs/"+encodeURIComponent(runId)),api("/runs/"+encodeURIComponent(runId)+"/events")]);if(state.selected!==conversationId||state.runId!==runId)return;renderRunEvents(events);if(!TERMINAL.has(run.status)){renderMessages(state.messages,{label:run.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+run.status);return}clearInterval(state.pollTimer);state.pollTimer=null;state.runId=null;delete state.activeRuns[conversationId];let conversation=null;for(let attempt=0;attempt<40;attempt++){conversation=await api("/conversations/"+encodeURIComponent(conversationId));if((conversation.messages||[]).length>previousMessageCount)break;await new Promise(resolve=>setTimeout(resolve,100))}if(state.selected===conversationId){$("conversation-title").textContent=conversation.title||"New conversation";$("conversation-meta").textContent="Agent · "+conversation.agent+" · Conversation "+conversation.id+" · ~"+Number(conversation.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";state.messageCount=(conversation.messages||[]).length;state.messages=conversation.messages||[];state.retry=null;if(run.status!=="completed"&&run.status!=="cancelled"){for(let i=state.messages.length-1;i>=0;i--){const part=messageParts(state.messages[i]);if(part?.kind==="user"&&part.value.content===input){state.retry={input,messageIndex:i};break}}}renderMessages(state.messages,null,state.retry);setComposerEnabled(true);setStatus(run.status==="completed"?"Completed":run.error||run.status,run.status==="completed"?"ok":"error")}await loadConversations();renderFamilySelector()}catch(e){if(state.selected!==conversationId||state.runId!==runId)return;clearInterval(state.pollTimer);state.pollTimer=null;state.runId=null;delete state.activeRuns[conversationId];setStatus("Unable to retrieve run: "+e.message,"error");setComposerEnabled(true);renderFamilySelector()}};await poll();if(state.selected===conversationId&&state.runId===runId)state.pollTimer=setInterval(poll,1000)}
 on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});
-on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("note-search","input",e=>{state.noteSearch=e.target.value;renderNotes()});on("note-family-filter","change",e=>{state.noteFamilyFilter=e.target.value;renderNotes()});on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
  try{state.tasks=await api("/tasks");renderTasks()}
@@ -380,6 +367,7 @@ function renderTaskAgents(){
 }
 function resetTaskEditor(){
  state.selectedTask=null;renderTasks();
+ const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
  $("task-heading").textContent="Select a task";
  $("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
@@ -387,6 +375,7 @@ function resetTaskEditor(){
 }
 function startNewTask(){
  state.selectedTask="new";renderTasks();
+ const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
  $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
@@ -403,6 +392,7 @@ function selectTask(id){
  $("task-at").value=task.at?toLocalDateTime(task.at):"";
  $("task-timezone").value=task.timezone||"Europe/Madrid";$("task-enabled").checked=!!task.enabled;
  $("tasks-status").textContent=task.enabled?"Task is enabled.":"Task is disabled.";
+ if(typeof loadTaskExecutions==="function")void loadTaskExecutions(id);
 }
 async function saveTask(event){
  event.preventDefault();
@@ -676,4 +666,72 @@ window.emeConsoleReady.then(async () => {
     $("connection").className = "hint error";
     console.error("Failed to initialize console page", error);
   }
+});
+
+
+const taskExecutionLabels={
+ queued:"Queued",started:"Execution started",model_requested:"Model request",
+ model_candidates_discovered:"Compatible models",model_candidate_attempt_started:"Trying model",
+ model_candidate_attempt_failed:"Model candidate failed",model_fallback:"Model fallback",
+ model_selected:"Model selected",model_routing_failed:"Model routing failed",
+ model_responded:"Model response",tool_execution_started:"Tool started",
+ tool_execution_finished:"Tool finished",model_failed:"Model request failed",
+ runtime_cancelled:"Runtime cancelled",runtime_timed_out:"Runtime timed out",
+ completed:"Completed",failed:"Failed",cancelled:"Cancelled",timed_out:"Timed out",
+ max_iterations_reached:"Maximum iterations reached"
+};
+
+function renderTaskExecutionEvent(event){
+ const timestamp=Number(event.occurred_at_unix_ms);
+ const time=Number.isFinite(timestamp)?new Date(timestamp).toLocaleString():"";
+ const details=[
+  event.iteration!==null&&event.iteration!==undefined?"Iteration "+event.iteration:null,
+  event.tool_name,event.model_id,
+  event.next_model_id?"Next: "+event.next_model_id:null,
+  event.model_candidates?.length?"Candidates: "+event.model_candidates.join(", "):null,
+  event.error_category
+ ].filter(Boolean).join(" · ");
+ return '<li class="run-event"><div><strong>'+escapeHtml(taskExecutionLabels[event.kind]||event.kind)+'</strong><span class="hint">'+escapeHtml(time)+'</span></div>'+(details?'<div class="hint">'+escapeHtml(details)+'</div>':'')+'<details><summary>Event payload</summary><pre>'+escapeHtml(JSON.stringify(event,null,2))+'</pre></details></li>';
+}
+
+function renderTaskExecution(execution){
+ const created=Number(execution.created_at_unix_ms);
+ const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+ const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
+ const status=String(execution.status||"unknown").replaceAll("_"," ");
+ const events=(execution.events||[]).map(renderTaskExecutionEvent).join("");
+ const output=execution.response
+  ?'<section class="tool-section"><h4>Final output</h4><div class="markdown-content">'+renderMarkdown(execution.response)+'</div></section>'
+  :'<section class="tool-section"><h4>Final output</h4><p class="hint">No final response was recorded.</p></section>';
+ const failure=execution.error
+  ?'<section class="tool-section"><h4>Error</h4><pre class="tool-error">'+escapeHtml(execution.error)+'</pre></section>':"";
+ const input='<section class="tool-section"><h4>Submitted prompt</h4><pre>'+escapeHtml(execution.input||"")+'</pre></section>';
+ const timeline='<details class="tool-details"><summary>Execution timeline · '+(execution.events||[]).length+' events</summary><ol class="run-events">'+(events||'<li class="hint">No events recorded.</li>')+'</ol></details>';
+ const usage='<details class="tool-details"><summary>Model usage · '+(execution.usage||[]).length+' invocations</summary><pre>'+escapeHtml(JSON.stringify(execution.usage||[],null,2))+'</pre></details>';
+ return '<details class="task-execution tool-details"><summary><strong>'+escapeHtml(date)+'</strong> · <span class="task-execution-status">'+escapeHtml(status)+'</span> · '+escapeHtml(duration)+'</summary><div class="tool-detail-body"><div class="hint">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div>'+failure+output+input+timeline+usage+'</div></details>';
+}
+
+async function loadTaskExecutions(taskId){
+ const panel=$("task-executions"),target=$("task-executions-list");
+ if(!panel||!target||!taskId||taskId==="new")return;
+ panel.hidden=false;
+ target.innerHTML='<div class="empty">Loading execution history…</div>';
+ const refresh=$("task-executions-refresh");if(refresh)refresh.disabled=true;
+ try{
+  const executions=await api("/tasks/"+encodeURIComponent(taskId)+"/executions");
+  if(state.selectedTask!==taskId)return;
+  if(!executions.length){
+   target.innerHTML='<div class="empty">No executions recorded for this task yet.</div>';
+   return;
+  }
+  const visible=executions.slice(0,25);
+  target.innerHTML=visible.map(renderTaskExecution).join("")+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
+ }catch(error){
+  if(state.selectedTask===taskId)target.innerHTML='<div class="empty">Unable to load execution history: '+escapeHtml(error.message)+'</div>';
+ }finally{
+  if(refresh)refresh.disabled=false;
+ }
+}
+$("task-executions-refresh")?.addEventListener("click",()=>{
+ if(state.selectedTask&&state.selectedTask!=="new")void loadTaskExecutions(state.selectedTask);
 });
