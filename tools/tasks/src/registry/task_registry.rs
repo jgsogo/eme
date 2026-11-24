@@ -403,7 +403,7 @@ fn validate(t: &Task) -> Result<(), TaskError> {
     }
     Ok(())
 }
-fn next_run(t: &Task, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>, TaskError> {
+pub(super) fn next_run(t: &Task, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>, TaskError> {
     if !t.enabled {
         return Ok(None);
     }
