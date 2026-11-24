@@ -103,20 +103,52 @@
     dialog.showModal();
   }
 
+  function filterCatalogueResults() {
+    const selectedCategory = $("catalogue-category-filter").value;
+    const cards = [...$("catalogue-results").children];
+    let visible = 0;
+    for (const card of cards) {
+      const matches = !selectedCategory || card.dataset.category === selectedCategory;
+      card.hidden = !matches;
+      if (matches) visible++;
+    }
+    const total = cards.length;
+    $("catalogue-results-summary").textContent = total
+      ? selectedCategory
+        ? `${visible} of ${total} catalogue results · ${selectedCategory}`
+        : `${total} catalogue result${total === 1 ? "" : "s"}`
+      : "No matching records";
+  }
+
   async function searchCatalogue(event) {
     event.preventDefault(); const q = $("catalogue-query").value.trim(); if (!q) return;
     const summary = $("catalogue-results-summary");
     const container = $("catalogue-results");
+    const categoryFilter = $("catalogue-category-filter");
     summary.textContent = "Searching RABEL…";
     container.replaceChildren();
+    categoryFilter.replaceChildren(new Option("All document categories", ""));
+    categoryFilter.hidden = true;
     try {
       const results = await api(`/books/catalogue/search?q=${encodeURIComponent(q)}`);
       container.replaceChildren();
-      summary.textContent = results.length ? `${results.length} catalogue result${results.length === 1 ? "" : "s"}` : "No matching records";
+      const categories = [...new Set(results.map(result => result.category || "Document type not specified"))]
+        .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
+      for (const category of categories) categoryFilter.add(new Option(category, category));
+      categoryFilter.hidden = results.length === 0;
       for (const result of results) {
-        const card = document.createElement("article"); card.className = "catalogue-entry";
-        const details = document.createElement("div"); details.className = "catalogue-entry-details";
-        const author = document.createElement("p"); author.className = "catalogue-entry-author";
+        const category = result.category || "Document type not specified";
+        const card = document.createElement("article");
+        card.className = "catalogue-entry";
+        card.dataset.category = category;
+        const details = document.createElement("div");
+        details.className = "catalogue-entry-details";
+        const categoryLabel = document.createElement("p");
+        categoryLabel.className = "catalogue-entry-category";
+        categoryLabel.textContent = category;
+        details.append(categoryLabel);
+        const author = document.createElement("p");
+        author.className = "catalogue-entry-author";
         author.textContent = (result.authors || []).filter(Boolean).join(", ") || "Author not specified";
         details.append(author);
         const openDetails = button(result.title || "Untitled record", () => showCatalogueItem(result));
@@ -140,6 +172,7 @@
               catalogue_url: null
             }) });
             $("add-book-dialog").close(); $("catalogue-results").replaceChildren(); $("catalogue-results-summary").textContent = "Enter a search term to find books."; $("catalogue-query").value = "";
+            $("catalogue-category-filter").replaceChildren(new Option("All document categories", "")); $("catalogue-category-filter").hidden = true;
             await loadBooks(); state.collectionQuery = ""; $("collection-search").value = ""; await selectBook(book); status("Book added.");
           } catch (error) { status(error.message); }
         });
@@ -147,6 +180,7 @@
         card.append(add);
         container.append(card);
       }
+      filterCatalogueResults();
     } catch (error) { summary.textContent = "Catalogue search failed"; container.textContent = error.message; }
   }
   async function saveBook(event) {
@@ -333,6 +367,7 @@
   $("close-add-book").addEventListener("click", () => $("add-book-dialog").close());
   $("add-book-dialog").addEventListener("click", event => { if (event.target === $("add-book-dialog")) $("add-book-dialog").close(); });
   $("catalogue-search").addEventListener("submit", searchCatalogue);
+  $("catalogue-category-filter").addEventListener("change", filterCatalogueResults);
   $("book-form").addEventListener("submit", saveBook);
   $("delete-book").addEventListener("click", removeBook);
   $("refresh-catalogue").addEventListener("click", refreshCatalogue);
