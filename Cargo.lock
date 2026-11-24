@@ -609,6 +609,7 @@ dependencies = [
  "agent-runtime",
  "async-trait",
  "chrono",
+ "rabel-tool",
  "rusqlite",
  "serde",
  "serde_json",
