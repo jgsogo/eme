@@ -6,7 +6,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Library {
     pub id: String,
+    /// Display label with the OPAC's leading hierarchy markers removed.
     pub name: String,
+    /// Nesting level encoded by leading '>' characters in the RABEL selector.
+    #[serde(default)]
+    pub depth: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
