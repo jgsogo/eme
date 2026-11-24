@@ -24,7 +24,7 @@ pub use types::{Availability, CatalogueItem, CatalogueSearchResult, CopyHolding,
 #[rustfmt::skip]
 pub fn register_tools(registry: &mut ToolRegistry) -> Result<(), ConfigError> {
     let client = Arc::new(RabelClient::new().map_err(|error| {
-        ConfigError::invalid("tool", None, format!("cannot create RABEL client: {error}"))
+        ConfigError::invalid("tool", None::<PathBuf>, format!("cannot create RABEL client: {error}"))
     })?);
     let data = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data");
     registry.register_from_file(data.join("search_catalog.toml"), tool::SearchCatalog(client.clone()))?;
