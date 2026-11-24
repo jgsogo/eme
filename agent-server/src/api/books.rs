@@ -88,7 +88,7 @@ async fn holdings(
         let wanted_title = normalize_title(&book.title);
         let record = results.iter().find(|result| {
             wanted_isbn.as_ref().is_some_and(|isbn| {
-                result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) == *isbn)
+                result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate).as_str() == isbn.as_str())
             })
         }).or_else(|| {
             // ISBN is preferred, but some catalogue records omit it. Fall back
