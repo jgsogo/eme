@@ -388,7 +388,6 @@ function resetTaskEditor(){
 function startNewTask(){
  state.selectedTask="new";renderTasks();
  updateTaskSectionTabs("details");
- const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=false;
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
  $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
