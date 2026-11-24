@@ -65,11 +65,21 @@ fn test_registry() -> (
     let registry = TaskRegistry::load(&directory).unwrap();
     registry.validate_agents(["assistant".to_owned()]).unwrap();
     let identities = Arc::new(FileUserIdentityStore::open(directory.join("users.json")).unwrap());
-    let (user, _) = identities.resolve_or_create("telegram", "42", None).unwrap();
+    let (user, _) = identities
+        .resolve_or_create("telegram", "42", None)
+        .unwrap();
     let family_store = Arc::new(InMemoryFamilyStore::default());
-    let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(&family_store)));
+    let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(
+        &family_store,
+    )));
     let families = Arc::new(FamilyService::new(family_store, invitations));
-    (registry, directory, identities, families, user.id.to_string())
+    (
+        registry,
+        directory,
+        identities,
+        families,
+        user.id.to_string(),
+    )
 }
 
 fn recording_manager(
