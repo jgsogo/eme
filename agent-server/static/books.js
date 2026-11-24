@@ -8,6 +8,11 @@
   }
   const status = message => { $("books-status").textContent = message; };
   function button(label, action) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", action); return b; }
+  function catalogueItemPath(result) {
+    const params = new URLSearchParams({ q: result.title, title: result.title });
+    if (result.isbn) params.set("isbn", result.isbn);
+    return "/books/catalogue/item?" + params.toString();
+  }
   function renderBooks() {
     const list = $("books-list"); list.replaceChildren();
     const query = state.collectionQuery.trim().toLocaleLowerCase();
@@ -105,7 +110,7 @@
     content.textContent = "Loading bibliographic details…";
     dialog.showModal();
     try {
-      const item = await api("/books/catalogue/item?record_ref=" + encodeURIComponent(result.record_ref));
+      const item = await api(catalogueItemPath(result));
       $("catalogue-item-heading").textContent = item.title || result.title;
       content.replaceChildren();
       const fields = [
