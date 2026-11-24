@@ -16,31 +16,31 @@ pub fn register_tools(registry: &mut ToolRegistry, store: BookStore) -> Result<(
     registry.register(def(
         "books.list_libraries",
         "List RABEL libraries and identify which ones are selected as this user's preferred libraries.",
-        object(json!({}), &[]),
+        object(json!({}), &[])),
         ListLibraries(store.clone()),
     ))?;
     registry.register(def(
         "books.set_preferred_libraries",
         "Replace the authenticated user's preferred RABEL libraries. Use library IDs returned by books.list_libraries; an empty list clears the selection.",
-        object(json!({"library_ids":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true}}), &["library_ids"]),
+        object(json!({"library_ids":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true}}), &["library_ids"])),
         SetPreferredLibraries(store.clone()),
     ))?;
     registry.register(def(
         "books.check_availability",
         "Fetch live copy-level availability for a book in every preferred library. This performs fresh RABEL catalogue requests and does not infer availability from stored metadata.",
-        object(json!({"id":{"type":"string","minLength":1}}), &["id"]),
+        object(json!({"id":{"type":"string","minLength":1}}), &["id"])),
         CheckAvailability(store.clone()),
     ))?;
     registry.register(def(
         "books.check_catalogue_availability",
         "Check a catalogue title or ISBN in every preferred RABEL library without first adding it to the personal collection. Returns fresh copy-level holdings per library.",
-        object(json!({"title":{"type":"string","minLength":1},"isbn":{"type":["string","null"]}}), &["title"]),
+        object(json!({"title":{"type":"string","minLength":1},"isbn":{"type":["string","null"]}}), &["title"])),
         CheckCatalogueAvailability(store.clone()),
     ))?;
     registry.register(def(
         "books.refresh_catalogue",
         "Refresh bibliographic metadata for a collection book from RABEL, matching by ISBN first and exact parsed title as a fallback. Personal rating, reading status, purchase intent and review are preserved.",
-        object(json!({"id":{"type":"string","minLength":1}}), &["id"]),
+        object(json!({"id":{"type":"string","minLength":1}}), &["id"])),
         RefreshCatalogue(store),
     ))?;
     Ok(())
