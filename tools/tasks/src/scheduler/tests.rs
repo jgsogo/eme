@@ -100,7 +100,7 @@ fn calculates_recurring_occurrences_in_requested_timezone() {
 #[test]
 fn skips_missed_occurrences() {
     let schedule = Schedule::from_str("0 0 8 * * *").unwrap();
-    let after = Utc::now() + Duration::days(2);
+    let after = Utc::now() + ChronoDuration::days(2);
     assert!(next_occurrence(&schedule, "UTC".parse().unwrap(), after).unwrap() > after);
 }
 
