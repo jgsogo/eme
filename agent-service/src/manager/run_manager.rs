@@ -284,7 +284,8 @@ impl RunManager {
         history: Vec<Message>,
         context: ToolContext,
     ) -> Result<RunId, SubmitRunError> {
-        self.submit_inner(agent, input, history, context, None).await
+        self.submit_inner(agent, input, history, context, None)
+            .await
     }
 
     async fn submit_inner(
@@ -394,7 +395,6 @@ impl RunManager {
         Ok(run_id)
     }
 
-
     /// Submits an execution on behalf of a scheduled task and records the
     /// task/run association before returning the run identifier.
     pub async fn submit_for_task(
@@ -410,7 +410,8 @@ impl RunManager {
                 "execution storage is not configured".into(),
             ));
         }
-        self.submit_inner(agent, input, history, context, Some(task_id)).await
+        self.submit_inner(agent, input, history, context, Some(task_id))
+            .await
     }
 
     pub async fn cancel(&self, run_id: RunId) -> Result<CancelRunOutcome, CancelRunError> {
@@ -508,7 +509,6 @@ impl RunManager {
             }
         }
     }
-
 
     /// Lists the durable executions associated with one scheduled task.
     pub async fn task_runs(&self, task_id: Uuid) -> Result<Vec<Run>, String> {
