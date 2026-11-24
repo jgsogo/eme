@@ -21,6 +21,9 @@ pub struct CatalogueSearchResult {
     pub title: String,
     pub authors: Vec<String>,
     pub publication: Option<String>,
+    /// Catalogue document class (for example monograph, video recording, or periodical).
+    #[serde(default)]
+    pub category: Option<String>,
     pub isbn: Option<String>,
 }
 
