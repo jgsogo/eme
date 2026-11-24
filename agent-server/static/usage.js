@@ -86,8 +86,11 @@ function render(){
 }
 async function load(){
  const runId=new URLSearchParams(window.location.search).get("run_id");
+ const refresh=$("usage-refresh");refresh.disabled=true;
  $("usage-status").textContent=runId?"Loading run usage…":"Loading usage records…";
  $("usage-status").className="usage-status";
+ $("usage-models").innerHTML='<p class="usage-empty" role="status">Loading usage…</p>';
+ $("usage-records").innerHTML='<tr><td colspan="8" class="usage-empty" role="status">Loading invocations…</td></tr>';
  try{
   const endpoint=runId?"/runs/"+encodeURIComponent(runId)+"/usage":"/runs/usage";
   const response=await fetch(endpoint,{headers:{Accept:"application/json"}});
@@ -104,7 +107,9 @@ async function load(){
  }catch(error){
   $("usage-status").textContent="Could not load usage: "+error.message;
   $("usage-status").className="usage-status error";
- }
+  $("usage-models").innerHTML='<p class="usage-empty" role="alert">Usage data could not be loaded.</p>';
+  $("usage-records").innerHTML='<tr><td colspan="8" class="usage-empty" role="alert">Usage data could not be loaded. Use Refresh to try again.</td></tr>';
+ }finally{refresh.disabled=false}
 }
 function renderPricing(){
  const rate=value=>value==null?"—":(value/1000000).toFixed(6);
@@ -129,6 +134,8 @@ async function loadPricing(){
 }
 async function savePricing(event){
  event.preventDefault();
+ const submitButton=event.submitter||$("pricing-form").querySelector('[type="submit"]');
+ if(submitButton)submitButton.disabled=true;
  const status=$("pricing-status");
  const readRate=id=>{
   const raw=$(id).value.trim();
@@ -174,7 +181,7 @@ async function savePricing(event){
   await Promise.all([loadPricing(),load()]);
  }catch(error){
   status.textContent="Could not save pricing: "+error.message;
- }
+ }finally{if(submitButton)submitButton.disabled=false}
 }
 $("usage-refresh").addEventListener("click",()=>{load();loadPricing()});
 $("usage-period").addEventListener("change",render);
