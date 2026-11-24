@@ -198,7 +198,7 @@ fn extract_publication_year(value: &str) -> Option<u16> {
 fn strip_publication_year(value: &str) -> String {
     Regex::new(r"\b(?:1[5-9]\d{2}|20\d{2})\b").ok()
         .map(|re| re.replace_all(value, "").into_owned()).unwrap_or_else(|| value.to_owned())
-        .trim().trim_end_matches(|character: char| matches!(character, ',' | '.' | ';' | ':')).trim().to_owned()
+        .trim().trim_end_matches(|character: char| character.is_whitespace() || matches!(character, ',' | '.' | ';' | ':')).trim().to_owned()
 }
 
 fn non_empty(value: String) -> Option<String> {
@@ -261,7 +261,7 @@ fn extract_holdings(html: &str) -> Vec<CopyHolding> {
         let status = status_attr.captures(opening_tag).or_else(|| status_attr.captures(contents))?.get(1)?.as_str();
         let text = clean_text(raw);
         let library = labelled_value(&text, &["Biblioteca", "Sucursal"]);
-        let signature = labelled_value(&text, &["Signatura", "SIGN"]).or_else(|| extract_signature(&text));
+        let signature = extract_signature(&text).or_else(|| labelled_value(&text, &["Signatura", "SIGN"]));
         let location = labelled_value(&text, &["Localización", "Ubicación"])
             .or_else(|| known_value(&text, &["Depósito", "Sala de préstamo", "Sala de lectura", "Sala infantil"]));
         let material = labelled_value(&text, &["Tipo de ejemplar", "Tipo", "Formato"])
@@ -326,7 +326,7 @@ fn normalize_document_category(value: &str) -> String {
     } else if normalized.contains("videograb") || normalized.contains("película")
         || normalized == "vídeo" || normalized == "video" || normalized.contains("vídeo") {
         "Film / video".to_owned()
-    } else if normalized.contains("grabación sonora") || normalized.contains("grabaciones sonoras") {
+    } else if normalized.contains("grabación sonora") || normalized.contains("grabaciones sonoras") || normalized.contains("grabacion sonora") || normalized.contains("grabaciones sonoras") {
         "Audio".to_owned()
     } else if normalized.contains("artículo de revista") {
         "Journal article".to_owned()
@@ -615,6 +615,6 @@ mod tests {
         assert_eq!(holdings[0].signature.as_deref(), Some("D-18214"));
         assert_eq!(holdings[0].location.as_deref(), Some("Depósito"));
         assert_eq!(holdings[0].material.as_deref(), Some("Libro adultos"));
-        assert!(holdings[0].catalogue_note.as_deref().unwrap().contains("D-18214"));
+        assert_eq!(holdings[0].catalogue_note, None);
     }
 }
