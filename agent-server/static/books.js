@@ -109,9 +109,14 @@
       content.replaceChildren();
       const fields = [
         ["Authors", (item.authors || []).join(", ")],
+        ["Title / responsibility", item.responsibility],
         ["Publisher", item.publisher],
-        ["Publication", result.publication],
+        ["Publication statement", item.publication_statement || result.publication],
         ["Publication year", item.publication_year],
+        ["Physical description", item.physical_description],
+        ["Series", item.series],
+        ["Notes", (item.notes || []).join("; ")],
+        ["Subjects", (item.subjects || []).join("; ")],
         ["ISBN", item.isbn]
       ].filter(([,value]) => value !== null && value !== undefined && value !== "");
       if (fields.length) {
@@ -148,7 +153,21 @@
         card.append(details);
         const add = button("Add to my collection", async () => {
           try {
-            const book = await api("/books", { method: "POST", body: JSON.stringify({ title: result.title, authors: result.authors, isbn: result.isbn, catalogue_url: null }) });
+            const item = await api("/books/catalogue/item?record_ref=" + encodeURIComponent(result.record_ref));
+            const book = await api("/books", { method: "POST", body: JSON.stringify({
+              title: item.title || result.title,
+              authors: item.authors || result.authors || [],
+              isbn: item.isbn || result.isbn,
+              publisher: item.publisher,
+              publication_year: item.publication_year,
+              responsibility: item.responsibility,
+              publication_statement: item.publication_statement,
+              physical_description: item.physical_description,
+              series: item.series,
+              notes: item.notes || [],
+              subjects: item.subjects || [],
+              catalogue_url: null
+            }) });
             $("add-book-dialog").close(); $("catalogue-results").replaceChildren(); $("catalogue-results-summary").textContent = "Enter a search term to find books."; $("catalogue-query").value = "";
             await loadBooks(); state.collectionQuery = ""; $("collection-search").value = ""; await selectBook(book); status("Book added.");
           } catch (error) { status(error.message); }
