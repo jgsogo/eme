@@ -14,6 +14,7 @@ The authenticated assistant also has collection-aware tools registered by `books
 
 - `books.list_libraries` and `books.set_preferred_libraries`: inspect and update the current user's selected libraries.
 - `books.check_availability`: resolve a saved book independently in every selected library and fetch live copy-level holdings, including per-library status and check time.
+- `books.check_catalogue_availability`: check a title/ISBN against all selected libraries before adding it to the personal collection.
 - `books.refresh_catalogue`: refresh bibliographic metadata for a saved book without changing personal collection fields.
 - `books.list/get/add/update/remove`: manage the user's own collection. Tool access is scoped to the authenticated `ToolContext.user_id`.
 
