@@ -205,6 +205,7 @@
         const section = document.createElement("section"); section.className = "holding";
         const heading = document.createElement("strong"); heading.textContent = library.library_name; section.append(heading);
         if (library.status === "not_found") section.append(document.createTextNode(" · No matching catalogue record."));
+        else if (library.status === "ambiguous") section.append(document.createTextNode(` · ${library.error || "Multiple catalogue records match this book; availability is not reported."}`));
         else if (library.status === "error") section.append(document.createTextNode(` · ${library.error}`));
         else {
           const timestamp = document.createElement("small"); timestamp.textContent = library.checked_at ? ` · Checked ${new Date(library.checked_at).toLocaleString()}` : ""; section.append(timestamp);
