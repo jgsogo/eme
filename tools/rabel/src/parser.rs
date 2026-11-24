@@ -421,7 +421,7 @@ mod tests {
         assert_eq!(item.publication_statement.as_deref(), Some("Valencia : Fundación Ignacio Villalonga, 1961."));
         assert_eq!(item.physical_description.as_deref(), Some("454 p. ; 22 cm."));
         assert_eq!(item.series.as_deref(), Some("Biblioteca de estudios económicos"));
-        assert_eq!(item.notes, vec!["Índice de autores"]);
+        assert_eq!(item.notes, vec!["Índice de autores."]);
         assert_eq!(item.subjects, vec!["Libertad", "Política económica", "Derechos humanos", "Política social"]);
         assert_eq!(item.isbn.as_deref(), Some("84-254-1151-3"));
     }
