@@ -8,15 +8,15 @@ use crate::{Book, BookInput, BookStore, BookUpdate};
 
 pub fn register_tools(registry: &mut ToolRegistry, store: BookStore) -> Result<(), agent_config::ConfigError> {
     registry.register(def("books.list", "List books in the authenticated user's personal collection.", object(json!({}), &[])), List(store.clone()))?;
-    registry.register(def("books.get", "Get a book from the authenticated user's personal collection.", object(json!({"id":{"type":"string","minLength":1}}), &["id"]), Get(store.clone()))?;
-    registry.register(def("books.add", "Add a book to the authenticated user's personal collection.", book_input_schema(), Add(store.clone()))?;
-    registry.register(def("books.update", "Update catalogue or personal metadata for a book in the authenticated user's collection.", book_update_schema(), Update(store.clone()))?;
-    registry.register(def("books.remove", "Remove a book from the authenticated user's personal collection.", object(json!({"id":{"type":"string","minLength":1}}), &["id"]), Remove(store.clone()))?;
+    registry.register(def("books.get", "Get a book from the authenticated user's personal collection.", object(json!({"id":{"type":"string","minLength":1}}), &["id"])), Get(store.clone()))?;
+    registry.register(def("books.add", "Add a book to the authenticated user's personal collection.", book_input_schema()), Add(store.clone()))?;
+    registry.register(def("books.update", "Update catalogue or personal metadata for a book in the authenticated user's collection.", book_update_schema()), Update(store.clone()))?;
+    registry.register(def("books.remove", "Remove a book from the authenticated user's personal collection.", object(json!({"id":{"type":"string","minLength":1}}), &["id"])), Remove(store.clone()))?;
 
     registry.register(def(
         "books.list_libraries",
         "List RABEL libraries and identify which ones are selected as this user's preferred libraries.",
-        object(json!({})),
+        object(json!({}), &[]),
         ListLibraries(store.clone()),
     ))?;
     registry.register(def(
