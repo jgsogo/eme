@@ -11,7 +11,7 @@ fn actor(r:&HttpRequest,a:&crate::auth::TelegramAuth,i:&FileUserIdentityStore)->
  let identity=i.find_identity("telegram",subject).map_err(|_|HttpResponse::InternalServerError().finish())?.ok_or_else(||HttpResponse::Unauthorized().finish())?;
  Ok(identity.user_id.to_string())
 }
-fn error(e:BookStoreError)->HttpResponse{match e{BookStoreError::NotFound=>HttpResponse::NotFound().finish(),BookStoreError::Invalid(m)=>HttpResponse::BadRequest().body(m),_=>HttpResponse::InternalServerError().finish()}}
+fn book_error(e:BookStoreError)->HttpResponse{match e{BookStoreError::NotFound=>HttpResponse::NotFound().finish(),BookStoreError::Invalid(m)=>HttpResponse::BadRequest().body(m),_=>HttpResponse::InternalServerError().finish()}}
 #[derive(Deserialize)] struct LibrarySelection{library_ids:Vec<String>}
 #[derive(Deserialize)]
 struct CatalogueSearchQuery { q: String }
@@ -49,18 +49,18 @@ async fn holdings(
     };
     let book = match store.get(&user, &id).await {
         Ok(book) => book,
-        Err(error) => return error(error),
+        Err(error) => return book_error(error),
     };
-    let selected = match store.preferred_libraries(&user).await {
-        Ok(libraries) => libraries,
-        Err(error) => return error(error),
+    let selected_libraries = match store.preferred_libraries(&user).await {
+        Ok(selected_libraries) => selected_libraries,
+        Err(store_error) => return book_error(store_error),
     };
-    let mut libraries = Vec::with_capacity(selected.len());
-    for (library_id, library_name) in selected {
+    let mut library_results = Vec::with_capacity(selected_libraries.len());
+    for (library_id, library_name) in selected_libraries {
         let client = match RabelClient::for_subcatalog(&library_id) {
             Ok(client) => client,
             Err(error) => {
-                libraries.push(serde_json::json!({
+                library_results.push(serde_json::json!({
                     "library_id": library_id,
                     "library_name": library_name,
                     "status": "error",
@@ -124,7 +124,7 @@ async fn holdings(
     }
     HttpResponse::Ok().json(serde_json::json!({
         "book_id": book.id,
-        "libraries": libraries
+        "libraries": library_results
     }))
 }
 
@@ -139,7 +139,7 @@ fn normalize_title(value: &str) -> String {
 
 #[get("")] async fn list(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.list(&u).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error(e)}}
 #[post("")] async fn add(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,b:Json<BookInput>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.add(&u,b.into_inner()).await{Ok(v)=>HttpResponse::Created().json(v),Err(e)=>error(e)}}
-#[get("/libraries")] async fn libraries(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};let c=match RabelClient::new(){Ok(v)=>v,Err(_)=>return HttpResponse::InternalServerError().finish()};let available=match c.libraries().await{Ok(v)=>v,Err(_)=>return HttpResponse::BadGateway().finish()};let selected=match s.preferred_libraries(&u).await{Ok(v)=>v,Err(e)=>return error(e)};HttpResponse::Ok().json(serde_json::json!({"available":available,"selected":selected}))}
+#[get("/libraries")] async fn libraries(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};let c=match RabelClient::new(){Ok(v)=>v,Err(_)=>return HttpResponse::InternalServerError().finish()};let available=match c.libraries().await{Ok(v)=>v,Err(_)=>return HttpResponse::BadGateway().finish()};let selected=match s.preferred_libraries(&u).await{Ok(v)=>v,Err(e)=>return book_error(e)};HttpResponse::Ok().json(serde_json::json!({"available":available,"selected":selected}))}
 #[put("/libraries")] async fn set_libraries(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,b:Json<LibrarySelection>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};let c=match RabelClient::new(){Ok(v)=>v,Err(_)=>return HttpResponse::InternalServerError().finish()};let available=match c.libraries().await{Ok(v)=>v,Err(_)=>return HttpResponse::BadGateway().finish()};let mut selected=Vec::new();for id in &b.library_ids{if let Some(l)=available.iter().find(|l|&l.id==id){selected.push((l.id.clone(),l.name.clone()));}else{return HttpResponse::BadRequest().body(format!("unknown RABEL library id: {id}"));}}match s.set_preferred_libraries(&u,&selected).await{Ok(())=>HttpResponse::Ok().json(serde_json::json!({"selected":selected})),Err(e)=>error(e)}}
 #[get("/{id}")] async fn get(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.get(&u,&id).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error(e)}}
 #[put("/{id}")] async fn update(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>,b:Json<BookUpdate>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.update(&u,&id,b.into_inner()).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>error(e)}}
