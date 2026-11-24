@@ -62,7 +62,6 @@ impl RunStore for InMemoryStorage {
     }
 }
 
-
 #[async_trait]
 impl TaskRunStore for InMemoryStorage {
     async fn associate_task_run(&self, task_id: Uuid, run_id: Uuid) -> Result<(), StorageError> {
@@ -85,11 +84,18 @@ impl TaskRunStore for InMemoryStorage {
 
     async fn list_task_runs(&self, task_id: Uuid) -> Result<Vec<StoredRun>, StorageError> {
         let state = self.state.read().await;
-        let mut runs = state.task_runs.iter()
+        let mut runs = state
+            .task_runs
+            .iter()
             .filter(|(_, associated_task)| **associated_task == task_id)
             .filter_map(|(run_id, _)| state.runs.get(run_id).cloned())
             .collect::<Vec<_>>();
-        runs.sort_by(|left, right| right.created_at.cmp(&left.created_at).then_with(|| right.id.cmp(&left.id)));
+        runs.sort_by(|left, right| {
+            right
+                .created_at
+                .cmp(&left.created_at)
+                .then_with(|| right.id.cmp(&left.id))
+        });
         Ok(runs)
     }
 }
