@@ -34,6 +34,14 @@ pub struct CatalogueItem {
     pub publisher: Option<String>,
     pub publication_year: Option<u16>,
     pub isbn: Option<String>,
+    /// Text following the title proper after RABEL's title/responsibility slash.
+    pub responsibility: Option<String>,
+    /// Full publication statement as supplied by RABEL.
+    pub publication_statement: Option<String>,
+    pub physical_description: Option<String>,
+    pub series: Option<String>,
+    pub notes: Vec<String>,
+    pub subjects: Vec<String>,
 }
 
 /// Copy-level availability is deliberately separate from bibliographic data.
