@@ -321,7 +321,9 @@ mod context_tests {
             .resolve_or_create("telegram", "42", Some("Owner"))
             .unwrap();
         let family_store = Arc::new(InMemoryFamilyStore::default());
-        let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(&family_store)));
+        let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(
+            &family_store,
+        )));
         let family_service = FamilyService::new(family_store, invitations);
         let family = family_service
             .create_family(user.id, "Home", FamilyRelationship::Other)
