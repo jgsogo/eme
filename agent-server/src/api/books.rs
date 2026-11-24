@@ -45,6 +45,30 @@ async fn search_catalogue(
     }
 }
 
+#[get("/catalogue/item")]
+async fn catalogue_item(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    query: web::Query<std::collections::HashMap<String, String>>,
+) -> impl Responder {
+    if let Err(response) = actor(&request, &auth, &identities) { return response; }
+    let Some(record_ref) = query.get("record_ref").filter(|value| !value.trim().is_empty()) else {
+        return HttpResponse::BadRequest().body("record_ref must not be empty");
+    };
+    let client = match RabelClient::new() {
+        Ok(client) => client,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    match client.get_item(record_ref).await {
+        Ok(item) => HttpResponse::Ok().json(item),
+        Err(RabelError::Http(status)) => HttpResponse::BadGateway().body(format!("RABEL returned HTTP {status}")),
+        Err(RabelError::Request(_)) => HttpResponse::BadGateway().body("Could not connect to RABEL"),
+        Err(RabelError::Parse(_)) => HttpResponse::BadGateway().body("RABEL returned an unexpected record response"),
+        Err(RabelError::InvalidRecordReference) => HttpResponse::BadRequest().body("Invalid RABEL record reference"),
+    }
+}
+
 #[get("/{id}/holdings")]
 async fn holdings(
     request: HttpRequest,
@@ -152,4 +176,4 @@ fn normalize_title(value: &str) -> String {
 #[get("/{id}")] async fn get(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.get(&u,&id).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
 #[put("/{id}")] async fn update(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>,b:Json<BookUpdate>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.update(&u,&id,b.into_inner()).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
 #[delete("/{id}")] async fn remove(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.remove(&u,&id).await{Ok(())=>HttpResponse::NoContent().finish(),Err(e)=>book_error(e)}}
-pub fn books_api()->Scope{web::scope("/books").service(search_catalogue).service(list).service(add).service(holdings).service(get).service(update).service(remove)}
+pub fn books_api()->Scope{web::scope("/books").service(search_catalogue).service(catalogue_item).service(list).service(add).service(holdings).service(get).service(update).service(remove)}
