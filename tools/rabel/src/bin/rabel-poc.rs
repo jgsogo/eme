@@ -8,28 +8,47 @@ use rabel_tool::RabelClient;
 async fn main() -> Result<(), Box<dyn Error>> {
     let mut args = env::args().skip(1);
     let query = args.next().ok_or(
-        "usage: cargo run -p rabel-tool --bin rabel-poc -- <query> [output.html]",
+        "usage: cargo run -p rabel-tool --bin rabel-poc -- <query> [search.html] [document-number]",
     )?;
     let output = args
         .next()
         .unwrap_or_else(|| "rabel-search.html".to_owned());
+    let document = args.next().map(|value| value.parse::<u32>()).transpose()?;
 
     let client = RabelClient::new()?;
-    let response = client.search(&query).await?;
+    let search = client.search(&query).await?;
 
-    fs::write(&output, &response.html)?;
+    fs::write(&output, &search.html)?;
 
-    println!("HTTP status: {}", response.status);
+    println!("Search HTTP status: {}", search.status);
     println!(
         "Content-Type: {}",
-        response.content_type.as_deref().unwrap_or("<not provided>")
+        search.content_type.as_deref().unwrap_or("<not provided>")
     );
-    println!("Final URL: {}", response.final_url);
-    println!("Response size: {} bytes", response.html.len());
-    println!("Saved HTML: {output}");
+    println!("Final URL: {}", search.final_url);
+    println!("Response size: {} bytes", search.html.len());
+    println!("Saved search HTML: {output}");
 
-    if !(200..300).contains(&response.status) {
-        return Err(format!("RABEL returned HTTP {}", response.status).into());
+    if !(200..300).contains(&search.status) {
+        return Err(format!("RABEL returned HTTP {}", search.status).into());
+    }
+
+    if let Some(document) = document {
+        let record = client.record(&search, document).await?;
+        let record_output = format!("rabel-record-{document}.html");
+        fs::write(&record_output, &record.html)?;
+
+        println!("Record HTTP status: {}", record.status);
+        println!("Record URL: {}", record.final_url);
+        println!("Record response size: {} bytes", record.html.len());
+        println!("Saved record HTML: {record_output}");
+
+        if !(200..300).contains(&record.status) {
+            return Err(format!("RABEL returned HTTP {}", record.status).into());
+        }
+    } else {
+        println!("No document number supplied; skipping record-detail request.");
+        println!("Pass a third argument (for example, 1) to fetch a record.");
     }
 
     Ok(())
