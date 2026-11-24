@@ -130,8 +130,11 @@ pub(super) fn libraries(html: &str) -> Result<Vec<Library>, RabelError> {
         )))?;
     let libraries: Vec<Library> = options.captures_iter(select.as_str()).filter_map(|c| {
         let id = c.get(1)?.as_str().trim().to_owned();
-        let name = clean_text(c.get(2)?.as_str());
-        (!id.is_empty() && !name.is_empty()).then_some(Library { id, name })
+        let raw_name = clean_text(c.get(2)?.as_str());
+        let trimmed_name = raw_name.trim_start();
+        let depth = trimmed_name.chars().take_while(|character| *character == '>').count();
+        let name = trimmed_name[depth..].trim().to_owned();
+        (!id.is_empty() && !name.is_empty()).then_some(Library { id, name, depth })
     }).collect();
     if libraries.is_empty() {
         return Err(RabelError::Parse("RABEL library selector contains no usable options".into()));
@@ -248,6 +251,31 @@ mod tests {
         assert_eq!(libraries[0].id, "SAL/BPSA");
         assert_eq!(libraries[0].name, "Biblioteca Pública de Salamanca");
         assert_eq!(libraries[1].id, "SAL/BPBE");
+    }
+
+    #[test]
+    fn parses_library_hierarchy_markers_as_depth() {
+        let html = r#"<select id="subcat" name="subcat">
+            <option value="SAL">Salamanca</option>
+            <option value="SAL/BPSA">&gt;SALAMANCA. Biblioteca Pública de Salamanca</option>
+            <option value="SAL/BPSA-1">&gt;&gt;Pública de Salamanca</option>
+            <option value="SAL/ARCH">&gt;Archivos de Salamanca</option>
+            <option value="SAL/ARCH/BIB">&gt;&gt;SALAMANCA. Archivo Histórico Provincial. Biblioteca</option>
+        </select>"#;
+        let libraries = libraries(html).unwrap();
+
+        assert_eq!(libraries.len(), 5);
+        assert_eq!((libraries[0].name.as_str(), libraries[0].depth), ("Salamanca", 0));
+        assert_eq!(
+            (libraries[1].name.as_str(), libraries[1].depth),
+            ("SALAMANCA. Biblioteca Pública de Salamanca", 1)
+        );
+        assert_eq!((libraries[2].name.as_str(), libraries[2].depth), ("Pública de Salamanca", 2));
+        assert_eq!((libraries[3].name.as_str(), libraries[3].depth), ("Archivos de Salamanca", 1));
+        assert_eq!(
+            (libraries[4].name.as_str(), libraries[4].depth),
+            ("SALAMANCA. Archivo Histórico Provincial. Biblioteca", 2)
+        );
     }
 
     #[test]
