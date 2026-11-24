@@ -221,3 +221,32 @@ fn submission_retry_backoff_is_bounded() {
     assert_eq!(submission_retry_delay(3), Duration::from_secs(30));
     assert_eq!(submission_retry_delay(20), Duration::from_secs(30));
 }
+
+
+#[test]
+fn recurring_cron_occurrences_respect_timezone_across_daylight_saving() {
+    let schedule = Schedule::from_str("0 0 8 * * *").unwrap();
+    let timezone = "Europe/Madrid".parse().unwrap();
+
+    let before_spring = chrono::DateTime::parse_from_rfc3339("2026-03-28T07:01:00Z")
+        .unwrap()
+        .to_utc();
+    let spring_next = next_occurrence(&schedule, timezone, before_spring).unwrap();
+    assert_eq!(
+        spring_next,
+        chrono::DateTime::parse_from_rfc3339("2026-03-29T06:00:00Z")
+            .unwrap()
+            .to_utc()
+    );
+
+    let before_autumn = chrono::DateTime::parse_from_rfc3339("2026-10-24T06:01:00Z")
+        .unwrap()
+        .to_utc();
+    let autumn_next = next_occurrence(&schedule, timezone, before_autumn).unwrap();
+    assert_eq!(
+        autumn_next,
+        chrono::DateTime::parse_from_rfc3339("2026-10-25T07:00:00Z")
+            .unwrap()
+            .to_utc()
+    );
+}
