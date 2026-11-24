@@ -157,7 +157,7 @@ async fn due_cron_task_is_submitted_to_the_run_manager() {
 
 #[tokio::test]
 async fn one_time_task_is_retained_and_retried_when_the_run_queue_is_full() {
-    let (registry, directory) = test_registry();
+    let (registry, directory, identities, families, user_id) = test_registry();
     let task = registry
         .add(
             &user_id,
@@ -189,7 +189,7 @@ async fn one_time_task_is_retained_and_retried_when_the_run_queue_is_full() {
         .await
         .unwrap();
 
-    let scheduler = TaskScheduler::start(registry.clone(), manager);
+    let scheduler = TaskScheduler::start(registry.clone(), manager, identities, families);
     // Let the one-time task become due and encounter QueueFull before freeing capacity.
     tokio::time::sleep(Duration::from_millis(1_100)).await;
     release.notify_one();

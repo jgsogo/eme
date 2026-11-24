@@ -451,7 +451,7 @@ function startNewTask(){
  updateTaskSectionTabs("details");
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
- $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
+ $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-family").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
  renderTaskAgents();renderTaskFamilies();$("tasks-status").textContent="Set either a cron schedule or a one-time execution date, not both.";$("task-name").focus();
 }
 function toLocalDateTime(value){const date=new Date(value);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)}
