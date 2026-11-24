@@ -237,13 +237,19 @@ pub(super) fn libraries(html: &str) -> Result<Vec<Library>, RabelError> {
 }
 
 fn extract_holdings(html: &str) -> Vec<CopyHolding> {
-    let Ok(rows) = Regex::new(r#"(?is)<tr\b[^>]*>(.*?)</tr>"#) else { return Vec::new(); };
+    let Ok(rows) = Regex::new(r#"(?is)(<tr\b[^>]*>)(.*?)</tr>"#) else { return Vec::new(); };
     let Ok(status_attr) = Regex::new(r#"(?i)data-disp\s*=\s*["']([^"']+)["']"#) else { return Vec::new(); };
     rows.captures_iter(html).filter_map(|row| {
-        let raw = row.get(1)?.as_str();
-        let status = status_attr.captures(raw)?.get(1)?.as_str();
+        // AbsysNet installations place data-disp either on the table row
+        // itself or on a cell inside it. Inspect both parts of the row.
+        let opening_tag = row.get(1)?.as_str();
+        let contents = row.get(2)?.as_str();
+        let raw = row.get(0)?.as_str();
+        let status = status_attr.captures(opening_tag)
+            .or_else(|| status_attr.captures(contents))?
+            .get(1)?.as_str();
         let text = clean_text(raw);
-            Some(CopyHolding {
+        Some(CopyHolding {
             library: labelled_value(&text, &["Biblioteca", "Sucursal"]),
             signature: labelled_value(&text, &["Signatura", "SIGN"])
                 .or_else(|| extract_signature(&text)),
@@ -398,6 +404,15 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "El Quijote");
         assert!(results[0].record_ref.contains("DOC=2"));
+    }
+
+    #[test]
+    fn parses_copy_status_when_data_disp_is_on_the_table_row() {
+        let html = r#"<table><tr data-disp="Disponible"><td>D-18214 Depósito Libro adultos Papel</td></tr></table>"#;
+        let holdings = extract_holdings(html);
+        assert_eq!(holdings.len(), 1);
+        assert_eq!(holdings[0].availability, Availability::Available);
+        assert_eq!(holdings[0].signature.as_deref(), Some("D-18214"));
     }
 
     #[test]
