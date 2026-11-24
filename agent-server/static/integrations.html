@@ -25,6 +25,7 @@
      <label class="integration-field" for="google-connect-access"><span>Google permission</span><select id="google-connect-access"><option value="read_only">Read events</option><option value="read_write">Read and write events</option></select></label>
      <button type="button" id="google-connect">Connect Google</button>
     </div>
+    <div class="integration-list-filter"><label for="google-search">Filter accounts and calendars</label><input id="google-search" type="search" placeholder="Account or calendar name…" autocomplete="off"></div>
     <div id="google-connections" class="google-connections"><div class="empty">Loading Google accounts…</div></div>
    </section>
    <section id="trakt-integration-panel" data-integration-panel="trakt" hidden>
@@ -33,6 +34,7 @@
      <label class="integration-field" for="trakt-connect-profile"><span>Media profile</span><select id="trakt-connect-profile" disabled><option value="">No unconnected profile available</option></select></label>
      <button type="button" id="trakt-connect" disabled>Connect Trakt</button>
     </div>
+    <div class="integration-list-filter"><label for="trakt-search">Filter media profiles</label><input id="trakt-search" type="search" placeholder="Profile, family or Trakt account…" autocomplete="off"></div>
     <div id="trakt-profiles" class="google-connections"><div class="empty">Loading your media profiles…</div></div>
    </section>
   </section>
