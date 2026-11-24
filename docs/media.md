@@ -62,7 +62,7 @@ Provider credentials are environment variables, never TOML values:
 | `TRAKT_REDIRECT_URI` | Must match the registered callback URL, normally `https://<host>/media/trakt/callback` |
 | `EME_CREDENTIAL_ENCRYPTION_KEY` | Existing 32-byte key encoded as 64 hexadecimal characters; encrypts external credentials |
 
-TMDB and Watchmode tools are registered even when their credentials are absent, so the server can start in a partially configured environment. Calls that require an unconfigured provider return a clear configuration error. Recommendations require TMDB. Watchmode is preferred for availability; TMDB's regional watch-provider endpoint is the fallback when Watchmode is absent, errors or has no matching configured subscription. Trakt linking and synchronization are enabled only when all three Trakt-related variables are configured. OAuth requests `public`, `private` and `sync` scopes: the `sync` scope is required for agent-driven watchlist and rating writes. Users who linked Trakt before this scope was requested must reconnect to grant it.
+TMDB and Watchmode tools are registered even when their credentials are absent, so the server can start in a partially configured environment. Calls that require an unconfigured provider return a clear configuration error. Recommendations require TMDB. Watchmode is preferred for availability; TMDB's regional watch-provider endpoint is the fallback when Watchmode is absent, errors or has no matching configured subscription. Trakt linking and synchronization are enabled only when all three Trakt-related variables are configured. Agent writes use the same authenticated Trakt OAuth connection as private history imports; no separate scope migration is required.
 
 ## Personal and family profiles
 
