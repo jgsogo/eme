@@ -311,7 +311,7 @@ fn extract_document_category(title: &str, row_html: &str) -> Option<String> {
     attributes.captures_iter(row_html).find_map(|capture| {
         let value = clean_text(capture.get(1)?.as_str());
         let normalized = value.to_lowercase();
-        let known = ["monografía", "monografías", "libro", "videograbación", "videograbaciones",
+        let known = ["book", "monografía", "monografías", "libro", "videograbación", "videograbaciones",
             "vídeo", "video", "película", "grabación sonora", "grabaciones sonoras", "revista",
             "revistas", "periódico", "periódicos", "artículo de revista", "recurso electrónico",
             "material cartográfico", "manuscrito", "material gráfico", "partitura"];
