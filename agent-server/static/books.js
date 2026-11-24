@@ -49,7 +49,7 @@
         const card = document.createElement("article"); card.className = "catalogue-entry";
         const details = document.createElement("div"); details.className = "catalogue-entry-details";
         const title = document.createElement("strong"); title.className = "catalogue-entry-title"; title.textContent = result.title; details.append(title);
-        const meta = document.createElement("p"); meta.className = "catalogue-entry-meta"; meta.textContent = [result.authors.join(", "), result.isbn ? `ISBN ${result.isbn}` : ""].filter(Boolean).join(" · ") || "Bibliographic details not provided"; details.append(meta);
+        const meta = document.createElement("p"); meta.className = "catalogue-entry-meta"; meta.textContent = [result.category || "", result.authors.join(", "), result.isbn ? `ISBN ${result.isbn}` : ""].filter(Boolean).join(" · ") || "Bibliographic details not provided"; details.append(meta);
         card.append(details);
         const add = button("Add to my collection", async () => {
           try {
