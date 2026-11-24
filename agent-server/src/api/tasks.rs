@@ -177,24 +177,20 @@ async fn list_task_executions(
                 .collect::<Vec<_>>(),
             None => {
                 tracing::error!(run_id = %run.id, "failed to load task execution events");
-                return HttpResponse::InternalServerError()
-                    .body("could not load execution events");
+                return HttpResponse::InternalServerError().body("could not load execution events");
             }
         };
         let usage = match manager.usage_records(Some(run.id)).await {
             Ok(records) => records,
             Err(error) => {
                 tracing::error!(run_id = %run.id, %error, "failed to load task execution usage");
-                return HttpResponse::InternalServerError()
-                    .body("could not load execution usage");
+                return HttpResponse::InternalServerError().body("could not load execution usage");
             }
         };
         let duration_ms = run
             .started_at
             .zip(run.finished_at)
-            .map(|(start, finish)| {
-                finish.duration_since(start).unwrap_or_default().as_millis()
-            });
+            .map(|(start, finish)| finish.duration_since(start).unwrap_or_default().as_millis());
         executions.push(serde_json::json!({
             "run_id": run.id.to_string(),
             "agent": run.agent,
