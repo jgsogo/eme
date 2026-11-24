@@ -8,7 +8,6 @@ use std::{
 use actix_web::{
     HttpRequest, HttpResponse, Responder, get,
     http::header,
-    route,
     web::{self, Data},
 };
 use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
@@ -69,16 +68,16 @@ pub(super) async fn providers_script() -> impl Responder {
         .body(include_str!("../../static/providers.js"))
 }
 
-#[route("/providers", method = "GET", method = "POST")]
-pub(super) async fn list_configured_providers(
-    request: HttpRequest,
+#[get("/providers")]
+pub(super) async fn list_configured_providers(providers: Data<Arc<Registry>>) -> HttpResponse {
+    HttpResponse::Ok().json(providers.catalog())
+}
+
+#[post("/providers")]
+pub(super) async fn test_configured_providers(
     providers: Data<Arc<Registry>>,
     body: Option<web::Json<serde_json::Value>>,
 ) -> HttpResponse {
-    if request.method().as_str() == "GET" {
-        return HttpResponse::Ok().json(providers.catalog());
-    }
-
     let Some(body) = body else {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "error": "A JSON body with a provider name is required"
@@ -118,22 +117,14 @@ pub(super) async fn list_configured_providers(
     };
 
     let models = if let Some(model) = requested_model {
-        if !provider
-            .models
-            .iter()
-            .any(|configured| configured.name == model)
-        {
+        if !provider.models.iter().any(|configured| configured.name == model) {
             return HttpResponse::NotFound().json(serde_json::json!({
                 "error": format!("Model '{provider_name}/{model}' is not configured")
             }));
         }
         vec![model]
     } else {
-        provider
-            .models
-            .into_iter()
-            .map(|model| model.name)
-            .collect()
+        provider.models.into_iter().map(|model| model.name).collect()
     };
 
     let mut results = Vec::with_capacity(models.len());
