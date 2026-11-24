@@ -400,7 +400,7 @@ mod tests {
     fn parses_structured_rabel_bibliography_without_confusing_author_dates_for_edition_year() {
         let html = r#"
             <h2>Menú responsive</h2>
-            <div id="docu_body" class="docu_body">
+            <div id="docu_body" class="docu_body"><div class="docu_etiq">
               <dl><dt>Autor / Autora:</dt><dd><a>Hayek, Friedrich A. von (1899-1992)</a></dd></dl>
               <dl><dt>Título:</dt><dd><span>Los fundamentos de la libertad</span> / F. A. Hayek.</dd></dl>
               <dl><dt>Editor / Productor:</dt><dd>Valencia : Fundación Ignacio Villalonga, 1961.</dd></dl>
@@ -409,7 +409,7 @@ mod tests {
               <dl><dt>Nota de bibliografía:</dt><dd>Índice de autores.</dd></dl>
               <dl><dt>Materias:</dt><dd>Libertad</dd><dd>Política económica</dd><dd>Derechos humanos</dd><dd>Política social</dd></dl>
               <dl><dt>ISBN:</dt><dd>84-254-1151-3</dd></dl>
-            </div>"#;
+            </div></div>"#;
         let item = record(html).unwrap();
         assert_eq!(item.title.as_deref(), Some("Los fundamentos de la libertad"));
         assert_eq!(item.authors, vec!["Hayek, Friedrich A. von (1899-1992)"]);
