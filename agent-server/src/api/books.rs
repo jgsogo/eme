@@ -118,7 +118,7 @@ async fn refresh_catalogue(
             item.isbn.as_deref().or(result.isbn.as_deref())
                 .is_some_and(|candidate| normalize_isbn(candidate) == *wanted)
         } else {
-            item.title.as_deref().is_some_and(|title| normalize_title(title) == wanted_title)
+            item.title.as_deref().is_some_and(|title| catalogue_title_matches(&book.title, title))
         };
         if matches {
             matched_item = Some(item);
@@ -135,7 +135,7 @@ async fn refresh_catalogue(
                     Ok(item) => item,
                     Err(_) => continue,
                 };
-                if item.title.as_deref().is_some_and(|title| normalize_title(title) == wanted_title) {
+                if item.title.as_deref().is_some_and(|title| catalogue_title_matches(&book.title, title)) {
                     matched_item = Some(item);
                     break;
                 }
@@ -227,7 +227,7 @@ async fn holdings(
         }).or_else(|| {
             // ISBN is preferred, but some catalogue records omit it. Fall back
             // only to an exact normalized title match, never the first hit.
-            results.iter().find(|result| normalize_title(&result.title) == wanted_title)
+            results.iter().find(|result| catalogue_title_matches(&result.title, &book.title))
         }).cloned();
         let Some(record) = record else {
             library_results.push(serde_json::json!({
@@ -269,6 +269,16 @@ fn normalize_isbn(value: &str) -> String {
 
 fn normalize_title(value: &str) -> String {
     value.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Search-result link text can prepend the author to the title and append a
+/// responsibility statement. Match the parsed title only as a complete value
+/// or as a suffix of that bibliographic prefix, never as an arbitrary substring.
+fn catalogue_title_matches(search_title: &str, parsed_title: &str) -> bool {
+    let search_prefix = search_title.split(" / ").next().unwrap_or(search_title);
+    let search = normalize_title(search_prefix);
+    let parsed = normalize_title(parsed_title);
+    search == parsed || (parsed.split_whitespace().count() >= 2 && search.ends_with(&format!(" {parsed}")))
 }
 
 #[get("")] async fn list(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.list(&u).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
