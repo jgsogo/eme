@@ -365,8 +365,20 @@ function renderTaskAgents(){
  select.innerHTML=state.agents.map(agent=>'<option value="'+escapeHtml(agent.name)+'">'+escapeHtml(agent.name)+'</option>').join("");
  if(state.agents.some(agent=>agent.name===selected))select.value=selected;
 }
+function setTaskSection(active){
+ const tabs=document.querySelectorAll("[data-task-section-tab]");
+ for(const tab of tabs){const selected=tab.dataset.taskSectionTab===active;tab.classList.toggle("active",selected);tab.setAttribute("aria-selected",String(selected));}
+ for(const section of document.querySelectorAll("[data-task-section]"))section.hidden=section.dataset.taskSection!==active;
+}
+function updateTaskSectionTabs(active="details"){
+ const historyTab=document.querySelector("[data-task-section-tab=\"history\"]");
+ if(historyTab)historyTab.disabled=!state.selectedTask||state.selectedTask==="new";
+ setTaskSection(historyTab?.disabled?"details":active);
+}
+on("task-section-nav","click",event=>{const tab=event.target.closest("[data-task-section-tab]");if(tab&&!tab.disabled) setTaskSection(tab.dataset.taskSectionTab)});
 function resetTaskEditor(){
  state.selectedTask=null;renderTasks();
+ updateTaskSectionTabs("details");
  const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
  $("task-heading").textContent="Select a task";
@@ -375,7 +387,8 @@ function resetTaskEditor(){
 }
 function startNewTask(){
  state.selectedTask="new";renderTasks();
- const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
+ updateTaskSectionTabs("details");
+ const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=false;
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
  $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
@@ -385,6 +398,7 @@ function toLocalDateTime(value){const date=new Date(value);return new Date(date.
 function selectTask(id){
  const task=state.tasks.find(item=>item.id===id);if(!task)return;
  state.selectedTask=id;renderTasks();
+ updateTaskSectionTabs("details");
  for(const field of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
  $("delete-task").disabled=false;$("task-heading").textContent=task.name;
  renderTaskAgents();$("task-name").value=task.name;$("task-description").value=task.description||"";$("task-agent").value=task.agent;$("task-prompt").value=task.prompt;
@@ -714,7 +728,6 @@ function renderTaskExecution(execution){
 async function loadTaskExecutions(taskId){
  const panel=$("task-executions"),target=$("task-executions-list");
  if(!panel||!target||!taskId||taskId==="new")return;
- panel.hidden=false;
  target.innerHTML='<div class="empty">Loading execution history…</div>';
  const refresh=$("task-executions-refresh");if(refresh)refresh.disabled=true;
  try{
