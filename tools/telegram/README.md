@@ -7,7 +7,7 @@ The `telegram-tool` crate provides the platform's collection of tools for intera
 The crate currently implements two tools:
 
 - `tg_notify_user` — send a one-way notification
-- `tg_ask_user` — ask a question and wait for the reply (free text or yes/no buttons)
+- `tg_ask_user` — ask a question and wait for the reply (free text or yes/no text replies)
 
 The crate also exposes a shared `TelegramGateway`. The server owns one gateway per bot token and shares it with the inbound bot adapter and tools.
 

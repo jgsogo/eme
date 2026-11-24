@@ -244,12 +244,16 @@ fn dispatch_message(
                     let _ = sender.send(answer);
                     true
                 }
-                Some(reply @ PendingReply::YesNo { .. }) => {
-                    // A text reply is not a yes/no button response. Keep the
-                    // interaction pending. The inbound adapter will ignore this
-                    // reply rather than treating it as a fresh prompt.
-                    pending.insert(key, reply);
-                    false
+                Some(PendingReply::YesNo { sender }) => {
+                    if let Some(answer) = parse_yes_no(&answer) {
+                        let _ = sender.send(answer);
+                        true
+                    } else {
+                        // Keep waiting for an explicit yes/no reply to this
+                        // question. The inbound adapter ignores this reply.
+                        pending.insert(key, PendingReply::YesNo { sender });
+                        false
+                    }
                 }
                 None => false,
             },
