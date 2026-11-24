@@ -40,8 +40,7 @@ body[data-layout="mobile"] .tool-card{padding:14px}
 body[data-layout="mobile"] .tool-card-heading{align-items:flex-start;gap:8px}
 body[data-layout="mobile"] .tool-card-heading h3{overflow-wrap:anywhere}
 body[data-layout="mobile"] .provider-model-heading{align-items:center}
-body[data-layout="mobile"] .provider-test-button{min-height:40px;display:inline-flex;align-items:center;gap:6px}
-body[data-layout="mobile"] .provider-test-button:before{content:"";display:inline-block;width:15px;height:15px;background:currentColor;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 3v7m-3-7v4a3 3 0 0 0 6 0V3m-3 7v11m10-18v18m0-18c3 2 3 7 0 9' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") center/contain no-repeat}
+body[data-layout="mobile"] .provider-test-button{min-height:40px;display:inline-flex;align-items:center;gap:6px}body[data-layout="mobile"] .provider-test-button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 body[data-layout="mobile"] .usage-status{overflow-wrap:anywhere}
 body[data-layout="mobile"] .pricing-panel,body[data-layout="mobile"] .usage-history{margin-top:10px}
 body[data-layout="mobile"] .usage-footnote{font-size:10px;line-height:1.45}
