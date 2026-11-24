@@ -30,31 +30,6 @@
   function enableDetails(enabled) {
     ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book","refresh-catalogue","refresh-holdings"].forEach(id => $(id).disabled = !enabled);
   }
-  function renderBookBibliography(book) {
-    const container = $("book-bibliography");
-    container.replaceChildren();
-    const fields = [
-      ["Publisher", book.publisher],
-      ["Publication year", book.publication_year],
-      ["Statement of responsibility", book.responsibility],
-      ["Publication statement", book.publication_statement],
-      ["Physical description", book.physical_description],
-      ["Series", book.series],
-      ["Notes", (book.notes || []).join("; ")],
-      ["Subjects", (book.subjects || []).join("; ")]
-    ].filter(([, value]) => value !== null && value !== undefined && value !== "");
-    if (!fields.length) {
-      container.textContent = "No catalogue metadata loaded. Use Refresh catalogue info to fetch it from RABEL.";
-      return;
-    }
-    const dl = document.createElement("dl");
-    for (const [label, value] of fields) {
-      const dt = document.createElement("dt"); dt.textContent = label;
-      const dd = document.createElement("dd"); dd.textContent = String(value);
-      dl.append(dt, dd);
-    }
-    container.append(dl);
-  }
   function populateBookForm(book) {
     $("book-heading").textContent = book.title;
     $("book-title").value = book.title;
@@ -64,7 +39,6 @@
     $("book-status").value = book.reading_status;
     $("book-want-to-buy").checked = book.want_to_buy;
     $("book-review").value = book.review || "";
-    renderBookBibliography(book);
   }
   async function refreshCatalogue() {
     if (!state.selected) return;
@@ -197,80 +171,147 @@
         return;
       }
 
-      const tableWrap = document.createElement("div");
-      tableWrap.className = "books-table-wrap";
-      const table = document.createElement("table");
-      table.className = "books-table books-holdings-table";
-      const columns = ["Library", "Catalogue record", "ISBN", "Signature", "Location", "Material", "Availability", "Additional details"];
-      const thead = document.createElement("thead");
-      const header = document.createElement("tr");
-      for (const label of columns) {
-        const th = document.createElement("th");
-        th.textContent = label;
-        header.append(th);
-      }
-      thead.append(header);
-      table.append(thead);
-      const tbody = document.createElement("tbody");
+      const normalize = value => String(value ?? "").trim().toLocaleLowerCase();
+      const recordKey = record => JSON.stringify([
+        normalize(record.catalogue_title), (record.authors || []).map(normalize).sort(),
+        normalize(record.isbn), normalize(record.publisher), record.publication_year ?? null,
+        normalize(record.physical_description), normalize(record.series)
+      ]);
+      const copyKey = copy => JSON.stringify([
+        normalize(copy.signature), normalize(copy.location), normalize(copy.material),
+        normalize(copy.availability), normalize(copy.catalogue_note)
+      ]);
 
-      const appendRow = (library, record, copy, message) => {
-        const tr = document.createElement("tr");
-        const values = [
-          library.library_name,
-          record ? [
-            record.catalogue_title,
-            (record.authors || []).join(", "),
-            [record.publisher, record.publication_year].filter(Boolean).join(", "),
-            record.physical_description,
-            record.series
-          ].filter(Boolean).join(" · ") : message,
-          record?.isbn,
-          copy?.signature,
-          copy?.location,
-          copy?.material,
-          copy?.availability,
-          [copy?.catalogue_note, record?.error].filter(Boolean).join(" · ")
-        ];
-        for (const value of values) {
-          const td = document.createElement("td");
-          td.textContent = value === null || value === undefined || value === "" ? "—" : String(value);
-          tr.append(td);
-        }
-        tbody.append(tr);
-      };
-
+      // Some RABEL selector entries expose the very same catalogue scope under
+      // different labels. Collapse only libraries whose complete result sets
+      // are identical; retain their names so the provenance is still visible.
+      const identicalScopes = new Map();
       for (const library of data.libraries) {
+        const records = (library.records || []).map(record => ({
+          key: recordKey(record),
+          copies: (record.copies || []).map(copyKey).sort(),
+          status: record.status || "",
+          error: record.error || ""
+        })).sort((a, b) => a.key.localeCompare(b.key));
+        const fingerprint = JSON.stringify([library.status, library.error || "", records]);
+        if (!identicalScopes.has(fingerprint)) {
+          identicalScopes.set(fingerprint, { ...library, library_names: [library.library_name] });
+        } else {
+          const existing = identicalScopes.get(fingerprint);
+          if (!existing.library_names.includes(library.library_name)) existing.library_names.push(library.library_name);
+        }
+      }
+      const scopes = [...identicalScopes.values()];
+      const summary = document.createElement("p");
+      summary.className = "muted";
+      summary.textContent = scopes.length < data.libraries.length
+        ? `The ${data.libraries.length} selected library entries expose ${scopes.length} distinct catalogue result sets; identical results are grouped below.`
+        : `${scopes.length} distinct catalogue result sets.`;
+      container.append(summary);
+
+      const recordsByKey = new Map();
+      const messages = [];
+      for (const library of scopes) {
         if (library.status === "not_found") {
-          appendRow(library, null, null, "No matching catalogue record");
+          messages.push({ names: library.library_names, message: "No matching catalogue record" });
           continue;
         }
         if (library.status === "error") {
-          appendRow(library, null, null, library.error || "Could not query this library");
+          messages.push({ names: library.library_names, message: library.error || "Could not query this library" });
           continue;
         }
-        if (library.status === "ambiguous") {
-          const notice = document.createElement("tr");
-          notice.className = "books-holdings-ambiguous";
-          const cell = document.createElement("td");
-          cell.colSpan = columns.length;
-          cell.textContent = `${library.library_name}: ${library.records.length} matching catalogue records. All matches are listed below.`;
-          notice.append(cell);
-          tbody.append(notice);
-        }
         for (const record of library.records || []) {
-          const copies = record.copies || [];
-          if (!copies.length) {
-            appendRow(library, record, null, record.error || "No copy details reported");
-          } else {
-            for (const copy of copies) appendRow(library, record, copy, "");
+          const key = recordKey(record);
+          if (!recordsByKey.has(key)) {
+            recordsByKey.set(key, { record, copies: new Map(), libraries: new Set() });
+          }
+          const grouped = recordsByKey.get(key);
+          for (const name of library.library_names) grouped.libraries.add(name);
+          for (const copy of record.copies || []) {
+            const key = copyKey(copy);
+            if (!grouped.copies.has(key)) grouped.copies.set(key, { copy, count: 0, libraries: new Set() });
+            const groupedCopy = grouped.copies.get(key);
+            groupedCopy.count += 1;
+            for (const name of library.library_names) groupedCopy.libraries.add(name);
           }
         }
       }
 
-      table.append(tbody);
-      tableWrap.append(table);
-      container.append(tableWrap);
-      const checked = data.libraries.flatMap(library => (library.records || []).map(record => record.checked_at).filter(Boolean));
+      for (const message of messages) {
+        const p = document.createElement("p");
+        p.className = "muted";
+        p.textContent = `${message.names.join(" · ")}: ${message.message}`;
+        container.append(p);
+      }
+
+      for (const { record, copies, libraries } of recordsByKey.values()) {
+        const section = document.createElement("section");
+        section.className = "holding";
+        const heading = document.createElement("strong");
+        heading.textContent = record.catalogue_title || "Catalogue record";
+        section.append(heading);
+        const metadata = [
+          (record.authors || []).join(", "),
+          [record.publisher, record.publication_year].filter(Boolean).join(", "),
+          record.physical_description,
+          record.isbn ? `ISBN ${record.isbn}` : ""
+        ].filter(Boolean);
+        if (metadata.length) {
+          const details = document.createElement("p");
+          details.className = "muted";
+          details.textContent = metadata.join(" · ");
+          section.append(details);
+        }
+        const libraryNames = document.createElement("p");
+        libraryNames.className = "muted";
+        libraryNames.textContent = [...libraries].join(" · ");
+        section.append(libraryNames);
+
+        if (!copies.size) {
+          const empty = document.createElement("p");
+          empty.className = "muted";
+          empty.textContent = record.error || "No copy details reported.";
+          section.append(empty);
+        } else {
+          const wrap = document.createElement("div");
+          wrap.className = "books-table-wrap";
+          const table = document.createElement("table");
+          table.className = "books-table books-holdings-table";
+          const thead = document.createElement("thead");
+          const header = document.createElement("tr");
+          for (const label of ["Signature", "Location", "Material", "Availability", "Copies", "Additional details"]) {
+            const th = document.createElement("th");
+            th.textContent = label;
+            header.append(th);
+          }
+          thead.append(header);
+          table.append(thead);
+          const tbody = document.createElement("tbody");
+          for (const { copy, count, libraries: copyLibraries } of copies.values()) {
+            const row = document.createElement("tr");
+            const values = [
+              copy.signature,
+              copy.location,
+              copy.material,
+              copy.availability,
+              count > 1 ? `×${count}` : "1",
+              [copy.catalogue_note, copyLibraries.size > 1 ? [...copyLibraries].join(" · ") : ""].filter(Boolean).join(" · ")
+            ];
+            for (const value of values) {
+              const cell = document.createElement("td");
+              cell.textContent = value === null || value === undefined || value === "" ? "—" : String(value);
+              row.append(cell);
+            }
+            tbody.append(row);
+          }
+          table.append(tbody);
+          wrap.append(table);
+          section.append(wrap);
+        }
+        container.append(section);
+      }
+
+      const checked = scopes.flatMap(library => (library.records || []).map(record => record.checked_at).filter(Boolean));
       if (checked.length) {
         const note = document.createElement("p");
         note.className = "muted";
