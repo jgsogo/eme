@@ -8,4 +8,4 @@ mod tests;
 
 pub use task_scheduler::TaskScheduler;
 #[cfg(test)]
-use task_scheduler::next_occurrence;
+use task_scheduler::{next_occurrence, submission_retry_delay};

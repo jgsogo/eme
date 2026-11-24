@@ -72,13 +72,18 @@ fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
                     prompt: task.prompt,
                     schedule,
                     timezone,
+                    scheduled_for: next_run,
                     next_run,
+                    retry_attempts: 0,
                 },
             ))
         })
         .collect()
 }
 
+/// Runs at most one catch-up execution for each persisted due occurrence after restart.
+/// Missed recurring ticks are coalesced; after a successful submission the next future
+/// cron occurrence is calculated from the current time.
 async fn run_scheduler(
     registry: TaskRegistry,
     manager: RunManager,
@@ -118,18 +123,9 @@ async fn run_scheduler(
             let Some(mut task) = tasks.remove(&id) else {
                 continue;
             };
-            let scheduled_at = task.next_run;
+            let scheduled_at = task.scheduled_for;
             let recurring = task.schedule.is_some();
-            if let Some(schedule) = &task.schedule {
-                if let Some(next) = next_occurrence(schedule, task.timezone, now) {
-                    task.next_run = next;
-                    registry.set_next_run(id, next);
-                    tasks.insert(id, task.clone());
-                } else {
-                    tracing::warn!(task = %task.name, "recurring task has no further occurrence");
-                }
-            }
-            let submitted = match manager
+            match manager
                 .submit_for_task(
                     task.id,
                     task.agent.clone(),
@@ -140,22 +136,75 @@ async fn run_scheduler(
                 .await
             {
                 Ok(run_id) => {
-                    tracing::info!(task = %task.name, user_id = %task.user_id, run_id = %run_id,
-                    scheduled_at = %scheduled_at, "scheduled task submitted");
-                    true
+                    tracing::info!(
+                        task = %task.name,
+                        user_id = %task.user_id,
+                        run_id = %run_id,
+                        scheduled_at = %scheduled_at,
+                        "scheduled task submitted"
+                    );
+                    task.retry_attempts = 0;
+                    if let Some(schedule) = &task.schedule {
+                        if let Some(next) = next_occurrence(schedule, task.timezone, Utc::now()) {
+                            task.scheduled_for = next;
+                            task.next_run = next;
+                            if let Err(error) = registry.set_next_run(id, next) {
+                                // Keep the in-memory schedule advanced. The persisted due
+                                // time remains pending so a restart retries (at-least-once).
+                                tracing::error!(
+                                    task = %task.name,
+                                    %error,
+                                    "failed to persist next scheduled occurrence"
+                                );
+                            }
+                            tasks.insert(id, task);
+                        } else {
+                            tracing::warn!(
+                                task = %task.name,
+                                "recurring task has no further occurrence; disabling it"
+                            );
+                            if let Err(error) = registry.disable_after_execution(id) {
+                                tracing::error!(task = %task.name, %error,
+                                    "failed to disable exhausted scheduled task");
+                            }
+                        }
+                    } else if let Err(error) = registry.disable_after_execution(id) {
+                        tracing::error!(
+                            task = %task.name,
+                            %error,
+                            "one-time task was submitted but could not be disabled"
+                        );
+                    }
                 }
                 Err(error) => {
-                    tracing::error!(task = %task.name, user_id = %task.user_id, %error,
-                        "failed to submit scheduled task");
-                    false
+                    task.retry_attempts = task.retry_attempts.saturating_add(1);
+                    let delay = submission_retry_delay(task.retry_attempts);
+                    task.next_run = Utc::now()
+                        + chrono::Duration::from_std(delay)
+                            .expect("retry delay fits in chrono duration");
+                    tracing::error!(
+                        task = %task.name,
+                        user_id = %task.user_id,
+                        %error,
+                        attempt = task.retry_attempts,
+                        retry_at = %task.next_run,
+                        "failed to submit scheduled task; will retry"
+                    );
+                    // Keep scheduled_for unchanged: this exact occurrence remains pending.
+                    tasks.insert(id, task);
                 }
-            };
-            if !recurring && submitted {
-                registry.disable_after_execution(id);
             }
         }
     }
     tracing::info!("task scheduler stopped");
+}
+
+pub(super) fn submission_retry_delay(attempt: u32) -> Duration {
+    match attempt {
+        0 | 1 => Duration::from_secs(1),
+        2 => Duration::from_secs(5),
+        _ => Duration::from_secs(30),
+    }
 }
 
 pub(super) fn next_occurrence(

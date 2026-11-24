@@ -170,7 +170,7 @@ fn completed_one_time_tasks_are_retained_as_disabled_definitions() {
         )
         .unwrap();
 
-    registry.disable_after_execution(task.id);
+    registry.disable_after_execution(task.id).unwrap();
     let retained = registry.list("telegram:12");
     assert_eq!(retained.len(), 1);
     assert_eq!(retained[0].id, task.id);
@@ -182,4 +182,113 @@ fn completed_one_time_tasks_are_retained_as_disabled_definitions() {
     assert_eq!(reloaded.list("telegram:12").len(), 1);
     assert!(!reloaded.list("telegram:12")[0].enabled);
     fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn persists_pending_due_time_across_registry_restarts() {
+    let directory = temp_dir();
+    let registry = TaskRegistry::load(&directory).unwrap();
+    registry.validate_agents(["assistant".to_owned()]).unwrap();
+    let task = registry
+        .add(
+            "telegram:17",
+            NewTask {
+                name: "once".into(),
+                description: String::new(),
+                agent: "assistant".into(),
+                prompt: "do it".into(),
+                schedule: None,
+                at: Some((Utc::now() + chrono::Duration::hours(1)).fixed_offset()),
+                timezone: None,
+            },
+        )
+        .unwrap();
+    let due = Utc::now() - chrono::Duration::minutes(5);
+    registry.set_next_run(task.id, due).unwrap();
+    drop(registry);
+
+    let reloaded = TaskRegistry::load(&directory).unwrap();
+    assert_eq!(reloaded.snapshot()[0].next_run, Some(due));
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn recovers_overdue_legacy_one_time_task() {
+    let directory = temp_dir();
+    let id = Uuid::new_v4();
+    fs::write(
+        directory.join(format!("{id}.toml")),
+        format!(
+            r#"
+id = "{id}"
+user_id = "telegram:18"
+name = "legacy once"
+agent = "assistant"
+prompt = "do it"
+at = "2020-01-01T00:00:00Z"
+enabled = true
+"#
+        ),
+    )
+    .unwrap();
+
+    let registry = TaskRegistry::load(&directory).unwrap();
+    assert_eq!(
+        registry.snapshot()[0].next_run,
+        Some(
+            chrono::DateTime::parse_from_rfc3339("2020-01-01T00:00:00Z")
+                .unwrap()
+                .to_utc()
+        )
+    );
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn initial_cron_occurrence_respects_timezone_across_daylight_saving() {
+    let schedule = Some("0 0 8 * * *".to_owned());
+    let timezone = Some("Europe/Madrid".to_owned());
+    let task = Task {
+        id: Uuid::new_v4(),
+        user_id: "telegram:dst".into(),
+        name: "daily".into(),
+        description: String::new(),
+        agent: "assistant".into(),
+        prompt: "run".into(),
+        schedule,
+        at: None,
+        timezone,
+        enabled: true,
+        next_run: None,
+    };
+
+    // After 08:01 CET on the day before the spring transition, the next
+    // local 08:00 is 06:00 UTC (08:00 CEST).
+    let before_spring = chrono::DateTime::parse_from_rfc3339("2026-03-28T07:01:00Z")
+        .unwrap()
+        .to_utc();
+    let spring_next = super::task_registry::next_run(&task, before_spring)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        spring_next,
+        chrono::DateTime::parse_from_rfc3339("2026-03-29T06:00:00Z")
+            .unwrap()
+            .to_utc()
+    );
+
+    // After 08:01 CEST on the day before the autumn transition, the next
+    // local 08:00 is 07:00 UTC (08:00 CET).
+    let before_autumn = chrono::DateTime::parse_from_rfc3339("2026-10-24T06:01:00Z")
+        .unwrap()
+        .to_utc();
+    let autumn_next = super::task_registry::next_run(&task, before_autumn)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        autumn_next,
+        chrono::DateTime::parse_from_rfc3339("2026-10-25T07:00:00Z")
+            .unwrap()
+            .to_utc()
+    );
 }

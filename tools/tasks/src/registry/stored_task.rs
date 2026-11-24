@@ -1,10 +1,10 @@
 //! On-disk task representation, including fields migrated from older files.
 
-use chrono::{DateTime, FixedOffset};
-use serde::Deserialize;
+use chrono::{DateTime, FixedOffset, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct StoredTask {
     #[serde(default)]
@@ -24,4 +24,6 @@ pub(super) struct StoredTask {
     pub(super) timezone: Option<String>,
     #[serde(default = "super::default_enabled")]
     pub(super) enabled: bool,
+    #[serde(default)]
+    pub(super) next_run: Option<DateTime<Utc>>,
 }

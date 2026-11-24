@@ -43,6 +43,7 @@ impl TaskRegistry {
             let raw = fs::read_to_string(&path).map_err(storage_error)?;
             let old: StoredTask = toml::from_str(&raw)
                 .map_err(|e| TaskError::Invalid(format!("{}: {e}", path.display())))?;
+            let persisted_next_run = old.next_run;
             let id = old.id.unwrap_or_else(Uuid::new_v4);
             let user_id = old.user_id.unwrap_or_else(|| LEGACY_TASK_OWNER.into());
             if user_id.trim().is_empty() {
@@ -62,7 +63,17 @@ impl TaskRegistry {
                 next_run: None,
             };
             validate(&task)?;
-            task.next_run = next_run(&task, Utc::now())?;
+            task.next_run = if !task.enabled {
+                None
+            } else if let Some(next) = persisted_next_run {
+                Some(next)
+            } else if task.schedule.is_none() {
+                // Recover legacy one-time tasks whose due time passed before next_run
+                // was persisted by treating their original `at` value as pending.
+                task.at.map(|at| at.with_timezone(&Utc))
+            } else {
+                next_run(&task, Utc::now())?
+            };
             if !names.insert((task.user_id.clone(), task.name.clone())) {
                 return Err(TaskError::Invalid(format!(
                     "duplicate task name '{}' for user '{}'",
@@ -73,7 +84,11 @@ impl TaskRegistry {
                 return Err(TaskError::Invalid(format!("duplicate task id {id}")));
             }
             let canonical = directory.join(format!("{id}.toml"));
-            if path != canonical || !raw.contains("user_id") || !raw.contains("id") {
+            if path != canonical
+                || !raw.contains("user_id")
+                || !raw.contains("id")
+                || persisted_next_run.is_none()
+            {
                 registry.persist(&task)?;
                 if path != canonical {
                     fs::remove_file(path).map_err(storage_error)?;
@@ -293,12 +308,13 @@ impl TaskRegistry {
         )
     }
 
-    pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) {
-        if let Ok(mut tasks) = self.inner.tasks.write()
-            && let Some(task) = tasks.get_mut(&id)
-        {
-            task.next_run = Some(next);
-        }
+    pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) -> Result<(), TaskError> {
+        let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
+        let task = tasks.get_mut(&id).ok_or(TaskError::NotFound)?;
+        task.next_run = Some(next);
+        // Keep memory in sync even if persistence fails, preventing a registry refresh
+        // from resubmitting an occurrence that the run manager has already accepted.
+        self.persist(task)
     }
     pub fn remove(&self, user: &str, id: Uuid) -> Result<(), TaskError> {
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
@@ -312,17 +328,18 @@ impl TaskRegistry {
     }
     /// Retains a completed one-time task as a disabled definition so its
     /// execution history remains discoverable from the task details.
-    pub(crate) fn disable_after_execution(&self, id: Uuid) {
-        if let Ok(mut tasks) = self.inner.tasks.write()
-            && let Some(mut task) = tasks.get(&id).cloned()
-        {
-            task.enabled = false;
-            task.next_run = None;
-            if self.persist(&task).is_ok() {
-                tasks.insert(id, task);
-                self.notify();
-            }
-        }
+    pub(crate) fn disable_after_execution(&self, id: Uuid) -> Result<(), TaskError> {
+        let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
+        let Some(task) = tasks.get_mut(&id) else {
+            return Ok(());
+        };
+        task.enabled = false;
+        task.next_run = None;
+        let persisted = task.clone();
+        self.notify();
+        // The in-memory task is disabled even if writing it fails, so the live scheduler
+        // cannot accidentally submit it again after a registry refresh.
+        self.persist(&persisted)
     }
     fn path(&self, id: Uuid) -> PathBuf {
         self.inner.directory.join(format!("{id}.toml"))
@@ -333,8 +350,24 @@ impl TaskRegistry {
             .inner
             .directory
             .join(format!(".{}.tmp", Uuid::new_v4()));
-        fs::write(&tmp, toml::to_string_pretty(t).map_err(storage_error)?)
-            .map_err(storage_error)?;
+        let stored = StoredTask {
+            id: Some(t.id),
+            user_id: Some(t.user_id.clone()),
+            name: t.name.clone(),
+            description: t.description.clone(),
+            agent: t.agent.clone(),
+            prompt: t.prompt.clone(),
+            schedule: t.schedule.clone(),
+            at: t.at,
+            timezone: t.timezone.clone(),
+            enabled: t.enabled,
+            next_run: t.next_run,
+        };
+        fs::write(
+            &tmp,
+            toml::to_string_pretty(&stored).map_err(storage_error)?,
+        )
+        .map_err(storage_error)?;
         if let Err(e) = fs::rename(&tmp, &path) {
             let _ = fs::remove_file(tmp);
             return Err(storage_error(e));
@@ -370,7 +403,7 @@ fn validate(t: &Task) -> Result<(), TaskError> {
     }
     Ok(())
 }
-fn next_run(t: &Task, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>, TaskError> {
+pub(super) fn next_run(t: &Task, now: DateTime<Utc>) -> Result<Option<DateTime<Utc>>, TaskError> {
     if !t.enabled {
         return Ok(None);
     }
