@@ -316,7 +316,7 @@ fn extract_document_category(row_html: &str) -> Option<String> {
 
     // Some AbsysNet themes render the document class as an icon rather than
     // visible text. Prefer its accessible title/alt text when available.
-    let attributes = Regex::new(r#"(?is)<img\b[^>]*(?:alt|title)\\s*=\\s*["']([^"']+)["'][^>]*>"#).ok()?;
+    let attributes = Regex::new(r#"(?is)<img\b[^>]*(?:alt|title)\s*=\s*["']([^"']+)["'][^>]*>"#).ok()?;
     attributes.captures_iter(row_html).find_map(|capture| {
         let value = clean_text(capture.get(1)?.as_str());
         let normalized = value.to_lowercase();
@@ -374,10 +374,10 @@ fn labelled_value(text: &str, labels: &[&str]) -> Option<String> {
     // AbsysNet frequently puts several labelled fields in one table cell,
     // separated only by whitespace. Stop a value at the next known label.
     let next_field = Regex::new(
-        r"(?i)\\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Tipo de documento|Tipo de material|Tipo de soporte|Formato|Material|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\\s*:?"
+        r"(?i)\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Tipo de documento|Tipo de material|Tipo de soporte|Formato|Material|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\s*:?"
     ).ok()?;
     for label in labels {
-        let pattern = format!(r"(?i){}\\s*:?\\s*([^|;]{{2,120}})", regex::escape(label));
+        let pattern = format!(r"(?i){}\s*:?\s*([^|;]{{2,120}})", regex::escape(label));
         let re = Regex::new(&pattern).ok()?;
         if let Some(value) = re.captures(text).and_then(|c| c.get(1)) {
             let raw = value.as_str();
