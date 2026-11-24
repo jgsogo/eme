@@ -501,11 +501,10 @@ impl MediaTool {
                     MediaKind::TvShow => self.tmdb()?.tv_details(tmdb_id).await,
                 }
                 .map_err(display)?;
-                let sync = self
-                    .services
-                    .sync
-                    .as_ref()
-                    .ok_or_else(|| "Trakt write synchronization is not configured".to_owned())?;
+                let sync =
+                    self.services.sync.as_ref().ok_or_else(|| {
+                        "Trakt write synchronization is not configured".to_owned()
+                    })?;
                 sync.set_watchlist_item(user_id, profile_id, &item, action == "add")
                     .await
                     .map_err(display)?;
