@@ -1,0 +1,12 @@
+name = "rabel.get_item"
+description = "Retrieve bibliographic details and copy-level holdings for one catalogue result. Availability is live and includes the time checked."
+
+[parameters]
+type = "object"
+required = ["record_ref"]
+additionalProperties = false
+
+[parameters.properties.record_ref]
+type = "string"
+minLength = 1
+description = "Opaque record_ref returned by rabel.search_catalog."
