@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null,activeRuns:{}};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -332,10 +332,10 @@ async function renameFamily(){
  catch(e){setStatus(e.message,"error")}
 }
 
-async function selectConversation(id){clearInterval(state.pollTimer);state.pollTimer=null;state.runId=null;state.selected=id;state.retry=null;state.messages=[];renderRunEvents([]);try{localStorage.setItem("eme.selectedConversation",id)}catch{}renderConversations();$("messages").innerHTML='<div class="empty">Loading conversation…</div>';try{const [c,runs]=await Promise.all([api("/conversations/"+encodeURIComponent(id)),api("/conversations/"+encodeURIComponent(id)+"/runs")]);if(state.selected!==id)return;$("conversation-title").textContent=c.title||"New conversation";$("conversation-meta").textContent="Agent · "+c.agent+" · Conversation "+c.id+" · ~"+Number(c.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";$("rename-conversation").disabled=false;$("agent").value=c.agent;updateAgentDescription();state.selectedFamilyId=c.selected_family_id||null;renderFamilySelector();state.messageCount=(c.messages||[]).length;state.messages=c.messages||[];const activeRun=runs.find(run=>["queued","running"].includes(run.status));if(activeRun){state.runId=activeRun.run_id;state.activeRuns[id]=activeRun;const alreadyShown=state.messages.some(message=>{const part=messageParts(message);return part?.kind==="user"&&part.value.content===activeRun.input});if(!alreadyShown)state.messages=[...state.messages,{user:{content:activeRun.input}}];renderMessages(state.messages,{label:activeRun.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+activeRun.status)}else{delete state.activeRuns[id];renderMessages(state.messages);setStatus("")}renderConversations();setComposerEnabled(!activeRun);if(activeRun)await pollRun(id,activeRun.run_id,state.messageCount,activeRun.input)}catch(e){if(state.selected===id){setStatus(e.message,"error");setComposerEnabled(true)}}}
+async function selectConversation(id){closeRunStream();state.runId=null;state.runEvents=[];state.selected=id;state.retry=null;state.messages=[];renderRunEvents([]);try{localStorage.setItem("eme.selectedConversation",id)}catch{}renderConversations();$("messages").innerHTML='<div class="empty">Loading conversation…</div>';try{const [c,runs]=await Promise.all([api("/conversations/"+encodeURIComponent(id)),api("/conversations/"+encodeURIComponent(id)+"/runs")]);if(state.selected!==id)return;$("conversation-title").textContent=c.title||"New conversation";$("conversation-meta").textContent="Agent · "+c.agent+" · Conversation "+c.id+" · ~"+Number(c.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";$("rename-conversation").disabled=false;$("agent").value=c.agent;updateAgentDescription();state.selectedFamilyId=c.selected_family_id||null;renderFamilySelector();state.messageCount=(c.messages||[]).length;state.messages=c.messages||[];const activeRun=runs.find(run=>["queued","running"].includes(run.status));if(activeRun){state.runId=activeRun.run_id;state.activeRuns[id]=activeRun;const alreadyShown=state.messages.some(message=>{const part=messageParts(message);return part?.kind==="user"&&part.value.content===activeRun.input});if(!alreadyShown)state.messages=[...state.messages,{user:{content:activeRun.input}}];renderMessages(state.messages,{label:activeRun.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+activeRun.status)}else{delete state.activeRuns[id];renderMessages(state.messages);setStatus("")}renderConversations();setComposerEnabled(!activeRun);if(activeRun)connectRunStream(id,activeRun.run_id,state.messageCount,activeRun.input)}catch(e){if(state.selected===id){setStatus(e.message,"error");setComposerEnabled(true)}}}
 async function createConversation(){const agent=$("agent").value;if(!agent)return;try{const c=await api("/conversations",{method:"POST",body:JSON.stringify({agent,family_id:state.selectedFamilyId})});state.showArchived=false;await loadConversations();await selectConversation(c.id);$("prompt").focus()}catch(e){setStatus(e.message,"error")}}
 async function renameConversation(){if(!state.selected)return;const current=state.conversations.find(c=>c.id===state.selected);if(!current)return;const title=window.prompt("Conversation name",current.title||"New conversation");if(title===null)return;if(!title.trim()){setStatus("Conversation name must not be empty","error");return}try{const updated=await api("/conversations/"+encodeURIComponent(state.selected),{method:"PUT",body:JSON.stringify({title})});state.conversations=state.conversations.map(c=>c.id===updated.id?{...c,...updated}:c);$("conversation-title").textContent=updated.title;$("conversation-meta").textContent="Agent · "+updated.agent+" · Conversation "+updated.id+" · ~"+Number(updated.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";renderConversations();setStatus("Conversation renamed","ok")}catch(e){setStatus(e.message,"error")}}
-function clearSelectedConversation(){clearInterval(state.pollTimer);state.pollTimer=null;state.runId=null;state.selected=null;try{localStorage.removeItem("eme.selectedConversation")}catch{}state.selectedFamilyId=null;renderFamilySelector();state.messageCount=0;state.messages=[];$("conversation-title").textContent="No conversation selected";$("conversation-meta").textContent="Create a conversation to get started";$("rename-conversation").disabled=true;$("messages").innerHTML='<div class="empty">Choose an existing conversation or create a new one.</div>';$("prompt").value="";setComposerEnabled(false);renderConversations()}
+function clearSelectedConversation(){closeRunStream();state.runId=null;state.runEvents=[];state.selected=null;try{localStorage.removeItem("eme.selectedConversation")}catch{}state.selectedFamilyId=null;renderFamilySelector();state.messageCount=0;state.messages=[];$("conversation-title").textContent="No conversation selected";$("conversation-meta").textContent="Create a conversation to get started";$("rename-conversation").disabled=true;$("messages").innerHTML='<div class="empty">Choose an existing conversation or create a new one.</div>';$("prompt").value="";setComposerEnabled(false);renderConversations()}
 async function archiveConversation(id){
  const conversation=state.conversations.find(c=>c.id===id);if(!conversation)return;
  const restoring=state.showArchived;
@@ -347,9 +347,64 @@ async function archiveConversation(id){
  }catch(e){setStatus(e.message,"error")}
 }
 async function deleteConversation(id){const conversation=state.conversations.find(c=>c.id===id);if(!conversation)return;const title=conversation.title||"New conversation";if(!window.confirm('Permanently delete "'+title+'"? This cannot be undone.'))return;try{await api("/conversations/"+encodeURIComponent(id),{method:"DELETE"});state.conversations=state.conversations.filter(c=>c.id!==id);if(state.selected===id)clearSelectedConversation();else renderConversations();setStatus("Conversation deleted","ok")}catch(e){setStatus(e.message,"error")}}
-async function sendMessage(){const input=$("prompt").value.trim();if(!input||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount,previousMessages=[...state.messages];state.retry=null;$("prompt").value="";state.messages=[...state.messages,{user:{content:input}}];renderMessages(state.messages,{label:"Sending…",cancelEnabled:false});setComposerEnabled(false);setStatus("Queued…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input})});state.activeRuns[id]={run_id:result.run_id,conversation_id:id,input,status:result.status};await loadConversations();if(state.selected!==id)return;state.runId=result.run_id;renderMessages(state.messages,{label:"Thinking…",cancelEnabled:true});setStatus("Running · "+result.run_id.slice(0,8));await pollRun(id,result.run_id,previousMessageCount,input)}catch(e){if(state.selected===id){state.messages=previousMessages;renderMessages(state.messages);setStatus(e.message,"error");setComposerEnabled(true);$("prompt").value=input}}}
-async function retryMessage(){const retry=state.retry;if(!retry||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount;state.retry=null;renderMessages(state.messages,{label:"Retrying…",cancelEnabled:false});setComposerEnabled(false);setStatus("Retrying…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input:retry.input,retry:true})});state.activeRuns[id]={run_id:result.run_id,conversation_id:id,input:retry.input,status:result.status};await loadConversations();if(state.selected!==id)return;state.runId=result.run_id;renderMessages(state.messages,{label:"Thinking…",cancelEnabled:true});setStatus("Running · "+result.run_id.slice(0,8));await pollRun(id,result.run_id,previousMessageCount,retry.input)}catch(error){if(state.selected===id){state.retry=retry;renderMessages(state.messages,null,state.retry);setStatus(error.message,"error");setComposerEnabled(true)}}}
-async function pollRun(conversationId,runId,previousMessageCount,input){clearInterval(state.pollTimer);state.pollTimer=null;const poll=async()=>{if(state.selected!==conversationId||state.runId!==runId)return;try{const [run,events]=await Promise.all([api("/runs/"+encodeURIComponent(runId)),api("/runs/"+encodeURIComponent(runId)+"/events")]);if(state.selected!==conversationId||state.runId!==runId)return;renderRunEvents(events);if(!TERMINAL.has(run.status)){renderMessages(state.messages,{label:run.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+run.status);return}clearInterval(state.pollTimer);state.pollTimer=null;state.runId=null;delete state.activeRuns[conversationId];let conversation=null;for(let attempt=0;attempt<40;attempt++){conversation=await api("/conversations/"+encodeURIComponent(conversationId));if((conversation.messages||[]).length>previousMessageCount)break;await new Promise(resolve=>setTimeout(resolve,100))}if(state.selected===conversationId){$("conversation-title").textContent=conversation.title||"New conversation";$("conversation-meta").textContent="Agent · "+conversation.agent+" · Conversation "+conversation.id+" · ~"+Number(conversation.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";state.messageCount=(conversation.messages||[]).length;state.messages=conversation.messages||[];state.retry=null;if(run.status!=="completed"&&run.status!=="cancelled"){for(let i=state.messages.length-1;i>=0;i--){const part=messageParts(state.messages[i]);if(part?.kind==="user"&&part.value.content===input){state.retry={input,messageIndex:i};break}}}renderMessages(state.messages,null,state.retry);setComposerEnabled(true);setStatus(run.status==="completed"?"Completed":run.error||run.status,run.status==="completed"?"ok":"error")}await loadConversations();renderFamilySelector()}catch(e){if(state.selected!==conversationId||state.runId!==runId)return;clearInterval(state.pollTimer);state.pollTimer=null;state.runId=null;delete state.activeRuns[conversationId];setStatus("Unable to retrieve run: "+e.message,"error");setComposerEnabled(true);renderFamilySelector()}};await poll();if(state.selected===conversationId&&state.runId===runId)state.pollTimer=setInterval(poll,1000)}
+async function sendMessage(){const input=$("prompt").value.trim();if(!input||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount,previousMessages=[...state.messages];state.retry=null;$("prompt").value="";state.messages=[...state.messages,{user:{content:input}}];renderMessages(state.messages,{label:"Sending…",cancelEnabled:false});setComposerEnabled(false);setStatus("Queued…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input})});state.activeRuns[id]={run_id:result.run_id,conversation_id:id,input,status:result.status};await loadConversations();if(state.selected!==id)return;state.runId=result.run_id;renderMessages(state.messages,{label:"Thinking…",cancelEnabled:true});setStatus("Running · "+result.run_id.slice(0,8));connectRunStream(id,result.run_id,previousMessageCount,input)}catch(e){if(state.selected===id){state.messages=previousMessages;renderMessages(state.messages);setStatus(e.message,"error");setComposerEnabled(true);$("prompt").value=input}}}
+async function retryMessage(){const retry=state.retry;if(!retry||!state.selected||state.runId)return;const id=state.selected,previousMessageCount=state.messageCount;state.retry=null;renderMessages(state.messages,{label:"Retrying…",cancelEnabled:false});setComposerEnabled(false);setStatus("Retrying…");try{const result=await api("/conversations/"+encodeURIComponent(id)+"/runs",{method:"POST",body:JSON.stringify({input:retry.input,retry:true})});state.activeRuns[id]={run_id:result.run_id,conversation_id:id,input:retry.input,status:result.status};await loadConversations();if(state.selected!==id)return;state.runId=result.run_id;renderMessages(state.messages,{label:"Thinking…",cancelEnabled:true});setStatus("Running · "+result.run_id.slice(0,8));connectRunStream(id,result.run_id,previousMessageCount,retry.input)}catch(error){if(state.selected===id){state.retry=retry;renderMessages(state.messages,null,state.retry);setStatus(error.message,"error");setComposerEnabled(true)}}}
+function closeRunStream(){
+ if(state.eventSource){state.eventSource.close();state.eventSource=null}
+}
+function connectRunStream(conversationId,runId,previousMessageCount,input){
+ closeRunStream();
+ if(state.selected!==conversationId||state.runId!==runId)return;
+ state.runEvents=[];renderRunEvents([]);
+ const source=new EventSource("/runs/"+encodeURIComponent(runId)+"/events/stream");
+ state.eventSource=source;
+ source.onmessage=async event=>{
+  if(state.selected!==conversationId||state.runId!==runId){source.close();return}
+  let update;
+  try{update=JSON.parse(event.data)}catch(error){console.error("Invalid run event",error);return}
+  if(!state.runEvents.some(item=>item.sequence===update.sequence)){
+   state.runEvents.push(update);
+   state.runEvents.sort((left,right)=>left.sequence-right.sequence);
+   renderRunEvents(state.runEvents);
+  }
+  if(!TERMINAL.has(update.kind))return;
+  source.close();
+  if(state.eventSource===source)state.eventSource=null;
+  try{
+   const run=await api("/runs/"+encodeURIComponent(runId));
+   state.runId=null;delete state.activeRuns[conversationId];
+   let conversation=null;
+   for(let attempt=0;attempt<40;attempt++){
+    conversation=await api("/conversations/"+encodeURIComponent(conversationId));
+    if((conversation.messages||[]).length>previousMessageCount)break;
+    await new Promise(resolve=>setTimeout(resolve,100));
+   }
+   if(state.selected===conversationId){
+    $("conversation-title").textContent=conversation.title||"New conversation";
+    $("conversation-meta").textContent="Agent · "+conversation.agent+" · Conversation "+conversation.id+" · ~"+Number(conversation.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";
+    state.messageCount=(conversation.messages||[]).length;state.messages=conversation.messages||[];state.retry=null;
+    if(run.status!=="completed"&&run.status!=="cancelled"){
+     for(let i=state.messages.length-1;i>=0;i--){
+      const part=messageParts(state.messages[i]);
+      if(part?.kind==="user"&&part.value.content===input){state.retry={input,messageIndex:i};break}
+     }
+    }
+    renderMessages(state.messages,null,state.retry);setComposerEnabled(true);
+    setStatus(run.status==="completed"?"Completed":run.error||run.status,run.status==="completed"?"ok":"error");
+   }
+   await loadConversations();renderFamilySelector();
+  }catch(error){
+   if(state.selected===conversationId){state.runId=null;delete state.activeRuns[conversationId];setStatus("Unable to retrieve completed run: "+error.message,"error");setComposerEnabled(true);renderFamilySelector()}
+  }
+ };
+ source.onerror=()=>{
+  if(state.selected===conversationId&&state.runId===runId){
+   // EventSource reconnects automatically with Last-Event-ID.
+   setStatus("Connection interrupted · reconnecting…");
+  }
+ };
+ setStatus("Running · "+runId.slice(0,8));
+}
 on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});
 on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
@@ -364,6 +419,12 @@ function renderTaskAgents(){
  const select=$("task-agent"),selected=select.value;
  select.innerHTML=state.agents.map(agent=>'<option value="'+escapeHtml(agent.name)+'">'+escapeHtml(agent.name)+'</option>').join("");
  if(state.agents.some(agent=>agent.name===selected))select.value=selected;
+}
+function renderTaskFamilies(){
+ const select=$("task-family");if(!select)return;
+ const selected=select.value;
+ select.innerHTML='<option value="">No family context</option>'+state.families.map(family=>'<option value="'+escapeHtml(family.id)+'">'+escapeHtml(family.name)+'</option>').join("");
+ select.value=state.families.some(family=>family.id===selected)?selected:"";
 }
 function setTaskSection(active){
  const tabs=document.querySelectorAll("[data-task-section-tab]");
@@ -380,27 +441,27 @@ function resetTaskEditor(){
  state.selectedTask=null;renderTasks();
  updateTaskSectionTabs("details");
  const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
- for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
+ for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
  $("task-heading").textContent="Select a task";
- $("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
+ $("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-family").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
  $("delete-task").disabled=true;$("tasks-status").textContent="Choose a task or create a new one.";
 }
 function startNewTask(){
  state.selectedTask="new";renderTasks();
  updateTaskSectionTabs("details");
- for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
+ for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
  $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
- renderTaskAgents();$("tasks-status").textContent="Set either a cron schedule or a one-time execution date, not both.";$("task-name").focus();
+ renderTaskAgents();renderTaskFamilies();$("tasks-status").textContent="Set either a cron schedule or a one-time execution date, not both.";$("task-name").focus();
 }
 function toLocalDateTime(value){const date=new Date(value);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function selectTask(id){
  const task=state.tasks.find(item=>item.id===id);if(!task)return;
  state.selectedTask=id;renderTasks();
  updateTaskSectionTabs("details");
- for(const field of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
+ for(const field of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
  $("delete-task").disabled=false;$("task-heading").textContent=task.name;
- renderTaskAgents();$("task-name").value=task.name;$("task-description").value=task.description||"";$("task-agent").value=task.agent;$("task-prompt").value=task.prompt;
+ renderTaskAgents();renderTaskFamilies();$("task-name").value=task.name;$("task-description").value=task.description||"";$("task-agent").value=task.agent;$("task-prompt").value=task.prompt;$("task-family").value=task.family_id||"";
  $("task-schedule").value=task.schedule||"";
  $("task-at").value=task.at?toLocalDateTime(task.at):"";
  $("task-timezone").value=task.timezone||"Europe/Madrid";$("task-enabled").checked=!!task.enabled;
@@ -411,7 +472,7 @@ async function saveTask(event){
  event.preventDefault();
  const schedule=$("task-schedule").value.trim(),atValue=$("task-at").value;
  if(Boolean(schedule)===Boolean(atValue)){$("tasks-status").textContent="Specify either a cron schedule or a one-time date, but not both.";return}
- const body={name:$("task-name").value.trim(),description:$("task-description").value.trim(),agent:$("task-agent").value,prompt:$("task-prompt").value,schedule:schedule||null,at:atValue?new Date(atValue).toISOString():null,timezone:schedule?($("task-timezone").value.trim()||"UTC"):null,enabled:$("task-enabled").checked};
+ const body={name:$("task-name").value.trim(),description:$("task-description").value.trim(),agent:$("task-agent").value,prompt:$("task-prompt").value,schedule:schedule||null,at:atValue?new Date(atValue).toISOString():null,timezone:schedule?($("task-timezone").value.trim()||"UTC"):null,family_id:$("task-family").value||null,enabled:$("task-enabled").checked};
  $("save-task").disabled=true;
  try{
   const saved=state.selectedTask==="new"?await api("/tasks",{method:"POST",body:JSON.stringify(body)}):await api("/tasks/"+encodeURIComponent(state.selectedTask),{method:"PUT",body:JSON.stringify(body)});
@@ -646,7 +707,7 @@ async function showConsole(){
   await loadFamilies();
   await loadFamilyDetails(state.families[0]?.id||null);
  }else if(page==="tasks"){
-  state.agents=await api("/agents");renderTaskAgents();await loadTasks();resetTaskEditor();
+  state.agents=await api("/agents");renderTaskAgents();state.families=await api("/families");renderTaskFamilies();await loadTasks();resetTaskEditor();
  }else if(page==="profile"){
   await Promise.all([loadProfile(),loadFamilies()]);
   await loadFamilyDetails(state.families[0]?.id||null);
