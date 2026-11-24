@@ -249,22 +249,31 @@ fn extract_holdings(html: &str) -> Vec<CopyHolding> {
             .or_else(|| status_attr.captures(contents))?
             .get(1)?.as_str();
         let text = clean_text(raw);
+        let library = labelled_value(&text, &["Biblioteca", "Sucursal"]);
+        let signature = labelled_value(&text, &["Signatura", "SIGN"])
+            .or_else(|| extract_signature(&text));
+        let location = labelled_value(&text, &["Localización", "Ubicación"])
+            .or_else(|| known_value(&text, &["Depósito", "Sala de préstamo", "Sala de lectura", "Sala infantil"]));
+        let material = labelled_value(&text, &["Tipo de ejemplar", "Tipo", "Formato"])
+            .or_else(|| known_value(&text, &["Libro adultos", "Libro infantil", "Papel", "DVD", "CD"]));
+        // Keep the raw row only when structured extraction found no useful
+        // fields. Otherwise it repeats the same information in agent output.
+        let catalogue_note = (library.is_none() && signature.is_none()
+            && location.is_none() && material.is_none() && !text.is_empty())
+            .then_some(text);
         Some(CopyHolding {
-            library: labelled_value(&text, &["Biblioteca", "Sucursal"]),
-            signature: labelled_value(&text, &["Signatura", "SIGN"])
-                .or_else(|| extract_signature(&text)),
-            location: labelled_value(&text, &["Localización", "Ubicación"])
-                .or_else(|| known_value(&text, &["Depósito", "Sala de préstamo", "Sala de lectura", "Sala infantil"])),
-            material: labelled_value(&text, &["Tipo de ejemplar", "Tipo", "Formato"])
-                .or_else(|| known_value(&text, &["Libro adultos", "Libro infantil", "Papel", "DVD", "CD"])),
+            library,
+            signature,
+            location,
+            material,
             availability: normalize_availability(status),
-            catalogue_note: (!text.is_empty()).then_some(text),
+            catalogue_note,
         })
     }).collect()
 }
 
 fn extract_signature(text: &str) -> Option<String> {
-    Regex::new(r"\b[A-Z]{1,4}-[A-Z0-9-]{2,20}\b")
+    Regex::new(r"\b[A-Z]{1,4}-[A-Z0-9]+(?:\s+[A-Z0-9]+)?\b")
         .ok()?
         .find(text)
         .map(|matched| matched.as_str().to_owned())
@@ -277,7 +286,8 @@ fn known_value(text: &str, values: &[&str]) -> Option<String> {
 
 fn normalize_availability(value: &str) -> Availability {
     let value = value.trim().to_lowercase();
-    if value.contains("disponible") { Availability::Available }
+    if value.contains("no disponible") { Availability::Other }
+    else if value.contains("disponible") { Availability::Available }
     else if value.contains("prestado") || value.contains("en préstamo") { Availability::Loaned }
     else if value.contains("consulta") || value.contains("sala") { Availability::ReadingRoomOnly }
     else if value.is_empty() { Availability::Unknown }
@@ -413,6 +423,23 @@ mod tests {
         assert_eq!(holdings.len(), 1);
         assert_eq!(holdings[0].availability, Availability::Available);
         assert_eq!(holdings[0].signature.as_deref(), Some("D-18214"));
+    }
+
+    #[test]
+    fn parses_deposit_signature_without_repeating_the_raw_row() {
+        let html = r#"<table><tr data-disp="Disponible"><td>Depósito D-2 5331 Tipo de ejemplar Libro adultos Soporte Papel Disponibilidad Disponible</td></tr></table>"#;
+        let holdings = extract_holdings(html);
+        assert_eq!(holdings.len(), 1);
+        assert_eq!(holdings[0].signature.as_deref(), Some("D-2 5331"));
+        assert_eq!(holdings[0].location.as_deref(), Some("Depósito"));
+        assert_eq!(holdings[0].material.as_deref(), Some("Libro adultos"));
+        assert_eq!(holdings[0].availability, Availability::Available);
+        assert_eq!(holdings[0].catalogue_note, None);
+    }
+
+    #[test]
+    fn no_disponible_is_not_available() {
+        assert_eq!(normalize_availability("No disponible"), Availability::Other);
     }
 
     #[test]
