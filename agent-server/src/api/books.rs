@@ -146,7 +146,7 @@ async fn refresh_catalogue(
     let Some(item) = matched_item else {
         return HttpResponse::NotFound().body("No exact matching RABEL record was found; collection data was left unchanged");
     };
-    let update = BookUpdate {
+    let metadata_update = BookUpdate {
         title: item.title.clone(),
         authors: Some(item.authors.clone()),
         isbn: Some(item.isbn.clone()),
@@ -160,7 +160,7 @@ async fn refresh_catalogue(
         subjects: Some(item.subjects.clone()),
         ..Default::default()
     };
-    match store.update(&user, &book.id, update).await {
+    match store.update(&user, &book.id, metadata_update).await {
         Ok(updated) => HttpResponse::Ok().json(serde_json::json!({
             "book": updated,
             "catalogue_item": item
@@ -219,7 +219,6 @@ async fn holdings(
             }
         };
         let wanted_isbn = book.isbn.as_deref().map(normalize_isbn);
-        let wanted_title = normalize_title(&book.title);
         let record = results.iter().find(|result| {
             wanted_isbn.as_ref().is_some_and(|isbn| {
                 result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate).as_str() == isbn.as_str())
