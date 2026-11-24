@@ -129,8 +129,9 @@ async fn run_scheduler(
                     tracing::warn!(task = %task.name, "recurring task has no further occurrence");
                 }
             }
-            match manager
-                .submit(
+            let submitted = match manager
+                .submit_for_task(
+                    task.id,
                     task.agent.clone(),
                     task.prompt.clone(),
                     Vec::new(),
@@ -140,13 +141,17 @@ async fn run_scheduler(
             {
                 Ok(run_id) => {
                     tracing::info!(task = %task.name, user_id = %task.user_id, run_id = %run_id,
-                    scheduled_at = %scheduled_at, "scheduled task submitted")
+                    scheduled_at = %scheduled_at, "scheduled task submitted");
+                    true
                 }
-                Err(error) => tracing::error!(task = %task.name, user_id = %task.user_id, %error,
-                    "failed to submit scheduled task"),
-            }
-            if !recurring {
-                registry.remove_after_execution(id);
+                Err(error) => {
+                    tracing::error!(task = %task.name, user_id = %task.user_id, %error,
+                        "failed to submit scheduled task");
+                    false
+                }
+            };
+            if !recurring && submitted {
+                registry.disable_after_execution(id);
             }
         }
     }
