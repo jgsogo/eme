@@ -87,9 +87,18 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         if heading.is_empty() { continue; }
         let row_html = surrounding_row(html, captures.get(0).unwrap().start());
         let context = clean_text(&row_html);
-        let authors = extract_authors(&context);
+        let mut authors = extract_authors(&context);
         let (heading_title, responsibility) = split_statement_of_responsibility(&heading);
-        let title = strip_search_author_prefix(&heading_title, &authors);
+        let title = if authors.is_empty() {
+            if let Some((author, title)) = split_dated_author_prefix(&heading_title) {
+                authors.push(author);
+                title
+            } else {
+                heading_title
+            }
+        } else {
+            strip_search_author_prefix(&heading_title, &authors)
+        };
         let publication_statement = labelled_value(&context, &[
             "Editor / Productor", "Publicación", "Publicacion", "Edición", "Edicion",
             "Datos de publicación", "Datos de publicacion",
@@ -119,6 +128,15 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         return Err(RabelError::Parse(format!("no recognized record links found in RABEL search response; {}", search_page_diagnostic(html, session_url))));
     }
     Ok(results)
+}
+
+/// If a search row omits its separate author field, recover the common
+/// "Author (birth-death) Title" heading form without treating arbitrary
+/// leading words as an author.
+fn split_dated_author_prefix(value: &str) -> Option<(String, String)> {
+    let re = Regex::new(r"^(.+?\\(\\d{3,4}(?:\\s*[-–]\\s*\\d{3,4})?\\))\\s+(.+)$").ok()?;
+    let captures = re.captures(value)?;
+    Some((captures.get(1)?.as_str().trim().to_owned(), captures.get(2)?.as_str().trim().to_owned()))
 }
 
 /// Search headings commonly render as "Author Title / Responsibility".
