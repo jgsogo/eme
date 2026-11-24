@@ -97,7 +97,17 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
                 heading_title
             }
         } else {
-            strip_search_author_prefix(&heading_title, &authors)
+            let stripped = strip_search_author_prefix(&heading_title, &authors);
+            if stripped != heading_title {
+                stripped
+            } else {
+                // Some RABEL rows expose the author field, but its formatting
+                // does not exactly match the author prefix in the result link.
+                // Still split the well-defined dated-author heading form.
+                split_dated_author_prefix(&heading_title)
+                    .map(|(_, title)| title)
+                    .unwrap_or(heading_title)
+            }
         };
         let publication_statement = labelled_value(&context, &[
             "Editor / Productor", "Publicación", "Publicacion", "Edición", "Edicion",
