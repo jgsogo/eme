@@ -112,7 +112,10 @@ fn library_page_diagnostic(html: &str) -> String {
 }
 
 pub(super) fn libraries(html: &str) -> Result<Vec<Library>, RabelError> {
-    let selects = Regex::new(r#"(?is)<select\b[^>]*(?:name|id)\s*=\s*["'](?:SUBC|subc)["'][^>]*>(.*?)</select>"#)
+    // AbsysNet exposes the catalogue selector as `select#subcat[name=subcat]`.
+    // Its onchange handler switches the active subcatalogue; option values
+    // are the SUBC identifiers consumed by subsequent OPAC requests.
+    let selects = Regex::new(r#"(?is)<select\b(?=[^>]*(?:name|id)\s*=\s*["']subcat["'])[^>]*>(.*?)</select>"#)
         .map_err(|error| RabelError::Parse(error.to_string()))?;
     let options = Regex::new(r#"(?is)<option\b[^>]*value\s*=\s*["']([^"']+)["'][^>]*>(.*?)</option>"#)
         .map_err(|error| RabelError::Parse(error.to_string()))?;
