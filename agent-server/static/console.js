@@ -85,10 +85,19 @@ function renderRunEvents(events=[]){
 }
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId}
 async function loadConversations(){const [conversations,runs]=await Promise.all([api(state.showArchived?"/conversations/archived":"/conversations"),api("/runs")]);state.conversations=conversations;state.activeRuns={};for(const run of runs){if(run.conversation_id&&["queued","running"].includes(run.status)&&!state.activeRuns[run.conversation_id])state.activeRuns[run.conversation_id]=run}renderConversations()}
-async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies()}
+async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies();renderNoteFamilyFilter()}
+function renderNoteFamilyFilter(){
+ const select=$("note-family-filter");if(!select)return;
+ const selected=select.value;
+ select.innerHTML='<option value="">All notes</option><option value="private">Private notes</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
+ if([...select.options].some(option=>option.value===selected))select.value=selected;
+}
 function renderNotes(){
  const target=$("notes-list");if(!target)return;
- target.innerHTML=state.notes.length?state.notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">No notes yet. Create one to get started.</div>';
+ const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
+ const familyFilter=$("note-family-filter")?.value||"";
+ const notes=state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter)));
+ target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
 }
 function resetNoteEditor(){
  state.selectedNote=null;renderNotes();
@@ -123,8 +132,11 @@ function renderNoteFamilies(){
  if([...select.options].some(option=>option.value===selected))select.value=selected;
 }
 async function loadNotes(){
+ const button=$("refresh-notes");if(button)button.disabled=true;
+ $("notes-list").innerHTML='<div class="empty" role="status">Loading notes…</div>';
  try{state.notes=await api("/notes");renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
- catch(e){$("notes-list").innerHTML='<div class="hint">Unable to load notes: '+escapeHtml(e.message)+'</div>'}
+ catch(e){$("notes-list").innerHTML='<div class="empty" role="alert">Unable to load notes: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-notes>Try again</button></p></div>'}
+ finally{if(button)button.disabled=false}
 }
 async function saveNote(event){
  event.preventDefault();const title=$("note-title").value.trim(),content=$("note-content").value,family_id=$("note-family").value||null;
@@ -407,18 +419,21 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
  };
  setStatus("Running · "+runId.slice(0,8));
 }
-on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);
-on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",renderNotes);on("note-family-filter","change",renderNotes);
+on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
+ const button=$("refresh-tasks");if(button)button.disabled=true;
+ $("tasks-list").innerHTML='<div class="empty" role="status">Loading tasks…</div>';
  try{state.tasks=await api("/tasks");renderTasks()}
- catch(e){$("tasks-list").innerHTML='<div class="empty">Unable to load tasks: '+escapeHtml(e.message)+'</div>'}
+ catch(e){$("tasks-list").innerHTML='<div class="empty" role="alert">Unable to load tasks: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-tasks>Try again</button></p></div>'}
+ finally{if(button)button.disabled=false}
 }
 function renderTasks(){
  const query=$("task-search")?.value.trim().toLocaleLowerCase()||"";
  const enabledOnly=$("tasks-enabled-only")?.checked||false;
  const tasks=state.tasks.filter(task=>(!enabledOnly||task.enabled)&&[task.name,task.description,task.agent,task.schedule||"One-time"].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
- $("tasks-list").innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters.':'No tasks yet. Create one to get started.')+'</div>';
+ $("tasks-list").innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
 }
 function renderTaskAgents(){
  const select=$("task-agent"),selected=select.value;
