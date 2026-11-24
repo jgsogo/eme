@@ -31,7 +31,7 @@ pub fn search_definition() -> ToolDefinition {
 pub fn item_definition() -> ToolDefinition {
     ToolDefinition {
         name: "rabel.get_item".into(),
-        description: "Retrieve bibliographic details and copy-level holdings for one record returned by rabel.search_catalog. Availability is live and includes the time checked.".into(),
+        description: "Retrieve bibliographic metadata for one record returned by rabel.search_catalog. This describes the resource itself; it does not include library copies or availability.".into(),
         parameters: json!({
             "type":"object",
             "properties":{"record_ref":{"type":"string","minLength":1,"description":"Opaque record_ref returned by rabel.search_catalog."}},
