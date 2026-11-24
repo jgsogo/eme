@@ -140,12 +140,14 @@ fn meta_refresh_target(html: &str) -> Option<String> {
             .is_some_and(|value| value.eq_ignore_ascii_case("refresh"))
         {
             let content = attribute_value(&lower_tag, tag, "content")?;
-            let (_, target) = content.split_once("url=")
-                .or_else(|| {
-                    let lower_content = content.to_ascii_lowercase();
-                    lower_content.find("url=").map(|index| (&content[..index], &content[index..]))
-                })?;
-            return Some(target[4..].trim().trim_matches(['"', '\'']).to_owned());
+            let lower_content = content.to_ascii_lowercase();
+            let target_start = lower_content.find("url=")? + "url=".len();
+            return Some(
+                content[target_start..]
+                    .trim()
+                    .trim_matches(|character| character == '"' || character == '\'')
+                    .to_owned(),
+            );
         }
 
         offset = end + 1;
