@@ -247,6 +247,69 @@ async fn exposes_ordered_run_lifecycle_events() {
 }
 
 #[actix_web::test]
+async fn streams_run_events_and_resumes_after_last_event_id() {
+    let manager = manager();
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(manager.clone()))
+            .service(runs_api()),
+    )
+    .await;
+
+    let request = test::TestRequest::post()
+        .uri("/runs")
+        .set_json(json!({"agent": "assistant", "input": "hello"}))
+        .to_request();
+    let response = test::call_service(&app, request).await;
+    let body: Value = test::read_body_json(response).await;
+    let run_id = body["run_id"].as_str().unwrap().to_owned();
+    let parsed_run_id = run_id.parse::<RunId>().unwrap();
+
+    tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            if manager
+                .get(parsed_run_id)
+                .await
+                .is_some_and(|run| run.status == agent_service::RunStatus::Completed)
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("run should complete before replay");
+
+    let request = test::TestRequest::get()
+        .uri(&format!("/runs/{run_id}/events/stream"))
+        .to_request();
+    let response = test::call_service(&app, request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "text/event-stream"
+    );
+    let body = test::read_body(response).await;
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(body.contains("id: 0\n"));
+    assert!(body.contains("id: 1\n"));
+    assert!(body.contains("id: 2\n"));
+    assert!(body.contains("queued"));
+    assert!(body.contains("completed"));
+
+    let request = test::TestRequest::get()
+        .uri(&format!("/runs/{run_id}/events/stream"))
+        .insert_header(("Last-Event-ID", "0"))
+        .to_request();
+    let response = test::call_service(&app, request).await;
+    let body = test::read_body(response).await;
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(!body.contains("id: 0\n"));
+    assert!(body.contains("id: 1\n"));
+    assert!(body.contains("id: 2\n"));
+}
+
+#[actix_web::test]
 async fn rejects_invalid_and_unknown_event_targets() {
     let app = test::init_service(
         App::new()

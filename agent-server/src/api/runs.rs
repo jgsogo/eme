@@ -11,8 +11,10 @@ use super::types::{
     CancelRunResponse, GetRunResponse, RunEventResponse, SubmitRunRequest, SubmitRunResponse,
 };
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, Scope, get, post,
-    web::{self, Data, Json, Path},
+    HttpRequest, HttpResponse, Responder, Scope, get,
+    http::header,
+    post,
+    web::{self, Bytes, Data, Json, Path},
 };
 use agent_runtime::ToolContext;
 use agent_service::Run;
@@ -22,7 +24,8 @@ use agent_service::{
 use agent_storage::{
     ConversationId, FileUserIdentityStore, SqliteConversationStore, UserIdentityStore,
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
+use tokio::sync::mpsc;
 
 fn owns_run(
     run: &Run,
@@ -417,6 +420,142 @@ async fn get_run_events(
     }
 }
 
+#[get("/{run_id}/events/stream")]
+async fn stream_run_events(
+    request: HttpRequest,
+    auth: Option<Data<crate::auth::TelegramAuth>>,
+    store: Option<Data<Arc<SqliteConversationStore>>>,
+    manager: Data<RunManager>,
+    run_id: Path<String>,
+) -> HttpResponse {
+    let run_id = match RunId::from_str(&run_id) {
+        Ok(run_id) => run_id,
+        Err(_) => return HttpResponse::BadRequest().body("invalid run identifier"),
+    };
+
+    let Some(run) = manager.get(run_id).await else {
+        return HttpResponse::NotFound().finish();
+    };
+    if !owns_run(
+        &run,
+        &request,
+        auth.as_deref().map(|v| &**v),
+        store.as_ref().map(|store| store.get_ref().as_ref()),
+    ) {
+        return HttpResponse::NotFound().finish();
+    }
+
+    // Subscribe before taking the snapshot. Events arriving in between are
+    // represented in both and de-duplicated by their per-run sequence number.
+    let mut live_events = manager.subscribe_events();
+    let replay = manager.events(run_id).await.unwrap_or_default();
+    let last_event_id = request
+        .headers()
+        .get("Last-Event-ID")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok());
+    let (sender, receiver) = mpsc::channel::<Bytes>(32);
+    let manager = manager.clone();
+
+    actix_web::rt::spawn(async move {
+        let mut last_sequence = last_event_id;
+        for event in replay {
+            if last_sequence.is_some_and(|last| event.sequence <= last) {
+                continue;
+            }
+            let Some((sequence, terminal)) = send_sse_event(&sender, event).await else {
+                return;
+            };
+            last_sequence = Some(sequence);
+            if terminal {
+                return;
+            }
+        }
+
+        if manager
+            .get(run_id)
+            .await
+            .is_some_and(|run| !matches!(run.status, RunStatus::Queued | RunStatus::Running))
+        {
+            return;
+        }
+
+        let mut heartbeat = tokio::time::interval(Duration::from_secs(15));
+        loop {
+            tokio::select! {
+                received = live_events.recv() => {
+                    match received {
+                        Ok((event_run_id, event)) if event_run_id == run_id => {
+                            if last_sequence.is_some_and(|last| event.sequence <= last) {
+                                continue;
+                            }
+                            let Some((sequence, terminal)) = send_sse_event(&sender, event).await else {
+                                return;
+                            };
+                            last_sequence = Some(sequence);
+                            if terminal {
+                                return;
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            // Recover from a slow consumer using ordered run history.
+                            for event in manager.events(run_id).await.unwrap_or_default() {
+                                if last_sequence.is_some_and(|last| event.sequence <= last) {
+                                    continue;
+                                }
+                                let Some((sequence, terminal)) = send_sse_event(&sender, event).await else {
+                                    return;
+                                };
+                                last_sequence = Some(sequence);
+                                if terminal {
+                                    return;
+                                }
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
+                    }
+                }
+                _ = heartbeat.tick() => {
+                    if sender.send(Bytes::from_static(b": keep-alive\n\n")).await.is_err() {
+                        return;
+                    }
+                }
+            }
+        }
+    });
+
+    HttpResponse::Ok()
+        .insert_header((header::CONTENT_TYPE, "text/event-stream"))
+        .insert_header((header::CACHE_CONTROL, "no-cache"))
+        .insert_header(("X-Accel-Buffering", "no"))
+        .streaming(futures_util::stream::unfold(
+            receiver,
+            |mut receiver| async move {
+                receiver
+                    .recv()
+                    .await
+                    .map(|bytes| (Ok::<Bytes, actix_web::Error>(bytes), receiver))
+            },
+        ))
+}
+
+async fn send_sse_event(
+    sender: &mpsc::Sender<Bytes>,
+    event: agent_service::RunEvent,
+) -> Option<(u64, bool)> {
+    let response = RunEventResponse::from(event);
+    let sequence = response.sequence;
+    let terminal = matches!(
+        response.kind,
+        "completed" | "failed" | "cancelled" | "timed_out" | "max_iterations_reached"
+    );
+    let payload = serde_json::to_string(&response).ok()?;
+    let frame = format!("id: {sequence}\ndata: {payload}\n\n");
+    sender.send(Bytes::from(frame)).await.ok()?;
+    Some((sequence, terminal))
+}
+
 #[post("/{run_id}/cancel")]
 async fn cancel_run(
     request: HttpRequest,
@@ -477,5 +616,6 @@ pub fn runs_api() -> Scope {
         .service(submit_run)
         .service(get_run)
         .service(get_run_events)
+        .service(stream_run_events)
         .service(cancel_run)
 }

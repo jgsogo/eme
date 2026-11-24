@@ -274,6 +274,7 @@ dependencies = [
  "chrono",
  "clap",
  "common-tools",
+ "futures-util",
  "google-tool",
  "meal-planner",
  "media-tools",
