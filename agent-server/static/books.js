@@ -36,7 +36,7 @@
     $("book-authors").value = book.authors.join(", "); $("book-isbn").value = book.isbn || "";
     $("book-rating").value = book.rating ?? ""; $("book-status").value = book.reading_status;
     $("book-want-to-buy").checked = book.want_to_buy; $("book-review").value = book.review || "";
-    $("book-details-dialog").showModal();
+    if (!$("book-details-dialog").open) $("book-details-dialog").showModal();
     await loadHoldings();
   }
   async function loadBooks() {
