@@ -145,7 +145,7 @@ pub fn register_media_tools(
         ),
         (
             "media_watchlist",
-            "Read, add to, or remove from the authenticated user's linked Trakt watchlist. Omit profile_id to use their personal media profile; writes require that profile's own Trakt connection.",
+            "Read the linked Trakt watchlist, or add/remove titles on the user's explicit request. Omit profile_id to use their personal media profile; writes require that profile's own Trakt connection.",
             json!({
                 "type":"object",
                 "properties":{
@@ -160,7 +160,7 @@ pub fn register_media_tools(
         ),
         (
             "media_rate",
-            "Record a 0–5 EME rating and write it through to Trakt when the selected profile has the caller's Trakt account linked. Omit profile_id to use their personal media profile.",
+            "Record a 0–5 rating on the user's explicit request and write it through to Trakt when the selected profile has the caller's Trakt account linked. Omit profile_id to use their personal media profile.",
             json!({
                 "type":"object",
                 "properties":{
