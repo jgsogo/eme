@@ -26,9 +26,9 @@ function render(){
  $("providers-list").innerHTML=providers.length?providers.map(provider=>{
   const models=provider.models.map((model,index)=>{
    const capabilities=(model.capabilities||[]).map(capability=>'<span class="tool-card-tag">'+escapeHtml(formatCapability(capability))+'</span>').join("");
-   return '<div class="provider-model" data-model-index="'+index+'"><div class="provider-model-heading"><div><strong>'+escapeHtml(model.name)+'</strong><span class="tool-card-tag">'+(model.capabilities||[]).length+' capabilities</span></div><button class="secondary provider-test-button" type="button" data-test-model="'+escapeHtml(model.name)+'">Test</button></div><div class="agent-tags">'+(capabilities||'<span class="usage-empty">No capabilities declared</span>')+'</div><div class="provider-model-result" aria-live="polite"></div></div>';
+   return '<div class="provider-model" data-model-index="'+index+'"><div class="provider-model-heading"><div><strong>'+escapeHtml(model.name)+'</strong><span class="tool-card-tag">'+(model.capabilities||[]).length+' capabilities</span></div><button class="secondary provider-test-button" type="button" data-test-model="'+escapeHtml(model.name)+'"> + testIcon + <span>Test</span></button></div><div class="agent-tags">'+(capabilities||'<span class="usage-empty">No capabilities declared</span>')+'</div><div class="provider-model-result" aria-live="polite"></div></div>';
   }).join("");
-  return '<article class="panel tool-card" data-provider="'+escapeHtml(provider.name)+'"><div class="tool-card-heading"><div><h3>'+escapeHtml(provider.name)+'</h3><p>Client adapter: '+escapeHtml(provider.client)+'</p></div><div class="provider-actions"><span class="tool-card-tag">'+(provider.models||[]).length+' models</span><button class="secondary provider-test-button" type="button" data-test-provider>${testIcon}<span>Test all</span></button></div></div><div class="provider-models">'+models+'</div></article>';
+  return '<article class="panel tool-card" data-provider="'+escapeHtml(provider.name)+'"><div class="tool-card-heading"><div><h3>'+escapeHtml(provider.name)+'</h3><p>Client adapter: '+escapeHtml(provider.client)+'</p></div><div class="provider-actions"><span class="tool-card-tag">'+(provider.models||[]).length+' models</span><button class="secondary provider-test-button" type="button" data-test-provider> + testIcon + <span>Test all</span></button></div></div><div class="provider-models">'+models+'</div></article>';
  }).join(""):'<p class="usage-empty">No providers or models match this search.</p>';
  const count=state.providers.reduce((total,provider)=>total+(provider.models||[]).length,0);
  $("providers-status").textContent=providers.length+" of "+state.providers.length+" providers · "+count+" configured models";
@@ -58,7 +58,7 @@ async function testProvider(button){
  const rows=[...card.querySelectorAll(".provider-model")];
  const modelButtons=rows.map(row=>row.querySelector("[data-test-model]"));
  button.disabled=true;
- button.textContent="Testing…";
+ button.innerHTML="<span>Testing…</span>";
  for(const row of rows){
   const result=row.querySelector(".provider-model-result");
   result.className="provider-model-result pending";
