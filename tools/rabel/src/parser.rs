@@ -426,9 +426,12 @@ mod tests {
 
     #[test]
     fn record_details_contain_bibliographic_data_only() {
-        let html = r#"<html><h1>The Example Book</h1>
-            <p>Autor: Ada Lovelace Editorial: Example Press ISBN: 978-1234567890</p>
-            <table><tr data-disp="Disponible"><td>Signatura D-123 Depósito Libro adultos Papel</td></tr></table>
+        let html = r#"<html><h1>Menú responsive</h1><div id="docu_body">
+            <dl><dt>Título:</dt><dd>The Example Book</dd></dl>
+            <dl><dt>Autor:</dt><dd>Ada Lovelace</dd></dl>
+            <dl><dt>Editorial:</dt><dd>Example Press</dd></dl>
+            <dl><dt>ISBN:</dt><dd>978-1234567890</dd></dl>
+            </div><table><tr data-disp="Disponible"><td>Signatura D-123 Depósito Libro adultos Papel</td></tr></table>
         </html>"#;
         let item = record(html).unwrap();
         assert_eq!(item.title.as_deref(), Some("The Example Book"));
