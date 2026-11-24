@@ -282,7 +282,18 @@ impl RunManager {
         agent: impl Into<String>,
         input: impl Into<String>,
         history: Vec<Message>,
+        context: ToolContext,
+    ) -> Result<RunId, SubmitRunError> {
+        self.submit_inner(agent, input, history, context, None).await
+    }
+
+    async fn submit_inner(
+        &self,
+        agent: impl Into<String>,
+        input: impl Into<String>,
+        history: Vec<Message>,
         mut context: ToolContext,
+        task_id: Option<Uuid>,
     ) -> Result<RunId, SubmitRunError> {
         // Reserve queue capacity before touching durable state. This avoids
         // leaving a persisted queued run behind when admission is rejected.
@@ -340,6 +351,12 @@ impl RunManager {
                 .insert_run(to_stored_run(&run))
                 .await
                 .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
+            if let Some(task_id) = task_id {
+                storage
+                    .associate_task_run(task_id, run_id.as_uuid())
+                    .await
+                    .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
+            }
             storage
                 .append_event(to_stored_event(run_id, &queued_event()))
                 .await
@@ -377,6 +394,7 @@ impl RunManager {
         Ok(run_id)
     }
 
+
     /// Submits an execution on behalf of a scheduled task and records the
     /// task/run association before returning the run identifier.
     pub async fn submit_for_task(
@@ -387,14 +405,12 @@ impl RunManager {
         history: Vec<Message>,
         context: ToolContext,
     ) -> Result<RunId, SubmitRunError> {
-        let storage = current_storage(&self.persistence)
-            .ok_or_else(|| SubmitRunError::Storage("execution storage is not configured".into()))?;
-        let run_id = self.submit(agent, input, history, context).await?;
-        storage
-            .associate_task_run(task_id, run_id.as_uuid())
-            .await
-            .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
-        Ok(run_id)
+        if current_storage(&self.persistence).is_none() {
+            return Err(SubmitRunError::Storage(
+                "execution storage is not configured".into(),
+            ));
+        }
+        self.submit_inner(agent, input, history, context, Some(task_id)).await
     }
 
     pub async fn cancel(&self, run_id: RunId) -> Result<CancelRunOutcome, CancelRunError> {
@@ -492,6 +508,7 @@ impl RunManager {
             }
         }
     }
+
 
     /// Lists the durable executions associated with one scheduled task.
     pub async fn task_runs(&self, task_id: Uuid) -> Result<Vec<Run>, String> {
