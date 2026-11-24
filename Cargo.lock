@@ -4462,3 +4462,22 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+
+[[package]]
+name = "rabel-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
+ "chrono",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "url",
+ "wiremock",
+]
