@@ -310,11 +310,11 @@ impl TaskRegistry {
 
     pub(crate) fn set_next_run(&self, id: Uuid, next: DateTime<Utc>) -> Result<(), TaskError> {
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
-        let mut task = tasks.get(&id).cloned().ok_or(TaskError::NotFound)?;
+        let task = tasks.get_mut(&id).ok_or(TaskError::NotFound)?;
         task.next_run = Some(next);
-        self.persist(&task)?;
-        tasks.insert(id, task);
-        Ok(())
+        // Update memory even if persistence fails so a later registry refresh does not
+        // resubmit an occurrence that the run manager has already accepted.
+        self.persist(task)
     }
     pub fn remove(&self, user: &str, id: Uuid) -> Result<(), TaskError> {
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
@@ -328,16 +328,33 @@ impl TaskRegistry {
     }
     pub(crate) fn remove_after_execution(&self, id: Uuid) -> Result<(), TaskError> {
         let mut tasks = self.inner.tasks.write().map_err(lock_error)?;
-        if tasks.contains_key(&id) {
-            match fs::remove_file(self.path(id)) {
-                Ok(()) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(storage_error(error)),
+        let Some(task) = tasks.get(&id).cloned() else {
+            return Ok(());
+        };
+        match fs::remove_file(self.path(id)) {
+            Ok(()) => {
+                tasks.remove(&id);
+                self.notify();
+                Ok(())
             }
-            tasks.remove(&id);
-            self.notify();
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                tasks.remove(&id);
+                self.notify();
+                Ok(())
+            }
+            Err(error) => {
+                // The run has already been accepted. If deletion fails, disable the task
+                // in memory and on disk where possible so it is not resubmitted in-process.
+                let mut completed = task;
+                completed.enabled = false;
+                completed.next_run = None;
+                tasks.insert(id, completed.clone());
+                let persist_result = self.persist(&completed);
+                self.notify();
+                persist_result?;
+                Err(storage_error(error))
+            }
         }
-        Ok(())
     }
     fn path(&self, id: Uuid) -> PathBuf {
         self.inner.directory.join(format!("{id}.toml"))
