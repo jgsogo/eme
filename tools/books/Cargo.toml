@@ -1,0 +1,14 @@
+[package]
+name = "books-tool"
+version = "0.1.0"
+edition = "2024"
+description = "User-owned personal book collection and library preferences."
+
+[dependencies]
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }

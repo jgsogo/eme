@@ -20,6 +20,7 @@ members = [
     "tools/mercadona",
     "tools/media",
     "tools/rabel",
+    "tools/books",
 ]
 
 [workspace.dependencies]
