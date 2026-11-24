@@ -35,7 +35,9 @@ pub struct TelegramGateway {
 
 /// Add a concise marker to questions that require a user response.
 fn format_question(question: &str) -> String {
-    format!("❓ Question\n\n{question}\n\n↩️ To answer, use Telegram’s Reply action on this message. New messages or standalone comments will not be accepted.")
+    format!(
+        "❓ Question\n\n{question}\n\n↩️ To answer, use Telegram’s Reply action on this message. New messages or standalone comments will not be accepted."
+    )
 }
 
 /// Distinguish one-way notifications from questions that require a response.
@@ -398,7 +400,10 @@ mod tests {
 
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
-        assert_eq!(subscriber.try_recv().unwrap().reply_to_message_id, Some(100));
+        assert_eq!(
+            subscriber.try_recv().unwrap().reply_to_message_id,
+            Some(100)
+        );
     }
 
     #[tokio::test]
