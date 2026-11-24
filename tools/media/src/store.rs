@@ -398,7 +398,7 @@ impl MediaStore {
         profile_id: MediaProfileId,
     ) -> Result<Vec<MediaRating>, MediaStoreError> {
         self.list_payloads(
-            "SELECT payload FROM media_ratings WHERE profile_id=?1 ORDER BY rated_at DESC",
+            "SELECT payload FROM media_ratings WHERE profile_id=?1 ORDER BY rated_at DESC, CASE source WHEN 'trakt' THEN 1 ELSE 0 END DESC",
             profile_id.to_string(),
         )
         .await
