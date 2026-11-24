@@ -63,11 +63,13 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         .map_err(|error| RabelError::Parse(error.to_string()))?;
     let mut results = Vec::new();
     for captures in link.captures_iter(html) {
-        let href = captures.get(1).unwrap().as_str();
+        // HTML attributes encode query separators as &amp;; browsers decode
+        // these before navigation, so normalize them before parsing the URL.
+        let href = decode_entities(captures.get(1).unwrap().as_str());
         if !href.contains("ACC=165") || !href.contains("DOC=") {
             continue;
         }
-        let record_url = session_url.join(href)
+        let record_url = session_url.join(&href)
             .map_err(|error| RabelError::Parse(format!("invalid record link: {error}")))?;
         let title = clean_text(captures.get(2).unwrap().as_str());
         if title.is_empty() { continue; }
