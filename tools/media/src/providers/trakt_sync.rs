@@ -258,11 +258,51 @@ impl TraktSyncService {
         Ok(summary)
     }
 
+    /// Read the linked Trakt account's current watchlist without consulting or updating the local mirror.
+    ///
+    /// Trakt is the source of truth for linked profiles. Returning provider data
+    /// directly prevents stale local state from being presented as the account's
+    /// current watchlist.
+    pub async fn list_watchlist(
+        &self,
+        owner_id: UserId,
+        profile_id: crate::MediaProfileId,
+    ) -> Result<Vec<Value>, TraktSyncError> {
+        let access_token = self.access_token_for_profile(owner_id, profile_id).await?;
+        let movies: Vec<TraktWatchlistMovie> = self
+            .get_json("/sync/watchlist/movies", &access_token)
+            .await?;
+        let shows: Vec<TraktWatchlistShow> = self
+            .get_json("/sync/watchlist/shows", &access_token)
+            .await?;
+
+        let mut items = Vec::with_capacity(movies.len() + shows.len());
+        for row in movies {
+            let item = row.movie.into_media_item(MediaKind::Movie)?;
+            items.push(json!({
+                "title": item.title,
+                "kind": "movie",
+                "ids": item.external_ids,
+                "listed_at": row.listed_at,
+            }));
+        }
+        for row in shows {
+            let item = row.show.into_media_item(MediaKind::TvShow)?;
+            items.push(json!({
+                "title": item.title,
+                "kind": "tv_show",
+                "ids": item.external_ids,
+                "listed_at": row.listed_at,
+            }));
+        }
+        Ok(items)
+    }
+
     /// Add or remove a title from the linked Trakt account's watchlist.
     ///
-    /// The provider is mutated first. The local Trakt mirror is changed only
-    /// after Trakt confirms the request, so a failed write cannot masquerade
-    /// as a successful remote update. Repeating either operation is safe.
+    /// The provider is mutated directly; linked profiles do not maintain a
+    /// separately writable local watchlist mirror. Repeating either operation
+    /// is safe.
     pub async fn set_watchlist_item(
         &self,
         owner_id: UserId,
@@ -293,30 +333,6 @@ impl TraktSyncService {
         let response = self.post_json(path, &payload, &access_token).await?;
         ensure_trakt_item_found(&response, collection)?;
 
-        self.media.save_media_item(item).await?;
-        if add {
-            let existing = self.media.list_watchlist(profile_id).await?;
-            if !existing.iter().any(|entry| {
-                entry.media_item_id == item.id && entry.source == WatchHistorySource::Trakt
-            }) {
-                self.media
-                    .save_watchlist_item(&MediaWatchlistItem {
-                        profile_id,
-                        media_item_id: item.id,
-                        added_at: Utc::now(),
-                        source: WatchHistorySource::Trakt,
-                    })
-                    .await?;
-            }
-        } else {
-            let mut existing = self.media.list_watchlist(profile_id).await?;
-            existing.retain(|entry| {
-                entry.media_item_id != item.id && entry.source == WatchHistorySource::Trakt
-            });
-            self.media
-                .replace_watchlist(profile_id, WatchHistorySource::Trakt, &existing)
-                .await?;
-        }
         Ok(())
     }
 
