@@ -343,7 +343,7 @@ impl TraktSyncService {
             .find(|external_id| external_id.provider == "tmdb")
             .and_then(|external_id| external_id.value.parse::<u64>().ok())
             .ok_or(TraktSyncError::MissingExternalId)?;
-        let trakt_rating = (1.0 + rating.value * 9.0 / 5.0).round().clamp(1.0, 10.0) as u8;
+        let trakt_rating = trakt_rating_from_eme(rating.value)?;
         let rated_at = rating.rated_at.to_rfc3339();
         let payload = match item.kind {
             MediaKind::Movie => json!({"movies":[{
@@ -467,6 +467,15 @@ impl TraktSyncService {
         }
         response.json().await.map_err(TraktSyncError::Request)
     }
+}
+
+fn trakt_rating_from_eme(value: f32) -> Result<u8, TraktSyncError> {
+    if !value.is_finite() || !(0.0..=5.0).contains(&value) {
+        return Err(TraktSyncError::InvalidResponse(
+            "EME rating must be between 0 and 5".into(),
+        ));
+    }
+    Ok((1.0 + value * 9.0 / 5.0).round().clamp(1.0, 10.0) as u8)
 }
 
 fn normalize_rating(
@@ -689,6 +698,21 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn eme_and_trakt_rating_scales_map_endpoints_and_midpoints() {
+        assert_eq!(trakt_rating_from_eme(0.0).unwrap(), 1);
+        assert_eq!(trakt_rating_from_eme(2.5).unwrap(), 6);
+        assert_eq!(trakt_rating_from_eme(5.0).unwrap(), 10);
+        assert!(trakt_rating_from_eme(5.1).is_err());
+
+        let profile_id = crate::MediaProfileId::new();
+        let media_item_id = MediaItemId::from_external_id("tmdb", "42");
+        let zero = normalize_rating(profile_id, media_item_id, 1, Utc::now()).unwrap();
+        let five = normalize_rating(profile_id, media_item_id, 10, Utc::now()).unwrap();
+        assert_eq!(zero.value, 0.0);
+        assert_eq!(five.value, 5.0);
+    }
 
     #[tokio::test]
     async fn sync_imports_and_then_skips_unchanged_trakt_categories() {
