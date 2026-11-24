@@ -40,6 +40,12 @@ pub struct Book {
     pub isbn: Option<String>,
     pub publisher: Option<String>,
     pub publication_year: Option<u16>,
+    pub responsibility: Option<String>,
+    pub publication_statement: Option<String>,
+    pub physical_description: Option<String>,
+    pub series: Option<String>,
+    pub notes: Vec<String>,
+    pub subjects: Vec<String>,
     pub catalogue_url: Option<String>,
     pub rating: Option<u8>,
     pub reading_status: ReadingStatus,
@@ -57,6 +63,18 @@ pub struct BookInput {
     pub isbn: Option<String>,
     pub publisher: Option<String>,
     pub publication_year: Option<u16>,
+    #[serde(default)]
+    pub responsibility: Option<String>,
+    #[serde(default)]
+    pub publication_statement: Option<String>,
+    #[serde(default)]
+    pub physical_description: Option<String>,
+    #[serde(default)]
+    pub series: Option<String>,
+    #[serde(default)]
+    pub notes: Vec<String>,
+    #[serde(default)]
+    pub subjects: Vec<String>,
     pub catalogue_url: Option<String>,
     pub rating: Option<u8>,
     #[serde(default = "default_status")]
@@ -88,6 +106,16 @@ pub struct BookUpdate {
     pub publisher: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]
     pub publication_year: Option<Option<u16>>,
+    #[serde(default, deserialize_with = "deserialize_nullable")]
+    pub responsibility: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_nullable")]
+    pub publication_statement: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_nullable")]
+    pub physical_description: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_nullable")]
+    pub series: Option<Option<String>>,
+    pub notes: Option<Vec<String>>,
+    pub subjects: Option<Vec<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]
     pub catalogue_url: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable")]
