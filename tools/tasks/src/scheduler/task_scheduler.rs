@@ -93,9 +93,7 @@ async fn task_tool_context(
                     .map_err(|error| format!("invalid family member identifier: {error}"))?;
                 member.telegram_id = identities
                     .find_identity_for_user("telegram", member_id)
-                    .map_err(|error| {
-                        format!("resolving family member Telegram identity: {error}")
-                    })?
+                    .map_err(|error| format!("resolving family member Telegram identity: {error}"))?
                     .map(|identity| identity.subject);
                 if let Some(profile) = identities
                     .get_user(member_id)
