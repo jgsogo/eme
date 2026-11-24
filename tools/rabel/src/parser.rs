@@ -115,7 +115,7 @@ pub(super) fn record(html: &str) -> Result<CatalogueItem, RabelError> {
     let title = first_heading(html).or_else(|| labelled_value(&text, &["Título"]));
     let authors = extract_authors(&text);
     let publisher = labelled_value(&text, &["Editorial"]);
-    let publication_year = Regex::new(r"\\b(1[5-9]\\d{2}|20\\d{2})\\b").ok()
+    let publication_year = Regex::new(r"\b(1[5-9]\d{2}|20\d{2})\b").ok()
         .and_then(|re| re.find(&text)).and_then(|m| m.as_str().parse().ok());
     let isbn = extract_isbn(&text);
     Ok(CatalogueItem { title, authors, publisher, publication_year, isbn })
@@ -318,6 +318,19 @@ fn decode_entities(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn record_details_contain_bibliographic_data_only() {
+        let html = r#"<html><h1>The Example Book</h1>
+            <p>Autor: Ada Lovelace Editorial: Example Press ISBN: 978-1234567890</p>
+            <table><tr data-disp="Disponible"><td>Signatura D-123 Depósito Libro adultos Papel</td></tr></table>
+        </html>"#;
+        let item = record(html).unwrap();
+        assert_eq!(item.title.as_deref(), Some("The Example Book"));
+        assert_eq!(item.authors, vec!["Ada Lovelace"]);
+        assert_eq!(item.publisher.as_deref(), Some("Example Press"));
+        assert_eq!(item.isbn.as_deref(), Some("978-1234567890"));
+    }
 
     #[test]
     fn recognizes_common_empty_catalogue_responses() {
