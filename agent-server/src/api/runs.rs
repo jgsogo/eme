@@ -25,7 +25,7 @@ use agent_storage::{
 };
 use std::{sync::Arc, time::Duration};
 use tokio::sync::mpsc;
-use tokio_stream::{StreamExt, wrappers::ReceiverStream};
+
 
 fn owns_run(
     run: &Run,
@@ -529,7 +529,7 @@ async fn stream_run_events(
         .insert_header((header::CONTENT_TYPE, "text/event-stream"))
         .insert_header((header::CACHE_CONTROL, "no-cache"))
         .insert_header(("X-Accel-Buffering", "no"))
-        .streaming(ReceiverStream::new(receiver).map(Ok::<Bytes, actix_web::Error>))
+        .streaming(futures_util::stream::unfold(receiver, |mut receiver| async move {\n            receiver.recv().await.map(|bytes| (Ok::<Bytes, actix_web::Error>(bytes), receiver))\n        }))
 }
 
 async fn send_sse_event(

@@ -5,7 +5,7 @@ edition = "2024"
 description = "Executable service exposing the AI agent platform to external clients."
 
 [dependencies]
-actix-web = "4"
+actix-web = "4"\nfutures-util = "0.3"
 agent-models = { path = "../agent-models" }
 agent-runtime = { path = "../agent-runtime" }
 agent-metering = { path = "../agent-metering" }
