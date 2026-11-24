@@ -481,7 +481,7 @@ impl AgentRuntime {
             let family_json = serde_json::to_string_pretty(&trusted_families)
                 .expect("family contexts are serializable");
             Some(format!(
-                "Trusted context for all families the authenticated user belongs to:\n{}\nUse these names, relationships, and recipient IDs as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
+                "Trusted family context available to this run:\n{}\nUse these names, relationships, and recipient IDs as authoritative. Do not infer additional family members or relationships. If a name is unavailable, say so.",
                 family_json,
             ))
         };

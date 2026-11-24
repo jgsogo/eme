@@ -3,11 +3,12 @@
 use super::ScheduledTask;
 use crate::{Task, TaskRegistry};
 use agent_runtime::ToolContext;
-use agent_service::RunManager;
+use agent_service::{FamilyService, RunManager};
+use agent_storage::{FileUserIdentityStore, UserId, UserIdentityStore};
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 use tokio::{sync::watch, task::JoinHandle, time};
 
 pub struct TaskScheduler {
@@ -16,12 +17,19 @@ pub struct TaskScheduler {
 }
 
 impl TaskScheduler {
-    pub fn start(registry: TaskRegistry, manager: RunManager) -> Self {
+    pub fn start(
+        registry: TaskRegistry,
+        manager: RunManager,
+        identities: Arc<FileUserIdentityStore>,
+        families: Arc<FamilyService>,
+    ) -> Self {
         let (shutdown, receiver) = watch::channel(false);
         let changed = registry.subscribe();
         let initial = scheduled_tasks(registry.snapshot());
         let count = initial.len();
-        let handle = tokio::spawn(run_scheduler(registry, manager, receiver, changed, initial));
+        let handle = tokio::spawn(run_scheduler(
+            registry, manager, identities, families, receiver, changed, initial,
+        ));
         tracing::info!(tasks = count, "task scheduler started");
         Self {
             shutdown,
@@ -42,6 +50,73 @@ impl Drop for TaskScheduler {
     fn drop(&mut self) {
         let _ = self.shutdown.send(true);
     }
+}
+
+/// Resolve trusted execution metadata from the task owner and selected family.
+/// Telegram identities and family membership are looked up at execution time.
+async fn task_tool_context(
+    task: &ScheduledTask,
+    identities: &FileUserIdentityStore,
+    family_service: &FamilyService,
+) -> Result<ToolContext, String> {
+    // New tasks are owned by stable EME user IDs. Resolve legacy transport-scoped
+    // owners as well, so tasks created before identity migration remain executable.
+    let telegram_identity = match UserId::from_str(&task.user_id) {
+        Ok(user_id) => identities
+            .find_identity_for_user("telegram", user_id)
+            .map_err(|error| format!("resolving task owner's Telegram identity: {error}"))?,
+        Err(_) => {
+            let subject = task
+                .user_id
+                .strip_prefix("telegram:")
+                .filter(|subject| !subject.is_empty())
+                .ok_or_else(|| "task owner identifier is invalid".to_owned())?;
+            identities
+                .find_identity("telegram", subject)
+                .map_err(|error| format!("resolving legacy task owner identity: {error}"))?
+        }
+    }
+    .ok_or_else(|| "task owner has no linked Telegram identity".to_owned())?;
+    let user_id = telegram_identity.user_id;
+    let user = identities
+        .get_user(user_id)
+        .map_err(|error| format!("loading task owner profile: {error}"))?;
+
+    let family = match task.family_id {
+        Some(family_id) => {
+            let mut context = family_service
+                .context_for_member(user_id, family_id)
+                .await
+                .map_err(|error| format!("resolving selected family context: {error}"))?;
+            for member in &mut context.members {
+                let member_id = UserId::from_str(&member.user_id)
+                    .map_err(|error| format!("invalid family member identifier: {error}"))?;
+                member.telegram_id = identities
+                    .find_identity_for_user("telegram", member_id)
+                    .map_err(|error| format!("resolving family member Telegram identity: {error}"))?
+                    .map(|identity| identity.subject);
+                if let Some(profile) = identities
+                    .get_user(member_id)
+                    .map_err(|error| format!("loading family member profile: {error}"))?
+                {
+                    member.name = profile.display_name;
+                    member.birthday = profile.birthday;
+                }
+            }
+            Some(context)
+        }
+        None => None,
+    };
+    let families = family.iter().cloned().collect();
+
+    Ok(ToolContext {
+        user_id: Some(user_id.to_string()),
+        timezone: user.and_then(|profile| profile.timezone),
+        telegram_id: Some(telegram_identity.subject),
+        family,
+        families,
+        ..ToolContext::default()
+    })
 }
 
 fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
@@ -70,6 +145,7 @@ fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
                     name: task.name,
                     agent: task.agent,
                     prompt: task.prompt,
+                    family_id: task.family_id,
                     schedule,
                     timezone,
                     scheduled_for: next_run,
@@ -87,6 +163,8 @@ fn scheduled_tasks(tasks: Vec<Task>) -> HashMap<uuid::Uuid, ScheduledTask> {
 async fn run_scheduler(
     registry: TaskRegistry,
     manager: RunManager,
+    identities: Arc<FileUserIdentityStore>,
+    families: Arc<FamilyService>,
     mut shutdown: watch::Receiver<bool>,
     mut changed: watch::Receiver<u64>,
     mut tasks: HashMap<uuid::Uuid, ScheduledTask>,
@@ -124,16 +202,20 @@ async fn run_scheduler(
                 continue;
             };
             let scheduled_at = task.scheduled_for;
-            match manager
-                .submit_for_task(
-                    task.id,
-                    task.agent.clone(),
-                    task.prompt.clone(),
-                    Vec::new(),
-                    ToolContext::new(task.user_id.clone()),
-                )
-                .await
-            {
+            let submission = match task_tool_context(&task, &identities, &families).await {
+                Ok(context) => manager
+                    .submit_for_task(
+                        task.id,
+                        task.agent.clone(),
+                        task.prompt.clone(),
+                        Vec::new(),
+                        context,
+                    )
+                    .await
+                    .map_err(|error| error.to_string()),
+                Err(error) => Err(error),
+            };
+            match submission {
                 Ok(run_id) => {
                     tracing::info!(
                         task = %task.name,
@@ -215,4 +297,71 @@ pub(super) fn next_occurrence(
         .after(&after.with_timezone(&timezone))
         .next()
         .map(|date| date.with_timezone(&Utc))
+}
+
+#[cfg(test)]
+mod context_tests {
+    use super::*;
+    use agent_storage::{
+        FamilyRelationship, FamilyStore, FileUserIdentityStore, InMemoryFamilyInvitationStore,
+        InMemoryFamilyStore, UserIdentityStore,
+    };
+    use chrono::Utc;
+    use std::{fs, sync::Arc};
+    use uuid::Uuid;
+
+    #[tokio::test]
+    async fn resolves_legacy_owner_identity_and_selected_family_context() {
+        let directory = std::env::temp_dir().join(format!("task-context-{}", Uuid::new_v4()));
+        fs::create_dir_all(&directory).unwrap();
+        let identities = FileUserIdentityStore::open(directory.join("users.json")).unwrap();
+        let (user, _) = identities
+            .resolve_or_create("telegram", "42", Some("Owner"))
+            .unwrap();
+        let family_store: Arc<dyn FamilyStore> = Arc::new(InMemoryFamilyStore::default());
+        let invitations = Arc::new(InMemoryFamilyInvitationStore::new(Arc::clone(
+            &family_store,
+        )));
+        let family_service = FamilyService::new(family_store, invitations);
+        let family = family_service
+            .create_family(user.id, "Home", FamilyRelationship::Other)
+            .await
+            .unwrap();
+        let now = Utc::now();
+        let task = ScheduledTask {
+            id: Uuid::new_v4(),
+            user_id: "telegram:42".into(),
+            name: "daily".into(),
+            agent: "assistant".into(),
+            prompt: "prepare report".into(),
+            family_id: Some(family.id),
+            schedule: None,
+            timezone: "UTC".parse().unwrap(),
+            scheduled_for: now,
+            next_run: now,
+            retry_attempts: 0,
+        };
+
+        let context = task_tool_context(&task, &identities, &family_service)
+            .await
+            .unwrap();
+        let expected_user_id = user.id.to_string();
+        let expected_family_id = family.id.to_string();
+        assert_eq!(context.user_id.as_deref(), Some(expected_user_id.as_str()));
+        assert_eq!(context.telegram_id.as_deref(), Some("42"));
+        assert_eq!(
+            context
+                .family
+                .as_ref()
+                .map(|value| value.family_id.as_str()),
+            Some(expected_family_id.as_str())
+        );
+        assert_eq!(context.families.len(), 1);
+        assert_eq!(
+            context.families[0].members[0].telegram_id.as_deref(),
+            Some("42")
+        );
+
+        fs::remove_dir_all(directory).unwrap();
+    }
 }

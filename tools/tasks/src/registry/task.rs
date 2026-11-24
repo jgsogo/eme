@@ -1,5 +1,6 @@
 //! A persisted task definition and its computed next execution time.
 
+use agent_storage::FamilyId;
 use chrono::{DateTime, FixedOffset, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -20,6 +21,8 @@ pub struct Task {
     pub at: Option<DateTime<FixedOffset>>,
     #[serde(default)]
     pub timezone: Option<String>,
+    #[serde(default)]
+    pub family_id: Option<FamilyId>,
     #[serde(default = "super::default_enabled")]
     pub enabled: bool,
     #[serde(skip)]

@@ -59,6 +59,7 @@ impl TaskRegistry {
                 schedule: old.schedule,
                 at: old.at,
                 timezone: old.timezone,
+                family_id: old.family_id,
                 enabled: old.enabled,
                 next_run: None,
             };
@@ -184,6 +185,7 @@ impl TaskRegistry {
             schedule: task.schedule,
             at: task.at,
             timezone: task.timezone,
+            family_id: task.family_id,
             enabled: true,
             next_run: None,
         };
@@ -245,6 +247,7 @@ impl TaskRegistry {
             schedule: task.schedule,
             at: task.at,
             timezone: task.timezone,
+            family_id: task.family_id,
             enabled,
             next_run: None,
         };
@@ -303,6 +306,7 @@ impl TaskRegistry {
                 schedule: current.schedule,
                 at: current.at,
                 timezone: current.timezone,
+                family_id: current.family_id,
             },
             enabled,
         )
@@ -360,6 +364,7 @@ impl TaskRegistry {
             schedule: t.schedule.clone(),
             at: t.at,
             timezone: t.timezone.clone(),
+            family_id: t.family_id,
             enabled: t.enabled,
             next_run: t.next_run,
         };

@@ -420,6 +420,12 @@ function renderTaskAgents(){
  select.innerHTML=state.agents.map(agent=>'<option value="'+escapeHtml(agent.name)+'">'+escapeHtml(agent.name)+'</option>').join("");
  if(state.agents.some(agent=>agent.name===selected))select.value=selected;
 }
+function renderTaskFamilies(){
+ const select=$("task-family");if(!select)return;
+ const selected=select.value;
+ select.innerHTML='<option value="">No family context</option>'+state.families.map(family=>'<option value="'+escapeHtml(family.id)+'">'+escapeHtml(family.name)+'</option>').join("");
+ select.value=state.families.some(family=>family.id===selected)?selected:"";
+}
 function setTaskSection(active){
  const tabs=document.querySelectorAll("[data-task-section-tab]");
  for(const tab of tabs){const selected=tab.dataset.taskSectionTab===active;tab.classList.toggle("active",selected);tab.setAttribute("aria-selected",String(selected));}
@@ -435,27 +441,27 @@ function resetTaskEditor(){
  state.selectedTask=null;renderTasks();
  updateTaskSectionTabs("details");
  const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
- for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
+ for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
  $("task-heading").textContent="Select a task";
- $("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
+ $("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-family").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
  $("delete-task").disabled=true;$("tasks-status").textContent="Choose a task or create a new one.";
 }
 function startNewTask(){
  state.selectedTask="new";renderTasks();
  updateTaskSectionTabs("details");
- for(const id of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
+ for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
- $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
- renderTaskAgents();$("tasks-status").textContent="Set either a cron schedule or a one-time execution date, not both.";$("task-name").focus();
+ $("delete-task").disabled=true;$("task-name").value="";$("task-description").value="";$("task-prompt").value="";$("task-family").value="";$("task-schedule").value="";$("task-at").value="";$("task-timezone").value="Europe/Madrid";$("task-enabled").checked=true;
+ renderTaskAgents();renderTaskFamilies();$("tasks-status").textContent="Set either a cron schedule or a one-time execution date, not both.";$("task-name").focus();
 }
 function toLocalDateTime(value){const date=new Date(value);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function selectTask(id){
  const task=state.tasks.find(item=>item.id===id);if(!task)return;
  state.selectedTask=id;renderTasks();
  updateTaskSectionTabs("details");
- for(const field of ["task-name","task-description","task-agent","task-prompt","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
+ for(const field of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
  $("delete-task").disabled=false;$("task-heading").textContent=task.name;
- renderTaskAgents();$("task-name").value=task.name;$("task-description").value=task.description||"";$("task-agent").value=task.agent;$("task-prompt").value=task.prompt;
+ renderTaskAgents();renderTaskFamilies();$("task-name").value=task.name;$("task-description").value=task.description||"";$("task-agent").value=task.agent;$("task-prompt").value=task.prompt;$("task-family").value=task.family_id||"";
  $("task-schedule").value=task.schedule||"";
  $("task-at").value=task.at?toLocalDateTime(task.at):"";
  $("task-timezone").value=task.timezone||"Europe/Madrid";$("task-enabled").checked=!!task.enabled;
@@ -466,7 +472,7 @@ async function saveTask(event){
  event.preventDefault();
  const schedule=$("task-schedule").value.trim(),atValue=$("task-at").value;
  if(Boolean(schedule)===Boolean(atValue)){$("tasks-status").textContent="Specify either a cron schedule or a one-time date, but not both.";return}
- const body={name:$("task-name").value.trim(),description:$("task-description").value.trim(),agent:$("task-agent").value,prompt:$("task-prompt").value,schedule:schedule||null,at:atValue?new Date(atValue).toISOString():null,timezone:schedule?($("task-timezone").value.trim()||"UTC"):null,enabled:$("task-enabled").checked};
+ const body={name:$("task-name").value.trim(),description:$("task-description").value.trim(),agent:$("task-agent").value,prompt:$("task-prompt").value,schedule:schedule||null,at:atValue?new Date(atValue).toISOString():null,timezone:schedule?($("task-timezone").value.trim()||"UTC"):null,family_id:$("task-family").value||null,enabled:$("task-enabled").checked};
  $("save-task").disabled=true;
  try{
   const saved=state.selectedTask==="new"?await api("/tasks",{method:"POST",body:JSON.stringify(body)}):await api("/tasks/"+encodeURIComponent(state.selectedTask),{method:"PUT",body:JSON.stringify(body)});
@@ -701,7 +707,7 @@ async function showConsole(){
   await loadFamilies();
   await loadFamilyDetails(state.families[0]?.id||null);
  }else if(page==="tasks"){
-  state.agents=await api("/agents");renderTaskAgents();await loadTasks();resetTaskEditor();
+  state.agents=await api("/agents");renderTaskAgents();state.families=await api("/families");renderTaskFamilies();await loadTasks();resetTaskEditor();
  }else if(page==="profile"){
   await Promise.all([loadProfile(),loadFamilies()]);
   await loadFamilyDetails(state.families[0]?.id||null);

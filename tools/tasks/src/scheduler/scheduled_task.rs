@@ -1,5 +1,6 @@
 //! A task prepared for execution by the scheduler.
 
+use agent_storage::FamilyId;
 use chrono::{DateTime, Utc};
 use chrono_tz::Tz;
 use cron::Schedule;
@@ -12,6 +13,7 @@ pub struct ScheduledTask {
     pub name: String,
     pub agent: String,
     pub prompt: String,
+    pub family_id: Option<FamilyId>,
     pub schedule: Option<Schedule>,
     pub timezone: Tz,
     /// The cron occurrence currently awaiting successful submission.
