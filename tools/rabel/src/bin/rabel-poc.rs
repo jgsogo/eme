@@ -34,7 +34,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if let Some(document) = document {
-        let record = client.record(&search, document).await?;
+        let session_url = search
+            .session_url
+            .as_deref()
+            .ok_or("RABEL search response did not contain a session URL")?;
+        let record = client.record(session_url, document).await?;
         let record_output = format!("rabel-record-{document}.html");
         fs::write(&record_output, &record.html)?;
 
