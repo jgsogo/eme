@@ -166,6 +166,9 @@ async fn test_configured_model(
         }
     };
 
+    // Reasoning models may spend a substantial part of their completion budget
+    // on internal reasoning before producing visible text.
+    const TEST_MAX_OUTPUT_TOKENS: u32 = 256;
     let request = ConversationRequest {
         system: None,
         messages: vec![ConversationMessage::User {
@@ -173,7 +176,7 @@ async fn test_configured_model(
         }],
         tools: Vec::new(),
         temperature: Some(0.0),
-        max_tokens: Some(32),
+        max_tokens: Some(TEST_MAX_OUTPUT_TOKENS),
     };
 
     match tokio::time::timeout(
@@ -189,6 +192,11 @@ async fn test_configured_model(
                 .iter()
                 .map(|call| call.name.clone())
                 .collect::<Vec<_>>();
+            let output_tokens = response.usage.as_ref().map(|usage| usage.output_tokens);
+            let reasoning_tokens = response
+                .usage
+                .as_ref()
+                .and_then(|usage| usage.reasoning_tokens);
             let usage = response.usage.map(|usage| {
                 serde_json::json!({
                     "input_tokens": usage.input_tokens,
@@ -211,8 +219,17 @@ async fn test_configured_model(
                     "usage": usage
                 }),
                 None => {
-                    let error = if tool_calls.is_empty() {
-                        "The provider returned an empty text response (no tool calls)".to_owned()
+                    let error = if tool_calls.is_empty()
+                        && output_tokens.is_some_and(|tokens| tokens >= TEST_MAX_OUTPUT_TOKENS)
+                    {
+                        format!(
+                            "The model exhausted the {TEST_MAX_OUTPUT_TOKENS}-token completion budget without returning text{}",
+                            reasoning_tokens
+                                .map(|tokens| format!(" ({tokens} tokens used for reasoning)"))
+                                .unwrap_or_default()
+                        )
+                    } else if tool_calls.is_empty() {
+                        "The provider returned an empty text response without exhausting the completion budget".to_owned()
                     } else {
                         format!(
                             "The provider returned no text content and emitted {} tool call(s): {}",
