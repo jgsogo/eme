@@ -140,7 +140,47 @@ fn normalize_title(value: &str) -> String {
 #[get("")] async fn list(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.list(&u).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
 #[post("")] async fn add(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,b:Json<BookInput>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.add(&u,b.into_inner()).await{Ok(v)=>HttpResponse::Created().json(v),Err(e)=>book_error(e)}}
 #[get("/libraries")] async fn libraries(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};let c=match RabelClient::new(){Ok(v)=>v,Err(_)=>return HttpResponse::InternalServerError().finish()};let available=match c.libraries().await{Ok(v)=>v,Err(_)=>return HttpResponse::BadGateway().finish()};let selected=match s.preferred_libraries(&u).await{Ok(v)=>v,Err(e)=>return book_error(e)};HttpResponse::Ok().json(serde_json::json!({"available":available,"selected":selected}))}
-#[put("/libraries")] async fn set_libraries(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,b:Json<LibrarySelection>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};let c=match RabelClient::new(){Ok(v)=>v,Err(_)=>return HttpResponse::InternalServerError().finish()};let available=match c.libraries().await{Ok(v)=>v,Err(_)=>return HttpResponse::BadGateway().finish()};let mut selected=Vec::new();for id in &b.library_ids{if let Some(l)=available.iter().find(|l|&l.id==id){selected.push((l.id.clone(),l.name.clone()));}else{return HttpResponse::BadRequest().body(format!("unknown RABEL library id: {id}"));}}match s.set_preferred_libraries(&u,&selected).await{Ok(())=>HttpResponse::Ok().json(serde_json::json!({"selected":selected})),Err(e)=>book_error(e)}}
+#[put("/libraries")]
+async fn set_libraries(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    store: Data<BookStore>,
+    body: Json<LibrarySelection>,
+) -> impl Responder {
+    let user = match actor(&request, &auth, &identities) {
+        Ok(user) => user,
+        Err(response) => return response,
+    };
+    let client = match RabelClient::new() {
+        Ok(client) => client,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
+    let available = match client.libraries().await {
+        Ok(available) => available,
+        Err(_) => return HttpResponse::BadGateway().finish(),
+    };
+    // Keep an already-saved preference if RABEL temporarily omits it from its
+    // selector response. New/unknown IDs are still rejected.
+    let previous = match store.preferred_libraries(&user).await {
+        Ok(previous) => previous,
+        Err(error) => return book_error(error),
+    };
+    let mut selected = Vec::new();
+    for id in &body.library_ids {
+        if let Some(library) = available.iter().find(|library| &library.id == id) {
+            selected.push((library.id.clone(), library.name.clone()));
+        } else if let Some((saved_id, saved_name)) = previous.iter().find(|(saved_id, _)| saved_id == id) {
+            selected.push((saved_id.clone(), saved_name.clone()));
+        } else {
+            return HttpResponse::BadRequest().body(format!("unknown RABEL library id: {id}"));
+        }
+    }
+    match store.set_preferred_libraries(&user, &selected).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({"selected": selected})),
+        Err(error) => book_error(error),
+    }
+}
 #[get("/{id}")] async fn get(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.get(&u,&id).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
 #[put("/{id}")] async fn update(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>,b:Json<BookUpdate>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.update(&u,&id,b.into_inner()).await{Ok(v)=>HttpResponse::Ok().json(v),Err(e)=>book_error(e)}}
 #[delete("/{id}")] async fn remove(r:HttpRequest,a:Data<crate::auth::TelegramAuth>,i:Data<Arc<FileUserIdentityStore>>,s:Data<BookStore>,id:Path<String>)->impl Responder{let u=match actor(&r,&a,&i){Ok(v)=>v,Err(e)=>return e};match s.remove(&u,&id).await{Ok(())=>HttpResponse::NoContent().finish(),Err(e)=>book_error(e)}}
