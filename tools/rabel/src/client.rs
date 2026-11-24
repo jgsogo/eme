@@ -77,6 +77,18 @@ impl RabelClient {
         self.read_html(search_url).await
     }
 
+    /// Return the raw HTML search response, useful for diagnostics and parser fixtures.
+    pub async fn search_raw(&self, query: &str) -> Result<String, RabelError> {
+        if query.trim().is_empty() { return Err(RabelError::Parse("query must not be empty".into())); }
+        self.search_page(query).await.map(|(_, html)| html)
+    }
+
+    /// Return the raw HTML record response after validating its session-scoped reference.
+    pub async fn get_item_raw(&self, record_ref: &str) -> Result<String, RabelError> {
+        let url = self.validate_record_ref(record_ref)?;
+        self.read_html(url).await.map(|(_, html)| html)
+    }
+
     pub async fn search(&self, query: &str, limit: usize) -> Result<Vec<CatalogueSearchResult>, RabelError> {
         if query.trim().is_empty() { return Err(RabelError::Parse("query must not be empty".into())); }
         if !(1..=20).contains(&limit) { return Err(RabelError::Parse("limit must be between 1 and 20".into())); }
