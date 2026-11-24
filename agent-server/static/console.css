@@ -800,3 +800,42 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
     transition-duration:.01ms !important;
   }
 }
+@media (min-width: 761px) {
+  .family-section-filter {
+    display:block;
+    margin:12px 0 5px;
+    font-size:11px;
+  }
+  .family-section-filter + input[type="search"] {
+    display:block;
+    width:100%;
+    min-height:36px;
+    margin:0 0 10px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+  .family-action-dialog { width:min(520px,calc(100vw - 40px)); }
+  .family-action-dialog form { display:flex; flex-direction:column; gap:12px; }
+  .family-action-dialog .family-details-heading { margin-bottom:2px; }
+  .family-action-dialog .family-details-heading h3 { margin:0; }
+  .family-action-fields { display:grid; gap:12px; }
+  .family-action-field { display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:12px; }
+  .family-action-field input,
+  .family-action-field select {
+    width:100%;
+    min-height:38px;
+    margin:0;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+  .family-action-buttons { display:flex; justify-content:flex-end; gap:8px; }
+  #family-action-status:empty { display:none; }
+}
