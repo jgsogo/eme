@@ -6,7 +6,7 @@ use agent_runtime::{
 };
 use agent_storage::{
     ConversationMessageStore, RunEventStore, RunStore, SqliteConversationStore,
-    SqliteExecutionStore,
+    SqliteExecutionStore, StoredRun, StoredRunEvent, StoredRunStatus,
 };
 use async_trait::async_trait;
 use std::{sync::Arc, time::Duration};
@@ -319,5 +319,151 @@ async fn scheduled_task_run_association_survives_manager_restart() {
     assert_eq!(runs[0].status, crate::RunStatus::Completed);
 
     drop(manager);
+    let _ = std::fs::remove_dir_all(directory);
+}
+
+// Regression coverage for durable runs whose original worker disappeared at restart.
+#[tokio::test]
+async fn persisted_running_run_can_be_cancelled_after_manager_restart() {
+    let directory = std::env::temp_dir().join(format!("eme-restart-cancel-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let database = directory.join("conversations.sqlite");
+    let conversations = SqliteConversationStore::open(&database).unwrap();
+    let conversation = conversations.create("owner", "assistant").unwrap();
+    let conversation_id = Uuid::parse_str(&conversation.id.to_string()).unwrap();
+    let execution = Arc::new(SqliteExecutionStore::open(&database).unwrap());
+    let run_id = Uuid::new_v4();
+    let now = chrono::Utc::now();
+
+    execution
+        .insert_run(StoredRun {
+            id: run_id,
+            conversation_id: Some(conversation_id),
+            agent: "assistant".into(),
+            input: "interrupted prompt".into(),
+            status: StoredRunStatus::Running,
+            created_at: now,
+            started_at: Some(now),
+            finished_at: None,
+            response: None,
+            error: None,
+        })
+        .await
+        .unwrap();
+    for (sequence, kind) in [(0, "queued"), (1, "started")] {
+        execution
+            .append_event(StoredRunEvent {
+                run_id,
+                sequence,
+                kind: kind.into(),
+                iteration: None,
+                tool_name: None,
+                model_id: None,
+                next_model_id: None,
+                model_candidates: None,
+                attempted_candidates: None,
+                error_category: None,
+                occurred_at: now,
+            })
+            .await
+            .unwrap();
+    }
+
+    // This manager has no worker or cancellation token for the persisted run.
+    let manager = RunManager::new(Arc::new(TranscriptExecutor), 1, 2)
+        .unwrap()
+        .with_storage(execution.clone());
+    let id = RunId::from_uuid(run_id);
+    assert_eq!(manager.cancel(id).await, Ok(CancelRunOutcome::Requested));
+    assert_eq!(
+        manager.get(id).await.unwrap().status,
+        crate::RunStatus::Cancelled
+    );
+    assert_eq!(
+        manager.cancel(id).await,
+        Ok(CancelRunOutcome::AlreadyFinished)
+    );
+    let events = execution.list_events(run_id, None).await.unwrap();
+    assert_eq!(events.last().unwrap().kind, "cancelled");
+
+    drop(manager);
+    drop(execution);
+    drop(conversations);
+    let _ = std::fs::remove_dir_all(directory);
+}
+
+#[tokio::test]
+async fn deleting_conversation_waits_for_running_execution_cancellation() {
+    let directory = std::env::temp_dir().join(format!("eme-delete-cancel-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&directory).unwrap();
+    let database = directory.join("conversations.sqlite");
+    let conversations = Arc::new(SqliteConversationStore::open(&database).unwrap());
+    let conversation = conversations.create("owner", "assistant").unwrap();
+    let execution = Arc::new(SqliteExecutionStore::open(&database).unwrap());
+
+    struct WaitForCancellation;
+    #[async_trait]
+    impl RunExecutor for WaitForCancellation {
+        async fn execute(
+            &self,
+            _run_id: RunId,
+            _agent: String,
+            _input: String,
+            _history: Vec<Message>,
+            _context: ToolContext,
+            _cancellation: CancellationToken,
+        ) -> Result<ExecutionReport, String> {
+            // Deliberately ignore the token: the manager must still stop this
+            // future rather than depending on executor cooperation.
+            std::future::pending::<Result<ExecutionReport, String>>().await
+        }
+    }
+
+    let manager = RunManager::new(Arc::new(WaitForCancellation), 1, 2)
+        .unwrap()
+        .with_storage(execution.clone());
+    let run_id = manager
+        .submit(
+            "assistant",
+            "running prompt",
+            Vec::new(),
+            ToolContext {
+                conversation_id: Some(conversation.id.to_string()),
+                ..ToolContext::default()
+            },
+        )
+        .await
+        .unwrap();
+
+    tokio::time::timeout(Duration::from_secs(2), async {
+        loop {
+            if manager
+                .get(run_id)
+                .await
+                .is_some_and(|run| run.status == crate::RunStatus::Running)
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("run should start");
+
+    let conversation_uuid = Uuid::parse_str(&conversation.id.to_string()).unwrap();
+    manager
+        .cancel_conversation(conversation_uuid)
+        .await
+        .unwrap();
+    assert_eq!(
+        manager.get(run_id).await.unwrap().status,
+        crate::RunStatus::Cancelled
+    );
+    conversations.delete("owner", conversation.id).unwrap();
+    assert!(conversations.get(conversation.id).is_err());
+
+    drop(manager);
+    drop(execution);
+    drop(conversations);
     let _ = std::fs::remove_dir_all(directory);
 }

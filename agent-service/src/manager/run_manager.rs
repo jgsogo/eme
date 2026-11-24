@@ -109,6 +109,16 @@ impl RunManager {
                     let (event_sender, mut event_receiver) = mpsc::unbounded_channel();
                     let event_sink: Arc<dyn EventSink> =
                         Arc::new(RuntimeEventChannel(event_sender));
+                    // Do not rely on every executor/tool implementation to
+                    // cooperate with the token. Dropping the execution future
+                    // here guarantees that cancellation stops the active work.
+                    let cancellation_signal = cancellation.clone();
+                    let cancellation_requested = async {
+                        while !cancellation_signal.is_cancelled() {
+                            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                        }
+                    };
+                    tokio::pin!(cancellation_requested);
                     let execution = executor.execute_with_event_sink(
                         run.id,
                         run.agent.clone(),
@@ -122,6 +132,13 @@ impl RunManager {
                     let mut events_open = true;
                     let result = loop {
                         tokio::select! {
+                            _ = &mut cancellation_requested => {
+                                break Ok(ExecutionReport {
+                                    outcome: ExecutionOutcome::Cancelled,
+                                    runtime_events: Vec::new(),
+                                    messages: None,
+                                });
+                            }
                             runtime_event = event_receiver.recv(), if events_open => {
                                 match runtime_event {
                                     Some(event) => persist_runtime_event(
@@ -420,46 +437,128 @@ impl RunManager {
     }
 
     pub async fn cancel(&self, run_id: RunId) -> Result<CancelRunOutcome, CancelRunError> {
-        let (outcome, snapshot, event) = {
+        let active = {
             let mut runs = self.runs.lock().await;
-            let entry = runs.get_mut(&run_id).ok_or(CancelRunError::NotFound)?;
-            let outcome = match entry.run.status {
-                RunStatus::Queued => {
-                    entry.cancellation.cancel();
-                    entry.run.cancel().expect("queued run can be cancelled");
-                    entry.record(RunEventKind::Cancelled);
-                    CancelRunOutcome::CancelledBeforeStart
-                }
-                RunStatus::Running => {
-                    if entry.cancellation.is_cancelled() {
-                        return Ok(CancelRunOutcome::AlreadyRequested);
+            if let Some(entry) = runs.get_mut(&run_id) {
+                let outcome = match entry.run.status {
+                    RunStatus::Queued => {
+                        entry.cancellation.cancel();
+                        entry.run.cancel().expect("queued run can be cancelled");
+                        entry.record(RunEventKind::Cancelled);
+                        let snapshot = entry.run.clone();
+                        let event = entry.events.last().cloned().unwrap();
+                        Some((CancelRunOutcome::CancelledBeforeStart, snapshot, event))
                     }
-                    entry.cancellation.cancel();
-                    return Ok(CancelRunOutcome::Requested);
-                }
-                _ => return Ok(CancelRunOutcome::AlreadyFinished),
-            };
-            (
-                outcome,
-                entry.run.clone(),
-                entry.events.last().cloned().unwrap(),
-            )
+                    RunStatus::Running => {
+                        if entry.cancellation.is_cancelled() {
+                            return Ok(CancelRunOutcome::AlreadyRequested);
+                        }
+                        entry.cancellation.cancel();
+                        return Ok(CancelRunOutcome::Requested);
+                    }
+                    _ => return Ok(CancelRunOutcome::AlreadyFinished),
+                };
+                outcome
+            } else {
+                None
+            }
         };
-        if let Some(storage) = current_storage(&self.persistence)
-            && let Err(error) =
-                persist_snapshot_and_event(storage.as_ref(), &snapshot, &event).await
-        {
-            error!(run_id = %run_id, %error, "failed to persist queued-run cancellation");
+
+        if let Some((outcome, snapshot, event)) = active {
+            if let Some(storage) = current_storage(&self.persistence) {
+                persist_snapshot_and_event(storage.as_ref(), &snapshot, &event)
+                    .await
+                    .map_err(|error| CancelRunError::Storage(error.to_string()))?;
+            }
+            return Ok(outcome);
         }
+
+        // A process restart discards all in-memory cancellation tokens and
+        // workers, but leaves the durable run snapshot behind. Such a run is
+        // not executing anymore and can be safely moved to a terminal state.
+        let storage = current_storage(&self.persistence).ok_or(CancelRunError::NotFound)?;
+        let Some(stored) = storage
+            .get_run(run_id.as_uuid())
+            .await
+            .map_err(|error| CancelRunError::Storage(error.to_string()))?
+        else {
+            return Err(CancelRunError::NotFound);
+        };
+        let outcome = match stored.status {
+            StoredRunStatus::Queued => CancelRunOutcome::CancelledBeforeStart,
+            StoredRunStatus::Running => CancelRunOutcome::Requested,
+            _ => return Ok(CancelRunOutcome::AlreadyFinished),
+        };
+        recover_interrupted_run(storage.as_ref(), stored)
+            .await
+            .map_err(|error| CancelRunError::Storage(error.to_string()))?;
         Ok(outcome)
+    }
+
+    /// Cancels every active execution belonging to a conversation and waits
+    /// until its worker has observed cancellation before returning.
+    pub async fn cancel_conversation(&self, conversation_id: Uuid) -> Result<(), String> {
+        let runs = self.list().await;
+        let active = runs
+            .into_iter()
+            .filter(|run| {
+                run.conversation_id == Some(conversation_id)
+                    && matches!(run.status, RunStatus::Queued | RunStatus::Running)
+            })
+            .map(|run| run.id)
+            .collect::<Vec<_>>();
+
+        for run_id in &active {
+            self.cancel(*run_id)
+                .await
+                .map_err(|error| error.to_string())?;
+        }
+
+        tokio::time::timeout(std::time::Duration::from_secs(10), async {
+            loop {
+                let mut unfinished = false;
+                for run_id in &active {
+                    if self.get(*run_id).await.is_some_and(|run| {
+                        matches!(run.status, RunStatus::Queued | RunStatus::Running)
+                    }) {
+                        unfinished = true;
+                        break;
+                    }
+                }
+                if !unfinished {
+                    return;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .map_err(|_| "timed out waiting for conversation runs to stop".to_owned())
     }
 
     pub async fn list(&self) -> Vec<Run> {
         let mut by_id = HashMap::new();
         if let Some(storage) = current_storage(&self.persistence) {
+            let in_memory_ids = self
+                .runs
+                .lock()
+                .await
+                .keys()
+                .map(|id| id.as_uuid())
+                .collect::<std::collections::HashSet<_>>();
             match storage.list_runs(None).await {
                 Ok(stored) => {
                     for run in stored {
+                        let run = if !in_memory_ids.contains(&run.id) {
+                            match recover_interrupted_run(storage.as_ref(), run.clone()).await {
+                                Ok(recovered) => recovered,
+                                Err(error) => {
+                                    error!(run_id = %run.id, %error, "failed to recover interrupted run");
+                                    run
+                                }
+                            }
+                        } else {
+                            run
+                        };
                         by_id.insert(run.id, from_stored_run(run));
                     }
                 }
@@ -686,6 +785,41 @@ async fn persist_snapshot_and_event(
 ) -> Result<(), agent_storage::StorageError> {
     storage.update_run(to_stored_run(run)).await?;
     storage.append_event(to_stored_event(run.id, event)).await
+}
+
+async fn recover_interrupted_run(
+    storage: &dyn ExecutionStore,
+    mut run: StoredRun,
+) -> Result<StoredRun, agent_storage::StorageError> {
+    if !matches!(
+        run.status,
+        StoredRunStatus::Queued | StoredRunStatus::Running
+    ) {
+        return Ok(run);
+    }
+
+    run.status = StoredRunStatus::Cancelled;
+    run.finished_at = Some(Utc::now());
+    run.error = Some("execution was interrupted by an application restart".into());
+    storage.update_run(run.clone()).await?;
+
+    let events = storage.list_events(run.id, None).await?;
+    storage
+        .append_event(StoredRunEvent {
+            run_id: run.id,
+            sequence: events.len() as u64,
+            kind: "cancelled".into(),
+            iteration: None,
+            tool_name: None,
+            model_id: None,
+            next_model_id: None,
+            model_candidates: None,
+            attempted_candidates: None,
+            error_category: None,
+            occurred_at: Utc::now(),
+        })
+        .await?;
+    Ok(run)
 }
 
 fn to_stored_run(run: &Run) -> StoredRun {

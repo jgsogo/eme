@@ -7,4 +7,6 @@ use thiserror::Error;
 pub enum CancelRunError {
     #[error("run not found")]
     NotFound,
+    #[error("run storage error: {0}")]
+    Storage(String),
 }
