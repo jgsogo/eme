@@ -10,7 +10,16 @@ Rust adapter for the Salamanca Public Library (Casa de las Conchas) AbsysNet OPA
 Record parsing prioritizes the structured `#docu_body` definition lists. Publication years are extracted from publication/editor fields rather than from arbitrary page text, so author life dates are not mistaken for edition dates.
 - `rabel.list_libraries`: returns the library selector options exposed by RABEL.
 
-The client follows AbsysNet's HTML meta-refresh into a session-specific URL and retains cookies in one reqwest client. A `record_ref` is an opaque, session-scoped link; pass it unchanged to `rabel.get_item`. It must not be constructed by the model.
+The authenticated assistant also has collection-aware tools registered by `books-tool`:
+
+- `books.list_libraries` and `books.set_preferred_libraries`: inspect and update the current user's selected libraries.
+- `books.check_availability`: resolve a saved book independently in every selected library and fetch live copy-level holdings, including per-library status and check time.
+- `books.refresh_catalogue`: refresh bibliographic metadata for a saved book without changing personal collection fields.
+- `books.list/get/add/update/remove`: manage the user's own collection. Tool access is scoped to the authenticated `ToolContext.user_id`.
+
+Availability is never inferred from a search result or bibliographic record. A failed or ambiguous lookup is reported as an error/not-found result rather than as an available copy.
+
+The client follows AbsysNet's HTML meta-refresh into a session-specific URL and retains cookies in one reqwest client. A `record_ref` is an opaque, session-scoped link; pass it unchanged to `rabel.get_item` only when using the same shared client/session. Do not persist it or pass it between independent HTTP requests. The web UI re-runs the search and resolves the selected record within the same request/session.
 
 ## Diagnostic CLI
 
