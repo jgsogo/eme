@@ -734,12 +734,12 @@ async function loadTaskExecutions(taskId){
    return;
   }
   const visible=executions.slice(0,25);
-  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th><th scope="col">Details</th></tr></thead><tbody>'+visible.map((execution,index)=>{
+  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th></tr></thead><tbody>'+visible.map((execution,index)=>{
    const created=Number(execution.created_at_unix_ms);
    const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
    const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
    const status=String(execution.status||"unknown").replaceAll("_"," ");
-   return '<tr><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td><td class="task-execution-action"><button type="button" class="secondary" data-execution-index="'+index+'">View details</button></td></tr>';
+   return '<tr data-execution-index="'+index+'" tabindex="0" role="button" aria-label="Execution on '+escapeHtml(date)+', '+escapeHtml(status)+'. Open details"><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td></tr>';
   }).join("")+'</tbody></table></div>'+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
  }catch(error){
   if(state.selectedTask===taskId)target.innerHTML='<div class="empty">Unable to load execution history: '+escapeHtml(error.message)+'</div>';
@@ -750,10 +750,8 @@ async function loadTaskExecutions(taskId){
 $("task-executions-refresh")?.addEventListener("click",()=>{
  if(state.selectedTask&&state.selectedTask!=="new")void loadTaskExecutions(state.selectedTask);
 });
-$("task-executions-list")?.addEventListener("click",event=>{
- const button=event.target.closest("[data-execution-index]");
- if(!button)return;
- const execution=state.taskExecutions[Number(button.dataset.executionIndex)];
+function openTaskExecution(index){
+ const execution=state.taskExecutions[index];
  if(!execution)return;
  const created=Number(execution.created_at_unix_ms);
  const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
@@ -761,6 +759,16 @@ $("task-executions-list")?.addEventListener("click",event=>{
  $("task-execution-dialog-meta").textContent=date+" · "+status+" · "+(execution.agent||"");
  $("task-execution-detail").innerHTML=renderTaskExecution(execution);
  $("task-execution-dialog").showModal();
+}
+$("task-executions-list")?.addEventListener("click",event=>{
+ const row=event.target.closest("tr[data-execution-index]");
+ if(row)openTaskExecution(Number(row.dataset.executionIndex));
+});
+$("task-executions-list")?.addEventListener("keydown",event=>{
+ const row=event.target.closest("tr[data-execution-index]");
+ if(!row||!(event.key==="Enter"||event.key===" "))return;
+ event.preventDefault();
+ openTaskExecution(Number(row.dataset.executionIndex));
 });
 $("task-execution-dialog-close")?.addEventListener("click",()=>$("task-execution-dialog").close());
 $("task-execution-dialog")?.addEventListener("click",event=>{
