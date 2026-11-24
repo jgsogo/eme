@@ -377,7 +377,6 @@ impl RunManager {
         Ok(run_id)
     }
 
-
     /// Submits an execution on behalf of a scheduled task and records the
     /// task/run association before returning the run identifier.
     pub async fn submit_for_task(
@@ -494,14 +493,17 @@ impl RunManager {
         }
     }
 
-
     /// Lists the durable executions associated with one scheduled task.
     pub async fn task_runs(&self, task_id: Uuid) -> Result<Vec<Run>, String> {
         let Some(storage) = current_storage(&self.persistence) else {
             return Ok(Vec::new());
         };
-        let stored = storage.list_task_runs(task_id).await.map_err(|error| error.to_string())?;
-        let mut by_id = stored.into_iter()
+        let stored = storage
+            .list_task_runs(task_id)
+            .await
+            .map_err(|error| error.to_string())?;
+        let mut by_id = stored
+            .into_iter()
             .map(from_stored_run)
             .map(|run| (run.id.as_uuid(), run))
             .collect::<HashMap<_, _>>();
