@@ -30,6 +30,52 @@ pub(super) fn session_action(html: &str, base_url: &Url) -> Option<Url> {
     })
 }
 
+fn form_diagnostics(html: &str) -> Vec<String> {
+    let Ok(forms) = Regex::new(r#"(?is)<form\b([^>]*)>(.*?)</form>"#) else {
+        return Vec::new();
+    };
+    let Ok(controls) = Regex::new(r#"(?is)<(?:input|select|textarea|button)\b[^>]*>"#) else {
+        return Vec::new();
+    };
+    let Ok(attribute) = Regex::new(r#"(?is)\b([a-z_:][-a-z0-9_:]*)\s*=\s*["']([^"']*)["']"#) else {
+        return Vec::new();
+    };
+
+    forms.captures_iter(html).take(12).map(|form| {
+        let attrs = form.get(1).map(|m| m.as_str().trim()).unwrap_or("");
+        let body = form.get(2).map(|m| m.as_str()).unwrap_or("");
+        let fields = controls.find_iter(body).take(24).map(|matched| {
+            let tag = matched.as_str();
+            let attributes = attribute.captures_iter(tag)
+                .filter_map(|capture| Some((
+                    capture.get(1)?.as_str().to_ascii_lowercase(),
+                    capture.get(2)?.as_str().to_owned()
+                )))
+                .collect::<std::collections::HashMap<_, _>>();
+            let kind = if tag.to_ascii_lowercase().starts_with("<input") {
+                attributes.get("type").cloned().unwrap_or_else(|| "text".to_owned())
+            } else {
+                tag.trim_start_matches('<')
+                    .split(|c: char| c.is_whitespace() || c == '>')
+                    .next().unwrap_or("").to_owned()
+            };
+            let name = attributes.get("name").cloned().unwrap_or_default();
+            let value = if kind.eq_ignore_ascii_case("password") {
+                Some("[redacted]".to_owned())
+            } else {
+                attributes.get("value").cloned()
+            };
+            format!(
+                "{}:{}{}",
+                kind,
+                name,
+                value.map(|v| format!("={v:?}")).unwrap_or_default()
+            )
+        }).collect::<Vec<_>>();
+        format!("form[{attrs}] controls={fields:?}")
+    }).collect()
+}
+
 pub(super) fn search_page_diagnostic(html: &str, response_url: &Url) -> String {
     let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>")
         .ok()
