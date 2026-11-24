@@ -77,7 +77,9 @@ fn recording_manager(
         invocation: AtomicUsize::new(0),
     };
     (
-        RunManager::new(Arc::new(executor), 1, 1).unwrap(),
+        RunManager::new(Arc::new(executor), 1, 1)
+            .unwrap()
+            .with_storage(Arc::new(agent_storage::InMemoryStorage::default())),
         receiver,
         started,
         release,
