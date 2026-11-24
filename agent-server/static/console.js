@@ -223,6 +223,18 @@ function renderFamilyInvitations(){
  }).join(""):'<div class="hint" style="padding:8px 0">'+(allItems.length?'No invitations match this filter. <button type="button" class="secondary" data-clear-family-invitation-filter>Clear filter</button>':'No invitations yet.')+'</div>';
 }
 function openFamilyActionDialog({title,description,fields,submitLabel="Save",handler}){
+ const dialog=$("family-action-dialog");
+ if(!dialog){
+  const values={};
+  for(const field of fields){
+   const choices=field.type==="select"?" ("+field.options.map(option=>option.value).join(", ")+")":"";
+   const value=window.prompt(field.label+choices,field.value??"");
+   if(value===null)return;
+   values[field.name]=value;
+  }
+  Promise.resolve(handler(values)).catch(error=>setStatus(error.message,"error"));
+  return;
+ }
  familyActionHandler=handler;
  $("family-action-title").textContent=title;
  $("family-action-description").textContent=description||"";
