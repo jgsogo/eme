@@ -377,6 +377,27 @@ impl RunManager {
         Ok(run_id)
     }
 
+
+    /// Submits an execution on behalf of a scheduled task and records the
+    /// task/run association before returning the run identifier.
+    pub async fn submit_for_task(
+        &self,
+        task_id: Uuid,
+        agent: impl Into<String>,
+        input: impl Into<String>,
+        history: Vec<Message>,
+        context: ToolContext,
+    ) -> Result<RunId, SubmitRunError> {
+        let storage = current_storage(&self.persistence)
+            .ok_or_else(|| SubmitRunError::Storage("execution storage is not configured".into()))?;
+        let run_id = self.submit(agent, input, history, context).await?;
+        storage
+            .associate_task_run(task_id, run_id.as_uuid())
+            .await
+            .map_err(|error| SubmitRunError::Storage(error.to_string()))?;
+        Ok(run_id)
+    }
+
     pub async fn cancel(&self, run_id: RunId) -> Result<CancelRunOutcome, CancelRunError> {
         let (outcome, snapshot, event) = {
             let mut runs = self.runs.lock().await;
@@ -471,6 +492,27 @@ impl RunManager {
                 None
             }
         }
+    }
+
+
+    /// Lists the durable executions associated with one scheduled task.
+    pub async fn task_runs(&self, task_id: Uuid) -> Result<Vec<Run>, String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Ok(Vec::new());
+        };
+        let stored = storage.list_task_runs(task_id).await.map_err(|error| error.to_string())?;
+        let mut by_id = stored.into_iter()
+            .map(from_stored_run)
+            .map(|run| (run.id.as_uuid(), run))
+            .collect::<HashMap<_, _>>();
+        for entry in self.runs.lock().await.values() {
+            if by_id.contains_key(&entry.run.id.as_uuid()) {
+                by_id.insert(entry.run.id.as_uuid(), entry.run.clone());
+            }
+        }
+        let mut result = by_id.into_values().collect::<Vec<_>>();
+        result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+        Ok(result)
     }
 
     /// Lists durable invocation usage, optionally restricted to one run.
