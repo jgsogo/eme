@@ -109,18 +109,20 @@ fn is_empty_search_page(html: &str) -> bool {
         .iter().any(|marker| text.contains(marker))
 }
 
-pub(super) fn record(html: &str, source_url: &str) -> Result<CatalogueItem, RabelError> {
+pub(super) fn record(html: &str) -> Result<CatalogueItem, RabelError> {
     let text = clean_text(html);
     if text.is_empty() { return Err(RabelError::Parse("empty record page".into())); }
     let title = first_heading(html).or_else(|| labelled_value(&text, &["Título"]));
     let authors = extract_authors(&text);
-    let publisher = labelled_value(&text, &["Editorial", "Publicación"]);
-    let publication_year = Regex::new(r"\b(1[5-9]\d{2}|20\d{2})\b").ok()
+    let publisher = labelled_value(&text, &["Editorial"]);
+    let publication_year = Regex::new(r"\\b(1[5-9]\\d{2}|20\\d{2})\\b").ok()
         .and_then(|re| re.find(&text)).and_then(|m| m.as_str().parse().ok());
     let isbn = extract_isbn(&text);
-    let holdings = extract_holdings(html);
-    Ok(CatalogueItem { title, authors, publisher, publication_year, isbn, holdings,
-        checked_at: chrono::Utc::now(), source_url: source_url.to_owned() })
+    Ok(CatalogueItem { title, authors, publisher, publication_year, isbn })
+}
+
+pub(super) fn holdings(html: &str) -> Vec<CopyHolding> {
+    extract_holdings(html)
 }
 
 fn library_page_diagnostic(html: &str) -> String {
