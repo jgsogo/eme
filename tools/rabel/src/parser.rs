@@ -19,8 +19,6 @@ pub(super) fn meta_refresh_target(html: &str) -> Option<String> {
 }
 
 pub(super) fn session_action(html: &str, base_url: &Url) -> Option<Url> {
-    // The public catalogue shell renders the session-specific endpoint in
-    // its form actions (normally /<session-token>/NT1).
     let forms = Regex::new(r#"(?is)<form\b([^>]*)>"#).ok()?;
     let attr = Regex::new(r#"(?is)\baction\s*=\s*["']([^"']+)["']"#).ok()?;
     forms.captures_iter(html).find_map(|form| {
@@ -31,82 +29,49 @@ pub(super) fn session_action(html: &str, base_url: &Url) -> Option<Url> {
 }
 
 fn form_diagnostics(html: &str) -> Vec<String> {
-    let Ok(forms) = Regex::new(r#"(?is)<form\b([^>]*)>(.*?)</form>"#) else {
-        return Vec::new();
-    };
-    let Ok(controls) = Regex::new(r#"(?is)<(?:input|select|textarea|button)\b[^>]*>"#) else {
-        return Vec::new();
-    };
-    let Ok(attribute) = Regex::new(r#"(?is)\b([a-z_:][-a-z0-9_:]*)\s*=\s*["']([^"']*)["']"#) else {
-        return Vec::new();
-    };
-
+    let Ok(forms) = Regex::new(r#"(?is)<form\b([^>]*)>(.*?)</form>"#) else { return Vec::new(); };
+    let Ok(controls) = Regex::new(r#"(?is)<(?:input|select|textarea|button)\b[^>]*>"#) else { return Vec::new(); };
+    let Ok(attribute) = Regex::new(r#"(?is)\b([a-z_:][-a-z0-9_:]*)\s*=\s*["']([^"']*)["']"#) else { return Vec::new(); };
     forms.captures_iter(html).take(12).map(|form| {
         let attrs = form.get(1).map(|m| m.as_str().trim()).unwrap_or("");
         let body = form.get(2).map(|m| m.as_str()).unwrap_or("");
         let fields = controls.find_iter(body).take(24).map(|matched| {
             let tag = matched.as_str();
-            let attributes = attribute.captures_iter(tag)
-                .filter_map(|capture| Some((
-                    capture.get(1)?.as_str().to_ascii_lowercase(),
-                    capture.get(2)?.as_str().to_owned()
-                )))
-                .collect::<std::collections::HashMap<_, _>>();
+            let attributes = attribute.captures_iter(tag).filter_map(|capture| Some((
+                capture.get(1)?.as_str().to_ascii_lowercase(),
+                capture.get(2)?.as_str().to_owned()
+            ))).collect::<std::collections::HashMap<_, _>>();
             let kind = if tag.to_ascii_lowercase().starts_with("<input") {
                 attributes.get("type").cloned().unwrap_or_else(|| "text".to_owned())
             } else {
-                tag.trim_start_matches('<')
-                    .split(|c: char| c.is_whitespace() || c == '>')
+                tag.trim_start_matches('<').split(|c: char| c.is_whitespace() || c == '>')
                     .next().unwrap_or("").to_owned()
             };
             let name = attributes.get("name").cloned().unwrap_or_default();
-            let value = if kind.eq_ignore_ascii_case("password") {
-                Some("[redacted]".to_owned())
-            } else {
-                attributes.get("value").cloned()
-            };
-            format!(
-                "{}:{}{}",
-                kind,
-                name,
-                value.map(|v| format!("={v:?}")).unwrap_or_default()
-            )
+            let value = if kind.eq_ignore_ascii_case("password") { Some("[redacted]".to_owned()) }
+                else { attributes.get("value").cloned() };
+            format!("{}:{}{}", kind, name, value.map(|v| format!("={v:?}")).unwrap_or_default())
         }).collect::<Vec<_>>();
         format!("form[{attrs}] controls={fields:?}")
     }).collect()
 }
 
 pub(super) fn search_page_diagnostic(html: &str, response_url: &Url) -> String {
-    let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>")
-        .ok()
-        .and_then(|re| re.captures(html))
-        .and_then(|captures| captures.get(1))
-        .map(|value| clean_text(value.as_str()))
-        .filter(|value| !value.is_empty())
+    let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>").ok()
+        .and_then(|re| re.captures(html)).and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str())).filter(|value| !value.is_empty())
         .unwrap_or_else(|| "(no title)".to_owned());
-
     let forms = form_diagnostics(html);
-
-    let links = Regex::new(r#"(?is)<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>"#)
-        .ok()
-        .map(|re| re.captures_iter(html)
-            .filter_map(|captures| {
-                let href = captures.get(1)?.as_str();
-                let label = clean_text(captures.get(2)?.as_str());
-                Some(format!("{href:?} => {label:?}"))
-            })
-            .take(8)
-            .collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    let body = Regex::new(r"(?is)<body\b[^>]*>(.*?)</body>")
-        .ok()
-        .and_then(|re| re.captures(html))
-        .and_then(|captures| captures.get(1))
-        .map(|value| clean_text(value.as_str()))
-        .unwrap_or_else(|| clean_text(html));
+    let links = Regex::new(r#"(?is)<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>"#).ok()
+        .map(|re| re.captures_iter(html).filter_map(|captures| {
+            let href = captures.get(1)?.as_str();
+            let label = clean_text(captures.get(2)?.as_str());
+            Some(format!("{href:?} => {label:?}"))
+        }).take(8).collect::<Vec<_>>()).unwrap_or_default();
+    let body = Regex::new(r"(?is)<body\b[^>]*>(.*?)</body>").ok()
+        .and_then(|re| re.captures(html)).and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str())).unwrap_or_else(|| clean_text(html));
     let excerpt: String = body.chars().take(320).collect();
-
     format!("response_url={response_url}; page title={title:?}; forms={forms:?}; links={links:?}; body excerpt={excerpt:?}")
 }
 
@@ -115,12 +80,8 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         .map_err(|error| RabelError::Parse(error.to_string()))?;
     let mut results = Vec::new();
     for captures in link.captures_iter(html) {
-        // HTML attributes encode query separators as &amp;; browsers decode
-        // these before navigation, so normalize them before parsing the URL.
         let href = decode_entities(captures.get(1).unwrap().as_str());
-        if !href.contains("ACC=165") || !href.contains("DOC=") {
-            continue;
-        }
+        if !href.contains("ACC=165") || !href.contains("DOC=") { continue; }
         let record_url = session_url.join(&href)
             .map_err(|error| RabelError::Parse(format!("invalid record link: {error}")))?;
         let title = clean_text(captures.get(2).unwrap().as_str());
@@ -129,10 +90,10 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
         let context = clean_text(&row_html);
         results.push(CatalogueSearchResult {
             record_ref: record_url.to_string(),
-            title,
+            title: title.clone(),
             authors: extract_authors(&context),
             publication: labelled_value(&context, &["Publicación", "Edición", "Datos de publicación"]),
-            category: extract_document_category(&row_html),
+            category: extract_document_category(&title, &row_html),
             isbn: extract_isbn(&context),
         });
     }
@@ -144,95 +105,55 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
 
 fn is_empty_search_page(html: &str) -> bool {
     let text = clean_text(html).to_lowercase();
-    [
-        "no se han encontrado", "no se encontraron", "no hay resultados",
-        "sin resultados", "no existen registros", "no hay registros",
-        "0 resultados", "0 registros", "0 documentos",
-    ].iter().any(|marker| text.contains(marker))
+    ["no se han encontrado", "no se encontraron", "no hay resultados", "sin resultados",
+     "no existen registros", "no hay registros", "0 resultados", "0 registros", "0 documentos"]
+        .iter().any(|marker| text.contains(marker))
 }
 
 pub(super) fn record(html: &str, source_url: &str) -> Result<CatalogueItem, RabelError> {
     let text = clean_text(html);
-    if text.is_empty() {
-        return Err(RabelError::Parse("empty record page".into()));
-    }
+    if text.is_empty() { return Err(RabelError::Parse("empty record page".into())); }
     let title = first_heading(html).or_else(|| labelled_value(&text, &["Título"]));
     let authors = extract_authors(&text);
     let publisher = labelled_value(&text, &["Editorial", "Publicación"]);
-    let publication_year = Regex::new(r"\b(1[5-9]\d{2}|20\d{2})\b")
-        .ok().and_then(|re| re.find(&text)).and_then(|m| m.as_str().parse().ok());
+    let publication_year = Regex::new(r"\b(1[5-9]\d{2}|20\d{2})\b").ok()
+        .and_then(|re| re.find(&text)).and_then(|m| m.as_str().parse().ok());
     let isbn = extract_isbn(&text);
     let holdings = extract_holdings(html);
-    Ok(CatalogueItem {
-        title, authors, publisher, publication_year, isbn, holdings,
-        checked_at: chrono::Utc::now(), source_url: source_url.to_owned(),
-    })
+    Ok(CatalogueItem { title, authors, publisher, publication_year, isbn, holdings,
+        checked_at: chrono::Utc::now(), source_url: source_url.to_owned() })
 }
 
 fn library_page_diagnostic(html: &str) -> String {
-    let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>")
-        .ok()
-        .and_then(|re| re.captures(html))
-        .and_then(|captures| captures.get(1))
-        .map(|value| clean_text(value.as_str()))
-        .filter(|value| !value.is_empty())
+    let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>").ok()
+        .and_then(|re| re.captures(html)).and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str())).filter(|value| !value.is_empty())
         .unwrap_or_else(|| "(no title)".to_owned());
-
-    let selects = Regex::new(r"(?is)<select\b([^>]*)>(.*?)</select>")
-        .ok()
-        .map(|re| {
-            re.captures_iter(html)
-                .map(|captures| {
-                    let attrs = captures.get(1).map(|m| m.as_str()).unwrap_or("");
-                    let body = captures.get(2).map(|m| m.as_str()).unwrap_or("");
-                    let options = Regex::new(r"(?is)<option\b")
-                        .map(|re| re.find_iter(body).count())
-                        .unwrap_or(0);
-                    format!("select[{attrs}] options={options}")
-                })
-                .take(8)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-
-    let forms = Regex::new(r#"(?is)<form\b([^>]*)>"#)
-        .ok()
-        .map(|re| re.captures_iter(html)
-            .filter_map(|captures| captures.get(1).map(|m| m.as_str().trim().to_owned()))
-            .take(5)
-            .collect::<Vec<_>>())
-        .unwrap_or_default();
-
-    let body = Regex::new(r"(?is)<body\b[^>]*>(.*?)</body>")
-        .ok()
-        .and_then(|re| re.captures(html))
-        .and_then(|captures| captures.get(1))
-        .map(|value| clean_text(value.as_str()))
-        .unwrap_or_else(|| clean_text(html));
+    let selects = Regex::new(r"(?is)<select\b([^>]*)>(.*?)</select>").ok()
+        .map(|re| re.captures_iter(html).map(|captures| {
+            let attrs = captures.get(1).map(|m| m.as_str()).unwrap_or("");
+            let body = captures.get(2).map(|m| m.as_str()).unwrap_or("");
+            let options = Regex::new(r"(?is)<option\b").map(|re| re.find_iter(body).count()).unwrap_or(0);
+            format!("select[{attrs}] options={options}")
+        }).take(8).collect::<Vec<_>>()).unwrap_or_default();
+    let forms = Regex::new(r#"(?is)<form\b([^>]*)>"#).ok()
+        .map(|re| re.captures_iter(html).filter_map(|captures| captures.get(1).map(|m| m.as_str().trim().to_owned()))
+            .take(5).collect::<Vec<_>>()).unwrap_or_default();
+    let body = Regex::new(r"(?is)<body\b[^>]*>(.*?)</body>").ok()
+        .and_then(|re| re.captures(html)).and_then(|captures| captures.get(1))
+        .map(|value| clean_text(value.as_str())).unwrap_or_else(|| clean_text(html));
     let excerpt: String = body.chars().take(240).collect();
-
-    format!(
-        "page title={title:?}; selects={selects:?}; forms={forms:?}; body excerpt={excerpt:?}"
-    )
+    format!("page title={title:?}; selects={selects:?}; forms={forms:?}; body excerpt={excerpt:?}")
 }
 
 pub(super) fn libraries(html: &str) -> Result<Vec<Library>, RabelError> {
-    // AbsysNet exposes the catalogue selector as `select#subcat[name=subcat]`.
-    // Its onchange handler switches the active subcatalogue; option values
-    // are the SUBC identifiers consumed by subsequent OPAC requests.
-    let selects = Regex::new(r#"(?is)<select\b([^>]*)>(.*?)</select>"#)
-        .map_err(|error| RabelError::Parse(error.to_string()))?;
-    let selector_attr = Regex::new(r#"(?i)(?:name|id)\s*=\s*["']subcat["']"#)
-        .map_err(|error| RabelError::Parse(error.to_string()))?;
-    let options = Regex::new(r#"(?is)<option\b[^>]*value\s*=\s*["']([^"']+)["'][^>]*>(.*?)</option>"#)
-        .map_err(|error| RabelError::Parse(error.to_string()))?;
+    let selects = Regex::new(r#"(?is)<select\b([^>]*)>(.*?)</select>"#).map_err(|error| RabelError::Parse(error.to_string()))?;
+    let selector_attr = Regex::new(r#"(?i)(?:name|id)\s*=\s*["']subcat["']"#).map_err(|error| RabelError::Parse(error.to_string()))?;
+    let options = Regex::new(r#"(?is)<option\b[^>]*value\s*=\s*["']([^"']+)["'][^>]*>(.*?)</option>"#).map_err(|error| RabelError::Parse(error.to_string()))?;
     let select = selects.captures_iter(html)
         .find(|captures| captures.get(1).is_some_and(|attrs| selector_attr.is_match(attrs.as_str())))
         .and_then(|captures| captures.get(2))
-        .ok_or_else(|| RabelError::Parse(format!(
-            "library selector not found; {}",
-            library_page_diagnostic(html)
-        )))?;
+        .ok_or_else(|| RabelError::Parse(format!("library selector not found; {}", library_page_diagnostic(html))))?;
     let libraries: Vec<Library> = options.captures_iter(select.as_str()).filter_map(|c| {
         let id = c.get(1)?.as_str().trim().to_owned();
         let raw_name = clean_text(c.get(2)?.as_str());
@@ -241,9 +162,7 @@ pub(super) fn libraries(html: &str) -> Result<Vec<Library>, RabelError> {
         let name = trimmed_name[depth..].trim().to_owned();
         (!id.is_empty() && !name.is_empty()).then_some(Library { id, name, depth })
     }).collect();
-    if libraries.is_empty() {
-        return Err(RabelError::Parse("RABEL library selector contains no usable options".into()));
-    }
+    if libraries.is_empty() { return Err(RabelError::Parse("RABEL library selector contains no usable options".into())); }
     Ok(libraries)
 }
 
@@ -251,48 +170,28 @@ fn extract_holdings(html: &str) -> Vec<CopyHolding> {
     let Ok(rows) = Regex::new(r#"(?is)(<tr\b[^>]*>)(.*?)</tr>"#) else { return Vec::new(); };
     let Ok(status_attr) = Regex::new(r#"(?i)data-disp\s*=\s*["']([^"']+)["']"#) else { return Vec::new(); };
     rows.captures_iter(html).filter_map(|row| {
-        // AbsysNet installations place data-disp either on the table row
-        // itself or on a cell inside it. Inspect both parts of the row.
         let opening_tag = row.get(1)?.as_str();
         let contents = row.get(2)?.as_str();
         let raw = row.get(0)?.as_str();
-        let status = status_attr.captures(opening_tag)
-            .or_else(|| status_attr.captures(contents))?
-            .get(1)?.as_str();
+        let status = status_attr.captures(opening_tag).or_else(|| status_attr.captures(contents))?.get(1)?.as_str();
         let text = clean_text(raw);
         let library = labelled_value(&text, &["Biblioteca", "Sucursal"]);
-        let signature = labelled_value(&text, &["Signatura", "SIGN"])
-            .or_else(|| extract_signature(&text));
+        let signature = labelled_value(&text, &["Signatura", "SIGN"]).or_else(|| extract_signature(&text));
         let location = labelled_value(&text, &["Localización", "Ubicación"])
             .or_else(|| known_value(&text, &["Depósito", "Sala de préstamo", "Sala de lectura", "Sala infantil"]));
         let material = labelled_value(&text, &["Tipo de ejemplar", "Tipo", "Formato"])
             .or_else(|| known_value(&text, &["Libro adultos", "Libro infantil", "Papel", "DVD", "CD"]));
-        // Keep the raw row only when structured extraction found no useful
-        // fields. Otherwise it repeats the same information in agent output.
-        let catalogue_note = (library.is_none() && signature.is_none()
-            && location.is_none() && material.is_none() && !text.is_empty())
-            .then_some(text);
-        Some(CopyHolding {
-            library,
-            signature,
-            location,
-            material,
-            availability: normalize_availability(status),
-            catalogue_note,
-        })
+        let catalogue_note = (library.is_none() && signature.is_none() && location.is_none() && material.is_none() && !text.is_empty()).then_some(text);
+        Some(CopyHolding { library, signature, location, material, availability: normalize_availability(status), catalogue_note })
     }).collect()
 }
 
 fn extract_signature(text: &str) -> Option<String> {
-    Regex::new(r"\b[A-Z]{1,4}-[A-Z0-9]+(?:\s+[A-Z0-9]+)?\b")
-        .ok()?
-        .find(text)
-        .map(|matched| matched.as_str().to_owned())
+    Regex::new(r"\b[A-Z]{1,4}-[A-Z0-9]+(?:\s+[A-Z0-9]+)?\b").ok()?.find(text).map(|matched| matched.as_str().to_owned())
 }
 
 fn known_value(text: &str, values: &[&str]) -> Option<String> {
-    values.iter().find(|value| text.to_lowercase().contains(&value.to_lowercase()))
-        .map(|value| (*value).to_owned())
+    values.iter().find(|value| text.to_lowercase().contains(&value.to_lowercase())).map(|value| (*value).to_owned())
 }
 
 fn normalize_availability(value: &str) -> Availability {
@@ -307,45 +206,41 @@ fn normalize_availability(value: &str) -> Availability {
 
 fn first_heading(html: &str) -> Option<String> {
     let re = Regex::new(r#"(?is)<h[1-3]\b[^>]*>(.*?)</h[1-3]>"#).ok()?;
-    re.captures(html)
-        .and_then(|captures| captures.get(1))
-        .map(|capture| clean_text(capture.as_str()))
+    re.captures(html).and_then(|captures| captures.get(1)).map(|capture| clean_text(capture.as_str()))
         .filter(|value| !value.is_empty())
 }
 
-fn extract_document_category(row_html: &str) -> Option<String> {
-    let text = clean_text(row_html);
-    let labelled = labelled_value(
-        &text,
-        &["Tipo de documento", "Tipo de material", "Tipo de soporte", "Material"],
-    );
-    if let Some(value) = labelled {
-        return Some(normalize_document_category(&value));
+fn extract_document_category(title: &str, row_html: &str) -> Option<String> {
+    // RABEL embeds the authoritative document type in the bibliographic title
+    // (for example "[Vídeo]" or "[Grabación sonora]"). Use it before icons
+    // or optional row labels, which can be generic or theme-dependent.
+    let marker = Regex::new(r"(?i)\[\s*([^\]]+?)\s*\]").ok()?;
+    if let Some(value) = marker.captures(title).and_then(|capture| capture.get(1)) {
+        return Some(normalize_document_category(value.as_str()));
     }
 
-    // Some AbsysNet themes render the document class as an icon rather than
-    // visible text. Prefer its accessible title/alt text when available.
+    let text = clean_text(row_html);
+    let labelled = labelled_value(&text, &["Tipo de documento", "Tipo de material", "Tipo de soporte", "Material"]);
+    if let Some(value) = labelled { return Some(normalize_document_category(&value)); }
+
     let attributes = Regex::new(r#"(?is)<img\b[^>]*(?:alt|title)\s*=\s*["']([^"']+)["'][^>]*>"#).ok()?;
     attributes.captures_iter(row_html).find_map(|capture| {
         let value = clean_text(capture.get(1)?.as_str());
         let normalized = value.to_lowercase();
-        let known = [
-            "monografía", "monografías", "libro", "videograbación", "videograbaciones",
-            "película", "grabación sonora", "grabaciones sonoras", "revista",
-            "revistas", "periódico", "periódicos", "artículo de revista",
-            "recurso electrónico", "material cartográfico", "manuscrito",
-            "material gráfico", "partitura",
-        ];
-        known.iter().any(|candidate| normalized.contains(candidate))
-            .then(|| normalize_document_category(&value))
+        let known = ["monografía", "monografías", "libro", "videograbación", "videograbaciones",
+            "vídeo", "video", "película", "grabación sonora", "grabaciones sonoras", "revista",
+            "revistas", "periódico", "periódicos", "artículo de revista", "recurso electrónico",
+            "material cartográfico", "manuscrito", "material gráfico", "partitura"];
+        known.iter().any(|candidate| normalized.contains(candidate)).then(|| normalize_document_category(&value))
     })
 }
 
 fn normalize_document_category(value: &str) -> String {
-    let normalized = value.to_lowercase();
-    if normalized.contains("monograf") || normalized.contains("libro") {
+    let normalized = value.trim().to_lowercase();
+    if normalized.contains("monograf") || normalized == "libro" || normalized.contains("libros") {
         "Book".to_owned()
-    } else if normalized.contains("videograb") || normalized.contains("película") {
+    } else if normalized.contains("videograb") || normalized.contains("película")
+        || normalized == "vídeo" || normalized == "video" || normalized.contains("vídeo") {
         "Film / video".to_owned()
     } else if normalized.contains("grabación sonora") || normalized.contains("grabaciones sonoras") {
         "Audio".to_owned()
@@ -353,18 +248,18 @@ fn normalize_document_category(value: &str) -> String {
         "Journal article".to_owned()
     } else if normalized.contains("revista") || normalized.contains("periódico") {
         "Magazine / newspaper".to_owned()
-    } else if normalized.contains("recurso electrónico") {
+    } else if normalized.contains("recurso electrónico") || normalized.contains("recurso electronico") {
         "Digital resource".to_owned()
-    } else if normalized.contains("material cartográfico") {
+    } else if normalized.contains("material cartográfico") || normalized.contains("material cartografico") {
         "Map".to_owned()
     } else if normalized.contains("manuscrito") {
         "Manuscript".to_owned()
-    } else if normalized.contains("material gráfico") {
+    } else if normalized.contains("material gráfico") || normalized.contains("material grafico") {
         "Graphic material".to_owned()
     } else if normalized.contains("partitura") {
         "Sheet music".to_owned()
     } else {
-        value.to_owned()
+        value.trim().to_owned()
     }
 }
 
@@ -380,20 +275,14 @@ fn extract_isbn(text: &str) -> Option<String> {
 }
 
 fn labelled_value(text: &str, labels: &[&str]) -> Option<String> {
-    // AbsysNet frequently puts several labelled fields in one table cell,
-    // separated only by whitespace. Stop a value at the next known label.
-    let next_field = Regex::new(
-        r"(?i)\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Tipo de documento|Tipo de material|Tipo de soporte|Formato|Material|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\s*:?"
-    ).ok()?;
+    let next_field = Regex::new(r"(?i)\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Tipo de documento|Tipo de material|Tipo de soporte|Formato|Material|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\s*:?").ok()?;
     for label in labels {
         let pattern = format!(r"(?i){}\s*:?\s*([^|;]{{2,120}})", regex::escape(label));
         let re = Regex::new(&pattern).ok()?;
         if let Some(value) = re.captures(text).and_then(|c| c.get(1)) {
             let raw = value.as_str();
             let end = next_field.find(raw).map(|matched| matched.start()).unwrap_or(raw.len());
-            let value = raw[..end].trim().trim_matches(|character: char| {
-                matches!(character, ':' | '/' | '·' | '|' | ';')
-            }).trim().to_owned();
+            let value = raw[..end].trim().trim_matches(|character: char| matches!(character, ':' | '/' | '·' | '|' | ';')).trim().to_owned();
             if !value.is_empty() { return Some(value); }
         }
     }
@@ -427,15 +316,29 @@ mod tests {
 
     #[test]
     fn recognizes_common_empty_catalogue_responses() {
-        for message in [
-            "No se han encontrado registros",
-            "No hay resultados para la búsqueda",
-            "0 documentos",
-        ] {
+        for message in ["No se han encontrado registros", "No hay resultados para la búsqueda", "0 documentos"] {
             let html = format!("<html><body>{message}</body></html>");
             let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
             assert!(search_results(&html, &session).unwrap().is_empty(), "{message}");
         }
+    }
+
+    #[test]
+    fn extracts_document_category_from_title_markers() {
+        let cases = [
+            ("Aardman classics [Vídeo] / scénario", "Film / video"),
+            ("Adams, Bryan Anthology [Grabación sonora] / Bryan Adams", "Audio"),
+            ("Agassi tennis generation [Recurso electrónico] / developed by Aqua Pacific", "Digital resource"),
+            ("La trampa de la diversidad / Daniel Bernabé", "Book"),
+        ];
+        for (title, expected) in cases {
+            assert_eq!(extract_document_category(title, "<tr><td><img alt=\"Book\"></td></tr>").as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn title_marker_takes_precedence_over_generic_book_icon() {
+        assert_eq!(extract_document_category("Al rojo vivo [Vídeo]", r#"<tr><td><img alt="Book"></td></tr>"#).as_deref(), Some("Film / video"));
     }
 
     #[test]
@@ -450,7 +353,7 @@ mod tests {
     fn extracts_category_from_accessible_document_icon() {
         let html = r#"<tr><td><a href="/token/NT1?ACC=165&amp;DOC=43">La película</a><img title="Videograbaciones" src="video.gif"></td></tr>"#;
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
-        let results = search_results(html, &session).unwrap();
+        let results = search_results(&html, &session).unwrap();
         assert_eq!(results[0].category.as_deref(), Some("Film / video"));
     }
 
@@ -483,19 +386,12 @@ mod tests {
             <option value="SAL/ARCH/BIB">&gt;&gt;SALAMANCA. Archivo Histórico Provincial. Biblioteca</option>
         </select>"#;
         let libraries = libraries(html).unwrap();
-
         assert_eq!(libraries.len(), 5);
         assert_eq!((libraries[0].name.as_str(), libraries[0].depth), ("Salamanca", 0));
-        assert_eq!(
-            (libraries[1].name.as_str(), libraries[1].depth),
-            ("SALAMANCA. Biblioteca Pública de Salamanca", 1)
-        );
+        assert_eq!((libraries[1].name.as_str(), libraries[1].depth), ("SALAMANCA. Biblioteca Pública de Salamanca", 1));
         assert_eq!((libraries[2].name.as_str(), libraries[2].depth), ("Pública de Salamanca", 2));
         assert_eq!((libraries[3].name.as_str(), libraries[3].depth), ("Archivos de Salamanca", 1));
-        assert_eq!(
-            (libraries[4].name.as_str(), libraries[4].depth),
-            ("SALAMANCA. Archivo Histórico Provincial. Biblioteca", 2)
-        );
+        assert_eq!((libraries[4].name.as_str(), libraries[4].depth), ("SALAMANCA. Archivo Histórico Provincial. Biblioteca", 2));
     }
 
     #[test]
@@ -518,8 +414,7 @@ mod tests {
     fn parses_meta_refresh_and_search_links() {
         let html = r#"<meta http-equiv="Refresh" content="0; URL=/cgi-bin/abnetopac2/token?ACC=161"><tr><td><a href="/cgi-bin/abnetopac2/token/NT1?ACC=165&amp;DOC=2">El Quijote</a></td></tr>"#;
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token?ACC=161").unwrap();
-        let target = meta_refresh_target(html).unwrap();
-        assert!(target.contains("token"));
+        assert!(meta_refresh_target(html).unwrap().contains("token"));
         let results = search_results(html, &session).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].title, "El Quijote");
