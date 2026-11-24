@@ -8,11 +8,6 @@
   }
   const status = message => { $("books-status").textContent = message; };
   function button(label, action) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", action); return b; }
-  function catalogueItemPath(result) {
-    const params = new URLSearchParams({ q: result.title, title: result.title });
-    if (result.isbn) params.set("isbn", result.isbn);
-    return "/books/catalogue/item?" + params.toString();
-  }
   function renderBooks() {
     const list = $("books-list"); list.replaceChildren();
     const query = state.collectionQuery.trim().toLocaleLowerCase();
@@ -102,40 +97,36 @@
     state.books = await api("/books"); $("collection-status").textContent = `${state.books.length} books in your collection`; renderBooks();
     if (state.selected) { const current = state.books.find(b => b.id === state.selected.id); if (current) await selectBook(current); else { state.selected = null; enableDetails(false); $("book-heading").textContent = "Book details"; $("book-holdings").textContent = "Select a book."; } }
   }
-  async function showCatalogueItem(result) {
+  function showCatalogueItem(result) {
     const dialog = $("catalogue-item-dialog");
     $("catalogue-item-heading").textContent = result.title;
     $("catalogue-item-category").textContent = result.category || "Document type not specified";
     const content = $("catalogue-item-content");
-    content.textContent = "Loading bibliographic details…";
-    dialog.showModal();
-    try {
-      const item = await api(catalogueItemPath(result));
-      $("catalogue-item-heading").textContent = item.title || result.title;
-      content.replaceChildren();
-      const fields = [
-        ["Authors", (item.authors || []).join(", ")],
-        ["Statement of responsibility", item.responsibility],
-        ["Publisher", item.publisher],
-        ["Publication statement", item.publication_statement || result.publication],
-        ["Publication year", item.publication_year],
-        ["Physical description", item.physical_description],
-        ["Series", item.series],
-        ["Notes", (item.notes || []).join("; ")],
-        ["Subjects", (item.subjects || []).join("; ")],
-        ["ISBN", item.isbn]
-      ].filter(([,value]) => value !== null && value !== undefined && value !== "");
-      if (fields.length) {
-        const dl = document.createElement("dl");
-        for (const [label,value] of fields) {
-          const dt=document.createElement("dt"); dt.textContent=label;
-          const dd=document.createElement("dd"); dd.textContent=String(value);
-          dl.append(dt,dd);
-        }
-        content.append(dl);
+    content.replaceChildren();
+    const fields = [
+      ["Authors", (result.authors || []).join(", ")],
+      ["Statement of responsibility", result.responsibility],
+      ["Publisher", result.publisher],
+      ["Publication statement", result.publication_statement || result.publication],
+      ["Publication year", result.publication_year],
+      ["Physical description", result.physical_description],
+      ["Series", result.series],
+      ["Notes", (result.notes || []).join("; ")],
+      ["Subjects", (result.subjects || []).join("; ")],
+      ["ISBN", result.isbn]
+    ].filter(([, value]) => value !== null && value !== undefined && value !== "");
+    if (fields.length) {
+      const dl = document.createElement("dl");
+      for (const [label, value] of fields) {
+        const dt = document.createElement("dt"); dt.textContent = label;
+        const dd = document.createElement("dd"); dd.textContent = String(value);
+        dl.append(dt, dd);
       }
-
-    } catch (error) { content.textContent=error.message || "Could not load catalogue details."; }
+      content.append(dl);
+    } else {
+      content.textContent = "The search result does not include additional bibliographic details.";
+    }
+    dialog.showModal();
   }
 
   async function searchCatalogue(event) {
@@ -159,19 +150,18 @@
         card.append(details);
         const add = button("Add to my collection", async () => {
           try {
-            const item = await api(catalogueItemPath(result));
             const book = await api("/books", { method: "POST", body: JSON.stringify({
-              title: item.title || result.title,
-              authors: item.authors || result.authors || [],
-              isbn: item.isbn || result.isbn,
-              publisher: item.publisher,
-              publication_year: item.publication_year,
-              responsibility: item.responsibility,
-              publication_statement: item.publication_statement,
-              physical_description: item.physical_description,
-              series: item.series,
-              notes: item.notes || [],
-              subjects: item.subjects || [],
+              title: result.title,
+              authors: result.authors || [],
+              isbn: result.isbn,
+              publisher: result.publisher,
+              publication_year: result.publication_year,
+              responsibility: result.responsibility,
+              publication_statement: result.publication_statement || result.publication,
+              physical_description: result.physical_description,
+              series: result.series,
+              notes: result.notes || [],
+              subjects: result.subjects || [],
               catalogue_url: null
             }) });
             $("add-book-dialog").close(); $("catalogue-results").replaceChildren(); $("catalogue-results-summary").textContent = "Enter a search term to find books."; $("catalogue-query").value = "";
