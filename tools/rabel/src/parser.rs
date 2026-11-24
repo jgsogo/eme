@@ -112,13 +112,95 @@ fn is_empty_search_page(html: &str) -> bool {
 pub(super) fn record(html: &str) -> Result<CatalogueItem, RabelError> {
     let text = clean_text(html);
     if text.is_empty() { return Err(RabelError::Parse("empty record page".into())); }
-    let title = first_heading(html).or_else(|| labelled_value(&text, &["Título"]));
-    let authors = extract_authors(&text);
-    let publisher = labelled_value(&text, &["Editorial"]);
-    let publication_year = Regex::new(r"\b(1[5-9]\d{2}|20\d{2})\b").ok()
-        .and_then(|re| re.find(&text)).and_then(|m| m.as_str().parse().ok());
-    let isbn = extract_isbn(&text);
-    Ok(CatalogueItem { title, authors, publisher, publication_year, isbn })
+
+    // RABEL places navigation before the bibliographic record. Its structured
+    // #docu_body definition lists are the authoritative source.
+    let fields = bibliographic_fields(html);
+    let title_statement = field_value(&fields, &["Título", "Titulo"]);
+    let (title, responsibility) = title_statement.map(|value| split_statement_of_responsibility(&value))
+        .map(|(title, responsibility)| (non_empty(title), responsibility))
+        .unwrap_or_else(|| (None, None));
+    let authors = field_values(&fields, &["Autor / Autora", "Autor", "Autores", "Autoría", "Autoria"]);
+    let publication_statement = field_value(&fields, &["Editor / Productor", "Editor", "Productor", "Publicación", "Publicacion"]);
+    let publication_year = publication_statement.as_deref().and_then(extract_publication_year);
+    let publisher = publication_statement.as_deref().map(strip_publication_year).and_then(non_empty);
+    let physical_description = field_value(&fields, &["Descripción física", "Descripcion fisica"]);
+    let series = field_value(&fields, &["Colección editorial", "Coleccion editorial", "Serie"]);
+    let notes = field_values(&fields, &["Nota de bibliografía", "Nota de bibliografia", "Notas"]);
+    let subjects = field_values(&fields, &["Materias", "Materia"]);
+    let isbn = field_value(&fields, &["ISBN"]).and_then(|value| extract_isbn(&value))
+        .or_else(|| extract_isbn(&text));
+
+    // Fallback for older/alternate templates. Never infer a publication year
+    // from the entire page: author birth/death dates are not edition dates.
+    let title = title.or_else(|| labelled_value(&text, &["Título", "Titulo"]));
+    let authors = if authors.is_empty() { extract_authors(&text) } else { authors };
+    let publisher = publisher.or_else(|| labelled_value(&text, &["Editorial"]));
+    let publication_year = publication_year.or_else(|| {
+        labelled_value(&text, &["Editor / Productor", "Publicación", "Publicacion"])
+            .as_deref().and_then(extract_publication_year)
+    });
+
+    Ok(CatalogueItem {
+        title, authors, publisher, publication_year, isbn, responsibility,
+        publication_statement, physical_description, series, notes, subjects,
+    })
+}
+
+fn bibliographic_fields(html: &str) -> Vec<(String, Vec<String>)> {
+    let body = Regex::new(r#"(?is)<(?:div|section)\b[^>]*id\s*=\s*["']docu_body["'][^>]*>(.*?)</(?:div|section)>"#).ok()
+        .and_then(|re| re.captures(html)).and_then(|capture| capture.get(1)).map(|m| m.as_str().to_owned());
+    let Some(body) = body else { return Vec::new(); };
+    let Ok(definitions) = Regex::new(r"(?is)<dl\b[^>]*>(.*?)</dl>") else { return Vec::new(); };
+    let Ok(label) = Regex::new(r"(?is)<dt\b[^>]*>(.*?)</dt>") else { return Vec::new(); };
+    let Ok(value) = Regex::new(r"(?is)<dd\b[^>]*>(.*?)</dd>") else { return Vec::new(); };
+    definitions.captures_iter(&body).filter_map(|definition| {
+        let fragment = definition.get(1)?.as_str();
+        let key = label.captures(fragment).and_then(|capture| capture.get(1))
+            .map(|m| normalize_field_label(&clean_text(m.as_str())))?;
+        let values = value.captures_iter(fragment).filter_map(|capture| {
+            let value = clean_text(capture.get(1)?.as_str());
+            (!value.is_empty()).then_some(value)
+        }).collect::<Vec<_>>();
+        (!values.is_empty()).then_some((key, values))
+    }).collect()
+}
+
+fn normalize_field_label(value: &str) -> String {
+    value.trim().trim_end_matches(':').split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase()
+}
+
+fn field_values(fields: &[(String, Vec<String>)], labels: &[&str]) -> Vec<String> {
+    let wanted = labels.iter().map(|label| normalize_field_label(label)).collect::<Vec<_>>();
+    fields.iter().filter(|(label, _)| wanted.contains(label))
+        .flat_map(|(_, values)| values.iter().cloned()).collect()
+}
+
+fn field_value(fields: &[(String, Vec<String>)], labels: &[&str]) -> Option<String> {
+    field_values(fields, labels).into_iter().next()
+}
+
+fn split_statement_of_responsibility(value: &str) -> (String, Option<String>) {
+    match value.split_once(" / ") {
+        Some((title, responsibility)) => (title.trim().trim_end_matches(" .").to_owned(),
+            non_empty(responsibility.trim().trim_end_matches('.').to_owned())),
+        None => (value.trim().trim_end_matches('.').to_owned(), None),
+    }
+}
+
+fn extract_publication_year(value: &str) -> Option<u16> {
+    Regex::new(r"(?<![0-9])(1[5-9]\d{2}|20\d{2})(?![0-9])").ok()?
+        .find_iter(value).filter_map(|m| m.as_str().parse::<u16>().ok()).last()
+}
+
+fn strip_publication_year(value: &str) -> String {
+    Regex::new(r"(?<![0-9])(?:1[5-9]\d{2}|20\d{2})(?![0-9])").ok()
+        .map(|re| re.replace_all(value, "").into_owned()).unwrap_or_else(|| value.to_owned())
+        .trim().trim_end_matches([',', '.', ';', ':']).trim().to_owned()
+}
+
+fn non_empty(value: String) -> Option<String> {
+    (!value.trim().is_empty()).then(|| value.trim().to_owned())
 }
 
 pub(super) fn holdings(html: &str) -> Vec<CopyHolding> {
