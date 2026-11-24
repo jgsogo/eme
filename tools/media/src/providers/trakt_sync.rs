@@ -3,6 +3,7 @@ use agent_storage::UserId;
 use chrono::{DateTime, Utc};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 use crate::{
     ExternalId, MediaItem, MediaItemId, MediaKind, MediaRating, MediaStore, MediaStoreError,
@@ -257,6 +258,168 @@ impl TraktSyncService {
         Ok(summary)
     }
 
+    /// Add or remove a title from the linked Trakt account's watchlist.
+    ///
+    /// The provider is mutated first. The local Trakt mirror is changed only
+    /// after Trakt confirms the request, so a failed write cannot masquerade
+    /// as a successful remote update. Repeating either operation is safe.
+    pub async fn set_watchlist_item(
+        &self,
+        owner_id: UserId,
+        profile_id: crate::MediaProfileId,
+        item: &MediaItem,
+        add: bool,
+    ) -> Result<(), TraktSyncError> {
+        let access_token = self.access_token_for_profile(owner_id, profile_id).await?;
+        let tmdb_id = item
+            .external_ids
+            .iter()
+            .find(|external_id| external_id.provider == "tmdb")
+            .and_then(|external_id| external_id.value.parse::<u64>().ok())
+            .ok_or(TraktSyncError::MissingExternalId)?;
+        let payload = match item.kind {
+            MediaKind::Movie => json!({"movies":[{"ids":{"tmdb":tmdb_id}}]}),
+            MediaKind::TvShow => json!({"shows":[{"ids":{"tmdb":tmdb_id}}]}),
+        };
+        let path = if add {
+            "/sync/watchlist"
+        } else {
+            "/sync/watchlist/remove"
+        };
+        self.post_json(path, &payload, &access_token).await?;
+
+        self.media.save_media_item(item).await?;
+        if add {
+            let existing = self.media.list_watchlist(profile_id).await?;
+            if !existing.iter().any(|entry| {
+                entry.media_item_id == item.id && entry.source == WatchHistorySource::Trakt
+            }) {
+                self.media
+                    .save_watchlist_item(&MediaWatchlistItem {
+                        profile_id,
+                        media_item_id: item.id,
+                        added_at: Utc::now(),
+                        source: WatchHistorySource::Trakt,
+                    })
+                    .await?;
+            }
+        } else {
+            let mut existing = self.media.list_watchlist(profile_id).await?;
+            existing.retain(|entry| {
+                entry.media_item_id != item.id || entry.source != WatchHistorySource::Trakt
+            });
+            self.media
+                .replace_watchlist(profile_id, WatchHistorySource::Trakt, &existing)
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Write an EME rating through to Trakt, then persist its EME provenance.
+    ///
+    /// EME's 0..=5 scale maps linearly to Trakt's integer 1..=10 scale:
+    /// 0 maps to 1 and 5 maps to 10. Trakt's coarser scale is necessarily
+    /// quantized; inbound ratings use the inverse mapping.
+    pub async fn push_rating(
+        &self,
+        owner_id: UserId,
+        profile_id: crate::MediaProfileId,
+        item: &MediaItem,
+        rating: &MediaRating,
+    ) -> Result<(), TraktSyncError> {
+        if rating.profile_id != profile_id
+            || rating.source != WatchHistorySource::Eme
+            || !rating.value.is_finite()
+            || !(0.0..=5.0).contains(&rating.value)
+        {
+            return Err(TraktSyncError::InvalidResponse(
+                "only a valid EME rating for the target profile can be synchronized".into(),
+            ));
+        }
+        let access_token = self.access_token_for_profile(owner_id, profile_id).await?;
+        let tmdb_id = item
+            .external_ids
+            .iter()
+            .find(|external_id| external_id.provider == "tmdb")
+            .and_then(|external_id| external_id.value.parse::<u64>().ok())
+            .ok_or(TraktSyncError::MissingExternalId)?;
+        let trakt_rating = (1.0 + rating.value * 9.0 / 5.0).round().clamp(1.0, 10.0) as u8;
+        let rated_at = rating.rated_at.to_rfc3339();
+        let payload = match item.kind {
+            MediaKind::Movie => json!({"movies":[{
+                "ids":{"tmdb":tmdb_id},"rating":trakt_rating,"rated_at":rated_at
+            }]}),
+            MediaKind::TvShow => json!({"shows":[{
+                "ids":{"tmdb":tmdb_id},"rating":trakt_rating,"rated_at":rated_at
+            }]}),
+        };
+        self.post_json("/sync/ratings", &payload, &access_token).await?;
+        self.media.save_media_item(item).await?;
+        self.media.save_rating(rating).await?;
+        Ok(())
+    }
+
+    async fn access_token_for_profile(
+        &self,
+        owner_id: UserId,
+        profile_id: crate::MediaProfileId,
+    ) -> Result<String, TraktSyncError> {
+        let link = self
+            .media
+            .get_external_connection_link(profile_id, "trakt")
+            .await?
+            .ok_or(TraktSyncError::NotLinked)?;
+        if link.owner_id != owner_id {
+            return Err(TraktSyncError::Forbidden);
+        }
+        Ok(self
+            .token_manager
+            .access_token(owner_id, link.external_connection_id)
+            .await?)
+    }
+
+    async fn post_json(
+        &self,
+        path: &str,
+        payload: &Value,
+        access_token: &str,
+    ) -> Result<(), TraktSyncError> {
+        let started = std::time::Instant::now();
+        let response = self
+            .http
+            .post(format!("{}{}", self.api_base_url, path))
+            .bearer_auth(access_token)
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .header("trakt-api-version", "2")
+            .header("trakt-api-key", &self.client_id)
+            .json(payload)
+            .send()
+            .await?;
+        let status = response.status();
+        tracing::debug!(
+            provider = "trakt",
+            status = status.as_u16(),
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "media provider write completed"
+        );
+        if status == StatusCode::TOO_MANY_REQUESTS {
+            let retry_after_seconds = response
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse().ok());
+            return Err(TraktSyncError::RateLimited { retry_after_seconds });
+        }
+        if !status.is_success() {
+            let message = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "request failed".into());
+            return Err(TraktSyncError::Api { status, message });
+        }
+        Ok(())
+    }
+
     async fn get_json<T: for<'de> Deserialize<'de>>(
         &self,
         path: &str,
@@ -320,7 +483,7 @@ fn normalize_rating(
     Ok(MediaRating {
         profile_id,
         media_item_id,
-        value: f32::from(rating) / 2.0,
+        value: (f32::from(rating) - 1.0) * (5.0 / 9.0),
         rated_at,
         source: WatchHistorySource::Trakt,
     })
