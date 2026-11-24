@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { books: [], selected: null, collectionQuery: "" };
+  const state = { books: [], selected: null, collectionQuery: "", sortKey: "title", sortDirection: "asc" };
   async function api(path, options = {}) {
     const response = await fetch(path, { credentials: "same-origin", ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
     if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
@@ -11,14 +11,21 @@
   function renderBooks() {
     const list = $("books-list"); list.replaceChildren();
     const query = state.collectionQuery.trim().toLocaleLowerCase();
-    const filtered = state.books.filter(book => !query || [book.title, ...(book.authors || []), book.isbn || ""].join(" ").toLocaleLowerCase().includes(query));
-    if (!filtered.length) { list.textContent = state.books.length ? "No books match your search." : "Your collection is empty. Use Add to find a book in RABEL."; return; }
-    for (const book of filtered) {
-      const item = document.createElement("div"); item.className = "book-entry" + (state.selected?.id === book.id ? " active" : "");
-      const title = document.createElement("strong"); title.textContent = book.title; item.append(title);
-      const meta = document.createElement("small"); meta.textContent = ` · ${(book.authors || []).join(", ")} · ${book.reading_status}`; item.append(meta);
-      item.addEventListener("click", () => selectBook(book)); list.append(item);
-    }
+    const filtered = state.books.filter(book => !query || [book.title, ...(book.authors || []), book.isbn || "", book.reading_status || "", book.review || "", book.want_to_buy ? "want to buy" : "", book.rating ?? ""].join(" ").toLocaleLowerCase().includes(query));
+    const valueFor = (book, key) => key === "authors" ? (book.authors || []).join(", ").toLocaleLowerCase() : key === "rating" ? (book.rating ?? 0) : key === "want_to_buy" ? (book.want_to_buy ? 1 : 0) : String(book[key] ?? "").toLocaleLowerCase();
+    filtered.sort((left, right) => { const x=valueFor(left,state.sortKey), y=valueFor(right,state.sortKey); const result=typeof x==="number"&&typeof y==="number" ? x-y : String(x).localeCompare(String(y),undefined,{numeric:true,sensitivity:"base"}); return result*(state.sortDirection==="asc"?1:-1); });
+    $("collection-status").textContent = filtered.length + " of " + state.books.length + " books";
+    if (!filtered.length) { const empty=document.createElement("p"); empty.className="books-table-empty"; empty.textContent=state.books.length?"No books match your filter.":"Your collection is empty. Use Add book to find a title in RABEL."; list.append(empty); return; }
+    const wrap=document.createElement("div"); wrap.className="books-table-wrap"; const table=document.createElement("table"); table.className="books-table";
+    const columns=[["title","Title"],["authors","Author"],["isbn","ISBN"],["reading_status","Reading status"],["rating","Rating"],["want_to_buy","Want to buy"]];
+    const thead=document.createElement("thead"), header=document.createElement("tr");
+    for (const [key,label] of columns) { const th=document.createElement("th"); const suffix=state.sortKey===key?(state.sortDirection==="asc"?" ↑":" ↓"):""; const sort=button(label+suffix,()=>{if(state.sortKey===key)state.sortDirection=state.sortDirection==="asc"?"desc":"asc";else{state.sortKey=key;state.sortDirection="asc";}renderBooks();}); th.append(sort);header.append(th); }
+    thead.append(header);table.append(thead);const tbody=document.createElement("tbody");
+    for (const book of filtered) { const row=document.createElement("tr");row.tabIndex=0;row.setAttribute("aria-label","Open details for "+book.title);
+      const cells=[[book.title,book.publication_year?String(book.publication_year):""],[(book.authors||[]).join(", ")||"—"],[book.isbn||"—"],[(book.reading_status||"pending").replaceAll("_"," ")],[book.rating==null?"—":book.rating+"/5"],[book.want_to_buy?"Yes":"No"]];
+      cells.forEach(([value,sub],index)=>{const td=document.createElement("td");td.textContent=value||"—";if(index===0){td.className="book-title-cell";if(sub){const small=document.createElement("small");small.textContent=sub;td.append(small);}}row.append(td);});
+      row.addEventListener("click",()=>selectBook(book));row.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();selectBook(book);}});tbody.append(row);
+    } table.append(tbody);wrap.append(table);list.append(wrap);
   }
   function enableDetails(enabled) {
     ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book","refresh-holdings"].forEach(id => $(id).disabled = !enabled);
@@ -29,6 +36,7 @@
     $("book-authors").value = book.authors.join(", "); $("book-isbn").value = book.isbn || "";
     $("book-rating").value = book.rating ?? ""; $("book-status").value = book.reading_status;
     $("book-want-to-buy").checked = book.want_to_buy; $("book-review").value = book.review || "";
+    $("book-details-dialog").showModal();
     await loadHoldings();
   }
   async function loadBooks() {
@@ -96,6 +104,8 @@
     } catch (error) { container.textContent = error.message; }
   }
   $("collection-search").addEventListener("input", event => { state.collectionQuery = event.target.value; renderBooks(); });
+  $("close-book-details").addEventListener("click", () => $("book-details-dialog").close());
+  $("book-details-dialog").addEventListener("click", event => { if (event.target === $("book-details-dialog")) $("book-details-dialog").close(); });
   $("open-add-book").addEventListener("click", () => $("add-book-dialog").showModal());
   $("close-add-book").addEventListener("click", () => $("add-book-dialog").close());
   $("add-book-dialog").addEventListener("click", event => { if (event.target === $("add-book-dialog")) $("add-book-dialog").close(); });
