@@ -136,10 +136,19 @@ pub(super) fn search_results(html: &str, session_url: &Url) -> Result<Vec<Catalo
             isbn: extract_isbn(&context),
         });
     }
-    if results.is_empty() && !html.to_ascii_lowercase().contains("no se han encontrado") {
+    if results.is_empty() && !is_empty_search_page(html) {
         return Err(RabelError::Parse(format!("no recognized record links found in RABEL search response; {}", search_page_diagnostic(html, session_url))));
     }
     Ok(results)
+}
+
+fn is_empty_search_page(html: &str) -> bool {
+    let text = clean_text(html).to_lowercase();
+    [
+        "no se han encontrado", "no se encontraron", "no hay resultados",
+        "sin resultados", "no existen registros", "no hay registros",
+        "0 resultados", "0 registros", "0 documentos",
+    ].iter().any(|marker| text.contains(marker))
 }
 
 pub(super) fn record(html: &str, source_url: &str) -> Result<CatalogueItem, RabelError> {
@@ -415,6 +424,19 @@ fn decode_entities(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recognizes_common_empty_catalogue_responses() {
+        for message in [
+            "No se han encontrado registros",
+            "No hay resultados para la búsqueda",
+            "0 documentos",
+        ] {
+            let html = format!("<html><body>{message}</body></html>");
+            let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
+            assert!(search_results(&html, &session).unwrap().is_empty(), "{message}");
+        }
+    }
 
     #[test]
     fn extracts_document_category_from_catalogue_row() {
