@@ -1,11 +1,14 @@
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use rabel_tool::{RabelClient, CatalogueSearchResult};
+use rabel_tool::{CatalogueSearchResult, RabelClient};
 use serde::Serialize;
 
 #[derive(Debug, Parser)]
-#[command(name = "rabel", about = "Inspect the RABEL / AbsysNet public catalogue")]
+#[command(
+    name = "rabel",
+    about = "Inspect the RABEL / AbsysNet public catalogue"
+)]
 struct Args {
     /// RABEL subcatalogue identifier (defaults to Salamanca Public Library).
     #[arg(long, default_value = "SAL/BPSA", global = true)]
@@ -28,7 +31,7 @@ enum Command {
     /// Search, select a result, and print its parsed details or raw record HTML.
     Record {
         query: String,
-        #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+        #[arg(long, value_enum, default_value = "json")]
         format: OutputFormat,
         /// Zero-based result index from the search response.
         #[arg(long, default_value_t = 0)]
@@ -64,26 +67,32 @@ async fn run() -> anyhow::Result<()> {
     let client = RabelClient::for_subcatalog(&args.subcatalog)?;
 
     match args.command {
-        Command::Search { query, format, limit } => match format {
+        Command::Search {\n            query,\n            format,\n            limit,\n        } => match format {
             OutputFormat::Html => print!("{}", client.search_raw(&query).await?),
             OutputFormat::Json => {
                 let results = client.search(&query, limit).await?;
                 println!("{}", serde_json::to_string_pretty(&results)?);
             }
         },
-        Command::Record { query, format, index } => {
+        Command::Record {\n            query,\n            format,\n            index,\n        } => {
             let results = client.search(&query, 20).await?;
-            let result = results.get(index).ok_or_else(|| anyhow::anyhow!(
-                "result index {index} is out of range ({} results)", results.len()
-            ))?;
+            let result = results.get(index).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "result index {index} is out of range ({} results)",
+                    results.len()
+                )
+            })?;
             match format {
                 OutputFormat::Html => print!("{}", client.get_item_raw(&result.record_ref).await?),
                 OutputFormat::Json => {
                     let details = client.get_item(&result.record_ref).await?;
-                    println!("{}", serde_json::to_string_pretty(&RecordOutput {
-                        search_result: result,
-                        details,
-                    })?);
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&RecordOutput {
+                            search_result: result,
+                            details,
+                        })?
+                    );
                 }
             }
         }
