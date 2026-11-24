@@ -261,45 +261,83 @@ async fn holdings(
                 .filter(|result| catalogue_title_matches(&result.title, &book.title))
                 .cloned().collect();
         }
-        let record = match matching_records.len() {
-            0 => {
-                library_results.push(serde_json::json!({
-                    "library_id": library_id,
-                    "library_name": library_name,
-                    "status": "not_found",
-                    "copies": []
-                }));
-                continue;
-            }
-            1 => matching_records.pop().expect("one matching catalogue record"),
-            _ => {
-                library_results.push(serde_json::json!({
-                    "library_id": library_id,
-                    "library_name": library_name,
-                    "status": "ambiguous",
-                    "error": "Multiple catalogue records match this book",
-                    "copies": []
-                }));
-                continue;
-            }
-        };
-        match client.get_holdings(&record.record_ref).await {
-            Ok(holdings) => library_results.push(serde_json::json!({
+        if matching_records.is_empty() {
+            library_results.push(serde_json::json!({
                 "library_id": library_id,
                 "library_name": library_name,
-                "status": "found",
-                "catalogue_title": record.title,
-                "checked_at": holdings.checked_at,
-                "copies": holdings.copies
-            })),
-            Err(error) => library_results.push(serde_json::json!({
-                "library_id": library_id,
-                "library_name": library_name,
-                "status": "error",
-                "error": error.to_string(),
-                "copies": []
-            })),
+                "status": "not_found",
+                "records": []
+            }));
+            continue;
         }
+
+        // Do not hide ambiguous editions: fetch the full bibliographic record
+        // and copy-level holdings for every exact candidate in this library.
+        let mut records = Vec::with_capacity(matching_records.len());
+        for candidate in matching_records {
+            let item = match client.get_item(&candidate.record_ref).await {
+                Ok(item) => item,
+                Err(error) => {
+                    records.push(serde_json::json!({
+                        "catalogue_title": candidate.title,
+                        "isbn": candidate.isbn,
+                        "status": "record_error",
+                        "error": error.to_string(),
+                        "copies": []
+                    }));
+                    continue;
+                }
+            };
+            // Validate the parsed title too. A search result heading can
+            // include author/responsibility text around the actual title.
+            let title_matches = item.title.as_deref()
+                .is_some_and(|title| catalogue_title_matches(&candidate.title, title)
+                    && catalogue_title_matches(&book.title, title));
+            let isbn_matches = wanted_isbn.as_ref().is_some_and(|wanted| {
+                item.isbn.as_deref().or(candidate.isbn.as_deref())
+                    .is_some_and(|isbn| normalize_isbn(isbn) == *wanted)
+            });
+            if !title_matches && !isbn_matches { continue; }
+
+            match client.get_holdings(&candidate.record_ref).await {
+                Ok(holdings) => records.push(serde_json::json!({
+                    "catalogue_title": item.title,
+                    "authors": item.authors,
+                    "isbn": item.isbn,
+                    "publisher": item.publisher,
+                    "publication_year": item.publication_year,
+                    "publication_statement": item.publication_statement,
+                    "physical_description": item.physical_description,
+                    "series": item.series,
+                    "checked_at": holdings.checked_at,
+                    "copies": holdings.copies
+                })),
+                Err(error) => records.push(serde_json::json!({
+                    "catalogue_title": item.title,
+                    "authors": item.authors,
+                    "isbn": item.isbn,
+                    "publisher": item.publisher,
+                    "publication_year": item.publication_year,
+                    "publication_statement": item.publication_statement,
+                    "physical_description": item.physical_description,
+                    "series": item.series,
+                    "status": "holdings_error",
+                    "error": error.to_string(),
+                    "copies": []
+                })),
+            }
+        }
+        let status = match records.len() {
+            0 => "not_found",
+            1 => "found",
+            _ => "ambiguous",
+        };
+        library_results.push(serde_json::json!({
+            "library_id": library_id,
+            "library_name": library_name,
+            "status": status,
+            "records": records
+        }));
     }
     HttpResponse::Ok().json(serde_json::json!({
         "book_id": book.id,
