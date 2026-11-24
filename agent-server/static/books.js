@@ -1,6 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { books: [], selected: null, libraries: [], selectedLibraries: new Set(), collectionQuery: "" };
+  const state = { books: [], selected: null, libraries: [], libraryNames: new Map(), selectedLibraries: new Set(), collectionQuery: "", libraryQuery: "", activeTab: "books" };
   async function api(path, options = {}) {
     const response = await fetch(path, { credentials: "same-origin", ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
     if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
@@ -68,22 +68,76 @@
     try { await api(`/books/${state.selected.id}`, { method: "DELETE" }); state.selected = null; enableDetails(false); $("book-heading").textContent = "Book details"; $("book-holdings").textContent = "Select a book."; await loadBooks(); status("Book removed."); }
     catch (error) { status(error.message); }
   }
-  async function loadLibraries() {
+  function renderLibraries() {
+    const container = $("library-options");
+    container.replaceChildren();
+    const query = state.libraryQuery.trim().toLocaleLowerCase();
+    const availableIds = new Set(state.libraries.map(library => library.id));
+    const visible = state.libraries.filter(library =>
+      !query || library.name.toLocaleLowerCase().includes(query) || library.id.toLocaleLowerCase().includes(query)
+    );
+    const stale = [...state.selectedLibraries]
+      .filter(id => !availableIds.has(id))
+      .map(id => ({ id, name: state.libraryNames.get(id) || id }));
+    for (const library of [...visible, ...stale.filter(library =>
+      !query || library.name.toLocaleLowerCase().includes(query) || library.id.toLocaleLowerCase().includes(query)
+    )]) {
+      const label = document.createElement("label");
+      label.className = "library-option";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = library.id;
+      input.checked = state.selectedLibraries.has(library.id);
+      input.addEventListener("change", () => {
+        if (input.checked) state.selectedLibraries.add(library.id);
+        else state.selectedLibraries.delete(library.id);
+      });
+      const name = document.createElement("span");
+      name.textContent = library.name + (availableIds.has(library.id) ? "" : " (not currently listed by RABEL)");
+      label.append(input, name);
+      container.append(label);
+    }
+    if (!container.childElementCount) {
+      container.textContent = query ? "No libraries match your search." : "RABEL did not return any libraries.";
+    }
+    $("library-status").textContent = `${state.libraries.length} libraries available · ${state.selectedLibraries.size} selected`;
+  }
+  async function loadLibraries({ refresh = false } = {}) {
+    const button = $("refresh-libraries");
+    if (button) button.disabled = true;
+    $("library-status").textContent = refresh ? "Refreshing libraries from RABEL…" : "Loading libraries from RABEL…";
     try {
-      const data = await api("/books/libraries"); state.libraries = data.available;
-      state.selectedLibraries = new Set(data.selected.map(item => item[0]));
-      const container = $("library-options"); container.replaceChildren();
-      for (const library of state.libraries) {
-        const label = document.createElement("label"); label.className = "library-option";
-        const input = document.createElement("input"); input.type = "checkbox"; input.value = library.id; input.checked = state.selectedLibraries.has(library.id);
-        input.addEventListener("change", () => input.checked ? state.selectedLibraries.add(library.id) : state.selectedLibraries.delete(library.id));
-        label.append(input, document.createTextNode(library.name)); container.append(label);
+      const data = await api("/books/libraries");
+      const previousSelection = new Set(state.selectedLibraries);
+      state.libraries = data.available || [];
+      for (const library of state.libraries) state.libraryNames.set(library.id, library.name);
+      for (const [id, name] of data.selected || []) state.libraryNames.set(id, name);
+      if (!refresh && previousSelection.size === 0) {
+        state.selectedLibraries = new Set((data.selected || []).map(item => item[0]));
+      } else {
+        state.selectedLibraries = previousSelection;
       }
-    } catch (error) { $("library-options").textContent = error.message; }
+      renderLibraries();
+      $("libraries-refreshed").textContent = `Last refreshed: ${new Date().toLocaleString()}`;
+      if (refresh) status("Library list refreshed. Your current selections were preserved.");
+    } catch (error) {
+      $("library-status").textContent = `Could not load libraries: ${error.message}`;
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
   async function saveLibraries() {
-    try { await api("/books/libraries", { method: "PUT", body: JSON.stringify({ library_ids: [...state.selectedLibraries] }) }); status("Preferred libraries saved."); if (state.selected) await loadHoldings(); }
-    catch (error) { status(error.message); }
+    const button = $("save-libraries");
+    button.disabled = true;
+    try {
+      const data = await api("/books/libraries", { method: "PUT", body: JSON.stringify({ library_ids: [...state.selectedLibraries] }) });
+      state.selectedLibraries = new Set((data.selected || []).map(item => item[0]));
+      for (const [id, name] of data.selected || []) state.libraryNames.set(id, name);
+      renderLibraries();
+      status("Preferred libraries saved.");
+      if (state.selected) await loadHoldings();
+    } catch (error) { status(error.message); }
+    finally { button.disabled = false; }
   }
   async function loadHoldings() {
     if (!state.selected) return;
@@ -114,6 +168,20 @@
   $("delete-book").addEventListener("click", removeBook);
   $("refresh-holdings").addEventListener("click", loadHoldings);
   $("save-libraries").addEventListener("click", saveLibraries);
+  $("refresh-libraries").addEventListener("click", () => loadLibraries({ refresh: true }));
+  $("library-search").addEventListener("input", event => { state.libraryQuery = event.target.value; renderLibraries(); });
+  document.querySelectorAll("[data-books-tab]").forEach(tab => tab.addEventListener("click", () => {
+    state.activeTab = tab.dataset.booksTab;
+    $("books-section").hidden = state.activeTab !== "books";
+    $("libraries-section").hidden = state.activeTab !== "libraries";
+    document.querySelectorAll("[data-books-tab]").forEach(item => {
+      const active = item === tab;
+      item.classList.toggle("active", active);
+      if (active) item.setAttribute("aria-current", "page");
+      else item.removeAttribute("aria-current");
+    });
+    if (state.activeTab === "libraries" && !state.libraries.length) loadLibraries();
+  }));
   enableDetails(false);
   Promise.all([loadBooks(), loadLibraries()]).catch(error => status(error.message));
 })();
