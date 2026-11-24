@@ -309,8 +309,8 @@ fn extract_document_category(row_html: &str) -> Option<String> {
         &text,
         &["Tipo de documento", "Tipo de material", "Tipo de soporte", "Material"],
     );
-    if labelled.is_some() {
-        return labelled;
+    if let Some(value) = labelled {
+        return Some(normalize_document_category(&value));
     }
 
     // Some AbsysNet themes render the document class as an icon rather than
@@ -326,8 +326,36 @@ fn extract_document_category(row_html: &str) -> Option<String> {
             "recurso electrónico", "material cartográfico", "manuscrito",
             "material gráfico", "partitura",
         ];
-        known.iter().any(|candidate| normalized.contains(candidate)).then_some(value)
+        known.iter().any(|candidate| normalized.contains(candidate))
+            .then(|| normalize_document_category(&value))
     })
+}
+
+fn normalize_document_category(value: &str) -> String {
+    let normalized = value.to_lowercase();
+    if normalized.contains("monograf") || normalized.contains("libro") {
+        "Book".to_owned()
+    } else if normalized.contains("videograb") || normalized.contains("película") {
+        "Film / video".to_owned()
+    } else if normalized.contains("grabación sonora") || normalized.contains("grabaciones sonoras") {
+        "Audio".to_owned()
+    } else if normalized.contains("revista") || normalized.contains("periódico") {
+        "Magazine / newspaper".to_owned()
+    } else if normalized.contains("artículo de revista") {
+        "Journal article".to_owned()
+    } else if normalized.contains("recurso electrónico") {
+        "Digital resource".to_owned()
+    } else if normalized.contains("material cartográfico") {
+        "Map".to_owned()
+    } else if normalized.contains("manuscrito") {
+        "Manuscript".to_owned()
+    } else if normalized.contains("material gráfico") {
+        "Graphic material".to_owned()
+    } else if normalized.contains("partitura") {
+        "Sheet music".to_owned()
+    } else {
+        value.to_owned()
+    }
 }
 
 fn extract_authors(text: &str) -> Vec<String> {
@@ -392,7 +420,13 @@ mod tests {
         let html = r#"<tr><td><a href="/token/NT1?ACC=165&amp;DOC=42">El viaje</a></td><td>Tipo de documento: Videograbaciones</td></tr>"#;
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
         let results = search_results(html, &session).unwrap();
-        assert_eq!(results[0].category.as_deref(), Some("Videograbaciones"));
+        assert_eq!(results[0].category.as_deref(), Some("Film / video"));
+    }
+
+    #[test]
+    fn maps_monographs_to_books_and_audio_to_audio() {
+        assert_eq!(normalize_document_category("Monografías"), "Book");
+        assert_eq!(normalize_document_category("Grabaciones sonoras"), "Audio");
     }
 
     #[test]
