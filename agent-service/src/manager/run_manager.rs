@@ -18,7 +18,7 @@ use std::{
     sync::{Arc, RwLock},
     time::SystemTime,
 };
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -28,6 +28,7 @@ pub struct RunManager {
     runs: Arc<Mutex<HashMap<RunId, ManagedRun>>>,
     sender: mpsc::Sender<RunId>,
     persistence: Arc<RwLock<Option<Arc<dyn ExecutionStore>>>>,
+    event_sender: broadcast::Sender<(RunId, RunEvent)>,
 }
 
 impl RunManager {
@@ -46,6 +47,7 @@ impl RunManager {
 
         let runs = Arc::new(Mutex::new(HashMap::<RunId, ManagedRun>::new()));
         let persistence: Arc<RwLock<Option<Arc<dyn ExecutionStore>>>> = Arc::new(RwLock::new(None));
+        let (event_sender, _) = broadcast::channel(512);
         let (sender, receiver) = mpsc::channel(max_queued_runs);
         let receiver = Arc::new(Mutex::new(receiver));
 
@@ -260,6 +262,7 @@ impl RunManager {
             runs,
             sender,
             persistence,
+            event_sender,
         })
     }
 
@@ -384,12 +387,14 @@ impl RunManager {
             ManagedRun {
                 run,
                 cancellation: CancellationToken::new(),
-                events: vec![initial_event],
+                events: vec![initial_event.clone()],
                 history,
                 context,
                 persisted_message_count,
+                event_sender: self.event_sender.clone(),
             },
         );
+        let _ = self.event_sender.send((run_id, initial_event));
         permit.send(run_id);
         info!(run_id = %run_id, "agent conversation run queued");
         Ok(run_id)
@@ -467,6 +472,12 @@ impl RunManager {
         let mut result: Vec<_> = by_id.into_values().collect();
         result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
         result
+    }
+
+    /// Subscribe to the manager-wide live event bus. Consumers filter by run ID
+    /// and load the event snapshot after subscribing to avoid missing events.
+    pub fn subscribe_events(&self) -> broadcast::Receiver<(RunId, RunEvent)> {
+        self.event_sender.subscribe()
     }
 
     pub async fn events(&self, run_id: RunId) -> Option<Vec<RunEvent>> {
