@@ -65,6 +65,7 @@ impl ConfiguredAgentResolver {
         telegram_tool::register_tools(&mut tools, telegram_gateway)
             .context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
+        rabel_tool::register_tools(&mut tools).context("registering RABEL tools")?;
         google_tool::register_tools(&mut tools, google_runtime)
             .context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;

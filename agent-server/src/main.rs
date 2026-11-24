@@ -4,6 +4,7 @@
 mod args;
 #[path = "main/auth_middleware.rs"]
 mod auth_middleware;
+#[rustfmt::skip]
 #[path = "main/configured_agent_resolver.rs"]
 mod configured_agent_resolver;
 #[path = "main/console.rs"]

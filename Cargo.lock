@@ -291,6 +291,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "rabel-tool",
 ]
 
 [[package]]
