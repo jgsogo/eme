@@ -101,6 +101,7 @@ async fn find_catalogue_record_by_identity(
     let mut queries = Vec::new();
     if let Some(isbn) = isbn_query { queries.push((isbn.to_owned(), true)); }
     queries.push((title.to_owned(), false));
+    let mut matches = Vec::new();
     for (query, isbn_lookup) in queries {
         let results = client.search(&query, 20).await.map_err(execution)?;
         for result in results {
@@ -115,10 +116,15 @@ async fn find_catalogue_record_by_identity(
             } else {
                 item.title.as_deref().is_some_and(|parsed| title_matches(&result.title, parsed) && title_matches(title, parsed))
             };
-            if matched { return Ok(Some((result.record_ref, item))); }
+            if matched { matches.push((result.record_ref, item)); }
         }
+        if !matches.is_empty() { break; }
     }
-    Ok(None)
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(matches.pop()),
+        _ => Err(execution("Multiple RABEL records match this title/ISBN; narrow the lookup before using availability or refreshing metadata")),
+    }
 }
 
 struct List(BookStore);
