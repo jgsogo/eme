@@ -4460,3 +4460,13 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[package]]
+name = "rabel-tool"
+version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "tokio",
+ "url",
+ "wiremock",
+]

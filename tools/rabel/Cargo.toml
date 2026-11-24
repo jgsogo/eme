@@ -1,0 +1,13 @@
+[package]
+name = "rabel-tool"
+version = "0.1.0"
+edition = "2024"
+description = "RABEL / AbsysNet catalogue integration (initial connectivity POC)."
+
+[dependencies]
+reqwest = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
