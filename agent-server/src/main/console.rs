@@ -6,7 +6,9 @@ use std::{
 };
 
 use actix_web::{
-    HttpRequest, HttpResponse, Responder, get, http::header, route,
+    HttpRequest, HttpResponse, Responder, get,
+    http::header,
+    route,
     web::{self, Data},
 };
 use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
@@ -93,7 +95,10 @@ pub(super) async fn list_configured_providers(
         }));
     }
 
-    let Some(provider) = providers.catalog().into_iter().find(|item| item.name == provider_name)
+    let Some(provider) = providers
+        .catalog()
+        .into_iter()
+        .find(|item| item.name == provider_name)
     else {
         return HttpResponse::NotFound().json(serde_json::json!({
             "error": format!("Provider '{provider_name}' is not configured")
@@ -113,14 +118,22 @@ pub(super) async fn list_configured_providers(
     };
 
     let models = if let Some(model) = requested_model {
-        if !provider.models.iter().any(|configured| configured.name == model) {
+        if !provider
+            .models
+            .iter()
+            .any(|configured| configured.name == model)
+        {
             return HttpResponse::NotFound().json(serde_json::json!({
                 "error": format!("Model '{provider_name}/{model}' is not configured")
             }));
         }
         vec![model]
     } else {
-        provider.models.into_iter().map(|model| model.name).collect()
+        provider
+            .models
+            .into_iter()
+            .map(|model| model.name)
+            .collect()
     };
 
     let mut results = Vec::with_capacity(models.len());
@@ -163,8 +176,16 @@ async fn test_configured_model(
         max_tokens: Some(32),
     };
 
-    match tokio::time::timeout(Duration::from_secs(30), client.complete_conversation(request)).await {
-        Ok(Ok(response)) => match response.content.filter(|content| !content.trim().is_empty()) {
+    match tokio::time::timeout(
+        Duration::from_secs(30),
+        client.complete_conversation(request),
+    )
+    .await
+    {
+        Ok(Ok(response)) => match response
+            .content
+            .filter(|content| !content.trim().is_empty())
+        {
             Some(content) => serde_json::json!({
                 "model": model,
                 "provider_model": response.model,
@@ -208,7 +229,9 @@ fn safe_model_error(error: &ModelError) -> String {
             format!("Unsupported provider '{provider}'")
         }
         ModelError::UnsupportedModel(model) => format!("Unsupported model '{model}'"),
-        ModelError::Http(_) => "Provider request failed due to a network or transport error".to_owned(),
+        ModelError::Http(_) => {
+            "Provider request failed due to a network or transport error".to_owned()
+        }
         ModelError::Provider(_) => "The provider rejected the request".to_owned(),
         ModelError::ProviderResponse { status, .. } => {
             format!("The provider returned HTTP {status}")
@@ -513,16 +536,18 @@ mod tests {
         use actix_web::{App, http::StatusCode, test, web};
         use agent_models::Registry;
         use serde_json::{Value, json};
-        use std::{fs, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+        use std::{
+            fs,
+            sync::Arc,
+            time::{SystemTime, UNIX_EPOCH},
+        };
 
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!(
-            "eme-model-test-{}-{unique}",
-            std::process::id()
-        ));
+        let directory =
+            std::env::temp_dir().join(format!("eme-model-test-{}-{unique}", std::process::id()));
         let providers = directory.join("providers");
         fs::create_dir_all(&providers).unwrap();
         fs::write(
