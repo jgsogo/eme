@@ -184,8 +184,26 @@ mod tests {
         assert_eq!(store.list("user-a").await.unwrap().len(),1);
         assert!(store.get("user-b",&book.id).await.is_err());
         assert!(store.remove("user-b",&book.id).await.is_err());
-        store.update("user-a",&book.id,BookUpdate{reading_status:Some(ReadingStatus::Read),..Default::default()}).await.unwrap();
-        assert_eq!(store.get("user-a",&book.id).await.unwrap().reading_status,ReadingStatus::Read);
+        store.update("user-a",&book.id,BookUpdate{
+            reading_status:Some(ReadingStatus::Read),
+            publisher:Some(Some("Fundación Ignacio Villalonga".into())),
+            publication_year:Some(Some(1961)),
+            responsibility:Some(Some("F. A. Hayek".into())),
+            physical_description:Some(Some("454 p. ; 22 cm.".into())),
+            series:Some(Some("Biblioteca de estudios económicos".into())),
+            notes:Some(vec!["Índice de autores".into()]),
+            subjects:Some(vec!["Libertad".into(),"Derechos humanos".into()]),
+            ..Default::default()
+        }).await.unwrap();
+        let refreshed=store.get("user-a",&book.id).await.unwrap();
+        assert_eq!(refreshed.reading_status,ReadingStatus::Read);
+        assert_eq!(refreshed.publisher.as_deref(),Some("Fundación Ignacio Villalonga"));
+        assert_eq!(refreshed.publication_year,Some(1961));
+        assert_eq!(refreshed.responsibility.as_deref(),Some("F. A. Hayek"));
+        assert_eq!(refreshed.physical_description.as_deref(),Some("454 p. ; 22 cm."));
+        assert_eq!(refreshed.series.as_deref(),Some("Biblioteca de estudios económicos"));
+        assert_eq!(refreshed.notes,vec!["Índice de autores"]);
+        assert_eq!(refreshed.subjects,vec!["Libertad","Derechos humanos"]);
         store.remove("user-a",&book.id).await.unwrap();
         assert!(store.list("user-a").await.unwrap().is_empty());
         drop(store);
