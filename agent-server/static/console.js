@@ -734,7 +734,7 @@ async function loadTaskExecutions(taskId){
    return;
   }
   const visible=executions.slice(0,25);
-  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th><th scope="col"><span class="sr-only">Details</span></th></tr></thead><tbody>'+visible.map((execution,index)=>{
+  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th><th scope="col">Details</th></tr></thead><tbody>'+visible.map((execution,index)=>{
    const created=Number(execution.created_at_unix_ms);
    const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
    const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
