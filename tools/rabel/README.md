@@ -5,7 +5,9 @@ Rust adapter for the Salamanca Public Library (Casa de las Conchas) AbsysNet OPA
 ## Agent tools
 
 - `rabel.search_catalog`: searches the catalogue and returns compact bibliographic matches. It does not fetch holdings for every result.
-- `rabel.get_item`: fetches bibliographic metadata for one selected record.
+- `rabel.get_item`: fetches bibliographic metadata for one selected record, including title responsibility, publication statement/year, physical description, series, notes, subjects and ISBN.
+
+Record parsing prioritizes the structured `#docu_body` definition lists. Publication years are extracted from publication/editor fields rather than from arbitrary page text, so author life dates are not mistaken for edition dates.
 - `rabel.list_libraries`: returns the library selector options exposed by RABEL.
 
 The client follows AbsysNet's HTML meta-refresh into a session-specific URL and retains cookies in one reqwest client. A `record_ref` is an opaque, session-scoped link; pass it unchanged to `rabel.get_item`. It must not be constructed by the model.
@@ -39,6 +41,6 @@ Availability is fetched separately from bibliographic metadata. Values are norma
 
 ## Limitations
 
-The public OPAC is an undocumented HTML interface. The parser uses narrow markup heuristics and deliberately fails when search links cannot be recognized. Review saved HTML fixtures when the OPAC markup changes.
+The public OPAC is an undocumented HTML interface. The parser prioritizes the structured bibliographic definition lists and uses conservative fallbacks for alternate templates. Review saved HTML fixtures when the OPAC markup changes. The personal collection API also exposes an authenticated `POST /books/{id}/refresh-catalogue` action that re-fetches metadata by ISBN, then exact parsed-title match, without changing personal reading/rating fields.
 
 Run tests with `cargo test -p rabel-tool`.
