@@ -314,11 +314,20 @@ fn extract_isbn(text: &str) -> Option<String> {
 }
 
 fn labelled_value(text: &str, labels: &[&str]) -> Option<String> {
+    // AbsysNet frequently puts several labelled fields in one table cell,
+    // separated only by whitespace. Stop a value at the next known label.
+    let next_field = Regex::new(
+        r"(?i)\\s+(?:Disponibilidad|Soporte|Biblioteca|Sucursal|Signatura|SIGN|Localización|Ubicación|Tipo de ejemplar|Formato|Tipo|Autor(?:es)?|Editorial|Publicación|Edición|ISBN)\\s*:?"
+    ).ok()?;
     for label in labels {
-        let pattern = format!(r"(?i){}\s*:?\s*([^|;]{{2,120}})", regex::escape(label));
+        let pattern = format!(r"(?i){}\\s*:?\\s*([^|;]{{2,120}})", regex::escape(label));
         let re = Regex::new(&pattern).ok()?;
         if let Some(value) = re.captures(text).and_then(|c| c.get(1)) {
-            let value = value.as_str().trim().trim_matches(':').to_owned();
+            let raw = value.as_str();
+            let end = next_field.find(raw).map(|matched| matched.start()).unwrap_or(raw.len());
+            let value = raw[..end].trim().trim_matches(|character: char| {
+                matches!(character, ':' | '/' | '·' | '|' | ';')
+            }).trim().to_owned();
             if !value.is_empty() { return Some(value); }
         }
     }
