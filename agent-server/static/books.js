@@ -56,6 +56,7 @@
       const fields = [
         ["Authors", (item.authors || []).join(", ")],
         ["Publisher", item.publisher],
+        ["Publication", result.publication],
         ["Publication year", item.publication_year],
         ["ISBN", item.isbn]
       ].filter(([,value]) => value !== null && value !== undefined && value !== "");
