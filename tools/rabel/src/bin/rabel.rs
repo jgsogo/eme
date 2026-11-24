@@ -67,14 +67,22 @@ async fn run() -> anyhow::Result<()> {
     let client = RabelClient::for_subcatalog(&args.subcatalog)?;
 
     match args.command {
-        Command::Search {\n            query,\n            format,\n            limit,\n        } => match format {
+        Command::Search {
+            query,
+            format,
+            limit,
+        } => match format {
             OutputFormat::Html => print!("{}", client.search_raw(&query).await?),
             OutputFormat::Json => {
                 let results = client.search(&query, limit).await?;
                 println!("{}", serde_json::to_string_pretty(&results)?);
             }
         },
-        Command::Record {\n            query,\n            format,\n            index,\n        } => {
+        Command::Record {
+            query,
+            format,
+            index,
+        } => {
             let results = client.search(&query, 20).await?;
             let result = results.get(index).ok_or_else(|| {
                 anyhow::anyhow!(
