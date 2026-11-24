@@ -155,18 +155,20 @@ fn completed_one_time_tasks_are_retained_as_disabled_definitions() {
     let directory = temp_dir();
     let registry = TaskRegistry::load(&directory).unwrap();
     registry.validate_agents(["assistant".to_owned()]).unwrap();
-    let task = registry.add(
-        "telegram:12",
-        NewTask {
-            name: "once".into(),
-            description: String::new(),
-            agent: "assistant".into(),
-            prompt: "do it".into(),
-            schedule: None,
-            at: Some((Utc::now() + chrono::Duration::hours(1)).fixed_offset()),
-            timezone: None,
-        },
-    ).unwrap();
+    let task = registry
+        .add(
+            "telegram:12",
+            NewTask {
+                name: "once".into(),
+                description: String::new(),
+                agent: "assistant".into(),
+                prompt: "do it".into(),
+                schedule: None,
+                at: Some((Utc::now() + chrono::Duration::hours(1)).fixed_offset()),
+                timezone: None,
+            },
+        )
+        .unwrap();
 
     registry.disable_after_execution(task.id);
     let retained = registry.list("telegram:12");
