@@ -249,23 +249,39 @@ async fn holdings(
             }
         };
         let wanted_isbn = book.isbn.as_deref().map(normalize_isbn);
-        let record = results.iter().find(|result| {
-            wanted_isbn.as_ref().is_some_and(|isbn| {
-                result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate).as_str() == isbn.as_str())
-            })
-        }).or_else(|| {
+        let mut matching_records = wanted_isbn.as_ref().map(|isbn| {
+            results.iter().filter(|result| {
+                result.isbn.as_deref().is_some_and(|candidate| normalize_isbn(candidate) == *isbn)
+            }).cloned().collect::<Vec<_>>()
+        }).unwrap_or_default();
+        if matching_records.is_empty() {
             // ISBN is preferred, but some catalogue records omit it. Fall back
-            // only to an exact normalized title match, never the first hit.
-            results.iter().find(|result| catalogue_title_matches(&result.title, &book.title))
-        }).cloned();
-        let Some(record) = record else {
-            library_results.push(serde_json::json!({
-                "library_id": library_id,
-                "library_name": library_name,
-                "status": "not_found",
-                "copies": []
-            }));
-            continue;
+            // only to exact normalized title matches, never the first hit.
+            matching_records = results.iter()
+                .filter(|result| catalogue_title_matches(&result.title, &book.title))
+                .cloned().collect();
+        }
+        let record = match matching_records.len() {
+            0 => {
+                library_results.push(serde_json::json!({
+                    "library_id": library_id,
+                    "library_name": library_name,
+                    "status": "not_found",
+                    "copies": []
+                }));
+                continue;
+            }
+            1 => matching_records.pop().expect("one matching catalogue record"),
+            _ => {
+                library_results.push(serde_json::json!({
+                    "library_id": library_id,
+                    "library_name": library_name,
+                    "status": "ambiguous",
+                    "error": "Multiple catalogue records match this book",
+                    "copies": []
+                }));
+                continue;
+            }
         };
         match client.get_holdings(&record.record_ref).await {
             Ok(holdings) => library_results.push(serde_json::json!({
