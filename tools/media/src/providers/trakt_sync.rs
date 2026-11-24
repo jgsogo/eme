@@ -484,10 +484,7 @@ impl TraktSyncService {
     }
 }
 
-fn ensure_trakt_item_found(
-    response: &Value,
-    collection: &str,
-) -> Result<(), TraktSyncError> {
+fn ensure_trakt_item_found(response: &Value, collection: &str) -> Result<(), TraktSyncError> {
     let missing = response
         .get("not_found")
         .and_then(|value| value.get(collection))
