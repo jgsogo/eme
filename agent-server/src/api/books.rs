@@ -74,7 +74,7 @@ async fn holdings(
         let results = match client.search(query, 20).await {
             Ok(results) => results,
             Err(error) => {
-                libraries.push(serde_json::json!({
+                library_results.push(serde_json::json!({
                     "library_id": library_id,
                     "library_name": library_name,
                     "status": "error",
@@ -96,7 +96,7 @@ async fn holdings(
             results.iter().find(|result| normalize_title(&result.title) == wanted_title)
         }).cloned();
         let Some(record) = record else {
-            libraries.push(serde_json::json!({
+            library_results.push(serde_json::json!({
                 "library_id": library_id,
                 "library_name": library_name,
                 "status": "not_found",
@@ -105,7 +105,7 @@ async fn holdings(
             continue;
         };
         match client.get_item(&record.record_ref).await {
-            Ok(item) => libraries.push(serde_json::json!({
+            Ok(item) => library_results.push(serde_json::json!({
                 "library_id": library_id,
                 "library_name": library_name,
                 "status": "found",
@@ -113,7 +113,7 @@ async fn holdings(
                 "checked_at": item.checked_at,
                 "copies": item.holdings
             })),
-            Err(error) => libraries.push(serde_json::json!({
+            Err(error) => library_results.push(serde_json::json!({
                 "library_id": library_id,
                 "library_name": library_name,
                 "status": "error",
