@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn parses_library_selector_options() {
-        let html = r#"<form><select name="SUBC">
+        let html = r#"<form><select onchange="ChgSubcat();" id="subcat" name="subcat">
             <option value="SAL/BPSA">Biblioteca Pública de Salamanca</option>
             <option value="SAL/BPBE">Biblioteca Pública de Béjar</option>
         </select></form>"#;
