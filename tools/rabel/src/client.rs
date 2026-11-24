@@ -109,19 +109,28 @@ impl RabelClient {
             return Err(RabelError::Parse("limit must be between 1 and 20".into()));
         }
 
-        let results = self.search_once(query).await?;
-        if !results.is_empty() {
-            return Ok(results.into_iter().take(limit).collect());
-        }
-
         // AbsysNet can interpret a multi-word title as an overly restrictive
-        // phrase. Retry with the meaningful title terms before reporting no matches.
-        if let Some(fallback) = fallback_search_query(query) {
-            let results = self.search_once(&fallback).await?;
-            return Ok(results.into_iter().take(limit).collect());
+        // phrase, and some query forms occasionally fail upstream. Retry with
+        // meaningful title terms before returning an empty result or an error.
+        let fallback = fallback_search_query(query);
+        match self.search_once(query).await {
+            Ok(results) if !results.is_empty() => Ok(results.into_iter().take(limit).collect()),
+            Ok(_) => match fallback {
+                Some(fallback) => self.search_once(&fallback).await
+                    .map(|results| results.into_iter().take(limit).collect()),
+                None => Ok(Vec::new()),
+            },
+            Err(original_error) => {
+                if let Some(fallback) = fallback {
+                    if let Ok(results) = self.search_once(&fallback).await {
+                        if !results.is_empty() {
+                            return Ok(results.into_iter().take(limit).collect());
+                        }
+                    }
+                }
+                Err(original_error)
+            }
         }
-
-        Ok(Vec::new())
     }
 
     async fn search_once(&self, query: &str) -> Result<Vec<CatalogueSearchResult>, RabelError> {
