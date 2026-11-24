@@ -18,7 +18,7 @@ use agent_config::ConfigError;
 use agent_runtime::ToolRegistry;
 
 pub use client::{RabelClient, RabelError};
-pub use types::{Availability, CatalogueItem, CatalogueSearchResult, CopyHolding, Library};
+pub use types::{Availability, CatalogueHoldings, CatalogueItem, CatalogueSearchResult, CopyHolding, Library};
 
 /// Register catalogue search, record-detail and library-list tools.
 #[rustfmt::skip]
