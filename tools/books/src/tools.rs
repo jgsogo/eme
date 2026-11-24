@@ -1,23 +1,265 @@
-//! Agent tools for the authenticated user's personal book collection.
-use agent_runtime::{Tool,ToolContext,ToolDefinition,ToolError,ToolRegistry};
+//! Agent tools for the authenticated user's personal book collection and RABEL.
+use agent_runtime::{Tool, ToolContext, ToolDefinition, ToolError, ToolRegistry};
 use async_trait::async_trait;
-use serde_json::{Value,json};
-use crate::{BookInput,BookStore,BookUpdate};
+use rabel_tool::{CatalogueItem, CatalogueSearchResult, RabelClient};
+use serde_json::{Value, json};
 
-pub fn register_tools(registry:&mut ToolRegistry,store:BookStore)->Result<(),agent_config::ConfigError>{
- registry.register(def("books.list","List books in the authenticated user's personal collection.",json!({"type":"object","properties":{},"additionalProperties":false})),List(store.clone()))?;
- registry.register(def("books.get","Get a book from the authenticated user's personal collection.",json!({"type":"object","properties":{"id":{"type":"string","minLength":1}},"required":["id"],"additionalProperties":false})),Get(store.clone()))?;
- registry.register(def("books.add","Add a book to the authenticated user's personal collection.",json!({"type":"object","properties":{"title":{"type":"string","minLength":1},"authors":{"type":"array","items":{"type":"string"}},"isbn":{"type":["string","null"]},"publisher":{"type":["string","null"]},"publication_year":{"type":["integer","null"]},"responsibility":{"type":["string","null"]},"publication_statement":{"type":["string","null"]},"physical_description":{"type":["string","null"]},"series":{"type":["string","null"]},"notes":{"type":"array","items":{"type":"string"}},"subjects":{"type":"array","items":{"type":"string"}},"catalogue_url":{"type":["string","null"]},"rating":{"type":["integer","null"],"minimum":1,"maximum":5},"reading_status":{"type":"string","enum":["pending","reading","read"]},"want_to_buy":{"type":"boolean"},"review":{"type":["string","null"]}},"required":["title"],"additionalProperties":false})),Add(store.clone()))?;
- registry.register(def("books.update","Update personal metadata for a book in the authenticated user's collection.",json!({"type":"object","properties":{"id":{"type":"string","minLength":1},"title":{"type":"string","minLength":1},"authors":{"type":"array","items":{"type":"string"}},"isbn":{"type":["string","null"]},"publisher":{"type":["string","null"]},"publication_year":{"type":["integer","null"]},"responsibility":{"type":["string","null"]},"publication_statement":{"type":["string","null"]},"physical_description":{"type":["string","null"]},"series":{"type":["string","null"]},"notes":{"type":"array","items":{"type":"string"}},"subjects":{"type":"array","items":{"type":"string"}},"catalogue_url":{"type":["string","null"]},"rating":{"type":["integer","null"],"minimum":1,"maximum":5},"reading_status":{"type":"string","enum":["pending","reading","read"]},"want_to_buy":{"type":"boolean"},"review":{"type":["string","null"]}},"required":["id"],"additionalProperties":false})),Update(store.clone()))?;
- registry.register(def("books.remove","Remove a book from the authenticated user's personal collection.",json!({"type":"object","properties":{"id":{"type":"string","minLength":1}},"required":["id"],"additionalProperties":false})),Remove(store))?;
- Ok(())
+use crate::{Book, BookInput, BookStore, BookUpdate};
+
+pub fn register_tools(registry: &mut ToolRegistry, store: BookStore) -> Result<(), agent_config::ConfigError> {
+    registry.register(def("books.list", "List books in the authenticated user's personal collection.", object(json!({}))), List(store.clone()))?;
+    registry.register(def("books.get", "Get a book from the authenticated user's personal collection.", object(json!({"id":{"type":"string","minLength":1}}), &["id"]), Get(store.clone()))?;
+    registry.register(def("books.add", "Add a book to the authenticated user's personal collection.", book_input_schema(), Add(store.clone()))?;
+    registry.register(def("books.update", "Update catalogue or personal metadata for a book in the authenticated user's collection.", book_update_schema(), Update(store.clone()))?;
+    registry.register(def("books.remove", "Remove a book from the authenticated user's personal collection.", object(json!({"id":{"type":"string","minLength":1}}), &["id"]), Remove(store.clone()))?;
+
+    registry.register(def(
+        "books.list_libraries",
+        "List RABEL libraries and identify which ones are selected as this user's preferred libraries.",
+        object(json!({})),
+        ListLibraries(store.clone()),
+    ))?;
+    registry.register(def(
+        "books.set_preferred_libraries",
+        "Replace the authenticated user's preferred RABEL libraries. Use library IDs returned by books.list_libraries; an empty list clears the selection.",
+        object(json!({"library_ids":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true}}), &["library_ids"]),
+        SetPreferredLibraries(store.clone()),
+    ))?;
+    registry.register(def(
+        "books.check_availability",
+        "Fetch live copy-level availability for a book in every preferred library. This performs fresh RABEL catalogue requests and does not infer availability from stored metadata.",
+        object(json!({"id":{"type":"string","minLength":1}}), &["id"]),
+        CheckAvailability(store.clone()),
+    ))?;
+    registry.register(def(
+        "books.refresh_catalogue",
+        "Refresh bibliographic metadata for a collection book from RABEL, matching by ISBN first and exact parsed title as a fallback. Personal rating, reading status, purchase intent and review are preserved.",
+        object(json!({"id":{"type":"string","minLength":1}}), &["id"]),
+        RefreshCatalogue(store),
+    ))?;
+    Ok(())
 }
-fn def(name:&str,description:&str,parameters:Value)->ToolDefinition{ToolDefinition{name:name.into(),description:description.into(),parameters}}
-fn user(c:&ToolContext)->Result<&str,ToolError>{c.user_id.as_deref().filter(|v|!v.trim().is_empty()).ok_or_else(||ToolError::Execution("book collection requires an authenticated user context".into()))}
-fn err(e:impl std::fmt::Display)->ToolError{ToolError::Execution(e.to_string())}
-struct List(BookStore); struct Get(BookStore); struct Add(BookStore); struct Update(BookStore); struct Remove(BookStore);
-#[async_trait] impl Tool for List{async fn execute(&self,c:&ToolContext,_:Value)->Result<String,ToolError>{serde_json::to_string(&self.0.list(user(c)?).await.map_err(err)?).map_err(err)}}
-#[async_trait] impl Tool for Get{async fn execute(&self,c:&ToolContext,a:Value)->Result<String,ToolError>{let id=a["id"].as_str().filter(|v|!v.trim().is_empty()).ok_or_else(||err("id is required"))?;serde_json::to_string(&self.0.get(user(c)?,id).await.map_err(err)?).map_err(err)}}
-#[async_trait] impl Tool for Add{async fn execute(&self,c:&ToolContext,a:Value)->Result<String,ToolError>{let input:BookInput=serde_json::from_value(a).map_err(err)?;serde_json::to_string(&self.0.add(user(c)?,input).await.map_err(err)?).map_err(err)}}
-#[async_trait] impl Tool for Update{async fn execute(&self,c:&ToolContext,mut a:Value)->Result<String,ToolError>{let o=a.as_object_mut().ok_or_else(||err("arguments must be an object"))?;let id=o.remove("id").and_then(|v|v.as_str().map(str::to_owned)).filter(|v|!v.trim().is_empty()).ok_or_else(||err("id is required"))?;let u:BookUpdate=serde_json::from_value(a).map_err(err)?;serde_json::to_string(&self.0.update(user(c)?,&id,u).await.map_err(err)?).map_err(err)}}
-#[async_trait] impl Tool for Remove{async fn execute(&self,c:&ToolContext,a:Value)->Result<String,ToolError>{let id=a["id"].as_str().filter(|v|!v.trim().is_empty()).ok_or_else(||err("id is required"))?;self.0.remove(user(c)?,id).await.map_err(err)?;Ok(json!({"removed":true}).to_string())}}
+
+fn object(properties: Value, required: &[&str]) -> Value {
+    json!({"type":"object","properties":properties,"required":required,"additionalProperties":false})
+}
+fn def(name: &str, description: &str, parameters: Value) -> ToolDefinition {
+    ToolDefinition { name: name.into(), description: description.into(), parameters }
+}
+fn book_input_schema() -> Value {
+    object(json!({
+        "title":{"type":"string","minLength":1},
+        "authors":{"type":"array","items":{"type":"string"}},
+        "isbn":{"type":["string","null"]},"publisher":{"type":["string","null"]},
+        "publication_year":{"type":["integer","null"]},"responsibility":{"type":["string","null"]},
+        "publication_statement":{"type":["string","null"]},"physical_description":{"type":["string","null"]},
+        "series":{"type":["string","null"]},"notes":{"type":"array","items":{"type":"string"}},
+        "subjects":{"type":"array","items":{"type":"string"}},"catalogue_url":{"type":["string","null"]},
+        "rating":{"type":["integer","null"],"minimum":1,"maximum":5},
+        "reading_status":{"type":"string","enum":["pending","reading","read"]},
+        "want_to_buy":{"type":"boolean"},"review":{"type":["string","null"]}
+    }), &["title"])
+}
+fn book_update_schema() -> Value {
+    let mut properties = book_input_schema()["properties"].clone();
+    properties.as_object_mut().unwrap().insert("id".into(), json!({"type":"string","minLength":1}));
+    object(properties, &["id"])
+}
+fn user(context: &ToolContext) -> Result<&str, ToolError> {
+    context.user_id.as_deref().filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| execution("book collection requires an authenticated user context"))
+}
+fn execution(error: impl std::fmt::Display) -> ToolError { ToolError::Execution(error.to_string()) }
+fn normalize_isbn(value: &str) -> String {
+    value.chars().filter(|character| character.is_ascii_alphanumeric())
+        .map(|character| character.to_ascii_uppercase()).collect()
+}
+fn normalize_title(value: &str) -> String {
+    value.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
+}
+fn title_matches(search_title: &str, parsed_title: &str) -> bool {
+    let prefix = search_title.split(" / ").next().unwrap_or(search_title);
+    let search = normalize_title(prefix);
+    let parsed = normalize_title(parsed_title);
+    search == parsed || (parsed.split_whitespace().count() >= 2 && search.ends_with(&format!(" {parsed}")))
+}
+fn exact_isbn(book: &Book, result: &CatalogueSearchResult, item: &CatalogueItem) -> bool {
+    let Some(wanted) = book.isbn.as_deref().map(normalize_isbn) else { return false; };
+    item.isbn.as_deref().or(result.isbn.as_deref())
+        .is_some_and(|candidate| normalize_isbn(candidate) == wanted)
+}
+async fn find_catalogue_item(client: &RabelClient, book: &Book) -> Result<Option<CatalogueItem>, ToolError> {
+    let mut queries = Vec::new();
+    if let Some(isbn) = book.isbn.as_deref().filter(|value| !value.trim().is_empty()) {
+        queries.push(isbn.to_owned());
+    }
+    queries.push(book.title.clone());
+    for query in queries {
+        let results = client.search(&query, 20).await.map_err(execution)?;
+        for result in results {
+            let item = match client.get_item(&result.record_ref).await {
+                Ok(item) => item,
+                Err(_) => continue,
+            };
+            let matched = if book.isbn.is_some() && query == book.isbn.as_deref().unwrap_or_default() {
+                exact_isbn(book, &result, &item)
+            } else {
+                item.title.as_deref().is_some_and(|title| title_matches(&result.title, title) && title_matches(&book.title, title))
+            };
+            if matched { return Ok(Some(item)); }
+        }
+    }
+    Ok(None)
+}
+
+struct List(BookStore);
+struct Get(BookStore);
+struct Add(BookStore);
+struct Update(BookStore);
+struct Remove(BookStore);
+struct ListLibraries(BookStore);
+struct SetPreferredLibraries(BookStore);
+struct CheckAvailability(BookStore);
+struct RefreshCatalogue(BookStore);
+
+#[async_trait]
+impl Tool for List {
+    async fn execute(&self, context: &ToolContext, _: Value) -> Result<String, ToolError> {
+        serde_json::to_string(&self.0.list(user(context)?).await.map_err(execution)?).map_err(execution)
+    }
+}
+#[async_trait]
+impl Tool for Get {
+    async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
+        let id = args["id"].as_str().filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("id is required"))?;
+        serde_json::to_string(&self.0.get(user(context)?, id).await.map_err(execution)?).map_err(execution)
+    }
+}
+#[async_trait]
+impl Tool for Add {
+    async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
+        let input: BookInput = serde_json::from_value(args).map_err(execution)?;
+        serde_json::to_string(&self.0.add(user(context)?, input).await.map_err(execution)?).map_err(execution)
+    }
+}
+#[async_trait]
+impl Tool for Update {
+    async fn execute(&self, context: &ToolContext, mut args: Value) -> Result<String, ToolError> {
+        let object = args.as_object_mut().ok_or_else(|| execution("arguments must be an object"))?;
+        let id = object.remove("id").and_then(|value| value.as_str().map(str::to_owned))
+            .filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("id is required"))?;
+        let update: BookUpdate = serde_json::from_value(args).map_err(execution)?;
+        serde_json::to_string(&self.0.update(user(context)?, &id, update).await.map_err(execution)?).map_err(execution)
+    }
+}
+#[async_trait]
+impl Tool for Remove {
+    async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
+        let id = args["id"].as_str().filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("id is required"))?;
+        self.0.remove(user(context)?, id).await.map_err(execution)?;
+        Ok(json!({"removed":true}).to_string())
+    }
+}
+#[async_trait]
+impl Tool for ListLibraries {
+    async fn execute(&self, context: &ToolContext, _: Value) -> Result<String, ToolError> {
+        let user = user(context)?;
+        let client = RabelClient::new().map_err(execution)?;
+        let available = client.libraries().await.map_err(execution)?;
+        let selected = self.0.preferred_libraries(user).await.map_err(execution)?;
+        serde_json::to_string(&json!({"available":available,"selected":selected})).map_err(execution)
+    }
+}
+#[async_trait]
+impl Tool for SetPreferredLibraries {
+    async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
+        let user = user(context)?;
+        let ids = args["library_ids"].as_array().ok_or_else(|| execution("library_ids must be an array"))?;
+        let client = RabelClient::new().map_err(execution)?;
+        let available = client.libraries().await.map_err(execution)?;
+        let previous = self.0.preferred_libraries(user).await.map_err(execution)?;
+        let mut selected = Vec::new();
+        for id in ids {
+            let id = id.as_str().filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("library IDs must be non-empty strings"))?;
+            if let Some(library) = available.iter().find(|library| library.id == id) {
+                selected.push((library.id.clone(), library.name.clone()));
+            } else if let Some(saved) = previous.iter().find(|(saved_id, _)| saved_id == id) {
+                selected.push(saved.clone());
+            } else {
+                return Err(execution(format!("unknown RABEL library ID: {id}")));
+            }
+        }
+        self.0.set_preferred_libraries(user, &selected).await.map_err(execution)?;
+        serde_json::to_string(&json!({"selected":selected})).map_err(execution)
+    }
+}
+#[async_trait]
+impl Tool for CheckAvailability {
+    async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
+        let user = user(context)?;
+        let id = args["id"].as_str().filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("id is required"))?;
+        let book = self.0.get(user, id).await.map_err(execution)?;
+        let libraries = self.0.preferred_libraries(user).await.map_err(execution)?;
+        let mut results = Vec::new();
+        for (library_id, library_name) in libraries {
+            let client = match RabelClient::for_subcatalog(&library_id) {
+                Ok(client) => client,
+                Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
+            };
+            let record = match find_catalogue_item(&client, &book).await {
+                Ok(Some(item)) => item,
+                Ok(None) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"not_found","copies":[]})); continue; }
+                Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
+            };
+            // Re-resolve the record within this client's session: record refs are
+            // intentionally not persisted or shared between catalogue sessions.
+            let query = book.isbn.as_deref().unwrap_or(&book.title);
+            let search = match client.search(query, 20).await {
+                Ok(results) => results,
+                Err(error) => { results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})); continue; }
+            };
+            let mut record_ref = None;
+            for candidate in search {
+                let item = match client.get_item(&candidate.record_ref).await { Ok(item) => item, Err(_) => continue };
+                let matched = if book.isbn.is_some() { exact_isbn(&book, &candidate, &item) } else {
+                    item.title.as_deref().is_some_and(|title| title_matches(&candidate.title, title) && title_matches(&book.title, title))
+                };
+                if matched { record_ref = Some(candidate.record_ref); break; }
+            }
+            let Some(record_ref) = record_ref else {
+                results.push(json!({"library_id":library_id,"library_name":library_name,"status":"not_found","copies":[]}));
+                continue;
+            };
+            match client.get_holdings(&record_ref).await {
+                Ok(holdings) => results.push(json!({"library_id":library_id,"library_name":library_name,"status":"found","catalogue_title":record.title,"checked_at":holdings.checked_at,"copies":holdings.copies})),
+                Err(error) => results.push(json!({"library_id":library_id,"library_name":library_name,"status":"error","error":error.to_string(),"copies":[]})),
+            }
+        }
+        serde_json::to_string(&json!({"book_id":book.id,"libraries":results})).map_err(execution)
+    }
+}
+#[async_trait]
+impl Tool for RefreshCatalogue {
+    async fn execute(&self, context: &ToolContext, args: Value) -> Result<String, ToolError> {
+        let user = user(context)?;
+        let id = args["id"].as_str().filter(|value| !value.trim().is_empty()).ok_or_else(|| execution("id is required"))?;
+        let book = self.0.get(user, id).await.map_err(execution)?;
+        let client = RabelClient::new().map_err(execution)?;
+        let item = find_catalogue_item(&client, &book).await?.ok_or_else(|| execution("No exact matching RABEL record was found; collection data was left unchanged"))?;
+        let updated = self.0.update(user, id, BookUpdate {
+            title: item.title.clone(),
+            authors: Some(item.authors.clone()),
+            isbn: Some(item.isbn.clone()),
+            publisher: Some(item.publisher.clone()),
+            publication_year: Some(item.publication_year),
+            responsibility: Some(item.responsibility.clone()),
+            publication_statement: Some(item.publication_statement.clone()),
+            physical_description: Some(item.physical_description.clone()),
+            series: Some(item.series.clone()),
+            notes: Some(item.notes.clone()),
+            subjects: Some(item.subjects.clone()),
+            ..Default::default()
+        }).await.map_err(execution)?;
+        serde_json::to_string(&json!({"book":updated,"catalogue_item":item})).map_err(execution)
+    }
+}
