@@ -411,14 +411,11 @@ async fn deleting_conversation_waits_for_running_execution_cancellation() {
             _input: String,
             _history: Vec<Message>,
             _context: ToolContext,
-            cancellation: CancellationToken,
+            _cancellation: CancellationToken,
         ) -> Result<ExecutionReport, String> {
-            cancellation.cancelled().await;
-            Ok(ExecutionReport {
-                outcome: ExecutionOutcome::Cancelled,
-                runtime_events: Vec::new(),
-                messages: None,
-            })
+            // Deliberately ignore the token: the manager must still stop this
+            // future rather than depending on executor cooperation.
+            std::future::pending::<Result<ExecutionReport, String>>().await
         }
     }
 
