@@ -839,3 +839,25 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
   .family-action-buttons { display:flex; justify-content:flex-end; gap:8px; }
   #family-action-status:empty { display:none; }
 }
+@media (min-width: 761px) {
+  .integration-list-filter {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:10px;
+    margin:14px 0;
+  }
+  .integration-list-filter label { white-space:nowrap; }
+  .integration-list-filter input[type="search"] {
+    width:min(320px,45%);
+    min-width:180px;
+    min-height:38px;
+    margin:0;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+}
