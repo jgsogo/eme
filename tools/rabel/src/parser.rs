@@ -287,11 +287,6 @@ fn normalize_availability(value: &str) -> Availability {
     else { Availability::Other }
 }
 
-fn first_heading(html: &str) -> Option<String> {
-    let re = Regex::new(r#"(?is)<h[1-3]\b[^>]*>(.*?)</h[1-3]>"#).ok()?;
-    re.captures(html).and_then(|captures| captures.get(1)).map(|capture| clean_text(capture.as_str()))
-        .filter(|value| !value.is_empty())
-}
 
 fn extract_document_category(title: &str, row_html: &str) -> Option<String> {
     // RABEL embeds the authoritative document type in the bibliographic title
