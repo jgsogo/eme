@@ -1,5 +1,5 @@
 name = "rabel.get_item"
-description = "Retrieve bibliographic details and copy-level holdings for one catalogue result. Availability is live and includes the time checked."
+description = "Retrieve bibliographic metadata for one catalogue result. This describes the resource itself and does not include library copies or availability."
 
 [parameters]
 type = "object"
