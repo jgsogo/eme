@@ -34,7 +34,7 @@ async fn list(
     };
     let available = match client.libraries().await {
         Ok(available) => available,
-        Err(_) => return HttpResponse::BadGateway().finish(),
+        Err(error) => return HttpResponse::BadGateway().body(error.to_string()),
     };
     let selected = match store.preferred_libraries(&user).await {
         Ok(selected) => selected,
@@ -61,7 +61,7 @@ async fn save(
     };
     let available = match client.libraries().await {
         Ok(available) => available,
-        Err(_) => return HttpResponse::BadGateway().finish(),
+        Err(error) => return HttpResponse::BadGateway().body(error.to_string()),
     };
     // Retain an existing preference if RABEL temporarily omits it from its
     // selector response. Unknown IDs that were never saved remain rejected.
