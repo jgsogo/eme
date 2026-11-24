@@ -7,6 +7,7 @@ description = "User-owned personal book collection and library preferences."
 [dependencies]
 agent-config = { path = "../../agent-config" }
 agent-runtime = { path = "../../agent-runtime" }
+rabel-tool = { path = "../rabel" }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 rusqlite = { workspace = true }
