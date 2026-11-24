@@ -98,7 +98,6 @@ pub struct BookUpdate {
     pub review: Option<Option<String>>,
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
