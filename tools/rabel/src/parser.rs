@@ -178,6 +178,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn parses_library_selector_options() {
+        let html = r#"<form><select name="SUBC">
+            <option value="SAL/BPSA">Biblioteca Pública de Salamanca</option>
+            <option value="SAL/BPBE">Biblioteca Pública de Béjar</option>
+        </select></form>"#;
+        let libraries = libraries(html).unwrap();
+        assert_eq!(libraries.len(), 2);
+        assert_eq!(libraries[0].id, "SAL/BPSA");
+        assert_eq!(libraries[0].name, "Biblioteca Pública de Salamanca");
+        assert_eq!(libraries[1].id, "SAL/BPBE");
+    }
+
+    #[test]
+    fn missing_library_selector_is_a_parse_error() {
+        let error = libraries("<html><body>Welcome</body></html>").unwrap_err();
+        assert!(error.to_string().contains("library selector not found"));
+    }
+
+    #[test]
     fn parses_meta_refresh_and_search_links() {
         let html = r#"<meta http-equiv="Refresh" content="0; URL=/cgi-bin/abnetopac2/token?ACC=161"><tr><td><a href="/cgi-bin/abnetopac2/token/NT1?ACC=165&DOC=2">El Quijote</a></td></tr>"#;
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token?ACC=161").unwrap();
