@@ -3,7 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
-const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null,activeRuns:{}};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,pollTimer:null,activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
@@ -708,10 +708,6 @@ function renderTaskExecutionEvent(event){
 }
 
 function renderTaskExecution(execution){
- const created=Number(execution.created_at_unix_ms);
- const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
- const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
- const status=String(execution.status||"unknown").replaceAll("_"," ");
  const events=(execution.events||[]).map(renderTaskExecutionEvent).join("");
  const output=execution.response
   ?'<section class="tool-section"><h4>Final output</h4><div class="markdown-content">'+renderMarkdown(execution.response)+'</div></section>'
@@ -721,7 +717,7 @@ function renderTaskExecution(execution){
  const input='<section class="tool-section"><h4>Submitted prompt</h4><pre>'+escapeHtml(execution.input||"")+'</pre></section>';
  const timeline='<details class="tool-details"><summary>Execution timeline · '+(execution.events||[]).length+' events</summary><ol class="run-events">'+(events||'<li class="hint">No events recorded.</li>')+'</ol></details>';
  const usage='<details class="tool-details"><summary>Model usage · '+(execution.usage||[]).length+' invocations</summary><pre>'+escapeHtml(JSON.stringify(execution.usage||[],null,2))+'</pre></details>';
- return '<details class="task-execution tool-details"><summary><strong>'+escapeHtml(date)+'</strong> · <span class="task-execution-status">'+escapeHtml(status)+'</span> · '+escapeHtml(duration)+'</summary><div class="tool-detail-body"><div class="hint">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div>'+failure+output+input+timeline+usage+'</div></details>';
+ return '<div class="task-execution-detail"><div class="hint">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div>'+failure+output+input+timeline+usage+'</div>';
 }
 
 async function loadTaskExecutions(taskId){
@@ -732,12 +728,19 @@ async function loadTaskExecutions(taskId){
  try{
   const executions=await api("/tasks/"+encodeURIComponent(taskId)+"/executions");
   if(state.selectedTask!==taskId)return;
+  state.taskExecutions=executions;
   if(!executions.length){
    target.innerHTML='<div class="empty">No executions recorded for this task yet.</div>';
    return;
   }
   const visible=executions.slice(0,25);
-  target.innerHTML=visible.map(renderTaskExecution).join("")+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
+  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th><th scope="col"><span class="sr-only">Details</span></th></tr></thead><tbody>'+visible.map((execution,index)=>{
+   const created=Number(execution.created_at_unix_ms);
+   const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+   const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
+   const status=String(execution.status||"unknown").replaceAll("_"," ");
+   return '<tr><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td><td class="task-execution-action"><button type="button" class="secondary" data-execution-index="'+index+'">View details</button></td></tr>';
+  }).join("")+'</tbody></table></div>'+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
  }catch(error){
   if(state.selectedTask===taskId)target.innerHTML='<div class="empty">Unable to load execution history: '+escapeHtml(error.message)+'</div>';
  }finally{
@@ -746,4 +749,20 @@ async function loadTaskExecutions(taskId){
 }
 $("task-executions-refresh")?.addEventListener("click",()=>{
  if(state.selectedTask&&state.selectedTask!=="new")void loadTaskExecutions(state.selectedTask);
+});
+$("task-executions-list")?.addEventListener("click",event=>{
+ const button=event.target.closest("[data-execution-index]");
+ if(!button)return;
+ const execution=state.taskExecutions[Number(button.dataset.executionIndex)];
+ if(!execution)return;
+ const created=Number(execution.created_at_unix_ms);
+ const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+ const status=String(execution.status||"unknown").replaceAll("_"," ");
+ $("task-execution-dialog-meta").textContent=date+" · "+status+" · "+(execution.agent||"");
+ $("task-execution-detail").innerHTML=renderTaskExecution(execution);
+ $("task-execution-dialog").showModal();
+});
+$("task-execution-dialog-close")?.addEventListener("click",()=>$("task-execution-dialog").close());
+$("task-execution-dialog")?.addEventListener("click",event=>{
+ if(event.target===$("task-execution-dialog"))$("task-execution-dialog").close();
 });
