@@ -962,12 +962,14 @@ mod tests {
         sync.push_rating(owner_id, profile.id, &movie, &eme_rating)
             .await
             .unwrap();
-        assert!(media
-            .list_ratings(profile.id)
-            .await
-            .unwrap()
-            .iter()
-            .any(|rating| rating.source == WatchHistorySource::Eme));
+        assert!(
+            media
+                .list_ratings(profile.id)
+                .await
+                .unwrap()
+                .iter()
+                .any(|rating| rating.source == WatchHistorySource::Eme)
+        );
 
         let second = sync.sync_profile(owner_id, profile.id).await.unwrap();
         assert_eq!(second, TraktSyncSummary::default());
