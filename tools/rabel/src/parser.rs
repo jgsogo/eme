@@ -19,7 +19,7 @@ pub(super) fn meta_refresh_target(html: &str) -> Option<String> {
 }
 
 fn search_page_diagnostic(html: &str) -> String {
-    let title = Regex::new(r"(?is)<title\\b[^>]*>(.*?)</title>")
+    let title = Regex::new(r"(?is)<title\b[^>]*>(.*?)</title>")
         .ok()
         .and_then(|re| re.captures(html))
         .and_then(|captures| captures.get(1))
@@ -27,7 +27,7 @@ fn search_page_diagnostic(html: &str) -> String {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "(no title)".to_owned());
 
-    let forms = Regex::new(r#"(?is)<form\\b([^>]*)>"#)
+    let forms = Regex::new(r#"(?is)<form\b([^>]*)>"#)
         .ok()
         .map(|re| re.captures_iter(html)
             .filter_map(|captures| captures.get(1).map(|m| m.as_str().trim().to_owned()))
@@ -35,7 +35,7 @@ fn search_page_diagnostic(html: &str) -> String {
             .collect::<Vec<_>>())
         .unwrap_or_default();
 
-    let links = Regex::new(r#"(?is)<a\\b([^>]*)href\\s*=\\s*["']([^"']+)["']([^>]*)>(.*?)</a>"#)
+    let links = Regex::new(r#"(?is)<a\b([^>]*)href\s*=\s*["']([^"']+)["']([^>]*)>(.*?)</a>"#)
         .ok()
         .map(|re| re.captures_iter(html)
             .filter_map(|captures| {
@@ -47,7 +47,7 @@ fn search_page_diagnostic(html: &str) -> String {
             .collect::<Vec<_>>())
         .unwrap_or_default();
 
-    let body = Regex::new(r"(?is)<body\\b[^>]*>(.*?)</body>")
+    let body = Regex::new(r"(?is)<body\b[^>]*>(.*?)</body>")
         .ok()
         .and_then(|re| re.captures(html))
         .and_then(|captures| captures.get(1))
