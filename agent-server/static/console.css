@@ -524,15 +524,16 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 
 
 /* Task details navigation: keep configuration and execution history in focused panes. */
-.task-section-nav{display:flex;align-items:center;gap:6px;margin:0 0 16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-.task-section-tab{padding:8px 12px;background:transparent;border:1px solid transparent;border-radius:8px;color:var(--muted);font-size:13px;font-weight:600}
-.task-section-tab:hover:not(:disabled){background:var(--panel2);color:var(--text)}
-.task-section-tab.active{background:var(--panel2);border-color:var(--border);color:var(--text)}
+.notes-editor-column{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+.task-section-nav{display:flex;align-items:center;gap:18px;margin:0;padding:0 4px;border:0}
+.task-section-tab{padding:9px 2px 10px;background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);font-size:13px;font-weight:650}
+.task-section-tab:hover:not(:disabled){color:var(--text)}
+.task-section-tab.active{background:transparent;border-color:transparent;border-bottom-color:var(--accent);color:var(--text)}
 .task-section-tab:disabled{opacity:.4;cursor:not-allowed}
 .task-section-content[hidden]{display:none!important}
 #task-executions.task-section-content{padding:16px;overflow:visible}
 #task-executions .family-details-heading{margin-bottom:12px}
 #task-executions .notes-list{margin-top:0}
-@media(max-width:600px){.task-section-nav{position:sticky;top:0;z-index:2;background:var(--panel);padding:0 0 9px;overflow-x:auto}.task-section-tab{flex:none;padding:8px 10px}#task-executions.task-section-content{padding:12px}}
+@media(max-width:600px){.task-section-nav{position:sticky;top:0;z-index:2;background:var(--bg);overflow-x:auto;gap:16px}.task-section-tab{flex:none;padding:9px 2px 10px}#task-executions.task-section-content{padding:12px}}
 
 /* Keep this branch's UI checks covered by the repository's feature/** CI trigger. */
