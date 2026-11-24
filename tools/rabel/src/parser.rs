@@ -316,7 +316,7 @@ fn extract_document_category(row_html: &str) -> Option<String> {
 
     // Some AbsysNet themes render the document class as an icon rather than
     // visible text. Prefer its accessible title/alt text when available.
-    let attributes = Regex::new(r#"(?is)<img\\b[^>]*(?:alt|title)\\s*=\\s*["']([^"']+)["'][^>]*>"#).ok()?;
+    let attributes = Regex::new(r#"(?is)<img\b[^>]*(?:alt|title)\\s*=\\s*["']([^"']+)["'][^>]*>"#).ok()?;
     attributes.captures_iter(row_html).find_map(|capture| {
         let value = clean_text(capture.get(1)?.as_str());
         let normalized = value.to_lowercase();
