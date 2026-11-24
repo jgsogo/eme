@@ -3,7 +3,7 @@ use std::sync::Arc;
 use actix_web::{HttpRequest,HttpResponse,Responder,Scope,delete,get,post,put,web::{self,Data,Json,Path}};
 use agent_storage::{FileUserIdentityStore,UserIdentityStore};
 use books_tool::{BookInput,BookStore,BookStoreError,BookUpdate};
-use rabel_tool::{RabelClient, client::RabelError};
+use rabel_tool::{RabelClient, RabelError};
 use serde::Deserialize;
 pub(super) fn actor(r:&HttpRequest,a:&crate::auth::TelegramAuth,i:&FileUserIdentityStore)->Result<String,HttpResponse>{
  let owner=a.owner_for_request(r).ok_or_else(||HttpResponse::Unauthorized().finish())?;
