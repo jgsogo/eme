@@ -236,24 +236,28 @@ impl RunEventStore for SqliteExecutionStore {
     }
 }
 
-
 #[async_trait]
 impl TaskRunStore for SqliteExecutionStore {
     async fn associate_task_run(&self, task_id: Uuid, run_id: Uuid) -> Result<(), StorageError> {
         let connection = self.connection.lock().await;
-        let exists: bool = connection.query_row(
-            "SELECT EXISTS(SELECT 1 FROM runs WHERE id = ?1)",
-            [run_id.to_string()],
-            |row| row.get(0),
-        ).map_err(backend)?;
+        let exists: bool = connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM runs WHERE id = ?1)",
+                [run_id.to_string()],
+                |row| row.get(0),
+            )
+            .map_err(backend)?;
         if !exists {
             return Err(StorageError::NotFound(format!("run {run_id}")));
         }
-        let existing: Option<String> = connection.query_row(
-            "SELECT task_id FROM task_runs WHERE run_id = ?1",
-            [run_id.to_string()],
-            |row| row.get(0),
-        ).optional().map_err(backend)?;
+        let existing: Option<String> = connection
+            .query_row(
+                "SELECT task_id FROM task_runs WHERE run_id = ?1",
+                [run_id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(backend)?;
         if let Some(existing) = existing {
             return if existing == task_id.to_string() {
                 Ok(())
@@ -263,10 +267,12 @@ impl TaskRunStore for SqliteExecutionStore {
                 )))
             };
         }
-        connection.execute(
-            "INSERT INTO task_runs(task_id, run_id) VALUES (?1, ?2)",
-            params![task_id.to_string(), run_id.to_string()],
-        ).map_err(backend)?;
+        connection
+            .execute(
+                "INSERT INTO task_runs(task_id, run_id) VALUES (?1, ?2)",
+                params![task_id.to_string(), run_id.to_string()],
+            )
+            .map_err(backend)?;
         Ok(())
     }
 
@@ -275,11 +281,14 @@ impl TaskRunStore for SqliteExecutionStore {
         let mut statement = connection.prepare(
             "SELECT runs.run_json FROM runs INNER JOIN task_runs ON task_runs.run_id = runs.id WHERE task_runs.task_id = ?1 ORDER BY runs.created_at DESC, runs.id DESC"
         ).map_err(backend)?;
-        let rows = statement.query_map([task_id.to_string()], |row| row.get::<_, String>(0)).map_err(backend)?;
+        let rows = statement
+            .query_map([task_id.to_string()], |row| row.get::<_, String>(0))
+            .map_err(backend)?;
         rows.map(|row| {
             let json = row.map_err(backend)?;
             serde_json::from_str(&json).map_err(|error| StorageError::Backend(error.to_string()))
-        }).collect()
+        })
+        .collect()
     }
 }
 
