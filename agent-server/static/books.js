@@ -28,14 +28,68 @@
     } table.append(tbody);wrap.append(table);list.append(wrap);
   }
   function enableDetails(enabled) {
-    ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book","refresh-holdings"].forEach(id => $(id).disabled = !enabled);
+    ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book","refresh-catalogue","refresh-holdings"].forEach(id => $(id).disabled = !enabled);
+  }
+  function renderBookBibliography(book) {
+    const container = $("book-bibliography");
+    container.replaceChildren();
+    const fields = [
+      ["Publisher", book.publisher],
+      ["Publication year", book.publication_year],
+      ["Statement of responsibility", book.responsibility],
+      ["Publication statement", book.publication_statement],
+      ["Physical description", book.physical_description],
+      ["Series", book.series],
+      ["Notes", (book.notes || []).join("; ")],
+      ["Subjects", (book.subjects || []).join("; ")]
+    ].filter(([, value]) => value !== null && value !== undefined && value !== "");
+    if (!fields.length) {
+      container.textContent = "No catalogue metadata loaded. Use Refresh catalogue info to fetch it from RABEL.";
+      return;
+    }
+    const dl = document.createElement("dl");
+    for (const [label, value] of fields) {
+      const dt = document.createElement("dt"); dt.textContent = label;
+      const dd = document.createElement("dd"); dd.textContent = String(value);
+      dl.append(dt, dd);
+    }
+    container.append(dl);
+  }
+  function populateBookForm(book) {
+    $("book-heading").textContent = book.title;
+    $("book-title").value = book.title;
+    $("book-authors").value = (book.authors || []).join(", ");
+    $("book-isbn").value = book.isbn || "";
+    $("book-rating").value = book.rating ?? "";
+    $("book-status").value = book.reading_status;
+    $("book-want-to-buy").checked = book.want_to_buy;
+    $("book-review").value = book.review || "";
+    renderBookBibliography(book);
+  }
+  async function refreshCatalogue() {
+    if (!state.selected) return;
+    const button = $("refresh-catalogue");
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Refreshing…";
+    status("Fetching the latest bibliographic record from RABEL…");
+    try {
+      const result = await api("/books/" + state.selected.id + "/refresh-catalogue", { method: "POST" });
+      state.selected = result.book;
+      state.books = state.books.map(book => book.id === result.book.id ? result.book : book);
+      renderBooks();
+      populateBookForm(result.book);
+      status("Catalogue information refreshed from RABEL.");
+    } catch (error) {
+      status(error.message || "Could not refresh catalogue information.");
+    } finally {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
   }
   async function selectBook(book) {
     state.selected = book; renderBooks(); enableDetails(true);
-    $("book-heading").textContent = book.title; $("book-title").value = book.title;
-    $("book-authors").value = book.authors.join(", "); $("book-isbn").value = book.isbn || "";
-    $("book-rating").value = book.rating ?? ""; $("book-status").value = book.reading_status;
-    $("book-want-to-buy").checked = book.want_to_buy; $("book-review").value = book.review || "";
+    populateBookForm(book);
     if (!$("book-details-dialog").open) $("book-details-dialog").showModal();
     await loadHoldings();
   }
@@ -147,6 +201,7 @@
   $("catalogue-search").addEventListener("submit", searchCatalogue);
   $("book-form").addEventListener("submit", saveBook);
   $("delete-book").addEventListener("click", removeBook);
+  $("refresh-catalogue").addEventListener("click", refreshCatalogue);
   $("refresh-holdings").addEventListener("click", loadHoldings);
   enableDetails(false);
   loadBooks().catch(error => status(error.message));
