@@ -1035,9 +1035,13 @@ mod tests {
             .await
             .unwrap();
         let history = media.list_watch_history(profile.id).await.unwrap();
-        assert!(history.iter().any(|event| {
-            event.media_item_id == movie.id && event.source == WatchHistorySource::Trakt
-        }));
+        assert_eq!(
+            history
+                .iter()
+                .filter(|event| event.media_item_id == movie.id)
+                .count(),
+            2
+        );
 
         sync.set_watchlist_item(owner_id, profile.id, &movie, false)
             .await
