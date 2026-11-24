@@ -327,9 +327,12 @@ async fn delete_conversation(
         Err(error) => return conversation_error(error),
     }
 
-    if let Err(error) = manager.cancel_conversation(
-        uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID")
-    ).await {
+    if let Err(error) = manager
+        .cancel_conversation(
+            uuid::Uuid::parse_str(&id.to_string()).expect("ConversationId is a UUID"),
+        )
+        .await
+    {
         tracing::error!(conversation_id = %id, %error, "failed to stop conversation runs before deletion");
         return HttpResponse::InternalServerError().body("could not stop conversation runs");
     }
