@@ -51,17 +51,12 @@ impl RabelClient {
             return Err(RabelError::Http(response.status()));
         }
         let final_url = response.url().clone();
-        let bytes = response.bytes().await?;
-        if bytes.len() > MAX_RESPONSE_BYTES {
-            return Err(RabelError::Parse("response exceeds 5 MiB limit".into()));
-        }
         // RABEL currently declares ISO-8859-1. reqwest's text() handles
         // charset headers; use it for correct Spanish accents.
-        let response = self.http.get(final_url.clone()).send().await?;
-        if !response.status().is_success() {
-            return Err(RabelError::Http(response.status()));
-        }
         let html = response.text().await?;
+        if html.len() > MAX_RESPONSE_BYTES {
+            return Err(RabelError::Parse("response exceeds 5 MiB limit".into()));
+        }
         Ok((final_url, html))
     }
 
