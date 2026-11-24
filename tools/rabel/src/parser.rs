@@ -213,8 +213,12 @@ fn extract_document_category(title: &str, row_html: &str) -> Option<String> {
     // RABEL embeds the authoritative document type in the bibliographic title
     // (for example "[Vídeo]" or "[Grabación sonora]"). Use it before icons
     // or optional row labels, which can be generic or theme-dependent.
-    let marker = Regex::new(r"(?i)\[\s*([^\]]+?)\s*\]").ok()?;
-    if let Some(value) = marker.captures(title).and_then(|capture| capture.get(1)) {
+    // RABEL sometimes emits an unbalanced title marker, e.g.
+    // "El agua y la vida . Vídeo]. ... ["; match known classes as tokens.
+    let title_marker = Regex::new(
+        r"(?i)(?:\[?\s*|\b)(vídeo|video|videograbaciones?|películas?|grabaciones?\s+sonoras?|recursos?\s+electrónicos?|monografías?|libros?|revistas?|periódicos?|artículos?\s+de\s+revista|material\s+cartográfico|manuscritos?|material\s+gráfico|partituras?)(?:\s*\]|\b)"
+    ).ok()?;
+    if let Some(value) = title_marker.captures(title).and_then(|capture| capture.get(1)) {
         return Some(normalize_document_category(value.as_str()));
     }
 
@@ -354,6 +358,30 @@ mod tests {
         let session = Url::parse("https://rabel.jcyl.es/cgi-bin/abnetopac2/token/NT1").unwrap();
         let results = search_results(&html, &session).unwrap();
         assert_eq!(results[0].category.as_deref(), Some("Film / video"));
+    }
+
+    #[test]
+    fn recognizes_unbalanced_rabel_video_marker_in_title() {
+        assert_eq!(
+            extract_document_category("El agua y la vida . Vídeo]. El agua en el planeta [", "<tr><td><img alt=\"Book\"></td></tr>").as_deref(),
+            Some("Film / video")
+        );
+    }
+
+    #[test]
+    fn title_document_marker_takes_precedence_over_generic_book_icon() {
+        for (title, expected) in [
+            ("El agua y la vida . Vídeo]. El agua en el planeta [", "Film / video"),
+            ("Adams, Bryan Anthology [Grabación sonora]", "Audio"),
+            ("Agassi tennis generation [Recurso electrónico]", "Digital resource"),
+            ("Agenda 2001 : convivencia, igualdad, tolerancia", "Book"),
+        ] {
+            assert_eq!(
+                extract_document_category(title, "<tr><td><img alt=\"Book\"></td></tr>").as_deref(),
+                Some(expected),
+                "{title}"
+            );
+        }
     }
 
     #[test]
