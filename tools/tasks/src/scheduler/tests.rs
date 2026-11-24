@@ -1,6 +1,6 @@
 //! Tests for scheduled task execution.
 
-use super::next_occurrence;
+use super::{next_occurrence, submission_retry_delay};
 use crate::{NewTask, TaskRegistry, TaskScheduler};
 use agent_runtime::{CancellationToken, ToolContext};
 use agent_service::{ExecutionOutcome, ExecutionReport, RunExecutor, RunManager};
@@ -186,4 +186,13 @@ async fn one_time_task_is_retained_and_retried_when_the_run_queue_is_full() {
 
     scheduler.shutdown().await;
     std::fs::remove_dir_all(directory).unwrap();
+}
+
+
+#[test]
+fn submission_retry_backoff_is_bounded() {
+    assert_eq!(submission_retry_delay(1), Duration::from_secs(1));
+    assert_eq!(submission_retry_delay(2), Duration::from_secs(5));
+    assert_eq!(submission_retry_delay(3), Duration::from_secs(30));
+    assert_eq!(submission_retry_delay(20), Duration::from_secs(30));
 }
