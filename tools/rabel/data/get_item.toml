@@ -1,0 +1,12 @@
+name = "rabel.get_item"
+description = "Retrieve bibliographic metadata for one catalogue result. This describes the resource itself and does not include library copies or availability."
+
+[parameters]
+type = "object"
+required = ["record_ref"]
+additionalProperties = false
+
+[parameters.properties.record_ref]
+type = "string"
+minLength = 1
+description = "Opaque record_ref returned by rabel.search_catalog."

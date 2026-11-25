@@ -6,6 +6,7 @@
   const path = window.location.pathname;
   const section = path.startsWith("/console/admin") ? "admin"
     : path.startsWith("/console/notes") ? "notes"
+    : path.startsWith("/console/books") ? "books"
     : path.startsWith("/console/tasks") ? "tasks"
     : ["/console/meals", "/console/recipes", "/console/meal-planner", "/console/shopping-list", "/console/school-menus"].includes(path) ? "meals"
     : path.startsWith("/console/profile") || path.startsWith("/console/integrations") || path.startsWith("/console/families") ? "profile"
@@ -15,6 +16,7 @@
   const navItems = [
     ["conversations", "Conversations", "/console/conversations"],
     ["notes", "Notes", "/console/notes"],
+    ["books", "Books", "/console/books"],
     ["tasks", "Tasks", "/console/tasks"],
     ["meals", "Meals", "/console/meals"],
     ["admin", "Admin", "/console/admin/usage"],

@@ -1,0 +1,6 @@
+name = "rabel.list_libraries"
+description = "List libraries exposed by the RABEL catalogue selector."
+
+[parameters]
+type = "object"
+additionalProperties = false
