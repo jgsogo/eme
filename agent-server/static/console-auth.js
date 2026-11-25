@@ -47,19 +47,19 @@ window.emeConsoleReady = new Promise((resolve, reject) => {
 });
 
 // Keep even the shell header out of view until the server confirms the session.
-document.documentElement.style.visibility = "hidden";
+document.body.style.visibility = "hidden";
 
 (async () => {
   try {
     await authRequest("/auth/session");
-    document.documentElement.style.visibility = "visible";
+    document.body.style.visibility = "visible";
     resolveReady();
   } catch (error) {
     if (error.status === 401) {
       window.location.replace(loginUrl());
       return;
     }
-    document.documentElement.style.visibility = "visible";
+    document.body.style.visibility = "visible";
     rejectReady(error);
   }
 })();
