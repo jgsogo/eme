@@ -787,7 +787,6 @@ async function showConsole(){
   state.agents=await api("/agents");renderTaskAgents();state.families=await api("/families");renderTaskFamilies();await loadTasks();resetTaskEditor();
  }else if(page==="profile"){
   await Promise.all([loadProfile(),loadFamilies()]);
-  await loadFamilyDetails(state.families[0]?.id||null);
  }else if(page==="integrations"){
   await loadIntegrations();
  }else{
