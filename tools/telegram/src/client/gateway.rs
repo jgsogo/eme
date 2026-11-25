@@ -148,7 +148,11 @@ impl TelegramGateway {
             ]],
             force_reply: None,
         };
-        let rendered = markdown_to_telegram_html(&format_question(question));
+        let question = format!(
+            "{}\n\nOr use one of the Yes/No buttons below.",
+            format_question(question)
+        );
+        let rendered = markdown_to_telegram_html(&question);
         let params = SendMessageParams::builder()
             .chat_id(chat_id)
             .text(rendered)
