@@ -12,6 +12,7 @@ agent-runtime = { path = "../agent-runtime" }
 agent-metering = { path = "../agent-metering" }
 agent-service = { path = "../agent-service" }
 agent-storage = { path = "../agent-storage" }
+books-tool = { path = "../tools/books" }
 alexa-tool = { path = "../tools/alexa" }
 telegram-tool = { path = "../tools/telegram" }
 meteosource-tool = { path = "../tools/meteosource" }
@@ -22,6 +23,7 @@ tasks-tool = { path = "../tools/tasks" }
 notes-tools = { path = "../tools/notes" }
 meal-planner = { path = "../tools/meal-planner" }
 media-tools = { path = "../tools/media" }
+rabel-tool = { path = "../tools/rabel" }
 mercadona-tool = { path = "../tools/mercadona" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
