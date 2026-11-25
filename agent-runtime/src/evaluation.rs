@@ -145,32 +145,35 @@ fn claims_tool_use(response: &str, tool_start: usize, tool_end: usize) -> bool {
     let relative_tool_end = relative_tool_start + (tool_end - tool_start);
 
     CLAIM_MARKERS.iter().any(|marker| {
-        lower.match_indices(marker).any(|(marker_start, marker_text)| {
-            let marker_end = marker_start + marker_text.len();
-            let distance = if marker_end <= relative_tool_start {
-                relative_tool_start - marker_end
-            } else if marker_start >= relative_tool_end {
-                marker_start - relative_tool_end
-            } else {
-                0
-            };
+        lower
+            .match_indices(marker)
+            .any(|(marker_start, marker_text)| {
+                let marker_end = marker_start + marker_text.len();
+                let distance = if marker_end <= relative_tool_start {
+                    relative_tool_start - marker_end
+                } else if marker_start >= relative_tool_end {
+                    marker_start - relative_tool_end
+                } else {
+                    0
+                };
 
-            if distance > 100 || !has_word_boundaries(&lower, marker_start, marker_end) {
-                return false;
-            }
+                if distance > 100 || !has_word_boundaries(&lower, marker_start, marker_end) {
+                    return false;
+                }
 
-            let prefix_start = floor_char_boundary(&lower, marker_start.saturating_sub(36));
-            let prefix = &lower[prefix_start..marker_start];
-            if NEGATIONS.iter().any(|word| prefix.contains(word)) {
-                return false;
-            }
+                let prefix_start = floor_char_boundary(&lower, marker_start.saturating_sub(36));
+                let prefix = &lower[prefix_start..marker_start];
+                if NEGATIONS.iter().any(|word| prefix.contains(word)) {
+                    return false;
+                }
 
-            let hypothetical_start = floor_char_boundary(&lower, marker_start.saturating_sub(28));
-            let hypothetical_prefix = &lower[hypothetical_start..marker_start];
-            !HYPOTHETICALS
-                .iter()
-                .any(|word| hypothetical_prefix.contains(word))
-        })
+                let hypothetical_start =
+                    floor_char_boundary(&lower, marker_start.saturating_sub(28));
+                let hypothetical_prefix = &lower[hypothetical_start..marker_start];
+                !HYPOTHETICALS
+                    .iter()
+                    .any(|word| hypothetical_prefix.contains(word))
+            })
     })
 }
 
@@ -226,53 +229,38 @@ mod tests {
 
     #[test]
     fn does_not_flag_a_tool_that_was_dispatched_even_if_it_failed() {
-        assert!(findings(
-            "I used common.datetime.get_date_info, but the call failed.",
-            &[TOOL],
-        )
-        .is_empty());
+        assert!(
+            findings(
+                "I used common.datetime.get_date_info, but the call failed.",
+                &[TOOL],
+            )
+            .is_empty()
+        );
     }
 
     #[test]
     fn ignores_explicit_denials() {
-        assert!(findings(
-            "I did not use common.datetime.get_date_info.",
-            &[],
-        )
-        .is_empty());
-        assert!(findings(
-            "No he utilizado common.datetime.get_date_info.",
-            &[],
-        )
-        .is_empty());
+        assert!(findings("I did not use common.datetime.get_date_info.", &[],).is_empty());
+        assert!(findings("No he utilizado common.datetime.get_date_info.", &[],).is_empty());
     }
 
     #[test]
     fn ignores_hypothetical_and_non_claiming_mentions() {
-        assert!(findings(
-            "I could use common.datetime.get_date_info if needed.",
-            &[],
-        )
-        .is_empty());
-        assert!(findings(
-            "The available tool is common.datetime.get_date_info.",
-            &[],
-        )
-        .is_empty());
+        assert!(findings("I could use common.datetime.get_date_info if needed.", &[],).is_empty());
+        assert!(findings("The available tool is common.datetime.get_date_info.", &[],).is_empty());
     }
 
     #[test]
     fn handles_unicode_before_the_tool_name() {
-        assert_eq!(findings("İ He utilizado common.datetime.get_date_info.", &[]).len(), 1);
+        assert_eq!(
+            findings("İ He utilizado common.datetime.get_date_info.", &[]).len(),
+            1
+        );
     }
 
     #[test]
     fn ignores_claims_about_someone_else_using_the_tool() {
-        assert!(findings(
-            "The user used common.datetime.get_date_info earlier.",
-            &[],
-        )
-        .is_empty());
+        assert!(findings("The user used common.datetime.get_date_info earlier.", &[],).is_empty());
     }
 
     #[test]
