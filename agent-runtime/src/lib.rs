@@ -13,6 +13,7 @@
 mod agent;
 mod agent_registry;
 mod error;
+mod evaluation;
 mod model;
 mod policy;
 mod runtime;

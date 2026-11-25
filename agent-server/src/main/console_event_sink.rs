@@ -59,6 +59,9 @@ impl EventSink for ConsoleEventSink {
                     info!(run_id = %event.run_id, iteration = event.iteration, tool = %name, "tool execution finished");
                 }
             }
+            RunEventKind::HallucinatedToolInvocation { tool_name } => {
+                warn!(run_id = %event.run_id, iteration = event.iteration, tool = %tool_name, "model claimed to invoke a tool that was not executed");
+            }
             RunEventKind::ModelFailed { category } => {
                 warn!(run_id = %event.run_id, iteration = event.iteration, error_category = ?category, "model request failed")
             }

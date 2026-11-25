@@ -129,6 +129,15 @@ impl ManagedRun {
                 None,
                 error_category.map(error_category_name),
             ),
+            RuntimeEventKind::HallucinatedToolInvocation { tool_name } => (
+                RunEventKind::HallucinatedToolInvocation,
+                Some(tool_name.clone()),
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
             RuntimeEventKind::ModelFailed { category, .. } => (
                 RunEventKind::ModelFailed,
                 None,

@@ -150,6 +150,13 @@ async fn executes_tool_and_returns_final_response() {
     assert_eq!(result.response.unwrap(), "123 × 456 = 56088");
     assert_eq!(result.iterations, 2);
 
+    assert!(!result.events.iter().any(|event| {
+        matches!(
+            &event.kind,
+            agent_runtime::RunEventKind::HallucinatedToolInvocation { .. }
+        )
+    }));
+
     let assistant_messages = result
         .messages
         .iter()
@@ -186,6 +193,51 @@ async fn executes_tool_and_returns_final_response() {
                 content,
                 ..
             } if tool_call_id == "call-1" && content == "56088"
+        )
+    }));
+}
+
+#[tokio::test]
+async fn flags_a_tool_use_claim_when_no_tool_was_dispatched() {
+    let model = Arc::new(MockModel::new(vec![ModelTurn {
+        usage: None,
+        content: Some("I used calculator to obtain the result.".into()),
+        tool_calls: Vec::new(),
+    }]));
+    let tools = Arc::new(MockTools {
+        calls: Mutex::new(Vec::new()),
+    });
+    let runtime = AgentRuntime::new(
+        model,
+        tools.clone(),
+        Arc::new(AllowListPolicy::new(["calculator"])),
+    );
+    let agent = Agent {
+        id: "calculator-agent".into(),
+        capabilities: vec![ModelCapability::Chat],
+        system_prompt: None,
+        tool_names: vec!["calculator".into()],
+        max_iterations: 2,
+    };
+
+    let result = runtime
+        .run(
+            Uuid::new_v4(),
+            &agent,
+            ToolContext::default(),
+            Vec::new(),
+            "What is the result?",
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+
+    assert!(tools.calls.lock().unwrap().is_empty());
+    assert!(result.events.iter().any(|event| {
+        matches!(
+            &event.kind,
+            agent_runtime::RunEventKind::HallucinatedToolInvocation { tool_name }
+                if tool_name == "calculator"
         )
     }));
 }
