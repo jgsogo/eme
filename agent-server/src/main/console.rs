@@ -1,6 +1,7 @@
 //! Serves the independent desktop and mobile web console pages and their shared assets.
 
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -13,6 +14,41 @@ use actix_web::{
 };
 use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
 use agent_runtime::ToolDefinition;
+use agent_server::auth::TelegramAuth;
+
+fn login_return_to(request: &HttpRequest) -> String {
+    let query = web::Query::<HashMap<String, String>>::from_query(request.query_string()).ok();
+    let destination = query
+        .as_ref()
+        .and_then(|query| query.get("return_to"))
+        .map(String::as_str)
+        .unwrap_or("/");
+    if destination.starts_with('/')
+        && !destination.starts_with("//")
+        && !destination.contains('\\')
+        && !destination.chars().any(char::is_control)
+    {
+        destination.to_owned()
+    } else {
+        "/".to_owned()
+    }
+}
+
+#[get("/login")]
+pub(super) async fn login_page(
+    request: HttpRequest,
+    auth: Data<TelegramAuth>,
+) -> impl Responder {
+    let destination = login_return_to(&request);
+    if auth.owner_for_request(&request).is_some() {
+        return HttpResponse::Found()
+            .append_header((header::LOCATION, destination))
+            .finish();
+    }
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/login.html"))
+}
 
 fn is_mobile_user_agent(user_agent: &str) -> bool {
     let user_agent = user_agent.to_ascii_lowercase();
