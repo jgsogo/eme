@@ -25,6 +25,7 @@ fn login_return_to(request: &HttpRequest) -> String {
         .unwrap_or("/");
     if destination.starts_with('/')
         && !destination.starts_with("//")
+        && !destination.starts_with("/login")
         && !destination.contains('\\')
         && !destination.chars().any(char::is_control)
     {
