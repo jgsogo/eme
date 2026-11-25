@@ -98,10 +98,20 @@ mod tests {
             "/console/admin/usage",
             "/invite/0123456789",
         ] {
-            assert!(is_console_page(&Method::GET, path), "{path} should redirect to login");
+            assert!(
+                is_console_page(&Method::GET, path),
+                "{path} should redirect to login"
+            );
         }
         assert!(!is_console_page(&Method::POST, "/console/conversations"));
-        for path in ["/conversations", "/meal-planner/recipes", "/school-menus", "/tasks", "/runs/123", "/providers"] {
+        for path in [
+            "/conversations",
+            "/meal-planner/recipes",
+            "/school-menus",
+            "/tasks",
+            "/runs/123",
+            "/providers",
+        ] {
             assert!(!is_console_page(&Method::GET, path), "{path} is an API, not a page");
         }
     }
