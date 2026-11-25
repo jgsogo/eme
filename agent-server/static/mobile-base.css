@@ -1,6 +1,6 @@
 
 :root{color-scheme:dark;--bg:#0f1419;--panel:#1a2332;--panel2:#243044;--border:#2d3a4f;--text:#e7ecf3;--muted:#8b9bb4;--accent:#68a9dc;--ok:#55b889;--err:#d47777;--radius:12px;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);height:100dvh;min-height:100dvh;overflow:hidden;display:flex;flex-direction:column}
 header{padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:16px}h1{font-size:18px;margin:0}.header-title{display:flex;align-items:center;gap:20px}.main-nav{display:flex;align-items:center;gap:6px}.main-nav-link{display:inline-block;text-decoration:none;background:transparent;color:var(--muted);padding:8px 12px;border-radius:8px}.main-nav-link.active{background:var(--panel2);color:var(--text)}button,select,textarea{font:inherit;color:inherit}button{background:var(--accent);color:#101923;border:0;border-radius:8px;padding:9px 13px;font-weight:650;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}button.secondary{background:var(--panel2);border:1px solid var(--border);color:var(--text)}button.danger{background:transparent;border:1px solid var(--err);color:var(--err)}
 main[hidden],.workspace[hidden],.family-view[hidden],#family-management[hidden]{display:none}body.login-active .main-nav{display:none}main{display:block;padding:14px;min-height:0;flex:1;width:100%;max-width:none;margin:0;overflow:hidden}.workspace{display:grid;grid-template-columns:310px minmax(0,1fr);gap:14px;height:100%;min-height:0}
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);min-height:0;overflow:hidden}.sidebar{position:relative;display:flex;flex-direction:column;padding:14px;min-width:0;width:auto;height:auto;max-height:none;transform:none}.chat{min-width:0;min-height:0}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
@@ -539,5 +539,105 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .task-execution-event-payload summary{cursor:pointer}
 .task-execution-event-payload pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:600px){.task-execution-section-nav{gap:12px}.task-execution-section-tab{font-size:11px}.task-execution-events-table th,.task-execution-events-table td{padding:7px 5px;font-size:10px}.task-execution-events-table td:nth-child(2){min-width:100px}}
+/* Global mobile navigation. Desktop console styles and markup are unaffected. */
+body[data-layout="mobile"] .main-nav,
+body[data-layout="mobile"] .header-actions .profile-link,
+body[data-layout="mobile"] .header-actions .hint {
+  display: none !important;
+}
+
+body[data-layout="mobile"] header {
+  min-height: 52px;
+  flex-wrap: nowrap;
+  padding: 8px 12px;
+}
+
+body[data-layout="mobile"] .header-title {
+  min-width: 0;
+  flex: 1;
+}
+
+body[data-layout="mobile"] .header-title h1 {
+  font-size: 16px;
+}
+
+body[data-layout="mobile"] main {
+  padding-bottom: calc(82px + env(safe-area-inset-bottom));
+}
+
+.mobile-bottom-nav {
+  position: fixed;
+  z-index: 25;
+  inset: auto 0 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.mobile-bottom-nav-link {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 9px;
+  color: var(--muted);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-bottom-nav-link.active {
+  background: var(--panel2);
+  color: var(--text);
+}
+
+.mobile-bottom-nav-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mobile-bottom-nav-icon {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+}
+
+.mobile-bottom-nav-icon svg {
+  display: block;
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+body.login-active .mobile-bottom-nav {
+  display: none;
+}
+
+@media (min-width: 760px) {
+  body[data-layout="mobile"] main {
+    padding-bottom: calc(82px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav {
+    left: 50%;
+    right: auto;
+    width: min(100%, 520px);
+    transform: translateX(-50%);
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: 14px 14px 0 0;
+  }
+}
+
 /* Protected pages stay invisible until the browser session is confirmed. */
 body:not(.login-page) { visibility:hidden; }
