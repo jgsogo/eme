@@ -234,8 +234,8 @@ async fn main() -> Result<()> {
         info!("LAN invitation links enabled");
     } else {
         error!(
-            "LAN_BASE_URL is not set; LAN family invitation links are disabled. \\
-             Set LAN_BASE_URL to the server's private-network URL (for example \\
+            "LAN_BASE_URL is not set; LAN family invitation links are disabled. \
+             Set LAN_BASE_URL to the server's private-network URL (for example \
              http://192.168.1.20:8080) and restart agent-server."
         );
     }
