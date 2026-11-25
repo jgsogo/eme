@@ -621,7 +621,10 @@ pub(super) async fn favicon() -> impl Responder {
 
 #[cfg(test)]
 mod tests {
-    use super::{login_return_to, is_mobile_user_agent, list_configured_providers, test_configured_providers};
+    use super::{
+        is_mobile_user_agent, list_configured_providers, login_return_to,
+        test_configured_providers,
+    };
 
     #[test]
     fn login_return_to_accepts_only_local_destinations() {
