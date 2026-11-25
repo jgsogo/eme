@@ -10,6 +10,7 @@ use agent_runtime::{
 };
 use agent_service::{AgentRuntimeResolver, ResolvedAgent};
 use agent_storage::FamilyStore;
+use books_tool::BookStore;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use google_tool::GoogleCalendarRuntimeConfig;
@@ -27,6 +28,7 @@ pub(super) struct ConfiguredAgentResolver {
     models: Arc<ModelRegistry>,
     tools: Arc<ToolRegistry>,
     pub(super) notes: NotesStore,
+    pub(super) books: BookStore,
 }
 
 impl ConfiguredAgentResolver {
@@ -61,10 +63,13 @@ impl ConfiguredAgentResolver {
         let models = Arc::new(ModelRegistry::load(data_dir).context("loading model providers")?);
 
         let mut tools = ToolRegistry::new();
+        let books = BookStore::open(data_dir.join("books.sqlite")).context("opening personal book collection")?;
+        books_tool::register_tools(&mut tools, books.clone()).context("registering book collection tools")?;
         alexa_tool::register_tools(&mut tools).context("registering Alexa tools")?;
         telegram_tool::register_tools(&mut tools, telegram_gateway)
             .context("registering Telegram tools")?;
         meteosource_tool::register_tools(&mut tools).context("registering Meteosource tools")?;
+        rabel_tool::register_tools(&mut tools).context("registering RABEL tools")?;
         google_tool::register_tools(&mut tools, google_runtime)
             .context("registering Google tools")?;
         tavily_tool::register_tools(&mut tools).context("registering Tavily tools")?;
@@ -96,6 +101,7 @@ impl ConfiguredAgentResolver {
             models,
             tools,
             notes,
+            books,
         })
     }
 }
