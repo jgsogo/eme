@@ -17,8 +17,7 @@ use agent_runtime::ToolDefinition;
 use agent_server::auth::TelegramAuth;
 
 fn login_return_to(request: &HttpRequest) -> String {
-    let query =
-        web::Query::<HashMap<String, String>>::from_query(request.query_string()).ok();
+    let query = web::Query::<HashMap<String, String>>::from_query(request.query_string()).ok();
     let destination = query
         .as_ref()
         .and_then(|query| query.get("return_to"))
@@ -37,10 +36,7 @@ fn login_return_to(request: &HttpRequest) -> String {
 }
 
 #[get("/login")]
-pub(super) async fn login_page(
-    request: HttpRequest,
-    auth: Data<TelegramAuth>,
-) -> impl Responder {
+pub(super) async fn login_page(request: HttpRequest, auth: Data<TelegramAuth>) -> impl Responder {
     let destination = login_return_to(&request);
     if auth.owner_for_request(&request).is_some() {
         return HttpResponse::Found()
@@ -665,18 +661,16 @@ pub(super) async fn favicon() -> impl Responder {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_mobile_user_agent, list_configured_providers, login_return_to,
-        test_configured_providers,
+        is_mobile_user_agent, list_configured_providers, login_return_to, test_configured_providers,
     };
 
     #[test]
     fn login_return_to_accepts_only_local_destinations() {
         use actix_web::test;
 
-        let request = test::TestRequest::with_uri(
-            "/login?return_to=%2Fconsole%2Ftasks%3Fstatus%3Dfailed",
-        )
-        .to_http_request();
+        let request =
+            test::TestRequest::with_uri("/login?return_to=%2Fconsole%2Ftasks%3Fstatus%3Dfailed")
+                .to_http_request();
         assert_eq!(login_return_to(&request), "/console/tasks?status=failed");
 
         for uri in [
