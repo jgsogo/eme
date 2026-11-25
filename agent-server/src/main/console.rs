@@ -564,6 +564,13 @@ pub(super) async fn mobile_base_stylesheet() -> impl Responder {
         .body(include_str!("../../static/mobile-base.css"))
 }
 
+#[get("/assets/login.js")]
+pub(super) async fn login_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/login.js"))
+}
+
 #[get("/assets/desktop-header.js")]
 pub(super) async fn desktop_header_script() -> impl Responder {
     HttpResponse::Ok()
