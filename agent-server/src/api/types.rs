@@ -60,6 +60,7 @@ fn event_kind_name(kind: RunEventKind) -> &'static str {
         RunEventKind::ModelResponded => "model_responded",
         RunEventKind::ToolExecutionStarted => "tool_execution_started",
         RunEventKind::ToolExecutionFinished => "tool_execution_finished",
+        RunEventKind::HallucinatedToolInvocation => "hallucinated_tool_invocation",
         RunEventKind::ModelFailed => "model_failed",
         RunEventKind::RuntimeCancelled => "runtime_cancelled",
         RunEventKind::RuntimeTimedOut => "runtime_timed_out",
