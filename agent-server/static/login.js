@@ -3,7 +3,6 @@ const requestedDestination = params.get("return_to") || "/";
 const returnTo = requestedDestination.startsWith("/")
   && !requestedDestination.startsWith("//")
   && !requestedDestination.includes("\\")
-  && !/[\\u0000-\\u001f\\u007f]/.test(requestedDestination)
   ? requestedDestination
   : "/";
 
