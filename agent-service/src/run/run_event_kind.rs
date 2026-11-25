@@ -20,6 +20,7 @@ pub enum RunEventKind {
     ModelResponded,
     ToolExecutionStarted,
     ToolExecutionFinished,
+    HallucinatedToolInvocation,
     ModelFailed,
     RuntimeCancelled,
     RuntimeTimedOut,

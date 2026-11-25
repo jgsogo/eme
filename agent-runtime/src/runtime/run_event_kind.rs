@@ -45,6 +45,10 @@ pub enum RunEventKind {
         name: String,
         error_category: Option<ErrorCategory>,
     },
+    /// The model claimed to use a tool that was not dispatched during this run.
+    HallucinatedToolInvocation {
+        tool_name: String,
+    },
     Cancelled,
     TimedOut,
     ModelFailed {

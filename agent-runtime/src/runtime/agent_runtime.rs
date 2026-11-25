@@ -1,5 +1,6 @@
 //! Coordinates model turns, tool calls, authorization, cancellation, and run results.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use agent_metering::{InvocationOutcome, MeteredValue, ReportedCost, UsageDimensions, UsageRecord};
@@ -11,6 +12,7 @@ use super::{
     CancellationToken, EventSink, NoopEventSink, RunEvent, RunEventKind, RunFailure, RunResult,
     RunStatus, StopReason,
 };
+use crate::evaluation::find_hallucinated_tool_invocations;
 use crate::{
     Agent, AgentModel, Authorization, ErrorCategory, FixedModelRouter, Message, ModelError,
     ModelRequest, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink, PolicyEngine,
@@ -445,6 +447,8 @@ impl AgentRuntime {
             .map(|timeout| tokio::time::Instant::now() + timeout);
 
         let mut events = Vec::new();
+        // Runtime-owned execution history is the source of truth for evaluation.
+        let mut executed_tools = HashSet::<String>::new();
         messages.push(Message::User {
             content: input.into(),
         });
@@ -636,6 +640,26 @@ impl AgentRuntime {
             }
 
             if turn.tool_calls.is_empty() {
+                if let Some(response) = turn.content.as_deref() {
+                    let findings = find_hallucinated_tool_invocations(
+                        response,
+                        &agent.tool_names,
+                        &executed_tools,
+                    );
+                    for finding in findings {
+                        self.emit_event(
+                            &mut events,
+                            RunEvent {
+                                run_id,
+                                iteration,
+                                kind: RunEventKind::HallucinatedToolInvocation {
+                                    tool_name: finding.tool_name,
+                                },
+                            },
+                        );
+                    }
+                }
+
                 return Ok(RunResult {
                     run_id,
                     status: RunStatus::Completed,
@@ -674,11 +698,15 @@ impl AgentRuntime {
 
                 let execution = async {
                     match self.policy.authorize(agent, &call) {
-                        Authorization::Allowed => self
-                            .tools
-                            .execute(&context, &tool_name, arguments)
-                            .await
-                            .map_err(RuntimeError::Tool),
+                        Authorization::Allowed => {
+                            // Record dispatch, not success: a tool that was invoked and
+                            // returned an error was still genuinely executed.
+                            executed_tools.insert(tool_name.clone());
+                            self.tools
+                                .execute(&context, &tool_name, arguments)
+                                .await
+                                .map_err(RuntimeError::Tool)
+                        }
                         Authorization::Denied(error) => Err(RuntimeError::Authorization(error)),
                     }
                 };
