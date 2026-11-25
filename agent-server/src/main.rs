@@ -38,9 +38,9 @@ use console::{
     agents_page, agents_script, books_libraries_page, books_page, books_script,
     console_auth_script, console_root, console_script, console_stylesheet, conversations_page,
     desktop_header_script, families_page, favicon, integrations_page, invitation_page,
-    libraries_script, list_configured_providers, list_registered_tools, meals_family_script,
-    meals_page, mobile_base_stylesheet, mobile_books_libraries_page, mobile_books_page,
-    mobile_conversations_page, mobile_families_page, mobile_integrations_page,
+    libraries_script, list_configured_providers, list_registered_tools, login_page, login_script,
+    meals_family_script, meals_page, mobile_base_stylesheet, mobile_books_libraries_page,
+    mobile_books_page, mobile_conversations_page, mobile_families_page, mobile_integrations_page,
     mobile_meal_planner_page, mobile_meals_page, mobile_notes_page, mobile_profile_page,
     mobile_root, mobile_school_menus_page, mobile_script, mobile_shopping_list_page,
     mobile_stylesheet, mobile_tasks_page, notes_page, profile_page, providers_page,
@@ -262,7 +262,9 @@ async fn main() -> Result<()> {
         if let Some(config) = lan_invitation_config.clone() {
             app = app.app_data(web::Data::new(config));
         }
-        app.service(console_root)
+        app.service(login_page)
+            .service(login_script)
+            .service(console_root)
             .service(mobile_root)
             .service(mobile_conversations_page)
             .service(mobile_families_page)

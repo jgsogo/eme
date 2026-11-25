@@ -3,7 +3,7 @@
 <body data-page="integrations">
 <header></header>
 <section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
-<main hidden><section class="integrations-view"><nav class="profile-section-nav" aria-label="Profile settings"><a class="profile-section-link" href="/console/profile">Profile</a><a class="profile-section-link active" href="/console/integrations" aria-current="page">Integrations</a><a class="profile-section-link" href="/console/families">Families</a></nav>
+<main class="console-main" hidden><section class="integrations-view"><nav class="profile-section-nav" aria-label="Profile settings"><a class="profile-section-link" href="/console/profile">Profile</a><a class="profile-section-link active" href="/console/integrations" aria-current="page">Integrations</a><a class="profile-section-link" href="/console/families">Families</a></nav>
  <div class="integrations-heading"><div><h2>Integrations</h2><p class="hint">Connect external services and manage the data available to your agents.</p></div><button class="secondary" id="refresh-integrations">Refresh</button></div>
  <div class="integrations-layout">
   <aside id="integrations-sidebar" class="panel integrations-sidebar" aria-label="Available integrations">
@@ -25,6 +25,7 @@
      <label class="integration-field" for="google-connect-access"><span>Google permission</span><select id="google-connect-access"><option value="read_only">Read events</option><option value="read_write">Read and write events</option></select></label>
      <button type="button" id="google-connect">Connect Google</button>
     </div>
+    <div class="integration-list-filter"><label for="google-search">Filter accounts and calendars</label><input id="google-search" type="search" placeholder="Account or calendar name…" autocomplete="off"></div>
     <div id="google-connections" class="google-connections"><div class="empty">Loading Google accounts…</div></div>
    </section>
    <section id="trakt-integration-panel" data-integration-panel="trakt" hidden>
@@ -33,6 +34,7 @@
      <label class="integration-field" for="trakt-connect-profile"><span>Media profile</span><select id="trakt-connect-profile" disabled><option value="">No unconnected profile available</option></select></label>
      <button type="button" id="trakt-connect" disabled>Connect Trakt</button>
     </div>
+    <div class="integration-list-filter"><label for="trakt-search">Filter media profiles</label><input id="trakt-search" type="search" placeholder="Profile, family or Trakt account…" autocomplete="off"></div>
     <div id="trakt-profiles" class="google-connections"><div class="empty">Loading your media profiles…</div></div>
    </section>
   </section>

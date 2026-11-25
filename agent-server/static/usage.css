@@ -1,5 +1,5 @@
 :root{--usage-gap:14px}
-.usage-main{overflow:auto!important;max-width:1440px;margin:0 auto;padding:24px 20px 40px}
+.usage-main{overflow:auto!important;max-width:1440px;margin:0 auto;padding:24px 20px 40px;width:100%}
 .usage-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin:4px 0 20px}
 .usage-heading h2{font-size:24px;letter-spacing:0;text-transform:none;color:var(--text);margin:0}
 .eyebrow{font-size:10px;letter-spacing:.13em;color:var(--accent);font-weight:700;margin:0 0 6px}

@@ -27,7 +27,7 @@
 </head>
 <body data-page="admin-providers">
   <header></header>
-  <main class="usage-main">
+  <main class="console-main usage-main">
     <nav class="profile-section-nav admin-section-nav" aria-label="Admin">
       <a class="profile-section-link" href="/console/admin/usage">Observability</a>
       <a class="profile-section-link" href="/console/admin/tools">Tools</a>
@@ -41,8 +41,8 @@
         <p class="usage-intro">Providers and models declared in the platform's loaded model registry.</p>
       </div>
       <div class="usage-actions">
-        <label for="providers-search">Search</label>
-        <input id="providers-search" type="search" placeholder="Provider, model or capability">
+        <label for="providers-search">Filter providers and models</label>
+        <input id="providers-search" type="search" placeholder="Provider, model or capability" autocomplete="off">
         <button class="secondary" id="providers-refresh" type="button">Refresh</button>
       </div>
     </div>

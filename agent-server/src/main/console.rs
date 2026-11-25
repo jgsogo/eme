@@ -1,6 +1,7 @@
 //! Serves the independent desktop and mobile web console pages and their shared assets.
 
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -13,6 +14,39 @@ use actix_web::{
 };
 use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
 use agent_runtime::ToolDefinition;
+use agent_server::auth::TelegramAuth;
+
+fn login_return_to(request: &HttpRequest) -> String {
+    let query = web::Query::<HashMap<String, String>>::from_query(request.query_string()).ok();
+    let destination = query
+        .as_ref()
+        .and_then(|query| query.get("return_to"))
+        .map(String::as_str)
+        .unwrap_or("/");
+    if destination.starts_with('/')
+        && !destination.starts_with("//")
+        && !destination.starts_with("/login")
+        && !destination.contains('\\')
+        && !destination.chars().any(char::is_control)
+    {
+        destination.to_owned()
+    } else {
+        "/".to_owned()
+    }
+}
+
+#[get("/login")]
+pub(super) async fn login_page(request: HttpRequest, auth: Data<TelegramAuth>) -> impl Responder {
+    let destination = login_return_to(&request);
+    if auth.owner_for_request(&request).is_some() {
+        return HttpResponse::Found()
+            .append_header((header::LOCATION, destination))
+            .finish();
+    }
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(include_str!("../../static/login.html"))
+}
 
 fn is_mobile_user_agent(user_agent: &str) -> bool {
     let user_agent = user_agent.to_ascii_lowercase();
@@ -570,6 +604,13 @@ pub(super) async fn mobile_base_stylesheet() -> impl Responder {
         .body(include_str!("../../static/mobile-base.css"))
 }
 
+#[get("/assets/login.js")]
+pub(super) async fn login_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/login.js"))
+}
+
 #[get("/assets/desktop-header.js")]
 pub(super) async fn desktop_header_script() -> impl Responder {
     HttpResponse::Ok()
@@ -619,7 +660,29 @@ pub(super) async fn favicon() -> impl Responder {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_mobile_user_agent, list_configured_providers, test_configured_providers};
+    use super::{
+        is_mobile_user_agent, list_configured_providers, login_return_to, test_configured_providers,
+    };
+
+    #[test]
+    fn login_return_to_accepts_only_local_destinations() {
+        use actix_web::test;
+
+        let request =
+            test::TestRequest::with_uri("/login?return_to=%2Fconsole%2Ftasks%3Fstatus%3Dfailed")
+                .to_http_request();
+        assert_eq!(login_return_to(&request), "/console/tasks?status=failed");
+
+        for uri in [
+            "/login?return_to=%2F%2Fevil.example",
+            "/login?return_to=javascript%3Aalert(1)",
+            "/login?return_to=%2Flogin",
+            "/login?return_to=%2F%5C%5Cevil.example",
+        ] {
+            let request = test::TestRequest::with_uri(uri).to_http_request();
+            assert_eq!(login_return_to(&request), "/", "{uri}");
+        }
+    }
 
     #[actix_web::test]
     async fn model_test_reports_missing_credentials_for_the_selected_model() {

@@ -3,6 +3,7 @@ const page=document.body.dataset.page;
 const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
+let familyActionHandler=null;
 const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
@@ -85,10 +86,19 @@ function renderRunEvents(events=[]){
 }
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId}
 async function loadConversations(){const [conversations,runs]=await Promise.all([api(state.showArchived?"/conversations/archived":"/conversations"),api("/runs")]);state.conversations=conversations;state.activeRuns={};for(const run of runs){if(run.conversation_id&&["queued","running"].includes(run.status)&&!state.activeRuns[run.conversation_id])state.activeRuns[run.conversation_id]=run}renderConversations()}
-async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies()}
+async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies();renderNoteFamilyFilter()}
+function renderNoteFamilyFilter(){
+ const select=$("note-family-filter");if(!select)return;
+ const selected=select.value;
+ select.innerHTML='<option value="">All notes</option><option value="private">Private notes</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
+ if([...select.options].some(option=>option.value===selected))select.value=selected;
+}
 function renderNotes(){
  const target=$("notes-list");if(!target)return;
- target.innerHTML=state.notes.length?state.notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">No notes yet. Create one to get started.</div>';
+ const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
+ const familyFilter=$("note-family-filter")?.value||"";
+ const notes=state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter)));
+ target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
 }
 function resetNoteEditor(){
  state.selectedNote=null;renderNotes();
@@ -123,8 +133,11 @@ function renderNoteFamilies(){
  if([...select.options].some(option=>option.value===selected))select.value=selected;
 }
 async function loadNotes(){
+ const button=$("refresh-notes");if(button)button.disabled=true;
+ $("notes-list").innerHTML='<div class="empty" role="status">Loading notes…</div>';
  try{state.notes=await api("/notes");renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
- catch(e){$("notes-list").innerHTML='<div class="hint">Unable to load notes: '+escapeHtml(e.message)+'</div>'}
+ catch(e){$("notes-list").innerHTML='<div class="empty" role="alert">Unable to load notes: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-notes>Try again</button></p></div>'}
+ finally{if(button)button.disabled=false}
 }
 async function saveNote(event){
  event.preventDefault();const title=$("note-title").value.trim(),content=$("note-content").value,family_id=$("note-family").value||null;
@@ -146,8 +159,10 @@ async function deleteNote(){
 function renderFamilySelector(){const selector=$("family-selector");if(!selector)return;const selected=state.selectedFamilyId||"";selector.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");selector.value=state.families.some(f=>f.id===selected)?selected:"";selector.disabled=!state.selected||!!state.runId;state.selectedFamilyId=selector.value||null}
 function renderFamiliesList(){
  const target=$("families-list");if(!target)return;
- if(!state.families.length){target.innerHTML='<div class="empty">You do not belong to any families yet.</div>';return}
- target.innerHTML=state.families.map(f=>{
+ const query=$("family-search")?.value.trim().toLocaleLowerCase()||"";
+ const families=state.families.filter(family=>family.name.toLocaleLowerCase().includes(query));
+ if(!families.length){target.innerHTML='<div class="empty">'+(query?'No families match this filter.':'You do not belong to any families yet.')+'</div>';return}
+ target.innerHTML=families.map(f=>{
   const active=f.id===state.managedFamilyId;
   const count=Number.isInteger(f.member_count)?f.member_count:(state.familyDetails?.family?.id===f.id?state.familyDetails.members?.length:null);
   const role=state.familyDetails?.family?.id===f.id?currentFamilyMember()?.role:null;
@@ -156,12 +171,14 @@ function renderFamiliesList(){
 }
 function memberAge(birthday){if(!birthday)return null;const [year,month,day]=birthday.split("-").map(Number),today=new Date();let age=today.getUTCFullYear()-year;if(today.getUTCMonth()+1<month||(today.getUTCMonth()+1===month&&today.getUTCDate()<day))age--;return age>=0?age:null}
 function renderFamilyMembers(){
- const target=$("family-members"),details=state.familyDetails;
+ const target=$("family-members"),details=state.familyDetails,filter=$("family-members-search");
  const canManage=!!details&&["owner","admin"].includes(currentFamilyMember()?.role.toLowerCase());
  $("rename-family").disabled=!canManage;$("add-family-member").disabled=!canManage;
+ if(filter)filter.disabled=!details;
  if(!details){target.textContent="Select a family to see its members.";renderFamilyLifecycle();return}
- const members=details.members||[];
- target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+members.length+' members</div>'+ (members.length?members.map(m=>{
+ const allMembers=details.members||[],query=filter?.value.trim().toLocaleLowerCase()||"";
+ const members=allMembers.filter(member=>[member.display_name,member.user_id,member.relationship,member.role,member.birthday].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ target.innerHTML='<div style="font-weight:600;margin:8px 0">'+escapeHtml(details.family.name)+' · '+allMembers.length+' members</div>'+ (members.length?members.map(m=>{
   const role=String(m.role).toLowerCase(),actorRole=currentFamilyMember()?.role.toLowerCase();
   const isSelf=m.user_id===state.currentUserId,isOwner=actorRole==="owner",isAdmin=actorRole==="admin";
   const roleControl=!isSelf&&isOwner?'<label>Role <select data-member-role="'+escapeHtml(m.user_id)+'" style="width:auto;min-width:90px;margin:4px 4px 4px 0;padding:5px"><option value="member" '+(role==="member"?"selected":"")+'>Member</option><option value="admin" '+(role==="admin"?"selected":"")+'>Admin</option></select></label><button type="button" class="secondary" data-save-role="'+escapeHtml(m.user_id)+'">Save role</button>':(!isSelf&&isAdmin&&role==="member"?'<button type="button" class="secondary" data-promote-member="'+escapeHtml(m.user_id)+'">Promote to admin</button>':'');
@@ -172,7 +189,7 @@ function renderFamilyMembers(){
   const editProfile=actorRole==="owner"||actorRole==="admin"?'<button type="button" class="secondary" data-edit-member-profile="'+escapeHtml(m.user_id)+'">Edit details</button>':"";
   const actions=roleControl||transfer||remove||editProfile?'<div class="member-actions">'+roleControl+transfer+remove+editProfile+'</div>':'';
   return '<div class="family-member"><strong>'+escapeHtml(m.display_name||m.user_id)+'</strong><span>'+escapeHtml(m.relationship)+' · '+escapeHtml(m.role)+'</span><span>'+escapeHtml(birthday)+(age===null?'':' · '+age+' years old')+'</span>'+actions+'</div>';
- }).join(""):'<div class="hint">No members.</div>');
+ }).join(""):'<div class="hint">'+(allMembers.length?'No members match this filter. <button type="button" class="secondary" data-clear-family-member-filter>Clear filter</button>':'No members.')+'</div>');
 }
 function currentFamilyMember(){
  return (state.familyDetails?.members||[]).find(member=>member.user_id===state.currentUserId)||null;
@@ -192,18 +209,68 @@ function invitationState(invitation){
  return "Pending";
 }
 function renderFamilyInvitations(){
- const target=$("family-invitations"),family=state.familyDetails?.family,me=currentFamilyMember();
+ const target=$("family-invitations"),family=state.familyDetails?.family,me=currentFamilyMember(),filter=$("family-invitations-search");
  const canManage=me&&["owner","admin"].includes(me.role.toLowerCase());
  $("create-invitation").disabled=!family||!canManage;
+ if(filter)filter.disabled=!family||!canManage;
  if(!family){target.textContent="Select a family to manage invitations.";return}
  if(!canManage){target.textContent="Only family owners and admins can manage invitations.";return}
- const items=state.familyInvitations;
+ const query=filter?.value.trim().toLocaleLowerCase()||"",allItems=state.familyInvitations;
+ const items=allItems.filter(inv=>[invitationState(inv),inv.target_identity?.provider,inv.target_identity?.subject,inv.expires_at].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
  target.innerHTML=items.length?items.map(inv=>{
   const status=invitationState(inv);
   return '<div class="family-invitation"><div><strong>'+escapeHtml(status)+'</strong><small>Expires '+escapeHtml(new Date(inv.expires_at).toLocaleString())+(inv.target_identity?' · '+escapeHtml(inv.target_identity.provider)+': '+escapeHtml(inv.target_identity.subject):'')+'</small></div><div class="family-invitation-actions">'+(status==="Pending"?'<button type="button" class="secondary" data-revoke-invitation="'+escapeHtml(inv.id)+'">Revoke</button>':'')+'</div></div>';
- }).join(""):'<div class="hint" style="padding:8px 0">No invitations yet.</div>';
+ }).join(""):'<div class="hint" style="padding:8px 0">'+(allItems.length?'No invitations match this filter. <button type="button" class="secondary" data-clear-family-invitation-filter>Clear filter</button>':'No invitations yet.')+'</div>';
 }
-
+function openFamilyActionDialog({title,description,fields,submitLabel="Save",handler}){
+ const dialog=$("family-action-dialog");
+ if(!dialog){
+  const values={};
+  for(const field of fields){
+   const choices=field.type==="select"?" ("+field.options.map(option=>option.value).join(", ")+")":"";
+   const value=window.prompt(field.label+choices,field.value??"");
+   if(value===null)return;
+   values[field.name]=value;
+  }
+  Promise.resolve(handler(values)).catch(error=>setStatus(error.message,"error"));
+  return;
+ }
+ familyActionHandler=handler;
+ $("family-action-title").textContent=title;
+ $("family-action-description").textContent=description||"";
+ $("family-action-fields").innerHTML=fields.map(field=>{
+  const id="family-action-"+field.name,required=field.required?" required":"",placeholder=field.placeholder?' placeholder="'+escapeHtml(field.placeholder)+'"':"",limits=(field.maxLength?' maxlength="'+field.maxLength+'"':"")+(field.min!==undefined?' min="'+field.min+'"':"")+(field.max!==undefined?' max="'+field.max+'"':"");
+  const control=field.type==="select"
+   ?'<select id="'+id+'" name="'+field.name+'"'+required+'>'+field.options.map(option=>'<option value="'+escapeHtml(option.value)+'" '+(String(option.value)===String(field.value??"")?"selected":"")+'>'+escapeHtml(option.label)+'</option>').join("")+'</select>'
+   :'<input id="'+id+'" name="'+field.name+'" type="'+(field.type||"text")+'" value="'+escapeHtml(field.value??"")+'"'+required+placeholder+limits+'>';
+  return '<label class="family-action-field" for="'+id+'">'+escapeHtml(field.label)+control+'</label>';
+ }).join("");
+ $("family-action-status").textContent="";
+ $("family-action-submit").textContent=submitLabel;
+ $("family-action-dialog").showModal();
+ $("family-action-fields").querySelector("input,select")?.focus();
+}
+async function addManagedFamilyMember(){
+ const family=state.familyDetails?.family;if(!family)return;
+ openFamilyActionDialog({title:"Add family member",description:"Add a person to this family. Birthday is optional.",submitLabel:"Add member",fields:[
+  {name:"name",label:"Name",required:true,maxLength:80},
+  {name:"relationship",label:"Relationship",type:"select",value:"other",options:["father","mother","son","daughter","grandfather","grandmother","partner","other"].map(value=>({value,label:value[0].toUpperCase()+value.slice(1)}))},
+  {name:"birthday",label:"Birthday (optional)",type:"date"}
+ ],handler:async values=>{
+  await api("/families/"+encodeURIComponent(family.id)+"/members",{method:"POST",body:JSON.stringify({name:values.name.trim(),relationship:values.relationship,birthday:values.birthday||null})});
+  await loadFamilyDetails(family.id);await loadFamilies();setStatus("Family member added","ok");
+ }});
+}
+async function editManagedFamilyMember(userId){
+ const family=state.familyDetails?.family,member=state.familyDetails?.members?.find(item=>item.user_id===userId);if(!family||!member)return;
+ openFamilyActionDialog({title:"Edit family member",description:"Update the member's display name and birthday.",submitLabel:"Save changes",fields:[
+  {name:"name",label:"Name",required:true,maxLength:80,value:member.display_name||""},
+  {name:"birthday",label:"Birthday (optional)",type:"date",value:member.birthday||""}
+ ],handler:async values=>{
+  await api("/families/"+encodeURIComponent(family.id)+"/members/"+encodeURIComponent(userId)+"/profile",{method:"PUT",body:JSON.stringify({name:values.name.trim(),birthday:values.birthday||null})});
+  await loadFamilyDetails(family.id);setStatus("Member details updated","ok");
+ }});
+}
 async function addManagedFamilyMember(){
  const family=state.familyDetails?.family;if(!family)return;
  const name=window.prompt("Member's name");if(name===null)return;if(!name.trim()){setStatus("Member name is required","error");return}
@@ -230,14 +297,14 @@ async function loadFamilyInvitations(familyId){
 }
 async function createInvitation(){
  const family=state.familyDetails?.family;if(!family)return;
- const days=window.prompt("Invitation validity in days","7");if(days===null)return;
- const validity=Number(days);if(!Number.isInteger(validity)||validity<1||validity>30){setStatus("Choose a validity between 1 and 30 days","error");return}
- const target=window.prompt("Optional Telegram user ID to restrict this invitation (leave empty for anyone)","");
- if(target===null)return;
- const expiresAt=new Date(Date.now()+validity*86400000).toISOString();
- const request={expires_at:expiresAt};
- if(target.trim())request.target_identity={provider:"telegram",subject:target.trim()};
- try{
+ openFamilyActionDialog({title:"Create invitation",description:"Choose how long this invitation remains valid. Optionally restrict it to a Telegram user ID.",submitLabel:"Create invitation",fields:[
+  {name:"days",label:"Validity (days)",type:"number",value:7,min:1,max:30,required:true},
+  {name:"target",label:"Telegram user ID (optional)",placeholder:"Leave empty to allow anyone"}
+ ],handler:async values=>{
+  const validity=Number(values.days);
+  if(!Number.isInteger(validity)||validity<1||validity>30)throw new Error("Choose a validity between 1 and 30 days.");
+  const request={expires_at:new Date(Date.now()+validity*86400000).toISOString()};
+  if(values.target.trim())request.target_identity={provider:"telegram",subject:values.target.trim()};
   const created=await api("/families/"+encodeURIComponent(family.id)+"/invitations",{method:"POST",body:JSON.stringify(request)});
   if(created.lan_url){
    const copy=window.confirm("Invitation created. Copy this LAN invitation link now?\n\n"+created.lan_url);
@@ -247,7 +314,7 @@ async function createInvitation(){
    setStatus("Invitation created; LAN_BASE_URL is not configured, so no LAN link is available","ok");
   }
   await loadFamilyInvitations(family.id);
- }catch(e){setStatus(e.message,"error")}
+ }});
 }
 async function revokeInvitation(invitationId){
  const family=state.familyDetails?.family;if(!family)return;
@@ -313,15 +380,13 @@ async function loadFamilyDetails(familyId){
  catch(e){state.familyDetails=null;$("managed-family-meta").textContent=e.message;renderFamilyMembers();renderFamilyLifecycle();setStatus(e.message,"error")}
 }
 async function createFamily(){
- const name=window.prompt("Family name");if(name===null)return;
- if(!name.trim()){setStatus("Family name must not be empty","error");return}
- const relationship=window.prompt("Your relationship in this family (father, mother, son, daughter, grandfather, grandmother, partner, other)","other");
- if(relationship===null)return;
- try{
-  const created=await api("/families",{method:"POST",body:JSON.stringify({name:name.trim(),relationship:relationship.trim().toLowerCase()})});
-  await loadFamilies();await loadFamilyDetails(created.id);
-  setStatus("Family created","ok");
- }catch(e){setStatus(e.message,"error")}
+ openFamilyActionDialog({title:"Create family",description:"Create a family and choose your relationship to it.",submitLabel:"Create family",fields:[
+  {name:"name",label:"Family name",required:true,maxLength:80},
+  {name:"relationship",label:"Your relationship",type:"select",value:"other",options:["father","mother","son","daughter","grandfather","grandmother","partner","other"].map(value=>({value,label:value[0].toUpperCase()+value.slice(1)}))}
+ ],handler:async values=>{
+  const created=await api("/families",{method:"POST",body:JSON.stringify({name:values.name.trim(),relationship:values.relationship})});
+  await loadFamilies();await loadFamilyDetails(created.id);setStatus("Family created","ok");
+ }});
 }
 async function renameFamily(){
  if(!state.familyDetails)return;
@@ -405,15 +470,21 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
  };
  setStatus("Running · "+runId.slice(0,8));
 }
-on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});
-on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
-on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
+on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",renderNotes);on("note-family-filter","change",renderNotes);
+on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
+ const button=$("refresh-tasks");if(button)button.disabled=true;
+ $("tasks-list").innerHTML='<div class="empty" role="status">Loading tasks…</div>';
  try{state.tasks=await api("/tasks");renderTasks()}
- catch(e){$("tasks-list").innerHTML='<div class="empty">Unable to load tasks: '+escapeHtml(e.message)+'</div>'}
+ catch(e){$("tasks-list").innerHTML='<div class="empty" role="alert">Unable to load tasks: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-tasks>Try again</button></p></div>'}
+ finally{if(button)button.disabled=false}
 }
 function renderTasks(){
- $("tasks-list").innerHTML=state.tasks.length?state.tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">No tasks yet. Create one to get started.</div>';
+ const query=$("task-search")?.value.trim().toLocaleLowerCase()||"";
+ const enabledOnly=$("tasks-enabled-only")?.checked||false;
+ const tasks=state.tasks.filter(task=>(!enabledOnly||task.enabled)&&[task.name,task.description,task.agent,task.schedule||"One-time"].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ $("tasks-list").innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
 }
 function renderTaskAgents(){
  const select=$("task-agent"),selected=select.value;
@@ -534,11 +605,17 @@ function selectIntegration(name){
 function renderGoogleConnections(){
  renderIntegrationNav();
  const target=$("google-connections");if(!target)return;
+ const query=$("google-search")?.value.trim().toLocaleLowerCase()||"";
  if(!state.googleConnections.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No Google accounts connected yet.</div></div>';return}
- target.innerHTML=state.googleConnections.map(connection=>{
-  const calendars=state.googleCalendars[connection.id]||[],writeScope=googleHasWriteScope(connection),status=connection.status==="active"?"Active":"Disconnected";
-  return '<section class="panel google-account" data-connection-id="'+escapeHtml(connection.id)+'"><div class="google-account-heading"><div><h3>'+escapeHtml(connection.email||"Google account")+'</h3><p class="hint">'+status+' · '+(googleHasReadScope(connection)?"Calendar read access":"No calendar read scope")+' · '+(writeScope?"Google write scope granted":"Read-only Google scope")+'</p></div><button type="button" class="danger" data-google-action="disconnect" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Disconnect</button></div><div class="calendar-toolbar"><div><h4>Calendars</h4><p class="hint">New calendars are not selected automatically.</p></div><button type="button" class="secondary" data-google-action="sync" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Sync calendars</button></div>'+(connection.status!=="active"?'<p class="hint">Reconnect this Google account to restore access.</p>':calendars.length?calendars.map(calendar=>renderGoogleCalendar(connection,calendar,writeScope)).join(""):'<p class="hint">No calendars discovered yet. Select “Sync calendars” to load them from Google.</p>')+'</section>'
- }).join("");
+ const connections=state.googleConnections.map(connection=>{
+  const calendars=state.googleCalendars[connection.id]||[];
+  const accountMatches=[connection.email,connection.status].some(value=>String(value||"").toLocaleLowerCase().includes(query));
+  return {connection,calendars:!query||accountMatches?calendars:calendars.filter(calendar=>[calendar.name,calendar.summary,calendar.id].some(value=>String(value||"").toLocaleLowerCase().includes(query))),accountMatches};
+ }).filter(item=>!query||item.accountMatches||item.calendars.length);
+ target.innerHTML=connections.length?connections.map(({connection,calendars})=>{
+  const writeScope=googleHasWriteScope(connection),status=connection.status==="active"?"Active":"Disconnected";
+  return '<section class="panel google-account" data-connection-id="'+escapeHtml(connection.id)+'"><div class="google-account-heading"><div><h3>'+escapeHtml(connection.email||"Google account")+'</h3><p class="hint">'+status+' · '+(googleHasReadScope(connection)?"Calendar read access":"No calendar read scope")+' · '+(writeScope?"Google write scope granted":"Read-only Google scope")+'</p></div><button type="button" class="danger" data-google-action="disconnect" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Disconnect</button></div><div class="calendar-toolbar"><div><h4>Calendars</h4><p class="hint">New calendars are not selected automatically.</p></div><button type="button" class="secondary" data-google-action="sync" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Sync calendars</button></div>'+(connection.status!=="active"?'<p class="hint">Reconnect this Google account to restore access.</p>':calendars.length?calendars.map(calendar=>renderGoogleCalendar(connection,calendar,writeScope)).join(""):'<p class="hint">'+(query?"No calendars match this filter.":"No calendars discovered yet. Select “Sync calendars” to load them from Google.")+'</p>')+'</section>';
+ }).join(""):'<div class="panel integrations-empty"><div class="empty">No accounts or calendars match this filter. <button type="button" class="secondary" data-clear-google-filter>Clear filter</button></div></div>';
 }
 function renderGoogleCalendar(connection,calendar,writeScope){
  const familyOptions=state.families.map(f=>'<option value="'+escapeHtml(f.id)+'" '+(calendar.family_id===f.id?"selected":"")+'>'+escapeHtml(f.name)+'</option>').join(""),familyEnabled=calendar.selected&&state.families.length>0,familyAccess=calendar.family_access||"viewer";
@@ -556,14 +633,14 @@ function renderTraktProfiles(){
  const connectable=state.traktProfiles.filter(profile=>!profile.trakt);
  const selector=$("trakt-connect-profile"),connectButton=$("trakt-connect");
  if(selector){
-  selector.innerHTML=connectable.length
-   ?connectable.map(profile=>'<option value="'+escapeHtml(profile.profile_id)+'">'+escapeHtml(profile.profile_name)+' · '+escapeHtml(profile.family_name)+'</option>').join("")
-   :'<option value="">No unconnected profile available</option>';
+  selector.innerHTML=connectable.length?connectable.map(profile=>'<option value="'+escapeHtml(profile.profile_id)+'">'+escapeHtml(profile.profile_name)+' · '+escapeHtml(profile.family_name)+'</option>').join(""):'<option value="">No unconnected profile available</option>';
   selector.disabled=connectable.length===0;
  }
  if(connectButton)connectButton.disabled=connectable.length===0;
+ const query=$("trakt-search")?.value.trim().toLocaleLowerCase()||"";
  if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet. Refresh to retry provisioning.</div></div>';return}
- target.innerHTML=state.traktProfiles.map(profile=>{
+ const profiles=state.traktProfiles.filter(profile=>[profile.profile_name,profile.family_name,profile.trakt?.username,profile.trakt?.display_name].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ target.innerHTML=profiles.length?profiles.map(profile=>{
   const trakt=profile.trakt,sync=profile.sync||{},lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
   const account=trakt?'<strong>'+escapeHtml(trakt.display_name||trakt.username)+'</strong><small>Trakt account · @'+escapeHtml(trakt.username)+'</small>':'<span class="hint">No Trakt account connected</span>';
   const summary=state.traktSummaries[profile.profile_id]||{};
@@ -572,7 +649,7 @@ function renderTraktProfiles(){
   const stats=hasImportedData?'<div class="trakt-stats"><div><strong>'+Number(summary.watched_movies||0).toLocaleString()+'</strong><span>Movies watched</span></div><div><strong>'+Number(summary.watched_shows||0).toLocaleString()+'</strong><span>Shows watched</span></div><div><strong>'+Number(summary.ratings||0).toLocaleString()+'</strong><span>Ratings</span></div><div><strong>'+Number(summary.watchlist_items||0).toLocaleString()+'</strong><span>Watchlist</span></div></div>':'<p class="hint trakt-no-data">'+(trakt?"No imported Trakt activity yet. Select Sync now to import your history, ratings and watchlist.":"No imported Trakt data for this profile.")+'</p>';
   const recent=(summary.recently_watched||[]).length?'<div class="trakt-recent"><h4>Recently watched</h4><ul>'+summary.recently_watched.map(item=>'<li><span>'+escapeHtml(item.title)+'</span><small>'+((item.kind==="movie")?"Movie":"TV show")+' · '+escapeHtml(new Date(item.watched_at).toLocaleDateString())+'</small></li>').join("")+'</ul></div>':'';
   return '<section class="panel google-account"><div class="google-account-heading"><div><h3>'+escapeHtml(profile.profile_name)+'</h3><p class="hint">'+escapeHtml(profile.family_name)+' · '+(trakt?"Connected":"Not connected")+'</p></div></div><div class="calendar-toolbar"><div>'+account+'<p class="hint">'+(trakt?"Last synchronized: "+escapeHtml(lastSync):"Imported media data is retained when Trakt is disconnected.")+'</p></div><div class="integration-button-row">'+actions+'</div></div><div class="trakt-data">'+stats+recent+'</div></section>';
- }).join("");
+ }).join(""):'<div class="panel integrations-empty"><div class="empty">No media profiles match this filter. <button type="button" class="secondary" data-clear-trakt-filter>Clear filter</button></div></div>';
 }
 async function loadTraktProfiles(loadSummaries=true){
  state.traktProfiles=await api("/media/trakt/profiles");
@@ -684,9 +761,9 @@ on("integrations-sidebar","click",event=>{
  const button=event.target.closest("[data-integration]");
  if(button)selectIntegration(button.dataset.integration);
 });
-on("google-connections","click",handleGoogleIntegrationAction);
+on("google-search","input",renderGoogleConnections);on("google-connections","click",e=>{if(e.target.closest("[data-clear-google-filter]")){$("google-search").value="";renderGoogleConnections();return}handleGoogleIntegrationAction(e)});
 on("google-connections","change",handleGoogleCalendarChange);
-on("trakt-profiles","click",handleTraktIntegrationAction);
+on("trakt-search","input",renderTraktProfiles);on("trakt-profiles","click",e=>{if(e.target.closest("[data-clear-trakt-filter]")){$("trakt-search").value="";renderTraktProfiles();return}handleTraktIntegrationAction(e)});
 on("trakt-connect","click",async()=>{
  const profileId=$("trakt-connect-profile")?.value;
  const profile=state.traktProfiles.find(item=>item.profile_id===profileId&&!item.trakt);
@@ -710,7 +787,6 @@ async function showConsole(){
   state.agents=await api("/agents");renderTaskAgents();state.families=await api("/families");renderTaskFamilies();await loadTasks();resetTaskEditor();
  }else if(page==="profile"){
   await Promise.all([loadProfile(),loadFamilies()]);
-  await loadFamilyDetails(state.families[0]?.id||null);
  }else if(page==="integrations"){
   await loadIntegrations();
  }else{
@@ -731,7 +807,7 @@ window.emeConsoleReady.then(async () => {
   } catch (error) {
     // A protected API may have returned 401 while the view was initializing.
     // In that case the shared auth gate owns the screen; do not reveal the view.
-    if (!$("login-screen").hidden) return;
+    if (error?.status === 401) return;
     document.body.classList.remove("login-active");
     $("invite-screen").hidden = true;
     $("logout").hidden = false;
@@ -791,32 +867,38 @@ function renderTaskExecution(execution){
  ];
  return '<div class="task-execution-detail"><div class="hint task-execution-run-meta">Agent: '+escapeHtml(execution.agent||"")+' · Run: '+escapeHtml(execution.run_id||"")+'</div><nav class="task-execution-section-nav" aria-label="Execution detail sections" role="tablist">'+sections.map((section,index)=>'<button type="button" class="task-execution-section-tab'+(index===0?' active':'')+'" id="task-execution-tab-'+section.id+'" role="tab" aria-selected="'+(index===0?'true':'false')+'" aria-controls="task-execution-panel-'+section.id+'" tabindex="'+(index===0?'0':'-1')+'" data-execution-section="'+section.id+'">'+section.label+(section.count===null?'':' <span>'+section.count+'</span>')+'</button>').join("")+'</nav>'+sections.map((section,index)=>'<section class="task-execution-section" id="task-execution-panel-'+section.id+'" role="tabpanel" aria-labelledby="task-execution-tab-'+section.id+'" '+(index===0?'':'hidden')+'><h4>'+section.label+'</h4>'+section.content+'</section>').join("")+'</div>';
 }
+function renderTaskExecutions(){
+ const target=$("task-executions-list");if(!target)return;
+ const query=$("task-executions-search")?.value.trim().toLocaleLowerCase()||"";
+ const matches=state.taskExecutions.map((execution,index)=>({execution,index})).filter(({execution})=>{
+  const created=Number(execution.created_at_unix_ms),date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+  return [execution.status,date,execution.agent,execution.id].some(value=>String(value||"").toLocaleLowerCase().includes(query));
+ });
+ const visible=matches.slice(0,25);
+ if(!visible.length){
+  target.innerHTML='<div class="empty">'+(state.taskExecutions.length?'No executions match this filter. <button type="button" class="secondary" data-clear-execution-filter>Clear filter</button>':'No executions recorded for this task yet.')+'</div>';
+  return;
+ }
+ target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th></tr></thead><tbody>'+visible.map(({execution,index})=>{
+  const created=Number(execution.created_at_unix_ms);
+  const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
+  const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
+  const status=String(execution.status||"unknown").replaceAll("_"," ");
+  return '<tr data-execution-index="'+index+'" tabindex="0" role="button" aria-label="Execution on '+escapeHtml(date)+', '+escapeHtml(status)+'. Open details"><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td></tr>';
+ }).join("")+'</tbody></table></div>'+(matches.length>visible.length?'<p class="hint">Showing the latest 25 of '+matches.length+' matching executions.</p>':"");
+}
 async function loadTaskExecutions(taskId){
  const panel=$("task-executions"),target=$("task-executions-list");
  if(!panel||!target||!taskId||taskId==="new")return;
- target.innerHTML='<div class="empty">Loading execution history…</div>';
+ target.innerHTML='<div class="empty" role="status">Loading execution history…</div>';
  const refresh=$("task-executions-refresh");if(refresh)refresh.disabled=true;
  try{
   const executions=await api("/tasks/"+encodeURIComponent(taskId)+"/executions");
   if(state.selectedTask!==taskId)return;
-  state.taskExecutions=executions;
-  if(!executions.length){
-   target.innerHTML='<div class="empty">No executions recorded for this task yet.</div>';
-   return;
-  }
-  const visible=executions.slice(0,25);
-  target.innerHTML='<div class="task-executions-table-wrap"><table class="task-executions-table"><thead><tr><th scope="col">Started</th><th scope="col">Status</th><th scope="col">Duration</th></tr></thead><tbody>'+visible.map((execution,index)=>{
-   const created=Number(execution.created_at_unix_ms);
-   const date=Number.isFinite(created)?new Date(created).toLocaleString():"Unknown date";
-   const duration=Number.isFinite(execution.duration_ms)?(execution.duration_ms<1000?execution.duration_ms+" ms":(execution.duration_ms/1000).toFixed(1)+" s"):"Still running";
-   const status=String(execution.status||"unknown").replaceAll("_"," ");
-   return '<tr data-execution-index="'+index+'" tabindex="0" role="button" aria-label="Execution on '+escapeHtml(date)+', '+escapeHtml(status)+'. Open details"><td>'+escapeHtml(date)+'</td><td><span class="task-execution-status">'+escapeHtml(status)+'</span></td><td>'+escapeHtml(duration)+'</td></tr>';
-  }).join("")+'</tbody></table></div>'+(executions.length>visible.length?'<p class="hint">Showing the latest 25 of '+executions.length+' executions.</p>':"");
+  state.taskExecutions=executions;renderTaskExecutions();
  }catch(error){
-  if(state.selectedTask===taskId)target.innerHTML='<div class="empty">Unable to load execution history: '+escapeHtml(error.message)+'</div>';
- }finally{
-  if(refresh)refresh.disabled=false;
- }
+  if(state.selectedTask===taskId)target.innerHTML='<div class="empty" role="alert">Unable to load execution history: '+escapeHtml(error.message)+'<p><button type="button" class="secondary" data-retry-executions>Try again</button></p></div>';
+ }finally{if(refresh)refresh.disabled=false}
 }
 $("task-executions-refresh")?.addEventListener("click",()=>{
  if(state.selectedTask&&state.selectedTask!=="new")void loadTaskExecutions(state.selectedTask);
@@ -831,7 +913,10 @@ function openTaskExecution(index){
  $("task-execution-detail").innerHTML=renderTaskExecution(execution);
  $("task-execution-dialog").showModal();
 }
+$("task-executions-search")?.addEventListener("input",renderTaskExecutions);
 $("task-executions-list")?.addEventListener("click",event=>{
+ if(event.target.closest("[data-retry-executions]")){if(state.selectedTask)loadTaskExecutions(state.selectedTask);return}
+ if(event.target.closest("[data-clear-execution-filter]")){$("task-executions-search").value="";renderTaskExecutions();return}
  const row=event.target.closest("tr[data-execution-index]");
  if(row)openTaskExecution(Number(row.dataset.executionIndex));
 });

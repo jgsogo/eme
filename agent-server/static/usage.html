@@ -13,7 +13,7 @@
 </head>
 <body data-page="admin-usage">
   <header></header>
-  <main class="usage-main">
+  <main class="console-main usage-main">
     <nav class="profile-section-nav admin-section-nav" aria-label="Admin">
       <a class="profile-section-link active" href="/console/admin/usage" aria-current="page">Observability</a>
       <a class="profile-section-link" href="/console/admin/tools">Tools</a>
@@ -46,7 +46,7 @@
     </section>
     <section class="usage-panels">
       <article class="panel usage-panel">
-        <div class="usage-panel-heading"><div><h3>Usage by model</h3><p>Input and output tokens per provider/model</p></div></div>
+        <div class="usage-panel-heading"><div><h3>Usage by model</h3><p>Input and output tokens per provider/model</p></div><div class="usage-model-controls"><input id="usage-model-search" type="search" placeholder="Filter models…" aria-label="Filter models" autocomplete="off"><span id="usage-model-count" class="usage-record-count"></span></div></div>
         <div id="usage-models" class="usage-models"><p class="usage-empty">No usage records for this period.</p></div>
       </article>
       <article class="panel usage-panel">
@@ -64,7 +64,7 @@
       </article>
     </section>
     <section class="panel pricing-panel">
-      <div class="usage-panel-heading"><div><h3>Pricing catalogue</h3><p>Add immutable, date-effective rates for a provider/model. Rates are entered in currency units per million tokens. Enter 0 for explicitly non-billable dimensions; leave blank only when the rate is unknown.</p></div></div>
+      <div class="usage-panel-heading"><div><h3>Pricing catalogue</h3><p>Add immutable, date-effective rates for a provider/model. Rates are entered in currency units per million tokens. Enter 0 for explicitly non-billable dimensions; leave blank only when the rate is unknown.</p></div><div class="pricing-controls"><input id="pricing-search" type="search" placeholder="Filter pricing versions…" aria-label="Filter pricing versions" autocomplete="off"><span id="pricing-count" class="usage-record-count"></span></div></div>
       <form id="pricing-form">
         <div class="pricing-form-grid">
           <label>Provider<input id="price-provider" required placeholder="openai" autocomplete="off"></label>
@@ -86,7 +86,7 @@
     </section>
 
     <section class="panel usage-history">
-      <div class="usage-panel-heading"><div><h3>Recent invocations</h3><p>Each fallback attempt is accounted for independently</p></div><span id="usage-record-count" class="usage-record-count">—</span></div>
+      <div class="usage-panel-heading"><div><h3>Recent invocations</h3><p>Each fallback attempt is accounted for independently</p></div><div class="usage-history-controls"><input id="usage-record-search" type="search" placeholder="Filter invocations…" aria-label="Filter invocations"><span id="usage-record-count" class="usage-record-count">—</span></div></div>
       <div class="usage-table-wrap">
         <table class="usage-table">
           <thead><tr><th>Time</th><th>Run</th><th>Agent</th><th>Provider / model</th><th>Outcome</th><th>Input</th><th>Output</th><th>Cost</th></tr></thead>

@@ -579,3 +579,320 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .task-execution-event-payload summary{cursor:pointer}
 .task-execution-event-payload pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:600px){.task-execution-section-nav{gap:12px}.task-execution-section-tab{font-size:11px}.task-execution-events-table th,.task-execution-events-table td{padding:7px 5px;font-size:10px}.task-execution-events-table td:nth-child(2){min-width:100px}}
+
+
+/* Shared desktop console layout. Mobile views use their own stylesheets. */
+@media (min-width: 761px) {
+  main.console-main {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px 20px 40px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  main.console-main:has(.workspace) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  main.console-main:has(.workspace) > .workspace {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+  main.console-main > section,
+  main.console-main > .notes-view,
+  main.console-main > .integrations-view,
+  main.console-main > .recipes-view {
+    min-width: 0;
+  }
+  .profile-section-nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: 100%;
+    margin: 0 0 20px;
+    padding: 0 0 10px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+  .profile-section-link {
+    padding: 7px 11px;
+    border-radius: 7px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color .15s ease, background .15s ease;
+  }
+  .profile-section-link:hover { color: var(--text); background: rgba(255,255,255,.035); }
+  .profile-section-link.active { color: var(--text); background: var(--panel2); }
+  .meals-header-row {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 12px;
+    margin: 0 0 20px;
+  }
+  .meals-header-row .profile-section-nav { margin: 0; }
+  .meals-family-selector { align-self: flex-end; max-width: 320px; width: 100%; }
+  .list-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .list-panel-heading h3 { margin: 0; }
+  .list-panel-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .list-panel-tools input[type="search"] {
+    width: min(100%, 260px);
+    min-width: 150px;
+    margin: 0;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+  .list-panel-tools label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .list-panel-tools input[type="checkbox"] { accent-color: var(--accent); }
+  .usage-main { max-width: 1440px; }
+  .usage-heading { align-items: center; }
+  .usage-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .usage-history-controls { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+  .usage-history-controls input[type="search"] {
+    width: min(280px, 35vw);
+    margin: 0;
+    background: var(--panel2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+  .recipes-view { min-height: 0; }
+}
+
+@media (min-width: 761px) {
+  .family-list-panel > input[type="search"] {
+    display: block;
+    width: 100%;
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  .family-list-panel > input[type="search"]:focus-visible,
+  .list-panel-tools input[type="search"]:focus-visible,
+  .usage-history-controls input[type="search"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .task-list-filters { margin-bottom: 12px; }
+  .shopping-list-filters {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 12px;
+  }
+  .shopping-list-filters input[type="search"] {
+    width: min(100%, 280px);
+    margin: 0;
+    padding: 8px 10px;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  .shopping-list-filters label { display: inline-flex; align-items: center; gap: 6px; }
+  .shopping-list-filters input[type="checkbox"] { accent-color: var(--accent); }
+}
+
+/* Desktop-wide interaction and responsive consistency. */
+@media (min-width: 761px) {
+  header { flex-wrap: wrap; }
+  .header-title {
+    flex: 1 1 620px;
+    min-width: 0;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+  }
+  .main-nav { flex-wrap: wrap; }
+  .header-actions { margin-left: auto; }
+  .usage-actions input[type="search"],
+  .usage-actions select,
+  .usage-history-controls input[type="search"] { min-height: 38px; }
+  .usage-history-controls input[type="search"] { min-width: 180px; }
+  .tool-card { display: flex; flex-direction: column; }
+  .tool-card > details { margin-top: auto; padding-top: 12px; }
+  .usage-table tbody tr:hover,
+  .pricing-table tbody tr:hover { background: rgba(255,255,255,.035); }
+  .notes-list-panel,
+  .family-list-panel,
+  .family-details-panel,
+  .integration-details,
+  .integrations-sidebar { scrollbar-gutter: stable; }
+  :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  :where(input[type="checkbox"],input[type="radio"]) { accent-color: var(--accent); }
+  :where(button,a) { -webkit-tap-highlight-color: transparent; }
+  button:hover:not(:disabled) { filter: brightness(1.06); }
+  button.secondary:hover:not(:disabled) { border-color: var(--accent); filter: none; }
+  button.danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--err) 10%, transparent);
+    filter: none;
+  }
+  [role="alert"] { overflow-wrap: anywhere; }
+  [role="alert"] button { margin-top: 8px; }
+  .pricing-controls { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+  .pricing-controls input[type="search"] {
+    width:min(280px, 30vw);
+    min-width:170px;
+    min-height:38px;
+    margin:0;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+  .task-execution-controls {
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .task-execution-controls label { white-space:nowrap; }
+  .task-execution-controls input[type="search"] {
+    flex:1 1 220px;
+    min-width:160px;
+    margin:0;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+}
+@media (min-width: 761px) and (max-width: 1050px) {
+  .header-title { flex-basis:100%; }
+  .header-title h1 { margin-right:12px; }
+}
+@media (min-width: 761px) and (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior:auto !important;
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
+@media (min-width: 761px) {
+  .family-section-filter {
+    display:block;
+    margin:12px 0 5px;
+    font-size:11px;
+  }
+  .family-section-filter + input[type="search"] {
+    display:block;
+    width:100%;
+    min-height:36px;
+    margin:0 0 10px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+  .family-action-dialog { width:min(520px,calc(100vw - 40px)); }
+  .family-action-dialog form { display:flex; flex-direction:column; gap:12px; }
+  .family-action-dialog .family-details-heading { margin-bottom:2px; }
+  .family-action-dialog .family-details-heading h3 { margin:0; }
+  .family-action-fields { display:grid; gap:12px; }
+  .family-action-field { display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:12px; }
+  .family-action-field input,
+  .family-action-field select {
+    width:100%;
+    min-height:38px;
+    margin:0;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+  .family-action-buttons { display:flex; justify-content:flex-end; gap:8px; }
+  #family-action-status:empty { display:none; }
+}
+@media (min-width: 761px) {
+  .integration-list-filter {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:10px;
+    margin:14px 0;
+  }
+  .integration-list-filter label { white-space:nowrap; }
+  .integration-list-filter input[type="search"] {
+    width:min(320px,45%);
+    min-width:180px;
+    min-height:38px;
+    margin:0;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+}
+@media (min-width: 761px) {
+  .usage-model-controls {
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:10px;
+  }
+  .usage-model-controls input[type="search"] {
+    width:min(240px,28vw);
+    min-width:150px;
+    min-height:36px;
+    margin:0;
+    padding:7px 9px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--panel2);
+    color:var(--text);
+    font:inherit;
+  }
+}
+/* Protected pages stay invisible until the browser session is confirmed. */
+body:not(.login-page) { visibility:hidden; }
+.login-page { height:100vh; min-height:100svh; display:block; }
+.login-page-main {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-height:100vh;
+  min-height:100svh;
+  padding:24px;
+}
+.login-page .login-card { width:min(440px,100%); }
+.login-page .login-card button { width:100%; margin-top:8px; }
+.login-page #login-status { margin:16px 0 0; font-size:13px; }

@@ -2,8 +2,8 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>EME Agent Console · Tasks</title><link rel="stylesheet" href="/assets/console.css"><script src="/assets/desktop-header.js" defer></script><script src="/assets/console-auth.js" defer></script><script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" defer></script><script src="/assets/console.js" defer></script></head>
 <body data-page="tasks"><header></header>
 <section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
-<main hidden><section class="notes-view"><div class="notes-layout">
-<section class="panel notes-list-panel"><h3>Your tasks</h3><button id="new-task" type="button">＋ New task</button><button id="refresh-tasks" type="button" class="secondary" style="margin-left:6px">Refresh</button><div id="tasks-list" class="notes-list"><div class="empty">Loading tasks…</div></div></section>
+<main class="console-main" hidden><section class="notes-view"><div class="notes-layout">
+<section class="panel notes-list-panel"><div class="list-panel-heading"><h3>Your tasks</h3><div class="list-panel-tools"><button id="new-task" type="button">＋ New task</button><button id="refresh-tasks" type="button" class="secondary">Refresh</button></div></div><div class="list-panel-tools task-list-filters"><input id="task-search" type="search" placeholder="Filter tasks…" aria-label="Filter tasks"><label for="tasks-enabled-only"><input id="tasks-enabled-only" type="checkbox"> Enabled only</label></div><div id="tasks-list" class="notes-list"><div class="empty">Loading tasks…</div></div></section>
 <div class="notes-editor-column">
 <nav id="task-section-nav" class="task-section-nav" aria-label="Task details sections">
 <button type="button" class="task-section-tab active" data-task-section-tab="details" aria-controls="task-details" aria-selected="true">Details</button>
@@ -26,7 +26,9 @@
 </form>
 </section>
 <section id="task-executions" class="task-section-content" data-task-section="history" hidden aria-live="polite">
-  <div class="notes-actions">
+  <div class="notes-actions task-execution-controls">
+    <label for="task-executions-search">Filter executions</label>
+    <input id="task-executions-search" type="search" placeholder="Status, date or agent…" autocomplete="off">
     <button id="task-executions-refresh" type="button" class="secondary">Refresh</button>
   </div>
   <div id="task-executions-list" class="notes-list"><div class="empty">Select a task to inspect its executions.</div></div>
