@@ -881,3 +881,5 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
     font:inherit;
   }
 }
+/* Protected pages stay invisible until the browser session is confirmed. */
+body:not(.login-page) { visibility:hidden; }
