@@ -51,6 +51,7 @@
         <article class="feature"><div class="num">04 / LIFECYCLE</div><h3>Control the execution</h3><p>Agent configuration, execution limits, cancellation and timeouts are runtime responsibilities, not prompts left for a model to interpret.</p></article>
         <article class="feature"><div class="num">05 / MODULARITY</div><h3>Keep boundaries explicit</h3><p>Provider adapters, the runtime and tool integrations live in separate crates with focused responsibilities and independently described contracts.</p></article>
         <article class="feature"><div class="num">06 / DURABILITY</div><h3>Build towards recovery</h3><p>Persistent runs, checkpoints, retries and resumption are part of the platform's direction—not capabilities claimed as complete today.</p></article>
+        <article class="feature"><div class="num">07 / VERIFIABLE EXECUTION</div><h3>Verify what an agent claims</h3><p>The runtime can compare explicit claims about configured tool use with its own execution history, flagging cases where an agent says it invoked a tool that was never dispatched. This is a targeted check—not general-purpose hallucination detection.</p></article>
       </div>
     </div></section>
     <section class="section" id="architecture"><div class="wrap">
