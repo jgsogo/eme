@@ -621,7 +621,28 @@ pub(super) async fn favicon() -> impl Responder {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_mobile_user_agent, list_configured_providers, test_configured_providers};
+    use super::{login_return_to, is_mobile_user_agent, list_configured_providers, test_configured_providers};
+
+    #[test]
+    fn login_return_to_accepts_only_local_destinations() {
+        use actix_web::test;
+
+        let request = test::TestRequest::with_uri(
+            "/login?return_to=%2Fconsole%2Ftasks%3Fstatus%3Dfailed",
+        )
+        .to_http_request();
+        assert_eq!(login_return_to(&request), "/console/tasks?status=failed");
+
+        for uri in [
+            "/login?return_to=%2F%2Fevil.example",
+            "/login?return_to=javascript%3Aalert(1)",
+            "/login?return_to=%2Flogin",
+            "/login?return_to=%2F%5C%5Cevil.example",
+        ] {
+            let request = test::TestRequest::with_uri(uri).to_http_request();
+            assert_eq!(login_return_to(&request), "/", "{uri}");
+        }
+    }
 
     #[actix_web::test]
     async fn model_test_reports_missing_credentials_for_the_selected_model() {
