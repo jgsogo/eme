@@ -7,7 +7,7 @@ The `telegram-tool` crate provides the platform's collection of tools for intera
 The crate currently implements two tools:
 
 - `tg_notify_user` — send a one-way notification
-- `tg_ask_user` — ask a question and wait for the reply (free text or yes/no text replies)
+- `tg_ask_user` — ask a question and wait for the reply (free text or yes/no buttons / text replies)
 
 The crate also exposes a shared `TelegramGateway`. The server owns one gateway per bot token and shares it with the inbound bot adapter and tools.
 
@@ -45,7 +45,7 @@ Sends a question and blocks until the user answers or the timeout elapses.
 Arguments:
 
 - `question` (string, required). The Telegram message explicitly asks the recipient to use **Reply** on that message; standalone messages/comments are not accepted.
-- `kind` (string, optional): `"text"` (default) or `"yes_no"`. For `yes_no`, reply to the question with `yes` or `no` (Spanish `sí`/`si` is also accepted).
+- `kind` (string, optional): `"text"` (default) or `"yes_no"`. For `yes_no`, use the Yes/No buttons attached to the question, or reply to the question with `yes` or `no` (Spanish `sí`/`si` is also accepted).
 - `recipient` (string, optional): a `recipient_id` from the trusted family context; omitted means the conversation owner.
 
 Returns:

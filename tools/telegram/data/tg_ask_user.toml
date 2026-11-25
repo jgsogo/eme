@@ -1,5 +1,5 @@
 name = "telegram.ask_user"
-description = "Ask the conversation owner or a member of any family the conversation owner belongs to a question and wait for their Telegram reply (default timeout: 5 minutes). The recipient must use Telegram's Reply action on the question message; standalone messages/comments are not accepted. Use kind='text' for free-text answers, or kind='yes_no' for a yes/no text reply. Returns the user's answer (free text, or 'yes'/'no')."
+description = "Ask the conversation owner or a member of any family the conversation owner belongs to a question and wait for their Telegram reply (default timeout: 5 minutes). The recipient must use Telegram's Reply action on the question message; standalone messages/comments are not accepted. Use kind='text' for free-text answers, or kind='yes_no' for Yes/No inline buttons or a yes/no text reply. Returns the user's answer (free text, or 'yes'/'no')."
 
 [parameters]
 type = "object"
@@ -16,5 +16,5 @@ description = "Optional recipient_id from any trusted family context belonging t
 
 [parameters.properties.kind]
 type = "string"
-description = "Answer mode: 'text' (default) for a free-text reply, or 'yes_no' for a yes/no text reply to the question message."
+description = "Answer mode: 'text' (default) for a free-text reply, or 'yes_no' for Yes/No inline buttons attached to the question or a yes/no text reply to the question message."
 enum = ["text", "yes_no"]
