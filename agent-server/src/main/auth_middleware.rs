@@ -112,7 +112,10 @@ mod tests {
             "/runs/123",
             "/providers",
         ] {
-            assert!(!is_console_page(&Method::GET, path), "{path} is an API, not a page");
+            assert!(
+                !is_console_page(&Method::GET, path),
+                "{path} is an API, not a page"
+            );
         }
     }
 
