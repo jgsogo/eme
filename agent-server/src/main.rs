@@ -36,7 +36,8 @@ use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     agents_page, agents_script, console_auth_script, console_root, console_script,
     console_stylesheet, conversations_page, desktop_header_script, families_page, favicon,
-    integrations_page, invitation_page, list_configured_providers, list_registered_tools, login_page, login_script,
+    integrations_page, invitation_page, list_configured_providers, list_registered_tools, login_page,
+    login_script,
     meals_family_script, meals_page, mobile_base_stylesheet, mobile_conversations_page,
     mobile_families_page, mobile_integrations_page, mobile_meal_planner_page, mobile_meals_page,
     mobile_notes_page, mobile_profile_page, mobile_root, mobile_school_menus_page, mobile_script,
