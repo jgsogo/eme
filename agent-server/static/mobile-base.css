@@ -539,3 +539,5 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
 .task-execution-event-payload summary{cursor:pointer}
 .task-execution-event-payload pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:600px){.task-execution-section-nav{gap:12px}.task-execution-section-tab{font-size:11px}.task-execution-events-table th,.task-execution-events-table td{padding:7px 5px;font-size:10px}.task-execution-events-table td:nth-child(2){min-width:100px}}
+/* Protected pages stay invisible until the browser session is confirmed. */
+body:not(.login-page) { visibility:hidden; }
