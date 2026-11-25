@@ -17,7 +17,8 @@ use agent_runtime::ToolDefinition;
 use agent_server::auth::TelegramAuth;
 
 fn login_return_to(request: &HttpRequest) -> String {
-    let query = web::Query::<HashMap<String, String>>::from_query(request.query_string()).ok();
+    let query =
+        web::Query::<HashMap<String, String>>::from_query(request.query_string()).ok();
     let destination = query
         .as_ref()
         .and_then(|query| query.get("return_to"))
