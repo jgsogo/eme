@@ -19,4 +19,4 @@ $("recipe-list").addEventListener("click",event=>{const button=event.target.clos
 $("recipe-search").addEventListener("input",async()=>{try{state.recipes=await api("/meal-planner/recipes?family_id="+encodeURIComponent(state.familyId)+"&q="+encodeURIComponent($("recipe-search").value));renderList()}catch(e){$("recipe-list").textContent=e.message}});
 $("new-recipe").addEventListener("click",()=>{state.selected=null;renderList();editRecipe(null)});
 window.addEventListener("eme:family-changed",async()=>{state.selected=null;await loadRecipes();emptyView()});
-(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();await loadRecipes()}catch(e){$("connection").textContent="Error loading recipes: "+e.message;$("recipe-content").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}})();
+(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();await loadRecipes()}catch(e){$("connection").textContent="Error loading recipes: "+e.message;$("recipe-content").innerHTML='<p class="empty">'+esc(e.message)+'</p>'}finally{$("recipe-content").closest("main").hidden=false}})();
