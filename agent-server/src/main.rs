@@ -41,8 +41,8 @@ use console::{
     libraries_script, list_configured_providers, list_registered_tools, login_page, login_script,
     meals_family_script, meals_page, mobile_admin_agents_page, mobile_admin_providers_page,
     mobile_admin_stylesheet, mobile_admin_tools_page, mobile_admin_usage_page,
-    mobile_base_stylesheet, mobile_books_libraries_page,
-    mobile_books_page, mobile_conversations_page, mobile_families_page, mobile_integrations_page,
+    mobile_base_stylesheet, mobile_books_libraries_page, mobile_books_page,
+    mobile_conversations_page, mobile_families_page, mobile_integrations_page,
     mobile_meal_planner_page, mobile_meals_page, mobile_notes_page, mobile_profile_page,
     mobile_root, mobile_school_menus_page, mobile_script, mobile_shopping_list_page,
     mobile_stylesheet, mobile_tasks_page, notes_page, profile_page, providers_page,
@@ -234,8 +234,8 @@ async fn main() -> Result<()> {
         info!("LAN invitation links enabled");
     } else {
         error!(
-            "LAN_BASE_URL is not set; LAN family invitation links are disabled. \
-             Set LAN_BASE_URL to the server's private-network URL (for example \
+            "LAN_BASE_URL is not set; LAN family invitation links are disabled. \\
+             Set LAN_BASE_URL to the server's private-network URL (for example \\
              http://192.168.1.20:8080) and restart agent-server."
         );
     }
