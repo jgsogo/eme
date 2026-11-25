@@ -30,7 +30,9 @@ fn login_location(return_to: &str) -> String {
     let encoded = return_to
         .bytes()
         .map(|byte| match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' | b'?' | b'&' | b'=' | b':' | b'@' | b'!' | b'$' | b'\'' | b'(' | b')' | b'*' | b'+' | b',' | b';' => (byte as char).to_string(),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' | b'/' => {
+                (byte as char).to_string()
+            }
             _ => format!("%{byte:02X}"),
         })
         .collect::<String>();
@@ -108,7 +110,7 @@ mod tests {
     fn login_redirect_preserves_the_requested_path_and_query() {
         assert_eq!(
             login_location("/console/tasks?status=failed&limit=20"),
-            "/login?return_to=/console/tasks?status=failed&limit=20"
+            "/login?return_to=/console/tasks%3Fstatus%3Dfailed%26limit%3D20"
         );
         assert_eq!(
             login_location("/invite/a token"),
