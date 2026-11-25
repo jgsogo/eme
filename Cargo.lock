@@ -271,6 +271,7 @@ dependencies = [
  "alexa-tool",
  "anyhow",
  "async-trait",
+ "books-tool",
  "chrono",
  "clap",
  "common-tools",
@@ -281,6 +282,7 @@ dependencies = [
  "mercadona-tool",
  "meteosource-tool",
  "notes-tools",
+ "rabel-tool",
  "serde",
  "serde_json",
  "tasks-tool",
@@ -597,6 +599,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.10",
+]
+
+[[package]]
+name = "books-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
+ "chrono",
+ "rabel-tool",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2695,6 +2714,26 @@ name = "r-efi"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
+
+[[package]]
+name = "rabel-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "clap",
+ "regex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
+ "wiremock",
+]
 
 [[package]]
 name = "rand"
