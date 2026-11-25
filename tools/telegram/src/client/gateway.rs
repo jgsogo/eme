@@ -496,7 +496,11 @@ mod tests {
         let mut pending = HashMap::new();
         pending.insert((42, 100), PendingReply::YesNo { sender });
 
-        assert!(!dispatch_callback(Some((42, 999)), Some(false), &mut pending));
+        assert!(!dispatch_callback(
+            Some((42, 999)),
+            Some(false),
+            &mut pending
+        ));
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
     }
@@ -507,7 +511,11 @@ mod tests {
         let mut pending = HashMap::new();
         pending.insert((42, 100), PendingReply::Text { sender });
 
-        assert!(!dispatch_callback(Some((42, 100)), Some(true), &mut pending));
+        assert!(!dispatch_callback(
+            Some((42, 100)),
+            Some(true),
+            &mut pending
+        ));
         assert!(!dispatch_callback(Some((42, 100)), None, &mut pending));
         assert!(receiver.try_recv().is_err());
         assert!(pending.contains_key(&(42, 100)));
