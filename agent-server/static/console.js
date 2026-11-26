@@ -155,7 +155,7 @@ async function selectNote(id){
   for(const field of ["note-title","note-content","note-family","save-note"])$(field).disabled=!editable;
   $("delete-note").disabled=!editable;
   $("notes-status").textContent=!editable?"Shared note · read-only":(full.family_id?"Shared with "+(state.families.find(f=>f.id===full.family_id)?.name||"a family"):"Private note");
- }catch(e){$("notes-status").textContent=e.message}
+ }catch(e){$("notes-status").textContent=e.message;$("notes-main-subtitle").textContent="Unable to open note: "+e.message}
 }
 function renderNoteFamilies(){
  const select=$("note-family");if(!select)return;const selected=select.value;
