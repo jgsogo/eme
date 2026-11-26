@@ -1190,6 +1190,86 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn disconnect_cleans_up_revoked_or_missing_external_connections() {
+        let families = Arc::new(InMemoryFamilyStore::default());
+        let user_id = UserId::new();
+        let media = MediaStore::open_in_memory().unwrap();
+        let profile = media.get_or_create_personal_profile(user_id).await.unwrap();
+        let db_path = std::env::temp_dir().join(format!("media-trakt-unlink-{}.db", Uuid::new_v4()));
+        let external = Arc::new(SqliteExternalConnectionStore::open(&db_path, [6; 32]).unwrap());
+        let external_trait: Arc<dyn ExternalConnectionStore> = external.clone();
+        let service = TraktOAuthService::new(
+            TraktOAuthConfig::new("client", "http://localhost/callback").unwrap(),
+            media.clone(),
+            families,
+            external_trait,
+        )
+        .unwrap();
+
+        let connection = external
+            .create_connection(NewExternalConnection {
+                owner_id: user_id,
+                provider: "trakt".into(),
+                provider_subject: "example-user".into(),
+                display_email: None,
+                refresh_token: "refresh-token".into(),
+                granted_scopes: Vec::new(),
+            })
+            .await
+            .unwrap();
+        let link = MediaExternalConnectionLink {
+            owner_id: user_id,
+            family_id: None,
+            profile_id: profile.id,
+            provider: "trakt".into(),
+            external_connection_id: connection.id,
+            provider_subject: "example-user".into(),
+            display_name: None,
+            linked_at: Utc::now(),
+        };
+        media.save_external_connection_link(&link).await.unwrap();
+        external
+            .revoke_connection(user_id, connection.id)
+            .await
+            .unwrap();
+
+        service
+            .unlink_personal_profile(user_id, profile.id)
+            .await
+            .unwrap();
+        assert!(
+            media
+                .get_external_connection_link(profile.id, "trakt")
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        // A stale profile link can also outlive its external-connection row.
+        let stale_link = MediaExternalConnectionLink {
+            external_connection_id: ExternalConnectionId::new(),
+            linked_at: Utc::now(),
+            ..link
+        };
+        media.save_external_connection_link(&stale_link).await.unwrap();
+        service
+            .unlink_personal_profile(user_id, profile.id)
+            .await
+            .unwrap();
+        assert!(
+            media
+                .get_external_connection_link(profile.id, "trakt")
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        drop(service);
+        drop(external);
+        let _ = fs::remove_file(db_path);
+    }
+
+    #[tokio::test]
     async fn only_the_assigned_user_can_link_their_profile() {
         let (families, user_id, family_id, media, profile_id) = family_and_profile().await;
         let member_id = UserId::new();
