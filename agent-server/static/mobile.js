@@ -1,4 +1,4 @@
-//! Mobile-only navigation: an icon destination bar and the conversation drawer.
+//! Mobile-only navigation: the icon destination bar and shared section drawers.
 const $mobile = id => document.getElementById(id);
 
 function installBottomNavigation() {
@@ -26,9 +26,9 @@ function installBottomNavigation() {
 }
 
 function setDrawerOpen(open) {
-  const sidebar = $mobile("profile-sidebar") || $mobile("conversation-sidebar") || $mobile("notes-sidebar") || $mobile("tasks-sidebar") || $mobile("meals-sidebar");
-  const backdrop = $mobile("profile-drawer-backdrop") || $mobile("drawer-backdrop") || $mobile("notes-drawer-backdrop") || $mobile("tasks-drawer-backdrop") || $mobile("meals-drawer-backdrop");
-  const toggle = $mobile("open-profile") || $mobile("open-conversations") || $mobile("open-notes") || $mobile("open-tasks") || $mobile("open-meals");
+  const sidebar = $mobile("profile-sidebar") || $mobile("meals-sidebar");
+  const backdrop = $mobile("profile-drawer-backdrop") || $mobile("meals-drawer-backdrop");
+  const toggle = $mobile("open-profile") || $mobile("open-meals");
   if (!sidebar || !backdrop || !toggle) return;
   sidebar.classList.toggle("open", open);
   backdrop.classList.toggle("open", open);
