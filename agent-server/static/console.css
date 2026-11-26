@@ -1117,3 +1117,70 @@ body[data-page="conversations"] #conversations-table-body {
   align-content: start;
   scrollbar-gutter: stable;
 }
+
+
+/* Desktop conversations: reserve enough room for every metadata field and action. */
+@media (min-width: 761px) {
+  body[data-page="conversations"] .workspace {
+    grid-template-columns: clamp(320px, 30vw, 400px) minmax(0, 1fr);
+  }
+  body[data-page="conversations"] .conversation-item-card {
+    align-items: stretch;
+    gap: 9px;
+    padding: 14px;
+  }
+  body[data-page="conversations"] .conversation-card-heading {
+    display: block;
+  }
+  body[data-page="conversations"] .conversation-card-heading > strong {
+    display: block;
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  body[data-page="conversations"] .conversation-card-agent {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  body[data-page="conversations"] .conversation-card-footer {
+    min-width: 0;
+    gap: 8px;
+  }
+  body[data-page="conversations"] .conversation-card-stats {
+    align-items: flex-start;
+    gap: 6px 12px;
+    min-width: 0;
+  }
+  body[data-page="conversations"] .conversation-card-updated {
+    overflow-wrap: anywhere;
+  }
+  body[data-page="conversations"] .conversation-card-actions {
+    justify-content: flex-end;
+    align-self: flex-end;
+    width: 100%;
+    padding-top: 2px;
+  }
+  body[data-page="conversations"] .new-conversation-dialog {
+    width: min(500px, calc(100vw - 40px));
+  }
+  body[data-page="conversations"] .new-conversation-dialog .notes-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  body[data-page="conversations"] .new-conversation-dialog .notes-editor > label {
+    margin-top: 4px;
+  }
+  body[data-page="conversations"] .new-conversation-dialog .notes-editor input,
+  body[data-page="conversations"] .new-conversation-dialog .notes-editor select {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 40px;
+    margin: 0;
+  }
+  body[data-page="conversations"] .new-conversation-dialog .family-details-heading {
+    margin-bottom: 8px;
+  }
+  body[data-page="conversations"] .new-conversation-dialog .agent-desc {
+    margin: -3px 0 2px;
+  }
+}
