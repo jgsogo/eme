@@ -54,6 +54,7 @@ $mobile("conversations")?.addEventListener("click", event => {
 $mobile("notes-list")?.addEventListener("click", event => {
   if (event.target.closest("button[data-note-id]")) closeDrawer();
 });
+$mobile("new-note")?.addEventListener("click", closeDrawer);
 $mobile("new-task")?.addEventListener("click", closeDrawer);
 $mobile("tasks-list")?.addEventListener("click", event => {
   if (event.target.closest("button[data-task-id]")) closeDrawer();
