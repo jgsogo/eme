@@ -4,9 +4,26 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
 <title>EME Agent Console · Recipes</title><link rel="stylesheet" href="/assets/mobile-base.css"><script src="/assets/console-auth.js" defer></script><script src="/assets/mobile.js" defer></script><script src="/assets/meals-family.js" defer></script><script src="/assets/recipes.js" defer></script>
 </head>
-<body data-layout="mobile"><span id="connection" class="hint" hidden>Connecting…</span>
+<body data-layout="mobile" data-page="meals"><span id="connection" class="hint" hidden>Connecting…</span>
 
-<main hidden><div class="meals-header-row"><div id="meals-family-selector" class="meals-family-selector"></div><nav class="profile-section-nav meals-section-nav" aria-label="Meals"><a class="profile-section-link active" href="/mobile/meals" aria-current="page">Recipes</a><a class="profile-section-link " href="/mobile/meal-planner" >Planner</a><a class="profile-section-link " href="/mobile/shopping-list" >Shopping</a><a class="profile-section-link " href="/mobile/school-menus" >School</a></nav></div><div class="recipes-view">
+<main hidden><div class="meals-workspace">
+<div class="drawer-backdrop meals-drawer-backdrop" id="meals-drawer-backdrop" aria-hidden="true"></div>
+<aside class="panel sidebar meals-sidebar" id="meals-sidebar" aria-label="Meals navigation">
+ <div class="toolbar"><h2>Meals</h2><button class="secondary" id="close-meals" type="button" aria-label="Close Meals menu">✕</button></div>
+ <nav class="meals-drawer-nav" aria-label="Meals">
+  <a href="/mobile/meals" data-meals-destination="recipes">Recipes</a>
+  <a href="/mobile/meal-planner" data-meals-destination="planner">Planner</a>
+  <a href="/mobile/shopping-list" data-meals-destination="shopping">Shopping</a>
+  <a href="/mobile/school-menus" data-meals-destination="school">School</a>
+ </nav>
+</aside>
+<div class="meals-main-panel">
+ <div class="meals-main-heading">
+  <button type="button" class="secondary menu-toggle" id="open-meals" aria-label="Open Meals menu" aria-controls="meals-sidebar" aria-expanded="false">☰</button>
+  <div><h2>Recipes</h2><p class="hint">Browse and manage your recipes.</p></div>
+  <div id="meals-family-selector" class="meals-family-selector"></div>
+ </div>
+<div class="recipes-view">
 <section class="panel recipes-sidebar"><h2>Recipe catalogue</h2><div class="recipes-toolbar"><input id="recipe-search" type="search" placeholder="Search recipes…" aria-label="Search recipes"></div><button id="new-recipe" type="button">＋ New recipe</button><div id="recipe-list" class="recipe-list"><p class="hint">Loading recipes…</p></div></section>
 <section class="panel recipe-main"><div id="recipe-content"><p class="empty">Select a recipe or create one.</p></div></section>
 </div></main>
