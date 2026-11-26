@@ -80,11 +80,16 @@ async fn list_trakt_profiles(
         Ok(sync) => sync,
         Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
     };
+    let personal_broken = match state.trakt_oauth.as_ref().unwrap().connection_status(user_id, personal.id).await {
+        Ok(status) => status == Some(agent_storage::ExternalConnectionStatus::Broken),
+        Err(error) => return trakt_error_response(error),
+    };
     profiles.push(json!({
         "profile_id": personal.id,
         "profile_name": personal.name,
         "family_id": null,
         "family_name": "Personal",
+        "trakt_broken": personal_broken,
         "trakt": personal_link.map(|link| json!({
             "username": link.provider_subject,
             "display_name": link.display_name,
@@ -120,11 +125,16 @@ async fn list_trakt_profiles(
                 Ok(sync) => sync,
                 Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
             };
+            let trakt_broken = match state.trakt_oauth.as_ref().unwrap().connection_status(user_id, profile.id).await {
+                Ok(status) => status == Some(agent_storage::ExternalConnectionStatus::Broken),
+                Err(error) => return trakt_error_response(error),
+            };
             profiles.push(json!({
                 "profile_id": profile.id,
                 "profile_name": profile.name,
                 "family_id": family.id,
                 "family_name": family.name.clone(),
+                "trakt_broken": trakt_broken,
                 "trakt": link.map(|link| json!({
                     "username": link.provider_subject,
                     "display_name": link.display_name,
