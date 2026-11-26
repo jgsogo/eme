@@ -1184,3 +1184,53 @@ body[data-page="conversations"] #conversations-table-body {
     margin: -3px 0 2px;
   }
 }
+
+/* Desktop task cards: separate identity from schedule and execution metadata. */
+.task-item-card {
+  gap: 10px;
+  padding: 14px 38px 14px 14px;
+}
+.task-item-card .item-card-heading {
+  align-items: center;
+  gap: 12px;
+}
+.task-item-card .item-card-description {
+  line-height: 1.45;
+}
+.task-card-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.task-card-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  color: var(--text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.task-card-detail strong {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.task-card-detail-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+}
+.task-card-next-run {
+  grid-column: 1 / -1;
+}
+@media (max-width: 900px) {
+  .task-card-details { grid-template-columns: minmax(0, 1fr); }
+  .task-card-next-run { grid-column: auto; }
+}
