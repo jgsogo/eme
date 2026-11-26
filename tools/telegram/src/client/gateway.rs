@@ -247,7 +247,9 @@ impl TelegramGateway {
         timeout: Duration,
     ) -> Result<String, TelegramError> {
         if options.is_empty() {
-            return Err(TelegramError::Api("Cannot ask a choice question without options".to_owned()));
+            return Err(TelegramError::Api(
+                "Cannot ask a choice question without options".to_owned(),
+            ));
         }
         let (sender, receiver) = oneshot::channel();
         let dispatch = self.dispatch_lock.lock().await;
@@ -255,10 +257,12 @@ impl TelegramGateway {
             inline_keyboard: options
                 .into_iter()
                 .map(|(label, value)| {
-                    vec![InlineKeyboardButton::builder()
-                        .text(label)
-                        .callback_data(format!("choice:{value}"))
-                        .build()]
+                    vec![
+                        InlineKeyboardButton::builder()
+                            .text(label)
+                            .callback_data(format!("choice:{value}"))
+                            .build(),
+                    ]
                 })
                 .collect(),
             force_reply: None,
@@ -359,7 +363,10 @@ impl TelegramGateway {
 
                                 if !consumed
                                     && !matches!(query.data.as_deref(), Some("yes" | "no"))
-                                    && !query.data.as_deref().is_some_and(|data| data.starts_with("choice:"))
+                                    && !query
+                                        .data
+                                        .as_deref()
+                                        .is_some_and(|data| data.starts_with("choice:"))
                                 {
                                     if let (Some((chat_id, message_id)), Some(data)) =
                                         (message_key, query.data)
@@ -481,7 +488,6 @@ fn dispatch_callback(
         _ => false,
     }
 }
-
 
 /// Route an inline-button response to the matching finite-choice question.
 fn dispatch_choice(
