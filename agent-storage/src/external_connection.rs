@@ -418,7 +418,11 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
             "UPDATE external_connections SET status='broken',updated_at=?1 WHERE owner_id=?2 AND id=?3 AND status='active'",
             params![now, o.to_string(), id.to_string()],
         ).map_err(backend)?;
-        if n == 0 { Err(ExternalConnectionStorageError::NotFound) } else { Ok(()) }
+        if n == 0 {
+            Err(ExternalConnectionStorageError::NotFound)
+        } else {
+            Ok(())
+        }
     }
     async fn revoke_connection(
         &self,
