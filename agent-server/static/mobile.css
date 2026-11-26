@@ -1546,3 +1546,11 @@ body[data-layout="mobile"][data-page="conversations"][data-conversation-view="de
   background: transparent;
   box-shadow: none;
 }
+
+
+/* Give the conversation detail view the full mobile viewport height. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .mobile-bottom-nav {
+    display: none;
+  }
+}
