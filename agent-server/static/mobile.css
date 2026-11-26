@@ -388,14 +388,23 @@ body[data-layout="mobile"][data-page="meals"] .recipes-view > .recipe-main {
 }
 @media (max-width: 420px) {
   body[data-layout="mobile"][data-page="meals"] .meals-main-heading {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 7px;
   }
   body[data-layout="mobile"][data-page="meals"] .meals-main-heading > div:first-of-type {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
   }
   body[data-layout="mobile"][data-page="meals"] .meals-family-selector {
-    flex: 1 0 100%;
-    margin-left: 49px;
+    flex: 0 1 124px;
+    width: 124px;
+    min-width: 0;
+    margin-left: 0;
+  }
+  body[data-layout="mobile"][data-page="meals"] .meals-family-selector select {
+    padding-left: 6px;
+    padding-right: 20px;
+    font-size: 11px;
   }
 }
 
@@ -409,3 +418,43 @@ body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading{di
 body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading h3{margin:0 0 5px;font-size:17px;text-transform:capitalize}
 body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading p{margin:0}
 body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading button{flex:none;min-height:40px}
+
+/* Keep the family selector in the heading row on every Meals sub-view. */
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading > div:first-of-type {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector {
+  flex: 0 1 140px;
+  width: 140px;
+  min-width: 0;
+  max-width: 40%;
+  margin-left: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector select {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Keep School's date picker and both day-navigation arrows on one line. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar {
+  flex-wrap: nowrap;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .school-menu-date-label {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  max-width: none;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .school-menu-date-label input {
+  min-width: 0;
+  padding-left: 7px;
+  padding-right: 7px;
+}
