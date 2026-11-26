@@ -26,9 +26,9 @@ function installBottomNavigation() {
 }
 
 function setDrawerOpen(open) {
-  const sidebar = $mobile("conversation-sidebar") || $mobile("notes-sidebar") || $mobile("tasks-sidebar");
-  const backdrop = $mobile("drawer-backdrop") || $mobile("notes-drawer-backdrop") || $mobile("tasks-drawer-backdrop");
-  const toggle = $mobile("open-conversations") || $mobile("open-notes") || $mobile("open-tasks");
+  const sidebar = $mobile("conversation-sidebar") || $mobile("notes-sidebar") || $mobile("tasks-sidebar") || $mobile("meals-sidebar");
+  const backdrop = $mobile("drawer-backdrop") || $mobile("notes-drawer-backdrop") || $mobile("tasks-drawer-backdrop") || $mobile("meals-drawer-backdrop");
+  const toggle = $mobile("open-conversations") || $mobile("open-notes") || $mobile("open-tasks") || $mobile("open-meals");
   if (!sidebar || !backdrop || !toggle) return;
   sidebar.classList.toggle("open", open);
   backdrop.classList.toggle("open", open);
@@ -61,3 +61,10 @@ $mobile("tasks-list")?.addEventListener("click", event => {
   if (event.target.closest("button[data-task-id]")) closeDrawer();
 });
 document.addEventListener("keydown", event => { if (event.key === "Escape") closeDrawer(); });
+
+$mobile("open-meals")?.addEventListener("click", () => setDrawerOpen(true));
+$mobile("close-meals")?.addEventListener("click", closeDrawer);
+$mobile("meals-drawer-backdrop")?.addEventListener("click", closeDrawer);
+$mobile("meals-sidebar")?.addEventListener("click", event => {
+  if (event.target.closest("a[data-meals-destination]")) closeDrawer();
+});
