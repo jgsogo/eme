@@ -128,8 +128,21 @@ body[data-layout="mobile"] .tasks-main-panel{height:100%;box-sizing:border-box;p
 body[data-layout="mobile"] .tasks-main-heading{display:flex;align-items:flex-start;gap:9px;margin-bottom:12px}
 body[data-layout="mobile"] .tasks-main-heading>div{min-width:0;flex:1}
 body[data-layout="mobile"] .tasks-main-heading h2{margin:0 0 4px;font-size:18px;overflow-wrap:anywhere}
-body[data-layout="mobile"] .tasks-main-heading .menu-toggle{display:inline-flex;align-items:center;justify-content:center;flex:none}
-body[data-layout="mobile"] .tasks-main-heading .tasks-back-button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;min-width:40px;min-height:40px;padding:7px 10px;font-size:18px;line-height:1}
+body[data-layout="mobile"] .tasks-main-heading .menu-toggle,
+body[data-layout="mobile"] .tasks-main-heading .tasks-back-button{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ flex:none;
+ box-sizing:border-box;
+ width:40px;
+ height:40px;
+ min-width:40px;
+ min-height:40px;
+ padding:7px 10px;
+ font-size:18px;
+ line-height:1;
+}
 body[data-layout="mobile"] .tasks-main-heading .tasks-back-button[hidden]{display:none}
 body[data-layout="mobile"] .tasks-overview{display:flex;flex-direction:column;gap:12px;min-height:0}
 body[data-layout="mobile"] .tasks-table-wrap{width:100%;min-width:0;overflow:visible;border:1px solid var(--border);border-radius:12px;background:var(--panel2)}
