@@ -340,11 +340,8 @@ impl TraktOAuthService {
         {
             // The previous media link may already point to a deleted or
             // revoked connection. Replacing that stale link must still succeed.
-            self.revoke_connection_if_present(
-                previous.owner_id,
-                previous.external_connection_id,
-            )
-            .await?;
+            self.revoke_connection_if_present(previous.owner_id, previous.external_connection_id)
+                .await?;
             self.token_manager
                 .invalidate(previous.external_connection_id)
                 .await;
@@ -1233,7 +1230,8 @@ mod tests {
         let user_id = UserId::new();
         let media = MediaStore::open_in_memory().unwrap();
         let profile = media.get_or_create_personal_profile(user_id).await.unwrap();
-        let db_path = std::env::temp_dir().join(format!("media-trakt-unlink-{}.db", Uuid::new_v4()));
+        let db_path =
+            std::env::temp_dir().join(format!("media-trakt-unlink-{}.db", Uuid::new_v4()));
         let external = Arc::new(SqliteExternalConnectionStore::open(&db_path, [6; 32]).unwrap());
         let external_trait: Arc<dyn ExternalConnectionStore> = external.clone();
         let service = TraktOAuthService::new(
@@ -1289,7 +1287,10 @@ mod tests {
             linked_at: Utc::now(),
             ..link
         };
-        media.save_external_connection_link(&stale_link).await.unwrap();
+        media
+            .save_external_connection_link(&stale_link)
+            .await
+            .unwrap();
         service
             .unlink_personal_profile(user_id, profile.id)
             .await
