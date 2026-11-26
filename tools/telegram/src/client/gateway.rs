@@ -138,6 +138,24 @@ impl TelegramGateway {
         Ok(())
     }
 
+    /// Remove all reactions from a message.
+    pub async fn clear_message_reaction(
+        &self,
+        chat_id: i64,
+        message_id: i32,
+    ) -> Result<(), TelegramError> {
+        let params = SetMessageReactionParams::builder()
+            .chat_id(chat_id)
+            .message_id(message_id)
+            .reaction(Vec::new())
+            .build();
+        self.bot
+            .set_message_reaction(&params)
+            .await
+            .map_err(|error| TelegramError::Api(error.to_string()))?;
+        Ok(())
+    }
+
     pub async fn notify_user(&self, chat_id: i64, text: &str) -> Result<(), TelegramError> {
         self.send_message(chat_id, &format_notification(text)).await
     }
