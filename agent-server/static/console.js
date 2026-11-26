@@ -447,6 +447,7 @@ async function deleteFamily(){
 }
 async function loadFamilyDetails(familyId){
  state.managedFamilyId=familyId||null;
+ if(document.body.dataset.layout==="mobile")document.body.dataset.profileView=familyId?"detail":"list";
  $("family-empty").hidden=!!familyId;$("family-management").hidden=!familyId;
  if(!familyId){state.familyDetails=null;state.familyInvitations=[];$("managed-family-name").textContent="Select a family";$("managed-family-meta").textContent="Choose a family to manage its members and invitations.";renderFamiliesList();renderFamilyMembers();renderFamilyInvitations();renderFamilyLifecycle();return}
  const family=state.families.find(item=>item.id===familyId);
@@ -745,6 +746,7 @@ function renderIntegrationView(){
 function selectIntegration(name){
  if(!["google","trakt"].includes(name))return;
  state.activeIntegration=name;
+ if(document.body.dataset.layout==="mobile")document.body.dataset.profileView="detail";
  renderIntegrationView();
 }
 function renderGoogleConnections(){
@@ -905,6 +907,10 @@ on("refresh-integrations","click",loadIntegrations);
 on("integrations-sidebar","click",event=>{
  const button=event.target.closest("[data-integration]");
  if(button)selectIntegration(button.dataset.integration);
+});
+on("profile-content-back","click",()=>{
+ if(page==="integrations")document.body.dataset.profileView="list";
+ else if(page==="families")void loadFamilyDetails(null);
 });
 on("google-search","input",renderGoogleConnections);on("google-connections","click",e=>{if(e.target.closest("[data-clear-google-filter]")){$("google-search").value="";renderGoogleConnections();return}handleGoogleIntegrationAction(e)});
 on("google-connections","change",handleGoogleCalendarChange);
