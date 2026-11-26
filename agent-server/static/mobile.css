@@ -1422,18 +1422,7 @@ body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8p
     padding: 6px;
   }
   body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .tasks-main-heading {
-    flex: none;
-    min-height: 30px;
-    padding: 0 2px;
-    margin: 0;
-  }
-  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .tasks-main-heading > div {
     display: none;
-  }
-  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .tasks-main-heading .tasks-back-button {
-    min-height: 30px;
-    padding: 3px 9px;
-    line-height: 1;
   }
   body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head {
     flex: none;
@@ -1444,7 +1433,20 @@ body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8p
     gap: 8px;
     padding: 6px 9px;
   }
-  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > div:first-child {
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > .tasks-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 3px;
+    font-size: 18px;
+    line-height: 1;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > div:nth-child(2) {
     flex: 1 1 auto;
     width: auto;
     min-width: 0;
@@ -1507,8 +1509,23 @@ body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8p
   body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer {
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
   }
-  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer-hint {
-    margin-top: 3px;
-    font-size: 10px;
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer-row {
+    align-items: center;
+    gap: 6px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer textarea {
+    box-sizing: border-box;
+    height: 38px;
+    min-height: 38px;
+    max-height: 38px;
+    padding: 8px 10px;
+    line-height: 20px;
+    resize: none;
+    overflow-y: auto;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer .send-button {
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
   }
 }
