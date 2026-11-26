@@ -562,7 +562,14 @@ impl TraktOAuthService {
             .get_connection(owner_id, link.external_connection_id)
             .await
             .map_err(TraktError::ExternalStorage)?;
-        Ok(connection.map(|connection| connection.status))
+        // A linked profile whose external credential is revoked or no longer
+        // exists cannot recover through a health check; it must be relinked.
+        Ok(Some(match connection.map(|connection| connection.status) {
+            Some(ExternalConnectionStatus::Active) => ExternalConnectionStatus::Active,
+            Some(ExternalConnectionStatus::Broken | ExternalConnectionStatus::Revoked) | None => {
+                ExternalConnectionStatus::Broken
+            }
+        }))
     }
 
     /// Disconnect a Trakt account from the caller's own personal profile.
