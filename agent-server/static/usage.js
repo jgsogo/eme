@@ -111,7 +111,7 @@ async function load(){
   $("usage-status").textContent="Could not load usage: "+error.message;
   $("usage-status").className="usage-status error";
   $("usage-models").innerHTML='<p class="usage-empty" role="alert">Usage data could not be loaded.</p>';
-  $("usage-records").innerHTML='<tr><td colspan="8" class="usage-empty" role="alert">Usage data could not be loaded. <button type="button" class="secondary" data-retry-usage>Try again</button></td></tr>';
+  $("usage-records").innerHTML=refresh?'<tr><td colspan="8" class="usage-empty" role="alert">Usage data could not be loaded. Use Refresh to try again.</td></tr>':'<tr><td colspan="8" class="usage-empty" role="alert">Usage data could not be loaded. <button type="button" class="secondary" data-retry-usage>Try again</button></td></tr>';
  }finally{if(refresh)refresh.disabled=false}
 }
 function renderPricing(){
