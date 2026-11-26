@@ -53,3 +53,12 @@ body[data-layout="mobile"] .integration-actions button{width:100%}
 
 body[data-layout="mobile"] .notes-filters{gap:6px}
 body[data-layout="mobile"] .notes-filters input,body[data-layout="mobile"] .notes-filters select{width:100%;min-height:38px}
+
+
+/* Mobile section content replaces the redundant global brand bar. */
+body[data-layout="mobile"] header{display:none}
+body[data-layout="mobile"] main{min-height:calc(100dvh - 72px)}
+body[data-layout="mobile"] .chat-head{align-items:center;flex-direction:row;flex-wrap:wrap}
+body[data-layout="mobile"] .chat-head>div:first-of-type{flex:1;min-width:0;width:auto}
+body[data-layout="mobile"] .chat-head>div:last-child{width:100%;justify-content:flex-start}
+body[data-layout="mobile"] .chat-head .menu-toggle{flex:none}
