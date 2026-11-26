@@ -187,7 +187,10 @@ async fn create_conversation(
 
     if agents.is_empty() {
         let _ = gateway
-            .send_message(chat_id, "No agents are configured; conversation creation cancelled.")
+            .send_message(
+                chat_id,
+                "No agents are configured; conversation creation cancelled.",
+            )
             .await;
         return;
     }
@@ -225,7 +228,10 @@ async fn create_conversation(
         .map(|agent| agent.name.clone())
     else {
         let _ = gateway
-            .send_message(chat_id, "Invalid agent selection. Conversation creation cancelled.")
+            .send_message(
+                chat_id,
+                "Invalid agent selection. Conversation creation cancelled.",
+            )
             .await;
         return;
     };
