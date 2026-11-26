@@ -496,8 +496,7 @@ fn dispatch_callback(
                 let _ = sender.send(value);
                 true
             }
-            Some(reply @ PendingReply::Text { .. })
-            | Some(reply @ PendingReply::Choice { .. }) => {
+            Some(reply @ PendingReply::Text { .. }) | Some(reply @ PendingReply::Choice { .. }) => {
                 pending.insert(key, reply);
                 false
             }
