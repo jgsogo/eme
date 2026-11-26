@@ -64,56 +64,6 @@ body[data-layout="mobile"] .chat-head>div:last-child{width:100%;justify-content:
 body[data-layout="mobile"] .chat-head .menu-toggle{flex:none}
 
 
-/* Notes use the same responsive slide-out drawer as Conversations. */
-body[data-layout="mobile"] .notes-view{height:100%;min-height:0;overflow:hidden}
-body[data-layout="mobile"] .notes-workspace{display:block;height:100%;min-height:0}
-body[data-layout="mobile"] .notes-sidebar{position:fixed;z-index:30;inset:0 auto 0 0;width:min(86vw,340px);max-width:340px;height:100dvh;max-height:none;transform:translateX(-105%);transition:transform .22s ease;will-change:transform;overflow:hidden;border-radius:0 12px 12px 0;box-shadow:12px 0 32px rgba(0,0,0,.35)}
-body[data-layout="mobile"] .notes-sidebar.open{transform:translateX(0)}
-body[data-layout="mobile"] .notes-sidebar .notes-list{min-height:100px;overflow-y:auto}
-body[data-layout="mobile"] .notes-sidebar .notes-filters{display:flex;flex-direction:column}
-body[data-layout="mobile"] .notes-sidebar-actions #close-notes{display:inline-flex}
-body[data-layout="mobile"] .notes-main-panel{height:100%;box-sizing:border-box;padding:12px;overflow:auto}
-body[data-layout="mobile"] .notes-main-heading{align-items:flex-start}
-body[data-layout="mobile"] .notes-main-heading .menu-toggle{display:inline-flex;flex:none}
-body[data-layout="mobile"] .notes-overview{display:flex;flex-direction:column;gap:12px;min-height:0}
-body[data-layout="mobile"] .notes-table-wrap{width:100%;min-width:0;overflow:visible;border:1px solid var(--border);border-radius:12px;background:var(--panel2)}
-body[data-layout="mobile"] .notes-table{width:100%;min-width:0;border-collapse:separate;border-spacing:0;table-layout:fixed}
-body[data-layout="mobile"] .notes-table th{padding:10px 13px;color:var(--muted);font-size:10px;font-weight:650;letter-spacing:.07em;text-align:left;text-transform:uppercase;background:var(--panel);border-bottom:1px solid var(--border)}
-body[data-layout="mobile"] .notes-table th:first-child{width:auto}
-body[data-layout="mobile"] .notes-table th:last-child{width:104px;text-align:right}
-body[data-layout="mobile"] .notes-table td{padding:12px 13px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
-body[data-layout="mobile"] .notes-table tbody tr:last-child td{border-bottom:0}
-body[data-layout="mobile"] .notes-table tbody tr[role="button"]{cursor:pointer;transition:background .15s ease}
-body[data-layout="mobile"] .notes-table tbody tr[role="button"]:active{background:rgba(104,169,220,.12)}
-body[data-layout="mobile"] .notes-table tbody tr[role="button"]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-body[data-layout="mobile"] .notes-table-title-cell strong{display:block;min-width:0;color:var(--text);font-size:13px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
-body[data-layout="mobile"] .notes-table-sharing{display:inline-flex;align-items:center;margin-top:5px;color:var(--muted);font-size:10px;line-height:1.3}
-body[data-layout="mobile"] .notes-table-date-cell{text-align:right;white-space:nowrap;color:var(--muted);font-size:10px}
-body[data-layout="mobile"] .notes-table-date-cell time{display:inline-block;max-width:76px;white-space:normal;line-height:1.35}
-body[data-layout="mobile"] .notes-table-open{display:inline-block;margin-left:5px;color:var(--accent);font-size:20px;line-height:1;vertical-align:middle}
-body[data-layout="mobile"] .notes-table-empty{padding:30px 16px!important;text-align:center;color:var(--muted)}
-body[data-layout="mobile"] .notes-table-empty strong,body[data-layout="mobile"] .notes-table-empty span{display:block}
-body[data-layout="mobile"] .notes-table-empty strong{color:var(--text);font-size:13px;margin-bottom:4px}
-body[data-layout="mobile"] .notes-table-empty span{font-size:11px}
-body[data-layout="mobile"] .notes-pagination{align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 2px}
-body[data-layout="mobile"] .notes-pagination>div{display:flex;gap:7px}
-body[data-layout="mobile"] .notes-pagination button{min-height:40px;padding:8px 12px;font-size:12px}
-body[data-layout="mobile"] .notes-pagination button:disabled{opacity:.35}
-@media(hover:hover){body[data-layout="mobile"] .notes-table tbody tr[role="button"]:hover{background:rgba(104,169,220,.07)}}
-body[data-layout="mobile"] .notes-editor-panel{padding-top:12px}
-body[data-layout="mobile"] .notes-editor-panel textarea{min-height:160px}
-body[data-layout="mobile"] .notes-actions{flex-wrap:wrap}
-body[data-layout="mobile"] .notes-actions button{flex:1 1 auto}
-body[data-layout="mobile"] .notes-actions #back-to-notes{margin-left:0}
-
-/* Keep the mobile Notes master/detail views mutually exclusive. */
-body[data-layout="mobile"] .notes-overview[hidden],body[data-layout="mobile"] .notes-editor-panel[hidden]{display:none!important}
-body[data-layout="mobile"] .notes-sidebar-heading{display:flex;align-items:center;gap:8px}
-body[data-layout="mobile"] .notes-sidebar-heading #new-note{flex:1}
-
-body[data-layout="mobile"] .notes-main-heading .notes-back-button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;min-width:40px;min-height:40px;padding:7px 10px;font-size:18px;line-height:1}
-body[data-layout="mobile"] .notes-main-heading .notes-back-button[hidden]{display:none}
-
 /* Mobile Tasks master/detail layout, matching Notes. */
 body[data-layout="mobile"] .tasks-view{height:100%;min-height:0;overflow:hidden}
 body[data-layout="mobile"] .tasks-workspace{display:block;height:100%;min-height:0}
@@ -173,6 +123,27 @@ body[data-layout="mobile"] .tasks-pagination>div{display:flex;gap:7px}
 body[data-layout="mobile"] .tasks-pagination button{min-height:40px;padding:8px 12px;font-size:12px}
 body[data-layout="mobile"] .tasks-pagination button:disabled{opacity:.35}
 body[data-layout="mobile"] #tasks-overview[hidden],body[data-layout="mobile"] #task-editor-view[hidden]{display:none!important}
+/* Notes reuse the Tasks workspace, drawer, header, table and pagination styles. */
+body[data-layout="mobile"] .notes-sidebar .notes-filters{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+body[data-layout="mobile"] .notes-sidebar .notes-filters input,
+body[data-layout="mobile"] .notes-sidebar .notes-filters select{width:100%;min-width:0;min-height:40px;box-sizing:border-box}
+body[data-layout="mobile"] .notes-table th:first-child{width:66%}
+body[data-layout="mobile"] .notes-table th:last-child{width:34%;text-align:right}
+body[data-layout="mobile"] .notes-table td{padding:11px 9px;font-size:12px}
+body[data-layout="mobile"] .notes-table-title-cell strong{overflow-wrap:anywhere}
+body[data-layout="mobile"] .notes-table-date-cell{white-space:normal;text-align:right;color:var(--muted);font-size:10px}
+body[data-layout="mobile"] .notes-table-date-cell time{display:inline-block;max-width:76px;white-space:normal;line-height:1.35}
+body[data-layout="mobile"] .notes-table-open{right:5px;top:50%;margin:0;transform:translateY(-50%)}
+body[data-layout="mobile"] .notes-table-sharing{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.3}
+body[data-layout="mobile"] .notes-editor-panel{padding:12px}
+body[data-layout="mobile"] .notes-editor-panel textarea{min-height:160px}
+body[data-layout="mobile"] #notes-overview[hidden],body[data-layout="mobile"] #notes-editor-panel[hidden]{display:none!important}
+body[data-layout="mobile"] .notes-sidebar-heading{display:flex;align-items:center;gap:8px}
+body[data-layout="mobile"] .notes-sidebar-heading #new-note{flex:1}
+body[data-layout="mobile"] .notes-main-heading .notes-back-button[hidden]{display:none}
+body[data-layout="mobile"] .notes-actions{flex-wrap:wrap}
+body[data-layout="mobile"] .notes-actions button{flex:1 1 auto}
+
 /* Polished segmented tabs for the mobile task editor. */
 body[data-layout="mobile"] .task-editor-view .task-section-nav{
  display:grid;
