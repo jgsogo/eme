@@ -110,5 +110,6 @@ body[data-layout="mobile"] .notes-actions #back-to-notes{margin-left:0}
 body[data-layout="mobile"] .notes-overview[hidden],body[data-layout="mobile"] .notes-editor-panel[hidden]{display:none!important}
 body[data-layout="mobile"] .notes-sidebar-heading{display:flex;align-items:center;gap:8px}
 body[data-layout="mobile"] .notes-sidebar-heading #new-note{flex:1}
-body[data-layout="mobile"] .notes-sidebar-heading #unselect-notes{flex:none;white-space:nowrap}
-body[data-layout="mobile"] .notes-sidebar-heading #unselect-notes[hidden]{display:none}
+
+body[data-layout="mobile"] .notes-main-heading .notes-back-button{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:40px;min-height:40px;padding:6px;font-size:24px;line-height:1}
+body[data-layout="mobile"] .notes-main-heading .notes-back-button[hidden]{display:none}
