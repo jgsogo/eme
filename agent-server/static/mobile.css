@@ -981,8 +981,17 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
     min-height: 42px;
     white-space: nowrap;
   }
+  body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters {
+    flex-wrap: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters label {
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters input[type="search"] {
+    flex: 1 1 0;
+  }
   body[data-layout="mobile"] .item-list-toolbar .agent-desc {
-    font-size: 11px;
+    font-size: 11;
     line-height: 1.4;
   }
   body[data-layout="mobile"] .item-list-toolbar .task-list-filters,
