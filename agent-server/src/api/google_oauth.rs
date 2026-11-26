@@ -422,6 +422,65 @@ async fn list_connections(
     }
 }
 
+#[post("/connections/{connection_id}/test")]
+async fn test_connection(
+    request: HttpRequest,
+    auth: Data<crate::auth::TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<GoogleOAuthState>,
+    connection_id: PathParam<String>,
+) -> impl Responder {
+    if !state.enabled() {
+        return HttpResponse::ServiceUnavailable().body("Google OAuth is not configured");
+    }
+    let owner = match current_user_id(&request, &auth, &identities) {
+        Ok(id) => id,
+        Err(response) => return response,
+    };
+    let connection_id = match ExternalConnectionId::from_str(&connection_id) {
+        Ok(id) => id,
+        Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
+    };
+    let store = state.store.as_ref().expect("enabled state has connection storage");
+    let connection = match store.get_connection(owner, connection_id).await {
+        Ok(Some(connection))
+            if connection.provider == "google"
+                && connection.status == ExternalConnectionStatus::Active => connection,
+        Ok(_) => return HttpResponse::NotFound().body("Active Google connection not found"),
+        Err(error) => {
+            tracing::error!(%error, "could not inspect Google connection for health check");
+            return HttpResponse::InternalServerError().body("Could not load Google connection");
+        }
+    };
+    let refresh_token = match store.refresh_token(owner, connection_id).await {
+        Ok(token) => token,
+        Err(error) => {
+            tracing::error!(%error, connection_id = %connection.id, "could not load Google credential for health check");
+            return HttpResponse::InternalServerError().body("Could not load Google credentials");
+        }
+    };
+    let config = state.config.as_ref().expect("enabled state has OAuth config");
+    let access_token = match state.token_manager
+        .refresh_access_token(connection_id, config, &refresh_token).await {
+        Ok(token) => token,
+        Err(error) => {
+            tracing::warn!(%error, connection_id = %connection.id, "Google OAuth health check failed");
+            return HttpResponse::BadGateway().body(format!("Google authentication failed: {error}"));
+        }
+    };
+    match list_calendars_with_access_token(&access_token).await {
+        Ok(calendars) => HttpResponse::Ok().json(serde_json::json!({
+            "success": true,
+            "message": format!("Google Calendar is working. {} calendar(s) accessible.", calendars.len()),
+            "calendar_count": calendars.len(),
+        })),
+        Err(error) => {
+            tracing::warn!(%error, connection_id = %connection.id, "Google Calendar API health check failed");
+            HttpResponse::BadGateway().body(format!("Google Calendar API check failed: {error}"))
+        }
+    }
+}
+
 #[delete("/connections/{connection_id}")]
 async fn disconnect(
     request: HttpRequest,
@@ -802,6 +861,7 @@ pub fn google_integrations_api() -> Scope {
         .service(start_oauth)
         .service(oauth_callback)
         .service(list_connections)
+        .service(test_connection)
         .service(disconnect)
         .service(list_connected_calendars)
         .service(sync_connected_calendars)
