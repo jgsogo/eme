@@ -993,6 +993,16 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   body[data-layout="mobile"][data-page="tasks"] .item-list-toolbar .task-list-filters,
   body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters {
     flex-wrap: nowrap;
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+  }
+  body[data-layout="mobile"][data-page="tasks"] .item-list-toolbar .task-list-filters input[type="search"],
+  body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters input[type="search"],
+  body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters select {
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
   }
   body[data-layout="mobile"][data-page="tasks"] .item-list-toolbar .task-list-filters input[type="search"],
   body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters input[type="search"] {
