@@ -26,6 +26,7 @@
       $("books-overview").hidden = view !== "list";
       $("book-detail-view").hidden = view !== "detail";
       $("back-to-books").hidden = view !== "detail";
+      $("books-main-heading-copy").hidden = view === "detail";
       $("open-add-book").hidden = view !== "list";
       $("books-main-title").textContent = view === "detail" ? "Book details" : "My collection";
       $("books-main-subtitle").textContent = view === "detail"
