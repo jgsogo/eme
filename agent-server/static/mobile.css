@@ -508,3 +508,10 @@ body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .planner-
   min-width: 0;
   max-width: 155px;
 }
+
+
+/* Let the School panel grow with all seven day cards instead of clipping its background. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-weekly-main {
+  flex: 0 0 auto;
+  min-height: max-content;
+}
