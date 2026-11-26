@@ -12,6 +12,7 @@ use super::formatting::truncate;
 pub(super) async fn report(
     gateway: Arc<TelegramGateway>,
     chat_id: i64,
+    message_id: i32,
     manager: RunManager,
     _store: Arc<SqliteConversationStore>,
     conversation_id: ConversationId,
@@ -37,6 +38,11 @@ pub(super) async fn report(
                 active_conversations.lock().await.remove(&conversation_id);
                 if let Err(error) = gateway.send_message(chat_id, &truncate(&text)).await {
                     eprintln!("Telegram result delivery failed: {error}");
+                } else if let Err(error) = gateway
+                    .clear_message_reaction(chat_id, message_id)
+                    .await
+                {
+                    eprintln!("Telegram reaction cleanup failed: {error}");
                 }
 
                 return;
