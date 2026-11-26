@@ -4,7 +4,7 @@ const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
 let familyActionHandler=null;
-const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,editingConversationId:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
 function setProfileView(view){
