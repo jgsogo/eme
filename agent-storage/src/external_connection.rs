@@ -233,6 +233,7 @@ impl SqliteExternalConnectionStore {
         db.execute_batch(include_str!("../migrations/0001_identity_and_families.sql"))?;
         db.execute_batch(include_str!("../migrations/0002_family_invitations.sql"))?;
         db.execute_batch(include_str!("../migrations/0003_external_connections.sql"))?;
+        db.execute_batch(include_str!("../migrations/0004_external_connection_broken_status.sql"))?;
         Ok(Self {
             db: Arc::new(Mutex::new(db)),
             cipher: CredentialCipher::new(key),
@@ -401,7 +402,18 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
             .transpose()?;
         let db = self.db.lock().await;
         let now = Utc::now().to_rfc3339();
-        let n=if let Some(t)=token{db.execute("UPDATE external_connections SET encrypted_refresh_token=?1,granted_scopes=?2,updated_at=?3 WHERE owner_id=?4 AND id=?5 AND status='active'",params![t,s,now,o.to_string(),id.to_string()])}else{db.execute("UPDATE external_connections SET granted_scopes=?1,updated_at=?2 WHERE owner_id=?3 AND id=?4 AND status='active'",params![s,now,o.to_string(),id.to_string()])}.map_err(backend)?;
+        let n = if let Some(t) = token {
+            db.execute(
+                "UPDATE external_connections SET encrypted_refresh_token=?1,granted_scopes=?2,status='active',revoked_at=NULL,updated_at=?3 WHERE owner_id=?4 AND id=?5 AND status IN ('active','broken')",
+                params![t, s, now, o.to_string(), id.to_string()],
+            )
+        } else {
+            db.execute(
+                "UPDATE external_connections SET granted_scopes=?1,status='active',revoked_at=NULL,updated_at=?2 WHERE owner_id=?3 AND id=?4 AND status IN ('active','broken')",
+                params![s, now, o.to_string(), id.to_string()],
+            )
+        }
+        .map_err(backend)?;
         if n == 0 {
             return Err(ExternalConnectionStorageError::NotFound);
         }
