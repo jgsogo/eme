@@ -755,7 +755,12 @@ impl TraktTokenManager {
             .external_connections
             .refresh_token(owner_id, connection_id)
             .await
-            .map_err(TraktError::ExternalStorage)?;
+            .map_err(|error| match error {
+                agent_storage::ExternalConnectionStorageError::NotFound => {
+                    TraktError::ConnectionUnavailable
+                }
+                error => TraktError::ExternalStorage(error),
+            })?;
         let refresh_token_hash: [u8; 32] = Sha256::digest(refresh_token.as_bytes()).into();
         let connection = {
             let mut connections = self.connections.lock().await;
@@ -790,7 +795,14 @@ impl TraktTokenManager {
                 scopes,
             )
             .await
-            .map_err(TraktError::ExternalStorage)?;
+            .map_err(|error| match error {
+                // A disconnect or revocation may race with token refresh. In that
+                // case the connection is no longer usable, not a storage outage.
+                agent_storage::ExternalConnectionStorageError::NotFound => {
+                    TraktError::ConnectionUnavailable
+                }
+                error => TraktError::ExternalStorage(error),
+            })?;
         let lifetime = token
             .expires_in_seconds()
             .unwrap_or(300)
