@@ -1,41 +1,51 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>EME Agent Console · Tasks</title><link rel="stylesheet" href="/assets/mobile-base.css"><link rel="stylesheet" href="/assets/mobile.css"><script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" defer></script><script src="/assets/console-auth.js" defer></script><script src="/assets/console.js" defer></script><script src="/assets/mobile.js" defer></script></head>
-<body data-layout="mobile" data-page="tasks" data-layout="mobile"><span id="connection" class="hint" hidden>Connecting…</span>
+<body data-layout="mobile" data-page="tasks"><span id="connection" class="hint" hidden>Connecting…</span>
 <section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
-<main hidden><section class="notes-view"><div class="notes-layout">
-<section class="panel notes-list-panel"><h3>Your tasks</h3><button id="new-task" type="button">＋ New task</button><button id="refresh-tasks" type="button" class="secondary" style="margin-left:6px">Refresh</button><div id="tasks-list" class="notes-list"><div class="empty">Loading tasks…</div></div></section>
-<div class="notes-editor-column">
-<nav id="task-section-nav" class="task-section-nav" aria-label="Task details sections">
-<button type="button" class="task-section-tab active" data-task-section-tab="details" aria-controls="task-details" aria-selected="true">Details</button>
-<button type="button" class="task-section-tab" data-task-section-tab="history" aria-controls="task-executions" aria-selected="false" disabled>Execution history</button>
-</nav>
-<section class="panel notes-editor-panel"><div class="family-details-heading"><div><h3 id="task-heading">Select a task</h3><p class="hint">Manage recurring schedules and one-time agent tasks.</p></div></div>
-<section id="task-details" class="task-section-content" data-task-section="details">
-<form id="task-form" class="notes-editor">
-<label for="task-name">Name</label><input id="task-name" type="text" maxlength="120" required placeholder="Daily summary" disabled>
-<label for="task-description">Description</label><input id="task-description" type="text" placeholder="Optional description" disabled>
-<label for="task-agent">Agent</label><select id="task-agent" required disabled></select>
-<label for="task-prompt">Prompt</label><textarea id="task-prompt" rows="8" required placeholder="What should the agent do?" disabled></textarea>
-<label for="task-family">Additional family context</label><select id="task-family" disabled><option value="">No family context</option></select>
-<label for="task-schedule">Cron schedule (seconds field; leave empty for one-time)</label><input id="task-schedule" type="text" placeholder="0 0 8 * * *" disabled>
-<label for="task-at">Run once at (local date and time)</label><input id="task-at" type="datetime-local" disabled>
-<label for="task-timezone">Timezone (IANA)</label><input id="task-timezone" type="text" value="Europe/Madrid" placeholder="Europe/Madrid" disabled>
-<label style="display:flex;align-items:center;gap:7px;margin:4px 0 10px"><input id="task-enabled" type="checkbox" checked disabled style="width:auto;margin:0"> Enabled</label>
-<div class="notes-actions"><button id="save-task" type="submit" disabled>Save task</button><button id="delete-task" type="button" class="danger" disabled>Delete</button></div>
-<p id="tasks-status" class="hint" aria-live="polite">Choose a task or create a new one.</p>
-</form>
+<main hidden><section class="notes-view tasks-view"><div class="tasks-workspace">
+<div class="drawer-backdrop" id="tasks-drawer-backdrop" aria-hidden="true"></div>
+<aside class="panel sidebar tasks-sidebar" id="tasks-sidebar" aria-label="Tasks">
+ <div class="toolbar"><h2>Your tasks</h2><div class="notes-sidebar-actions"><button class="secondary" id="close-tasks" type="button" aria-label="Close tasks">✕</button><button class="secondary" id="refresh-tasks" type="button">Refresh</button></div></div>
+ <div class="notes-sidebar-heading"><button id="new-task" type="button">＋ New task</button></div>
+ <div class="task-list-filters"><input id="task-search" type="search" placeholder="Filter tasks…" aria-label="Filter tasks"><label for="tasks-enabled-only"><input id="tasks-enabled-only" type="checkbox"> Enabled only</label></div>
+ <div id="tasks-list" class="notes-list"><div class="empty">Loading tasks…</div></div>
+</aside>
+<section class="panel tasks-main-panel">
+ <div class="tasks-main-heading"><button type="button" class="secondary menu-toggle" id="open-tasks" aria-label="Open tasks" aria-controls="tasks-sidebar" aria-expanded="false">☰</button><button type="button" class="secondary tasks-back-button" id="back-to-tasks" aria-label="Back to all tasks" hidden>←</button><div><h2 id="tasks-main-title">All tasks</h2><p class="hint" id="tasks-main-subtitle">Your tasks, including their schedules and status</p></div></div>
+ <section id="tasks-overview" class="tasks-overview">
+  <div class="tasks-table-wrap"><table class="tasks-table"><thead><tr><th scope="col">Task</th><th scope="col">Status</th><th scope="col">Schedule</th></tr></thead><tbody id="tasks-table-body"><tr><td colspan="3" class="tasks-table-empty">Loading tasks…</td></tr></tbody></table></div>
+  <div class="tasks-pagination"><span id="tasks-page-info" class="hint" aria-live="polite"></span><div><button type="button" class="secondary" id="tasks-prev-page" disabled>Previous</button><button type="button" class="secondary" id="tasks-next-page" disabled>Next</button></div></div>
+ </section>
+ <section id="task-editor-view" class="task-editor-view" hidden>
+  <nav id="task-section-nav" class="task-section-nav" aria-label="Task details sections">
+   <button type="button" class="task-section-tab active" data-task-section-tab="details" aria-controls="task-details" aria-selected="true">Details</button>
+   <button type="button" class="task-section-tab" data-task-section-tab="history" aria-controls="task-executions" aria-selected="false" disabled>Execution history</button>
+  </nav>
+  <section class="panel notes-editor-panel"><div class="family-details-heading"><div><h3 id="task-heading">Select a task</h3><p class="hint">Manage recurring schedules and one-time agent tasks.</p></div></div>
+   <section id="task-details" class="task-section-content" data-task-section="details">
+    <form id="task-form" class="notes-editor">
+     <label for="task-name">Name</label><input id="task-name" type="text" maxlength="120" required placeholder="Daily summary" disabled>
+     <label for="task-description">Description</label><input id="task-description" type="text" placeholder="Optional description" disabled>
+     <label for="task-agent">Agent</label><select id="task-agent" required disabled></select>
+     <label for="task-prompt">Prompt</label><textarea id="task-prompt" rows="8" required placeholder="What should the agent do?" disabled></textarea>
+     <label for="task-family">Additional family context</label><select id="task-family" disabled><option value="">No family context</option></select>
+     <label for="task-schedule">Cron schedule (seconds field; leave empty for one-time)</label><input id="task-schedule" type="text" placeholder="0 0 8 * * *" disabled>
+     <label for="task-at">Run once at (local date and time)</label><input id="task-at" type="datetime-local" disabled>
+     <label for="task-timezone">Timezone (IANA)</label><input id="task-timezone" type="text" value="Europe/Madrid" placeholder="Europe/Madrid" disabled>
+     <label style="display:flex;align-items:center;gap:7px;margin:4px 0 10px"><input id="task-enabled" type="checkbox" checked disabled style="width:auto;margin:0"> Enabled</label>
+     <div class="notes-actions"><button id="save-task" type="submit" disabled>Save task</button><button id="delete-task" type="button" class="danger" disabled>Delete</button></div>
+     <p id="tasks-status" class="hint" aria-live="polite">Choose a task or create a new one.</p>
+    </form>
+   </section>
+   <section id="task-executions" class="task-section-content" data-task-section="history" hidden aria-live="polite">
+    <div class="notes-actions task-execution-controls"><label for="task-executions-search">Filter executions</label><input id="task-executions-search" type="search" placeholder="Status, date or agent…" autocomplete="off"><button id="task-executions-refresh" type="button" class="secondary">Refresh</button></div>
+    <div id="task-executions-list" class="notes-list"><div class="empty">Select a task to inspect its executions.</div></div>
+   </section>
+  </section>
+ </section>
 </section>
-<section id="task-executions" class="task-section-content" data-task-section="history" hidden aria-live="polite">
-  <div class="notes-actions">
-    <button id="task-executions-refresh" type="button" class="secondary">Refresh</button>
-  </div>
-  <div id="task-executions-list" class="notes-list"><div class="empty">Select a task to inspect its executions.</div></div>
-</section>
-</div>
-</section></div></section></main><dialog id="task-execution-dialog" class="modal-dialog task-execution-dialog" aria-labelledby="task-execution-dialog-title">
-  <div class="family-details-heading task-execution-dialog-heading">
-    <div><h3 id="task-execution-dialog-title">Execution details</h3><p id="task-execution-dialog-meta" class="hint"></p></div>
-    <button id="task-execution-dialog-close" type="button" class="secondary">Close</button>
-  </div>
-  <div id="task-execution-detail"></div>
+</div></section></main>
+<dialog id="task-execution-dialog" class="modal-dialog task-execution-dialog" aria-labelledby="task-execution-dialog-title">
+ <div class="family-details-heading task-execution-dialog-heading"><div><h3 id="task-execution-dialog-title">Execution details</h3><p id="task-execution-dialog-meta" class="hint"></p></div><button id="task-execution-dialog-close" type="button" class="secondary">Close</button></div>
+ <div id="task-execution-detail"></div>
 </dialog></body></html>
