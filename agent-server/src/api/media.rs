@@ -80,7 +80,13 @@ async fn list_trakt_profiles(
         Ok(sync) => sync,
         Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
     };
-    let personal_broken = match state.trakt_oauth.as_ref().unwrap().connection_status(user_id, personal.id).await {
+    let personal_broken = match state
+        .trakt_oauth
+        .as_ref()
+        .unwrap()
+        .connection_status(user_id, personal.id)
+        .await
+    {
         Ok(status) => status == Some(agent_storage::ExternalConnectionStatus::Broken),
         Err(error) => return trakt_error_response(error),
     };
@@ -125,7 +131,13 @@ async fn list_trakt_profiles(
                 Ok(sync) => sync,
                 Err(error) => return HttpResponse::InternalServerError().body(error.to_string()),
             };
-            let trakt_broken = match state.trakt_oauth.as_ref().unwrap().connection_status(user_id, profile.id).await {
+            let trakt_broken = match state
+                .trakt_oauth
+                .as_ref()
+                .unwrap()
+                .connection_status(user_id, profile.id)
+                .await
+            {
                 Ok(status) => status == Some(agent_storage::ExternalConnectionStatus::Broken),
                 Err(error) => return trakt_error_response(error),
             };
