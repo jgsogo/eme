@@ -709,7 +709,8 @@ body[data-layout="mobile"] .profile-content-back {
   font-size: 18px;
   line-height: 1;
 }
-body[data-layout="mobile"] .profile-content-back[hidden] { display: none; }
+body[data-layout="mobile"] .profile-content-back[hidden],
+body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
 
 @media (max-width: 759px) {
   body[data-layout="mobile"][data-page="integrations"][data-profile-view="list"] .integration-details { display: none; }
