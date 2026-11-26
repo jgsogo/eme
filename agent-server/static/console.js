@@ -141,7 +141,7 @@ function noteDate(note){
 }
 function renderNotes(){
  const target=$("notes-list");if(!target)return;
- if(!$("notes-overview")){
+ if(!$("notes-overview")&&!$("notes-table-body")){
   const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
   const familyFilter=$("note-family-filter")?.value||"";
   const notes=state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter)));
