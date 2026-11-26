@@ -123,7 +123,7 @@
         [book.publisher, book.publication_year].filter(Boolean).join(" · ")
       ].filter(Boolean).join(" — ");
       $("book-title").value = book.title || "";
-      $("book-authors").value = (book.authors || []).join(", ");
+      $("book-authors").value = (book.authors || []).join("\n");
       $("book-isbn").value = book.isbn || "";
       $("book-rating").value = book.rating ?? "";
       $("book-status").value = book.reading_status || "pending";
@@ -342,7 +342,7 @@
       const id = state.selected.id;
       const payload = {
         title: $("book-title").value.trim(),
-        authors: $("book-authors").value.split(",").map(value => value.trim()).filter(Boolean),
+        authors: $("book-authors").value.split(/\r?\n/).map(value => value.trim()).filter(Boolean),
         isbn: $("book-isbn").value.trim() || null,
         rating: $("book-rating").value ? Number($("book-rating").value) : null,
         reading_status: $("book-status").value,
