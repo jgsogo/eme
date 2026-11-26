@@ -1187,6 +1187,11 @@ body[data-page="conversations"] #conversations-table-body {
     width: 100%;
     padding-top: 2px;
   }
+  body[data-page="conversations"] .conversation-card-heading > .conversation-card-actions {
+    align-self: center;
+    width: auto;
+    padding: 0;
+  }
   body[data-page="conversations"] .new-conversation-dialog {
     width: min(500px, calc(100vw - 40px));
   }
