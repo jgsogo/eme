@@ -462,6 +462,7 @@ fn dispatch_callback(
     pending.retain(|_, reply| match reply {
         PendingReply::Text { sender } => !sender.is_closed(),
         PendingReply::YesNo { sender } => !sender.is_closed(),
+        PendingReply::Choice { sender } => !sender.is_closed(),
     });
 
     match (message_key, answer) {
@@ -470,7 +471,8 @@ fn dispatch_callback(
                 let _ = sender.send(value);
                 true
             }
-            Some(reply @ PendingReply::Text { .. }) => {
+            Some(reply @ PendingReply::Text { .. })
+            | Some(reply @ PendingReply::Choice { .. }) => {
                 pending.insert(key, reply);
                 false
             }
@@ -647,6 +649,17 @@ mod tests {
 
         assert!(dispatch_callback(Some((42, 100)), Some(true), &mut pending));
         assert!(receiver.await.unwrap());
+        assert!(pending.is_empty());
+    }
+
+    #[tokio::test]
+    async fn callback_for_matching_choice_message_delivers_selection() {
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Choice { sender });
+
+        assert!(dispatch_choice(Some((42, 100)), Some("2"), &mut pending));
+        assert_eq!(receiver.await.unwrap(), "2");
         assert!(pending.is_empty());
     }
 
