@@ -1,20 +1,18 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>EME Agent Console · Notes</title><link rel="stylesheet" href="/assets/mobile-base.css"><link rel="stylesheet" href="/assets/mobile.css"><script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js" defer></script><script src="/assets/console-auth.js" defer></script><script src="/assets/console.js" defer></script><script src="/assets/mobile.js" defer></script></head>
-<body data-layout="mobile" data-page="notes"><span id="connection" class="hint" hidden>Connecting…</span>
+<body data-layout="mobile" data-page="notes" data-note-view="list"><span id="connection" class="hint" hidden>Connecting…</span>
 <section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
 <main hidden><section class="notes-view tasks-view"><div class="notes-workspace tasks-workspace">
-<div class="drawer-backdrop" id="notes-drawer-backdrop" aria-hidden="true"></div>
-<aside class="panel sidebar notes-sidebar tasks-sidebar" id="notes-sidebar" aria-label="Notes">
- <div class="toolbar"><h2>Your notes</h2><div class="notes-sidebar-actions"><button class="secondary" id="close-notes" type="button" aria-label="Close notes">✕</button><button class="secondary" id="refresh-notes" type="button">Refresh</button></div></div>
- <div class="notes-sidebar-heading"><button id="new-note" type="button">＋ New note</button></div>
- <div class="notes-filters task-list-filters"><input id="note-search" type="search" placeholder="Search notes…" aria-label="Search notes"><select id="note-family-filter" aria-label="Filter notes by family"><option value="">All notes</option><option value="private">Private notes</option></select></div>
- <div id="notes-list" class="notes-list"><div class="empty">Loading notes…</div></div>
-</aside>
+<div id="notes-list" hidden></div>
 <section class="panel notes-main-panel tasks-main-panel">
- <div class="notes-main-heading tasks-main-heading"><button type="button" class="secondary menu-toggle" id="open-notes" aria-label="Open notes" aria-controls="notes-sidebar" aria-expanded="false">☰</button><button type="button" class="secondary notes-back-button tasks-back-button" id="back-to-notes" aria-label="Back to all notes" hidden>←</button><div><h2 id="notes-main-title">All notes</h2><p class="hint" id="notes-main-subtitle">Your notes, ordered by most recently updated</p></div></div>
- <section id="notes-overview" class="notes-overview tasks-overview">
-  <div class="notes-table-wrap tasks-table-wrap"><table class="notes-table tasks-table"><thead><tr><th scope="col">Note</th><th scope="col">Family</th><th scope="col">Updated</th></tr></thead><tbody id="notes-table-body"><tr><td colspan="2" class="notes-table-empty tasks-table-empty">Loading notes…</td></tr></tbody></table></div>
-  <div class="notes-pagination tasks-pagination"><span id="notes-page-info" class="hint" aria-live="polite"></span><div><button type="button" class="secondary" id="notes-prev-page" disabled>Previous</button><button type="button" class="secondary" id="notes-next-page" disabled>Next</button></div></div>
+ <div class="notes-main-heading tasks-main-heading"><button type="button" class="secondary notes-back-button tasks-back-button" id="back-to-notes" aria-label="Back to all notes" hidden>←</button><div><h2 id="notes-main-title">All notes</h2><p class="hint" id="notes-main-subtitle">Your notes, ordered by most recently updated</p></div></div>
+ <section id="notes-overview" class="notes-overview tasks-overview item-overview">
+  <div class="item-list-toolbar">
+   <button id="new-note" type="button">＋ New note</button>
+   <div class="notes-filters task-list-filters"><input id="note-search" type="search" placeholder="Search notes…" aria-label="Search notes"><select id="note-family-filter" aria-label="Filter notes by family"><option value="">All notes</option><option value="private">Private notes</option></select><button class="secondary" id="refresh-notes" type="button">Refresh</button></div>
+  </div>
+  <div id="notes-table-body" class="item-card-list note-card-list" aria-live="polite"><div class="tasks-table-empty">Loading notes…</div></div>
+  <span id="notes-page-info" class="hint item-list-count" aria-live="polite"></span>
  </section>
  <section class="notes-editor-panel" id="notes-editor-panel" hidden>
   <div class="family-details-heading"><div><h3 id="note-heading">Note</h3><p class="hint">Notes are private by default and can be shared with one family.</p></div></div>
