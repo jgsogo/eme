@@ -133,8 +133,8 @@ async function loadWeek(){
   state.participation=context.participation||[];
   if(context.current_plan)state.plans.set(monday,context.current_plan);
   renderWeek();
-  $("connection").textContent="Connected";
- }catch(e){if(request===state.request){state.failedWeeks=new Set([monday]);$("planner-week-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+' <button type="button" class="text-button" id="retry-week">Retry</button></p>';$("retry-week")?.addEventListener("click",loadWeek);$("connection").textContent="Connection error"}}
+  $("connection")?.textContent="Connected";
+ }catch(e){if(request===state.request){state.failedWeeks=new Set([monday]);$("planner-week-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+' <button type="button" class="text-button" id="retry-week">Retry</button></p>';$("retry-week")?.addEventListener("click",loadWeek);$("connection")?.textContent="Connection error"}}
 }
 $("recipe-search").addEventListener("input",e=>{state.recipeSearch=e.target.value;renderRecipePicker()});
 $("assignment-recipes-list").addEventListener("change",e=>{
@@ -155,4 +155,4 @@ $("week-date").addEventListener("change",loadWeek);
 window.addEventListener("eme:family-changed",()=>loadWeek());
 window.addEventListener("focus",()=>loadWeek());
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")loadWeek()});
-(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("week-date").value=dateString(mondayOf(new Date()));await loadWeek()}catch(e){$("connection").textContent="Error loading planner: "+e.message}})();
+(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("week-date").value=dateString(mondayOf(new Date()));await loadWeek()}catch(e){$("connection")?.textContent="Error loading planner: "+e.message}})();
