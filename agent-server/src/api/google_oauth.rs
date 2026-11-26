@@ -473,7 +473,15 @@ async fn test_connection(
     {
         Ok(token) => token,
         Err(error) => {
-            tracing::warn!(%error, connection_id = %connection.id, "Google OAuth health check failed");
+            let detail = error.to_string();
+            let permanent = ["invalid_grant", "invalid credentials", "token has been expired", "token expired", "revoked"]
+                .iter().any(|marker| detail.to_ascii_lowercase().contains(marker));
+            if permanent {
+                if let Err(mark_error) = store.mark_connection_broken(owner, connection_id).await {
+                    tracing::error!(%mark_error, connection_id = %connection.id, "could not mark Google connection as broken");
+                }
+            }
+            tracing::warn!(%error, permanent, connection_id = %connection.id, "Google OAuth health check failed");
             return HttpResponse::BadGateway()
                 .body(format!("Google authentication failed: {error}"));
         }
