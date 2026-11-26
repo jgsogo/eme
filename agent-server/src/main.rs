@@ -154,11 +154,7 @@ async fn main() -> Result<()> {
     let providers_catalog = resolver.provider_catalog();
     let notes_store = resolver.notes.clone();
     let books_store = resolver.books.clone();
-    let telegram_agents = resolver
-        .agents
-        .definitions()
-        .map(|agent| agent.name.clone())
-        .collect::<Vec<_>>();
+    let telegram_agents = agents.list().to_vec();
     let executor = Arc::new(AgentRuntimeExecutor::new(resolver));
     let identity_store = Arc::new(
         FileUserIdentityStore::open(args.data_dir.join("users.json"))

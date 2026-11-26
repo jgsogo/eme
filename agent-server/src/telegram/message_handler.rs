@@ -3,6 +3,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use agent_runtime::ToolContext;
+use agent_server::AgentListItem;
 use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
@@ -20,7 +21,7 @@ pub(super) async fn handle_message(
     gateway: &Arc<TelegramGateway>,
     allowed: &HashSet<i64>,
     default_agent: &str,
-    agents: &[String],
+    agents: &[AgentListItem],
     manager: &RunManager,
     store: &Arc<SqliteConversationStore>,
     identities: &Arc<FileUserIdentityStore>,
@@ -225,6 +226,8 @@ pub(super) async fn handle_message(
         default_agent,
         agents,
         store,
+        family_service,
+        user.id,
         message.chat_id,
         command,
         arguments,
@@ -240,14 +243,13 @@ pub(super) async fn handle_message(
         return;
     }
 
+    let _ = gateway.react_to_message(message.chat_id, message.message_id, "👀").await;
+
     let conversation = match store.active(&owner) {
         Ok(Some(conversation)) => conversation,
-        Ok(None) => match store.create(&owner, default_agent) {
-            Ok(conversation) => conversation,
-            Err(error) => {
-                send_error(gateway, message.chat_id, "create a conversation", error).await;
-                return;
-            }
+        Ok(None) => {
+            let _ = gateway.send_message(message.chat_id, "No current conversation. Create one with /new.").await;
+            return;
         },
         Err(error) => {
             send_error(
@@ -421,9 +423,6 @@ pub(super) async fn handle_message(
         .await
     {
         Ok(id) => {
-            let _ = gateway
-                .send_message(message.chat_id, &format!("Run {id} queued."))
-                .await;
             tokio::spawn(report(
                 gateway.clone(),
                 message.chat_id,

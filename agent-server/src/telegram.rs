@@ -14,7 +14,7 @@ pub use config::allowed_users_from_env;
 
 use std::{collections::HashSet, sync::Arc};
 
-use agent_server::auth::TelegramAuth;
+use agent_server::{AgentListItem, auth::TelegramAuth};
 use agent_service::{FamilyService, RunManager};
 use agent_storage::{FileUserIdentityStore, SqliteConversationStore, SqliteFamilyStore};
 use telegram_tool::{IncomingMessage, TelegramGateway};
@@ -26,7 +26,7 @@ pub async fn run_bot(
     gateway: Arc<TelegramGateway>,
     allowed: HashSet<i64>,
     agent: String,
-    agents: Vec<String>,
+    agents: Vec<AgentListItem>,
     manager: RunManager,
     store: Arc<SqliteConversationStore>,
     identities: Arc<FileUserIdentityStore>,
