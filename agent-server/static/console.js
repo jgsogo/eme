@@ -533,13 +533,13 @@ function filteredTasks(){
 }
 function taskScheduleLabel(task){
  if(task.schedule)return task.schedule;
- if(task.at)return "Once · "+new Date(task.at).toLocaleString();
+ if(task.at)return "Once";
  return "One-time";
 }
 function renderTasks(){
  const tasks=filteredTasks();
  const target=$("tasks-list");
- if(target)target.innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(taskScheduleLabel(task))+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
+ if(target)target.innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
  renderTasksTable(tasks);
 }
 function renderTasksTable(tasks=filteredTasks()){
