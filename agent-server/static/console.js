@@ -28,6 +28,16 @@ function renderConversations(){
  if(legacyList)legacyList.innerHTML=conversations.map(c=>'<li data-id="'+escapeHtml(c.id)+'">'+escapeHtml(c.title||"New conversation")+'</li>').join("");
  renderConversationsTable(conversations);
 }
+function renderConversationsTable(conversations){
+ const body=$("conversations-table-body");if(!body)return;
+ body.innerHTML=conversations.length?conversations.map(c=>{
+  const family=state.families.find(f=>f.id===c.selected_family_id);
+  const activeRun=state.activeRuns[c.id];
+  const updated=c.updated_at?new Date(c.updated_at).toLocaleString():"—";
+  return '<button type="button" class="item-card conversation-item-card" data-conversation-id="'+escapeHtml(c.id)+'" aria-label="Open '+escapeHtml(c.title||"New conversation")+'"><div class="item-card-heading"><strong>'+escapeHtml(c.title||"New conversation")+'</strong>'+(activeRun?'<span class="item-card-tag running">Agent '+(activeRun.status==="queued"?"queued":"working")+'</span>':'')+'</div><p class="item-card-description">Agent · '+escapeHtml(c.agent||"—")+'</p><div class="item-card-meta"><span class="item-card-tag">'+escapeHtml(family?.name||"Private")+'</span><span>'+escapeHtml(c.message_count||0)+' messages</span><span>~'+Number(c.history_tokens_estimate||0).toLocaleString()+' tokens</span></div><div class="item-card-footnote">Updated · '+escapeHtml(updated)+'</div><span class="item-card-arrow" aria-hidden="true">›</span></button>';
+ }).join(""):'<div class="tasks-table-empty"><strong>'+(state.conversations.length?"No conversations found":state.showArchived?"No archived conversations":"No conversations yet")+'</strong><span>'+(state.conversations.length?"Try changing your search.":"Create a conversation to get started.")+'</span></div>';
+ const info=$("conversations-page-info");if(info)info.textContent=conversations.length?conversations.length+" conversations":"0 conversations";
+}
 function showConversationsOverview(){
  $("conversations-overview").hidden=false;$("conversation-detail-view").hidden=true;
  if($("open-conversations"))$("open-conversations").hidden=false;$("back-to-conversations").hidden=true;
