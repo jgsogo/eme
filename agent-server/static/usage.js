@@ -196,6 +196,7 @@ $("pricing-versions")?.addEventListener("click",event=>{
  if(event.target.closest("[data-clear-pricing-filter]")){$("pricing-search").value="";renderPricing()}
  if(event.target.closest("[data-retry-pricing]"))loadPricing();
 });
-$("usage-records")?.addEventListener("click",event=>{if(event.target.closest("[data-retry-usage]")){load();loadPricing()}});\n$("pricing-form").addEventListener("submit",savePricing);
+$("usage-records")?.addEventListener("click",event=>{if(event.target.closest("[data-retry-usage]")){load();loadPricing()}});
+$("pricing-form").addEventListener("submit",savePricing);
 load();
 loadPricing();
