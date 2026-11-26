@@ -11,10 +11,12 @@ use super::{IncomingMessage, PendingReply, TelegramError, markdown::markdown_to_
 use frankenstein::{
     AsyncTelegramApi, ParseMode,
     client_reqwest::Bot,
-    methods::{AnswerCallbackQueryParams, GetUpdatesParams, SendMessageParams},
+    methods::{
+        AnswerCallbackQueryParams, GetUpdatesParams, SendMessageParams, SetMessageReactionParams,
+    },
     types::{
         AllowedUpdate, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage,
-        ReplyMarkup,
+        ReactionType, ReactionTypeEmoji, ReplyMarkup,
     },
     updates::UpdateContent,
 };
@@ -77,6 +79,78 @@ impl TelegramGateway {
             .build();
         self.bot
             .send_message(&params)
+            .await
+            .map_err(|error| TelegramError::Api(error.to_string()))?;
+        Ok(())
+    }
+
+    pub async fn send_message_with_buttons(
+        &self,
+        chat_id: i64,
+        text: &str,
+        rows: Vec<Vec<(String, String)>>,
+    ) -> Result<(), TelegramError> {
+        let keyboard = InlineKeyboardMarkup {
+            inline_keyboard: rows
+                .into_iter()
+                .map(|row| {
+                    row.into_iter()
+                        .map(|(label, data)| {
+                            InlineKeyboardButton::builder()
+                                .text(label)
+                                .callback_data(data)
+                                .build()
+                        })
+                        .collect()
+                })
+                .collect(),
+            force_reply: None,
+        };
+        let params = SendMessageParams::builder()
+            .chat_id(chat_id)
+            .text(markdown_to_telegram_html(text))
+            .parse_mode(ParseMode::Html)
+            .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
+            .build();
+        self.bot
+            .send_message(&params)
+            .await
+            .map_err(|error| TelegramError::Api(error.to_string()))?;
+        Ok(())
+    }
+
+    pub async fn react_to_message(
+        &self,
+        chat_id: i64,
+        message_id: i32,
+        emoji: &str,
+    ) -> Result<(), TelegramError> {
+        let reaction = ReactionType::Emoji(ReactionTypeEmoji::builder().emoji(emoji).build());
+        let params = SetMessageReactionParams::builder()
+            .chat_id(chat_id)
+            .message_id(message_id)
+            .reaction(vec![reaction])
+            .build();
+        self.bot
+            .set_message_reaction(&params)
+            .await
+            .map_err(|error| TelegramError::Api(error.to_string()))?;
+        Ok(())
+    }
+
+    /// Remove all reactions from a message.
+    pub async fn clear_message_reaction(
+        &self,
+        chat_id: i64,
+        message_id: i32,
+    ) -> Result<(), TelegramError> {
+        let params = SetMessageReactionParams::builder()
+            .chat_id(chat_id)
+            .message_id(message_id)
+            .reaction(Vec::new())
+            .build();
+        self.bot
+            .set_message_reaction(&params)
             .await
             .map_err(|error| TelegramError::Api(error.to_string()))?;
         Ok(())
@@ -183,6 +257,62 @@ impl TelegramGateway {
         }
     }
 
+    pub async fn ask_choice(
+        &self,
+        chat_id: i64,
+        question: &str,
+        options: Vec<(String, String)>,
+        timeout: Duration,
+    ) -> Result<String, TelegramError> {
+        if options.is_empty() {
+            return Err(TelegramError::Api(
+                "Cannot ask a choice question without options".to_owned(),
+            ));
+        }
+        let (sender, receiver) = oneshot::channel();
+        let dispatch = self.dispatch_lock.lock().await;
+        let keyboard = InlineKeyboardMarkup {
+            inline_keyboard: options
+                .into_iter()
+                .map(|(label, value)| {
+                    vec![
+                        InlineKeyboardButton::builder()
+                            .text(label)
+                            .callback_data(format!("choice:{value}"))
+                            .build(),
+                    ]
+                })
+                .collect(),
+            force_reply: None,
+        };
+        let params = SendMessageParams::builder()
+            .chat_id(chat_id)
+            .text(markdown_to_telegram_html(&format_question(question)))
+            .parse_mode(ParseMode::Html)
+            .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
+            .build();
+        let sent = self
+            .bot
+            .send_message(&params)
+            .await
+            .map_err(|error| TelegramError::Api(error.to_string()))?;
+        let key = (chat_id, sent.result.message_id);
+        self.pending
+            .lock()
+            .await
+            .insert(key, PendingReply::Choice { sender });
+        drop(dispatch);
+
+        match tokio::time::timeout(timeout, receiver).await {
+            Ok(Ok(answer)) => Ok(answer),
+            Ok(Err(_)) => Err(TelegramError::DispatcherClosed),
+            Err(_) => {
+                self.pending.lock().await.remove(&key);
+                Err(TelegramError::Timeout(timeout))
+            }
+        }
+    }
+
     /// Start the only update poller for this bot token.
     pub async fn run(self: Arc<Self>) {
         let mut offset: Option<i64> = None;
@@ -235,14 +365,41 @@ impl TelegramGateway {
                                     Some("no") => Some(false),
                                     _ => None,
                                 };
+                                let choice = query
+                                    .data
+                                    .as_deref()
+                                    .and_then(|data| data.strip_prefix("choice:"));
                                 let mut pending = self.pending.lock().await;
-                                let consumed = dispatch_callback(message_key, answer, &mut pending);
+                                let consumed = dispatch_callback(message_key, answer, &mut pending)
+                                    || dispatch_choice(message_key, choice, &mut pending);
 
-                                if consumed {
-                                    let ack = AnswerCallbackQueryParams::builder()
-                                        .callback_query_id(query.id)
-                                        .build();
-                                    let _ = self.bot.answer_callback_query(&ack).await;
+                                drop(pending);
+                                let ack = AnswerCallbackQueryParams::builder()
+                                    .callback_query_id(query.id)
+                                    .build();
+                                let _ = self.bot.answer_callback_query(&ack).await;
+
+                                if !consumed
+                                    && !matches!(query.data.as_deref(), Some("yes" | "no"))
+                                    && !query
+                                        .data
+                                        .as_deref()
+                                        .is_some_and(|data| data.starts_with("choice:"))
+                                {
+                                    if let (Some((chat_id, message_id)), Some(data)) =
+                                        (message_key, query.data)
+                                    {
+                                        let event = IncomingMessage {
+                                            chat_id,
+                                            user_id: i64::try_from(query.from.id).ok(),
+                                            first_name: Some(query.from.first_name),
+                                            is_bot: query.from.is_bot,
+                                            message_id,
+                                            reply_to_message_id: None,
+                                            text: Some(data),
+                                        };
+                                        let _ = self.events.send(event);
+                                    }
                                 }
                             }
                             _ => {}
@@ -269,6 +426,7 @@ fn dispatch_message(
     pending.retain(|_, reply| match reply {
         PendingReply::Text { sender } => !sender.is_closed(),
         PendingReply::YesNo { sender } => !sender.is_closed(),
+        PendingReply::Choice { sender } => !sender.is_closed(),
     });
 
     let key = event
@@ -287,6 +445,10 @@ fn dispatch_message(
                 Some(PendingReply::Text { sender }) => {
                     // Even if the waiting task was cancelled concurrently,
                     // this is still a reply, never a fresh inbound prompt.
+                    let _ = sender.send(answer);
+                    true
+                }
+                Some(PendingReply::Choice { sender }) => {
                     let _ = sender.send(answer);
                     true
                 }
@@ -325,6 +487,7 @@ fn dispatch_callback(
     pending.retain(|_, reply| match reply {
         PendingReply::Text { sender } => !sender.is_closed(),
         PendingReply::YesNo { sender } => !sender.is_closed(),
+        PendingReply::Choice { sender } => !sender.is_closed(),
     });
 
     match (message_key, answer) {
@@ -333,7 +496,29 @@ fn dispatch_callback(
                 let _ = sender.send(value);
                 true
             }
-            Some(reply @ PendingReply::Text { .. }) => {
+            Some(reply @ PendingReply::Text { .. }) | Some(reply @ PendingReply::Choice { .. }) => {
+                pending.insert(key, reply);
+                false
+            }
+            None => false,
+        },
+        _ => false,
+    }
+}
+
+/// Route an inline-button response to the matching finite-choice question.
+fn dispatch_choice(
+    message_key: Option<(i64, i32)>,
+    answer: Option<&str>,
+    pending: &mut HashMap<(i64, i32), PendingReply>,
+) -> bool {
+    match (message_key, answer) {
+        (Some(key), Some(value)) => match pending.remove(&key) {
+            Some(PendingReply::Choice { sender }) => {
+                let _ = sender.send(value.to_owned());
+                true
+            }
+            Some(reply) => {
                 pending.insert(key, reply);
                 false
             }
@@ -487,6 +672,17 @@ mod tests {
 
         assert!(dispatch_callback(Some((42, 100)), Some(true), &mut pending));
         assert!(receiver.await.unwrap());
+        assert!(pending.is_empty());
+    }
+
+    #[tokio::test]
+    async fn callback_for_matching_choice_message_delivers_selection() {
+        let (sender, receiver) = oneshot::channel();
+        let mut pending = HashMap::new();
+        pending.insert((42, 100), PendingReply::Choice { sender });
+
+        assert!(dispatch_choice(Some((42, 100)), Some("2"), &mut pending));
+        assert_eq!(receiver.await.unwrap(), "2");
         assert!(pending.is_empty());
     }
 

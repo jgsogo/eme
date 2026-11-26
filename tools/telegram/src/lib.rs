@@ -12,7 +12,7 @@ use std::{path::PathBuf, sync::Arc};
 use agent_config::ConfigError;
 use agent_runtime::ToolRegistry;
 
-pub use client::{IncomingMessage, TelegramError, TelegramGateway};
+pub use client::{IncomingMessage, TelegramError, TelegramGateway, default_timeout};
 
 /// Register Telegram tools. The gateway is shared with the server's inbound
 /// message handler; when absent, tool calls fail with a configuration error.

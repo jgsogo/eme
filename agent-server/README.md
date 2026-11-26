@@ -8,7 +8,7 @@ It will assemble the platform components, load their configuration, manage appli
 
 ## Telegram bot
 
-Set `TELEGRAM_BOT_TOKEN` to enable the optional long-polling bot and `TELEGRAM_ALLOWED_USERS` to a comma-separated allowlist of numeric Telegram user IDs. Text prompts are submitted through the shared `RunManager` to the configured agent (default: `assistant`); use `--telegram-agent <name>` to select another configured agent. The bot acknowledges queued runs and sends the final result. `/start` and `/help` show usage.
+Set `TELEGRAM_BOT_TOKEN` to enable the optional long-polling bot and `TELEGRAM_ALLOWED_USERS` to a comma-separated allowlist of numeric Telegram user IDs. Use `/help`, `/new`, `/info`, and `/agents` to interact with the bot. `/new` asks for a conversation name, agent, and optional family. Ordinary messages are sent only to the current conversation; create one with `/new` if none is active. The bot reacts to incoming prompts and sends the final result without exposing internal run IDs.
 
 ```bash
 export TELEGRAM_BOT_TOKEN="..."

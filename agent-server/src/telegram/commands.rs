@@ -2,8 +2,11 @@
 
 use std::sync::Arc;
 
-use agent_storage::{ConversationId, SqliteConversationStore};
-use telegram_tool::TelegramGateway;
+use agent_runtime::Message;
+use agent_server::AgentListItem;
+use agent_service::FamilyService;
+use agent_storage::{SqliteConversationStore, UserId};
+use telegram_tool::{TelegramGateway, default_timeout};
 
 use super::formatting::{send_error, truncate};
 
@@ -11,180 +14,320 @@ pub(super) async fn handle_command(
     gateway: &Arc<TelegramGateway>,
     owner: &str,
     default_agent: &str,
-    agents: &[String],
+    agents: &[AgentListItem],
     store: &Arc<SqliteConversationStore>,
+    family_service: &Arc<FamilyService>,
+    user_id: UserId,
     chat_id: i64,
     command: &str,
     arguments: &str,
 ) -> bool {
     match command {
-        "/start" | "/help" => {
-            let _ = gateway
-                .send_message(
-                    chat_id,
-                    &format!(
-                        "Commands:\n/new — start a fresh conversation\n/history — list conversations\n/use <id> — resume a conversation\n/agents — list agents\n/agent <name> — start a conversation with an agent\n\nDefault agent: '{default_agent}'."
-                    ),
-                )
-                .await;
+        "/help" => {
+            let _ = gateway.send_message(chat_id,
+                "Available commands:\n/help — show this help\n/new — create a conversation\n/info — show the current conversation\n/agents — browse configured agents").await;
             true
         }
-        "/new" if arguments.is_empty() => {
-            let agent = match store.active(owner) {
-                Ok(Some(conversation)) => conversation.agent,
-                Ok(None) => default_agent.to_owned(),
-                Err(error) => {
-                    send_error(gateway, chat_id, "load the active conversation", error).await;
-                    return true;
-                }
-            };
-            match store.create(owner, agent.clone()) {
-                Ok(conversation) => {
+        "/new" => {
+            create_conversation(
+                gateway,
+                owner,
+                default_agent,
+                agents,
+                store,
+                family_service,
+                user_id,
+                chat_id,
+            )
+            .await;
+            true
+        }
+        "/info" => {
+            let conversation = match store.active(owner) {
+                Ok(Some(value)) => value,
+                Ok(None) => {
                     let _ = gateway
-                        .send_message(
-                            chat_id,
-                            &format!(
-                                "Started a new conversation ({}) with agent '{agent}'.",
-                                conversation.id
-                            ),
-                        )
+                        .send_message(chat_id, "No current conversation. Create one with /new.")
                         .await;
+                    return true;
                 }
-                Err(error) => send_error(gateway, chat_id, "create a conversation", error).await,
-            }
-            true
-        }
-        "/history" if arguments.is_empty() => {
-            let conversations = match store.list(owner) {
-                Ok(conversations) => conversations,
                 Err(error) => {
-                    send_error(gateway, chat_id, "list conversations", error).await;
+                    send_error(gateway, chat_id, "load the current conversation", error).await;
                     return true;
                 }
             };
-            if conversations.is_empty() {
+            let family = match conversation.selected_family_id {
+                Some(id) => family_service
+                    .list_families(user_id)
+                    .await
+                    .ok()
+                    .and_then(|items| {
+                        items
+                            .into_iter()
+                            .find(|item| item.id == id)
+                            .map(|item| item.name)
+                    })
+                    .unwrap_or_else(|| id.to_string()),
+                None => "None".to_owned(),
+            };
+            let info = format!(
+                "Current conversation\n\nName: {}\nAgent: {}\nFamily: {}\nMessages: {}\nEstimated tokens: ~{}\nCreated: {}\nLast activity: {}\nID: {}",
+                conversation.title,
+                conversation.agent,
+                family,
+                conversation.messages.len(),
+                estimate_tokens(&conversation.messages),
+                conversation.created_at.format("%Y-%m-%d %H:%M UTC"),
+                conversation.updated_at.format("%Y-%m-%d %H:%M UTC"),
+                conversation.id
+            );
+            let _ = gateway.send_message(chat_id, &truncate(&info)).await;
+            true
+        }
+        "/agents" => {
+            if agents.is_empty() {
                 let _ = gateway
-                    .send_message(
-                        chat_id,
-                        "No conversations yet. Send a message to start one.",
-                    )
+                    .send_message(chat_id, "No agents are configured.")
                     .await;
                 return true;
             }
-            let active_id = match store.active(owner) {
-                Ok(conversation) => conversation.map(|conversation| conversation.id),
+            let active = match store.active(owner) {
+                Ok(value) => value.map(|conversation| conversation.agent),
                 Err(error) => {
-                    send_error(gateway, chat_id, "load the active conversation", error).await;
+                    send_error(gateway, chat_id, "load the current conversation", error).await;
                     return true;
                 }
             };
-            let mut lines = vec!["Conversations (newest activity first):".to_owned()];
-            for conversation in conversations.iter().take(10) {
-                let marker = if Some(conversation.id) == active_id {
-                    " [active]"
-                } else {
-                    ""
-                };
-                lines.push(format!(
-                    "{}{} — {} — {} — {} messages",
-                    conversation.id,
-                    marker,
-                    conversation.agent,
-                    conversation.updated_at.format("%Y-%m-%d %H:%M UTC"),
-                    conversation.messages.len()
-                ));
-            }
-            if conversations.len() > 10 {
-                lines.push(format!(
-                    "{} older conversations omitted.",
-                    conversations.len() - 10
-                ));
-            }
-            lines.push("Use /use <conversation-id> to continue one.".into());
+            let mut lines = vec!["Configured agents — select one to see its details:".to_owned()];
+            let buttons = agents
+                .iter()
+                .enumerate()
+                .map(|(index, agent)| {
+                    let marker = if active.as_deref() == Some(agent.name.as_str()) {
+                        " ✓"
+                    } else {
+                        ""
+                    };
+                    lines.push(format!("• {}{}", agent.name, marker));
+                    (
+                        format!("{}{}", agent.name, marker),
+                        format!("/agent_details {}", index),
+                    )
+                })
+                .collect::<Vec<_>>();
+            let rows = buttons.chunks(2).map(|chunk| chunk.to_vec()).collect();
             let _ = gateway
-                .send_message(chat_id, &truncate(&lines.join("\n")))
+                .send_message_with_buttons(chat_id, &truncate(&lines.join("\n")), rows)
                 .await;
             true
         }
-        "/use" => {
-            let Ok(id) = arguments.parse::<ConversationId>() else {
+        "/agent_details" => {
+            let Some(index) = arguments.parse::<usize>().ok() else {
                 let _ = gateway
-                    .send_message(chat_id, "Usage: /use <conversation-id>. See /history.")
+                    .send_message(chat_id, "Invalid agent selection. Use /agents.")
                     .await;
                 return true;
             };
-            match store.set_active(owner, id) {
-                Ok(()) => match store.get(id) {
-                    Ok(conversation) => {
-                        let _ = gateway
-                            .send_message(
-                                chat_id,
-                                &format!(
-                                    "Continuing conversation {} with '{}' ({} messages).",
-                                    conversation.id,
-                                    conversation.agent,
-                                    conversation.messages.len()
-                                ),
-                            )
-                            .await;
-                    }
-                    Err(error) => {
-                        send_error(gateway, chat_id, "load the conversation", error).await
-                    }
-                },
-                Err(error) => send_error(gateway, chat_id, "select the conversation", error).await,
-            }
-            true
-        }
-        "/agents" if arguments.is_empty() => {
-            let active_agent = match store.active(owner) {
-                Ok(conversation) => conversation.map(|conversation| conversation.agent),
-                Err(error) => {
-                    send_error(gateway, chat_id, "load the active conversation", error).await;
-                    return true;
-                }
+            let Some(agent) = agents.get(index) else {
+                let _ = gateway
+                    .send_message(chat_id, "Invalid agent selection. Use /agents.")
+                    .await;
+                return true;
             };
-            let mut lines = vec!["Configured agents:".to_owned()];
-            for agent in agents {
-                let marker = if active_agent.as_deref() == Some(agent.as_str()) {
-                    " [active]"
+            let details = format!(
+                "{}\n\n{}\n\nCapabilities: {:?}\nTools: {}",
+                agent.name,
+                agent.description,
+                agent.capabilities,
+                if agent.tools.is_empty() {
+                    "None".to_owned()
                 } else {
-                    ""
-                };
-                lines.push(format!("- {agent}{marker}"));
-            }
-            lines.push("Use /agent <name> to start a new conversation.".into());
-            let _ = gateway
-                .send_message(chat_id, &truncate(&lines.join("\n")))
-                .await;
-            true
-        }
-        "/agent" => {
-            let Some(agent) = agents.iter().find(|agent| agent.as_str() == arguments) else {
-                let _ = gateway
-                    .send_message(
-                        chat_id,
-                        "Unknown agent. Use /agents to list available agents.",
-                    )
-                    .await;
-                return true;
-            };
-            match store.create(owner, agent.clone()) {
-                Ok(conversation) => {
-                    let _ = gateway
-                        .send_message(
-                            chat_id,
-                            &format!(
-                                "Started a new conversation ({}) with agent '{}'. Previous conversations are unchanged.",
-                                conversation.id, agent
-                            ),
-                        )
-                        .await;
+                    agent.tools.join(", ")
                 }
-                Err(error) => send_error(gateway, chat_id, "start a conversation", error).await,
-            }
+            );
+            let _ = gateway.send_message(chat_id, &truncate(&details)).await;
             true
         }
         _ => false,
     }
+}
+
+async fn create_conversation(
+    gateway: &Arc<TelegramGateway>,
+    owner: &str,
+    default_agent: &str,
+    agents: &[AgentListItem],
+    store: &Arc<SqliteConversationStore>,
+    family_service: &Arc<FamilyService>,
+    user_id: UserId,
+    chat_id: i64,
+) {
+    let title = match gateway
+        .ask_text(
+            chat_id,
+            "What would you like to name this conversation? Reply with a name, or 'cancel'.",
+            default_timeout(),
+        )
+        .await
+    {
+        Ok(value) if !value.trim().is_empty() && !value.trim().eq_ignore_ascii_case("cancel") => {
+            value.trim().to_owned()
+        }
+        Ok(_) => {
+            let _ = gateway
+                .send_message(chat_id, "Conversation creation cancelled.")
+                .await;
+            return;
+        }
+        Err(error) => {
+            send_error(gateway, chat_id, "get the conversation name", error).await;
+            return;
+        }
+    };
+
+    if agents.is_empty() {
+        let _ = gateway
+            .send_message(
+                chat_id,
+                "No agents are configured; conversation creation cancelled.",
+            )
+            .await;
+        return;
+    }
+    let mut agent_options = agents
+        .iter()
+        .enumerate()
+        .map(|(index, agent)| (agent.name.clone(), index.to_string()))
+        .collect::<Vec<_>>();
+    agent_options.push(("Cancel".to_owned(), "cancel".to_owned()));
+    let agent_selection = match gateway
+        .ask_choice(
+            chat_id,
+            "Which agent should handle this conversation?",
+            agent_options,
+            default_timeout(),
+        )
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            send_error(gateway, chat_id, "get the agent selection", error).await;
+            return;
+        }
+    };
+    if agent_selection == "cancel" {
+        let _ = gateway
+            .send_message(chat_id, "Conversation creation cancelled.")
+            .await;
+        return;
+    }
+    let Some(agent) = agent_selection
+        .parse::<usize>()
+        .ok()
+        .and_then(|index| agents.get(index))
+        .map(|agent| agent.name.clone())
+    else {
+        let _ = gateway
+            .send_message(
+                chat_id,
+                "Invalid agent selection. Conversation creation cancelled.",
+            )
+            .await;
+        return;
+    };
+
+    let families = match family_service.list_families(user_id).await {
+        Ok(value) => value,
+        Err(error) => {
+            send_error(gateway, chat_id, "list your families", error).await;
+            return;
+        }
+    };
+    let selected_family = if families.is_empty() {
+        None
+    } else {
+        let mut family_options = families
+            .iter()
+            .enumerate()
+            .map(|(index, family)| (family.name.clone(), index.to_string()))
+            .collect::<Vec<_>>();
+        family_options.push(("None".to_owned(), "none".to_owned()));
+        family_options.push(("Cancel".to_owned(), "cancel".to_owned()));
+        let answer = match gateway
+            .ask_choice(
+                chat_id,
+                "Which family should be associated with this conversation?",
+                family_options,
+                default_timeout(),
+            )
+            .await
+        {
+            Ok(value) => value,
+            Err(error) => {
+                send_error(gateway, chat_id, "get the family selection", error).await;
+                return;
+            }
+        };
+        if answer == "cancel" {
+            let _ = gateway
+                .send_message(chat_id, "Conversation creation cancelled.")
+                .await;
+            return;
+        }
+        if answer == "none" {
+            None
+        } else {
+            match answer
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| families.get(index))
+            {
+                Some(family) => Some(family.id),
+                None => {
+                    let _ = gateway
+                        .send_message(chat_id, "Invalid family selection. Creation cancelled.")
+                        .await;
+                    return;
+                }
+            }
+        }
+    };
+
+    match store.create(owner, agent.clone()) {
+        Ok(conversation) => {
+            if let Err(error) = store.rename(owner, conversation.id, title.clone()) {
+                send_error(gateway, chat_id, "name the conversation", error).await;
+                return;
+            }
+            if let Err(error) = store.set_selected_family(owner, conversation.id, selected_family) {
+                send_error(gateway, chat_id, "associate the family", error).await;
+                return;
+            }
+            let family_name = selected_family
+                .and_then(|id| {
+                    families
+                        .iter()
+                        .find(|family| family.id == id)
+                        .map(|family| family.name.clone())
+                })
+                .unwrap_or_else(|| "None".to_owned());
+            let _ = gateway.send_message(chat_id,
+                &format!("Created conversation '{}'.\nAgent: {}\nFamily: {}\n\nSend your first message whenever you're ready.", title, agent, family_name)).await;
+        }
+        Err(error) => send_error(gateway, chat_id, "create a conversation", error).await,
+    }
+}
+
+fn estimate_tokens(messages: &[Message]) -> usize {
+    let chars = messages
+        .iter()
+        .map(|message| match message {
+            Message::User { content } => content.chars().count(),
+            Message::Assistant { content, .. } => {
+                content.as_deref().unwrap_or_default().chars().count()
+            }
+            Message::Tool { name, content, .. } => name.chars().count() + content.chars().count(),
+        })
+        .sum::<usize>();
+    chars.div_ceil(4)
 }
