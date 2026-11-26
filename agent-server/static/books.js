@@ -353,7 +353,8 @@
       button.disabled = true;
       try {
         await api("/books/" + encodeURIComponent(id), { method: "PUT", body: JSON.stringify(payload) });
-        await loadBooks(state.selected?.id === id ? id : state.selected?.id || null);
+        const selectedId = document.body.dataset.bookView === "detail" ? state.selected?.id || null : null;
+        await loadBooks(selectedId);
         status("Book saved.");
       } catch (error) {
         status("Could not save this book: " + error.message);
