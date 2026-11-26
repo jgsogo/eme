@@ -283,7 +283,9 @@ impl TraktOAuthService {
             .map_err(TraktError::ExternalStorage)?
             .into_iter()
             .find(|connection| {
-                connection.provider == "trakt" && connection.provider_subject == user.username
+                connection.provider == "trakt"
+                    && connection.provider_subject == user.username
+                    && connection.status != ExternalConnectionStatus::Revoked
             });
         let connection = if let Some(existing) = existing {
             self.external_connections
@@ -336,10 +338,13 @@ impl TraktOAuthService {
         if let Some(previous) = previous_link
             && previous.external_connection_id != link.external_connection_id
         {
-            self.external_connections
-                .revoke_connection(previous.owner_id, previous.external_connection_id)
-                .await
-                .map_err(TraktError::ExternalStorage)?;
+            // The previous media link may already point to a deleted or
+            // revoked connection. Replacing that stale link must still succeed.
+            self.revoke_connection_if_present(
+                previous.owner_id,
+                previous.external_connection_id,
+            )
+            .await?;
             self.token_manager
                 .invalidate(previous.external_connection_id)
                 .await;
