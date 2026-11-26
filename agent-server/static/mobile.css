@@ -1602,7 +1602,7 @@ body[data-layout="mobile"][data-page="books"] .book-detail-section-heading>div{m
 body[data-layout="mobile"][data-page="books"] .book-detail-section-heading h4{margin:0;font-size:14px}
 body[data-layout="mobile"][data-page="books"] .book-detail-section-heading .hint{margin:3px 0 0;font-size:10px}
 body[data-layout="mobile"][data-page="books"] .book-detail-section-heading button{flex:none;min-height:36px;padding:7px 10px;font-size:11px}
-body[data-layout="mobile"][data-page="books"] .book-detail-section .notes-editor{gap:0}
+body[data-layout="mobile"][data-page="books"] #book-form{display:block;margin:0}
 body[data-layout="mobile"][data-page="books"] .book-detail-section input:not([type="checkbox"]),body[data-layout="mobile"][data-page="books"] .book-detail-section select,body[data-layout="mobile"][data-page="books"] .book-detail-section textarea{box-sizing:border-box;width:100%;min-width:0;min-height:40px;margin:5px 0 12px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--panel2);color:var(--text);font:inherit;font-size:13px}
 body[data-layout="mobile"][data-page="books"] .book-detail-section textarea{min-height:100px;resize:vertical}
 body[data-layout="mobile"][data-page="books"] .book-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -1660,3 +1660,58 @@ body[data-layout="mobile"][data-page="books"] .catalogue-entry-add{width:100%;mi
 body[data-layout="mobile"][data-page="books"] .catalogue-item-dialog{width:min(640px,calc(100vw - 20px));max-width:none;max-height:calc(100dvh - 20px);overflow:auto}
 body[data-layout="mobile"][data-page="books"] .catalogue-item-content{padding-top:12px}
 @media(max-width:420px){body[data-layout="mobile"][data-page="books"] .book-form-grid,body[data-layout="mobile"][data-page="books"] .book-copy-metadata{grid-template-columns:minmax(0,1fr)}}
+
+
+/* Preferred-library settings remain part of the Books section on mobile. */
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-view{
+ display:flex;
+ flex-direction:column;
+ gap:12px;
+ min-height:calc(100dvh - 82px);
+ max-width:900px;
+ box-sizing:border-box;
+ margin:0 auto;
+ padding:12px;
+}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-heading{
+ display:flex;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:12px;
+}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-heading>div{min-width:0;flex:1}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-heading .eyebrow{margin:0 0 4px;font-size:9px;font-weight:750;letter-spacing:.08em}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-heading h2{margin:0 0 5px;font-size:18px}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-heading p{margin:0;font-size:11px;line-height:1.45}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-heading button{flex:none;min-height:38px;padding:7px 10px;font-size:11px}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-panel{
+ display:flex;
+ flex:1 1 auto;
+ flex-direction:column;
+ min-height:0;
+ padding:14px;
+ border:1px solid var(--border);
+ border-radius:12px;
+ background:var(--panel);
+}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-panel>label{font-size:11px;font-weight:650}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-panel>input{
+ box-sizing:border-box;
+ width:100%;
+ min-height:40px;
+ margin:6px 0 8px;
+ padding:8px 10px;
+ border:1px solid var(--border);
+ border-radius:9px;
+ background:var(--panel2);
+ color:var(--text);
+ font:inherit;
+ font-size:12px;
+}
+body[data-layout="mobile"][data-page="books-libraries"] #libraries-count{margin:3px 0 8px;font-size:10px}
+body[data-layout="mobile"][data-page="books-libraries"] .library-list{flex:1 1 auto;max-height:none;min-height:160px;overflow:auto;overscroll-behavior:contain}
+body[data-layout="mobile"][data-page="books-libraries"] .library-choice{gap:9px;padding:10px 4px;font-size:12px;line-height:1.4}
+body[data-layout="mobile"][data-page="books-libraries"] .library-choice input{flex:none;width:17px;height:17px;accent-color:var(--accent)}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-actions{margin-top:12px}
+body[data-layout="mobile"][data-page="books-libraries"] .libraries-actions button{width:100%;min-height:42px}
+body[data-layout="mobile"][data-page="books-libraries"] #libraries-status{margin:8px 0 0;font-size:11px}
