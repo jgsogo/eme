@@ -11,10 +11,12 @@ use super::{IncomingMessage, PendingReply, TelegramError, markdown::markdown_to_
 use frankenstein::{
     AsyncTelegramApi, ParseMode,
     client_reqwest::Bot,
-    methods::{AnswerCallbackQueryParams, GetUpdatesParams, SendMessageParams, SetMessageReactionParams},
+    methods::{
+        AnswerCallbackQueryParams, GetUpdatesParams, SendMessageParams, SetMessageReactionParams,
+    },
     types::{
         AllowedUpdate, InlineKeyboardButton, InlineKeyboardMarkup, MaybeInaccessibleMessage,
-        ReplyMarkup, ReactionType, ReactionTypeEmoji,
+        ReactionType, ReactionTypeEmoji, ReplyMarkup,
     },
     updates::UpdateContent,
 };
@@ -89,9 +91,19 @@ impl TelegramGateway {
         rows: Vec<Vec<(String, String)>>,
     ) -> Result<(), TelegramError> {
         let keyboard = InlineKeyboardMarkup {
-            inline_keyboard: rows.into_iter().map(|row| row.into_iter().map(|(label, data)| {
-                InlineKeyboardButton::builder().text(label).callback_data(data).build()
-            }).collect()).collect(),
+            inline_keyboard: rows
+                .into_iter()
+                .map(|row| {
+                    row.into_iter()
+                        .map(|(label, data)| {
+                            InlineKeyboardButton::builder()
+                                .text(label)
+                                .callback_data(data)
+                                .build()
+                        })
+                        .collect()
+                })
+                .collect(),
             force_reply: None,
         };
         let params = SendMessageParams::builder()
@@ -100,19 +112,28 @@ impl TelegramGateway {
             .parse_mode(ParseMode::Html)
             .reply_markup(ReplyMarkup::InlineKeyboardMarkup(keyboard))
             .build();
-        self.bot.send_message(&params).await
+        self.bot
+            .send_message(&params)
+            .await
             .map_err(|error| TelegramError::Api(error.to_string()))?;
         Ok(())
     }
 
-    pub async fn react_to_message(&self, chat_id: i64, message_id: i32, emoji: &str) -> Result<(), TelegramError> {
+    pub async fn react_to_message(
+        &self,
+        chat_id: i64,
+        message_id: i32,
+        emoji: &str,
+    ) -> Result<(), TelegramError> {
         let reaction = ReactionType::Emoji(ReactionTypeEmoji::builder().emoji(emoji).build());
         let params = SetMessageReactionParams::builder()
             .chat_id(chat_id)
             .message_id(message_id)
             .reaction(vec![reaction])
             .build();
-        self.bot.set_message_reaction(&params).await
+        self.bot
+            .set_message_reaction(&params)
+            .await
             .map_err(|error| TelegramError::Api(error.to_string()))?;
         Ok(())
     }
@@ -279,8 +300,11 @@ impl TelegramGateway {
                                     .build();
                                 let _ = self.bot.answer_callback_query(&ack).await;
 
-                                if !consumed && !matches!(query.data.as_deref(), Some("yes" | "no")) {
-                                    if let (Some((chat_id, message_id)), Some(data)) = (message_key, query.data) {
+                                if !consumed && !matches!(query.data.as_deref(), Some("yes" | "no"))
+                                {
+                                    if let (Some((chat_id, message_id)), Some(data)) =
+                                        (message_key, query.data)
+                                    {
                                         let event = IncomingMessage {
                                             chat_id,
                                             user_id: i64::try_from(query.from.id).ok(),

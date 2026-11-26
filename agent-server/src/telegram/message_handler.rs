@@ -243,14 +243,21 @@ pub(super) async fn handle_message(
         return;
     }
 
-    let _ = gateway.react_to_message(message.chat_id, message.message_id, "👀").await;
+    let _ = gateway
+        .react_to_message(message.chat_id, message.message_id, "👀")
+        .await;
 
     let conversation = match store.active(&owner) {
         Ok(Some(conversation)) => conversation,
         Ok(None) => {
-            let _ = gateway.send_message(message.chat_id, "No current conversation. Create one with /new.").await;
+            let _ = gateway
+                .send_message(
+                    message.chat_id,
+                    "No current conversation. Create one with /new.",
+                )
+                .await;
             return;
-        },
+        }
         Err(error) => {
             send_error(
                 gateway,
