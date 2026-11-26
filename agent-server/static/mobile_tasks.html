@@ -17,12 +17,12 @@
   <div class="tasks-pagination"><span id="tasks-page-info" class="hint" aria-live="polite"></span><div><button type="button" class="secondary" id="tasks-prev-page" disabled>Previous</button><button type="button" class="secondary" id="tasks-next-page" disabled>Next</button></div></div>
  </section>
  <section id="task-editor-view" class="task-editor-view" hidden>
-  <nav id="task-section-nav" class="task-section-nav" aria-label="Task details sections">
-   <button type="button" class="task-section-tab active" data-task-section-tab="details" aria-controls="task-details" aria-selected="true">Details</button>
-   <button type="button" class="task-section-tab" data-task-section-tab="history" aria-controls="task-executions" aria-selected="false" disabled>Execution history</button>
+  <nav id="task-section-nav" class="task-section-nav" role="tablist" aria-label="Task sections">
+   <button id="task-details-tab" type="button" class="task-section-tab active" role="tab" data-task-section-tab="details" aria-controls="task-details" aria-selected="true" tabindex="0">Details</button>
+   <button id="task-history-tab" type="button" class="task-section-tab" role="tab" data-task-section-tab="history" aria-controls="task-executions" aria-selected="false" tabindex="-1" disabled>Execution history</button>
   </nav>
   <section class="panel notes-editor-panel"><div class="family-details-heading"><div><h3 id="task-heading">Select a task</h3><p class="hint">Manage recurring schedules and one-time agent tasks.</p></div></div>
-   <section id="task-details" class="task-section-content" data-task-section="details">
+   <section id="task-details" class="task-section-content" data-task-section="details" role="tabpanel" aria-labelledby="task-details-tab" tabindex="0">
     <form id="task-form" class="notes-editor">
      <label for="task-name">Name</label><input id="task-name" type="text" maxlength="120" required placeholder="Daily summary" disabled>
      <label for="task-description">Description</label><input id="task-description" type="text" placeholder="Optional description" disabled>
@@ -37,7 +37,7 @@
      <p id="tasks-status" class="hint" aria-live="polite">Choose a task or create a new one.</p>
     </form>
    </section>
-   <section id="task-executions" class="task-section-content" data-task-section="history" hidden aria-live="polite">
+   <section id="task-executions" class="task-section-content" data-task-section="history" role="tabpanel" aria-labelledby="task-history-tab" tabindex="0" hidden aria-live="polite">
     <div class="notes-actions task-execution-controls"><label for="task-executions-search">Filter executions</label><input id="task-executions-search" type="search" placeholder="Status, date or agent…" autocomplete="off"><button id="task-executions-refresh" type="button" class="secondary">Refresh</button></div>
     <div id="task-executions-list" class="notes-list"><div class="empty">Select a task to inspect its executions.</div></div>
    </section>
