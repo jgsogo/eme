@@ -22,7 +22,7 @@ function installDesktopDatePicker(){
  const render=()=>{
   const first=new Date(visibleMonth.getFullYear(),visibleMonth.getMonth(),1,12),offset=(first.getDay()+6)%7;
   const start=new Date(first);start.setDate(first.getDate()-offset);
-  const selected=/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(field.value)?parseDate(field.value):null;
+  const selected=/^\d{2}\/\d{2}\/\d{4}$/.test(field.value)?parseDate(field.value):null;
   const weekdays=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
   let html='<div class="shopping-date-picker-head"><button type="button" data-month="-1" aria-label="Previous month">‹</button><strong>'+monthLabel(visibleMonth)+'</strong><button type="button" data-month="1" aria-label="Next month">›</button></div><div class="shopping-date-picker-grid">'+weekdays.map(x=>'<span class="weekday">'+x+'</span>').join("");
   for(let i=0;i<42;i++){const day=new Date(start);day.setDate(start.getDate()+i);const iso=dateString(day),chosen=selected&&dateString(selected)===iso;html+='<button type="button" data-date="'+iso+'" class="'+(day.getMonth()!==visibleMonth.getMonth()?'outside ':'')+(chosen?'selected':'')+'">'+day.getDate()+'</button>'}
@@ -30,7 +30,7 @@ function installDesktopDatePicker(){
   popup.querySelectorAll("[data-month]").forEach(b=>b.addEventListener("click",()=>{visibleMonth.setMonth(visibleMonth.getMonth()+Number(b.dataset.month));render()}));
   popup.querySelectorAll("[data-date]").forEach(b=>b.addEventListener("click",()=>{field.value=fieldDate(monday(parseDate(b.dataset.date)));field.dispatchEvent(new Event("change",{bubbles:true}));popup.hidden=true;button.setAttribute("aria-expanded","false")}));
  };
- const open=()=>{const current=/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(field.value)?parseDate(field.value):new Date();visibleMonth=new Date(current.getFullYear(),current.getMonth(),1,12);render();popup.hidden=false;button.setAttribute("aria-expanded","true")};
+ const open=()=>{const current=/^\d{2}\/\d{2}\/\d{4}$/.test(field.value)?parseDate(field.value):new Date();visibleMonth=new Date(current.getFullYear(),current.getMonth(),1,12);render();popup.hidden=false;button.setAttribute("aria-expanded","true")};
  button.setAttribute("aria-expanded","false");button.addEventListener("click",()=>popup.hidden?open():(popup.hidden=true,button.setAttribute("aria-expanded","false")));
  field.addEventListener("focus",()=>{if(popup.hidden)open()});
 
