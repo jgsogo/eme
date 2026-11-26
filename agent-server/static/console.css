@@ -896,3 +896,9 @@ body:not(.login-page) { visibility:hidden; }
 .login-page .login-card { width:min(440px,100%); }
 .login-page .login-card button { width:100%; margin-top:8px; }
 .login-page #login-status { margin:16px 0 0; font-size:13px; }
+
+/* Integration health-check feedback */
+.integration-warning-icon{display:inline-flex;align-items:center;justify-content:center;color:var(--err);font-size:16px;margin-right:6px;vertical-align:middle}
+.integration-broken-label{color:var(--err);font-weight:700}
+#integrations-status.integration-status-error{color:var(--err);font-size:13px;font-weight:700;background:color-mix(in srgb,var(--err) 10%,transparent);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);border-radius:8px;padding:10px 12px;min-height:0}
+#integrations-status.integration-status-ok{color:var(--ok);font-weight:650}
