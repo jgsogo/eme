@@ -25,7 +25,7 @@ function render(){
  }).filter(provider=>!query||provider.name.toLocaleLowerCase().includes(query)||provider.client.toLocaleLowerCase().includes(query)||provider.models.length);
  const visibleModels=providers.reduce((total,provider)=>total+provider.models.length,0);
  $("providers-list").innerHTML=providers.length?providers.map(provider=>{
-  const models=provider.models.map(model=>{
+  const models=provider.models.map((model,index)=>{
    const capabilities=(model.capabilities||[]).map(capability=>'<span class="tool-card-tag">'+escapeHtml(formatCapability(capability))+'</span>').join("");
    return '<div class="provider-model" data-model-index="'+index+'"><div class="provider-model-heading"><div><strong>'+escapeHtml(model.name)+'</strong><span class="tool-card-tag">'+(model.capabilities||[]).length+' capabilities</span></div><button class="secondary provider-test-button" type="button" data-test-model="'+escapeHtml(model.name)+'">'+testIcon+'<span>Test</span></button></div><div class="agent-tags">'+(capabilities||'<span class="usage-empty">No capabilities declared</span>')+'</div><div class="provider-model-result" aria-live="polite"></div></div>';
   }).join("");
