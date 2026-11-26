@@ -37,7 +37,8 @@ use configured_agent_resolver::ConfiguredAgentResolver;
 use console::{
     agents_page, agents_script, books_libraries_page, books_page, books_script,
     console_auth_script, console_root, console_script, console_stylesheet, conversations_page,
-    desktop_header_script, families_page, favicon, integrations_page, invitation_page,
+    desktop_header_script, desktop_monthly_planner_script, desktop_monthly_school_menus_script,
+    families_page, favicon, integrations_page, invitation_page,
     libraries_script, list_configured_providers, list_registered_tools, login_page, login_script,
     meals_family_script, meals_page, mobile_admin_agents_page, mobile_admin_providers_page,
     mobile_admin_stylesheet, mobile_admin_tools_page, mobile_admin_usage_page,
@@ -316,6 +317,8 @@ async fn main() -> Result<()> {
             .service(school_menus_script)
             .service(weekly_planner_page)
             .service(weekly_planner_script)
+            .service(desktop_monthly_planner_script)
+            .service(desktop_monthly_school_menus_script)
             .service(shopping_list_page)
             .service(shopping_list_script)
             .service(console_stylesheet)
