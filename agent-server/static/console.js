@@ -153,8 +153,9 @@ function renderNotesTable(){
  const body=$("notes-table-body");if(!body)return;
  const notes=filteredNotes();
  body.innerHTML=notes.length?notes.map(note=>{
-  const family=note.family_id?state.families.find(f=>f.id===note.family_id)?.name||"Family":"Private";
-  return '<button type="button" class="item-card note-item-card" data-note-id="'+escapeHtml(note.id)+'" aria-label="Open '+escapeHtml(note.title||"Untitled note")+'"><div class="item-card-heading"><strong>'+escapeHtml(note.title||"Untitled note")+'</strong><span class="item-card-tag '+(note.family_id?"shared":"private")+'">'+escapeHtml(family)+'</span></div><div class="item-card-meta"><span>'+(note.family_id?"Shared note":"Private note")+'</span><span>Updated · '+escapeHtml(noteDate(note))+'</span></div><span class="item-card-arrow" aria-hidden="true">›</span></button>';
+  const family=note.family_id?state.families.find(f=>f.id===note.family_id)?.name||"Family":null;
+  const sharing=note.family_id?"Shared note · "+family:"Private note";
+  return '<button type="button" class="item-card note-item-card" data-note-id="'+escapeHtml(note.id)+'" aria-label="Open '+escapeHtml(note.title||"Untitled note")+'"><div class="item-card-heading"><strong>'+escapeHtml(note.title||"Untitled note")+'</strong></div><div class="item-card-meta"><span>'+escapeHtml(sharing)+'</span><span>Updated · '+escapeHtml(noteDate(note))+'</span></div><span class="item-card-arrow" aria-hidden="true">›</span></button>';
  }).join(""):'<div class="tasks-table-empty"><strong>'+(state.notes.length?"No notes found":"No notes yet")+'</strong><span>'+(state.notes.length?"Try changing your search or filters.":"Create a note to keep something worth remembering.")+'</span></div>';
  const info=$("notes-page-info");if(info)info.textContent=notes.length?notes.length+" notes":"0 notes";
 }
