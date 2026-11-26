@@ -820,7 +820,7 @@ async function loadIntegrations(){
  const status=$("integrations-status");renderIntegrationView();await loadFamilies();const errors=[];
  try{await loadGoogleConnections()}catch(e){const message=e.message.includes("Google OAuth is not configured")?"Google Calendar integration is not configured on this server.":e.message;$("google-connections").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(message)+'</div></div>';errors.push(message)}
  try{await loadTraktProfiles()}catch(e){const message=e.message.includes("Trakt OAuth is not configured")?"Trakt integration is not configured on this server.":e.message;$("trakt-profiles").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(message)+'</div></div>';errors.push(message);renderIntegrationNav()}
- status.textContent=errors.length?errors.join(" "):"Integration settings loaded.";
+ status.textContent=errors.join(" ");
 }
 async function connectTrakt(profile){
  const status=$("integrations-status"),popup=window.open("about:blank","eme-trakt-oauth","popup,width=620,height=760");
