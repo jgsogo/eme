@@ -514,8 +514,8 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
  };
  setStatus("Running · "+runId.slice(0,8));
 }
-on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",()=>{notesPage=1;renderNotes()});on("note-family-filter","change",()=>{notesPage=1;renderNotes()});
-on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("tr[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("tr[data-note-id]")){e.preventDefault();selectNote(e.target.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("back-to-notes","click",resetNoteEditor);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",()=>{tasksPage=1;renderTasks()});on("tasks-enabled-only","change",()=>{tasksPage=1;renderTasks()});on("note-search","input",()=>{notesPage=1;renderNotes()});on("note-family-filter","change",()=>{notesPage=1;renderNotes()});
+on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("back-to-tasks","click",resetTaskEditor);on("tasks-prev-page","click",()=>{tasksPage--;renderTasksTable()});on("tasks-next-page","click",()=>{tasksPage++;renderTasksTable()});on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;tasksPage=1;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("tasks-table-body","click",e=>{const row=e.target.closest("tr[data-task-id]");if(row)selectTask(row.dataset.taskId)});on("tasks-table-body","keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("tr[data-task-id]")){e.preventDefault();selectTask(e.target.dataset.taskId)}});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("tr[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("tr[data-note-id]")){e.preventDefault();selectNote(e.target.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("back-to-notes","click",resetNoteEditor);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
  const button=$("refresh-tasks");if(button)button.disabled=true;
@@ -524,12 +524,56 @@ async function loadTasks(){
  catch(e){$("tasks-list").innerHTML='<div class="empty" role="alert">Unable to load tasks: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-tasks>Try again</button></p></div>'}
  finally{if(button)button.disabled=false}
 }
-function renderTasks(){
+let tasksPage=1;
+const TASKS_PAGE_SIZE=10;
+function filteredTasks(){
  const query=$("task-search")?.value.trim().toLocaleLowerCase()||"";
  const enabledOnly=$("tasks-enabled-only")?.checked||false;
- const tasks=state.tasks.filter(task=>(!enabledOnly||task.enabled)&&[task.name,task.description,task.agent,task.schedule||"One-time"].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
- $("tasks-list").innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
+ return state.tasks.filter(task=>(!enabledOnly||task.enabled)&&[task.name,task.description,task.agent,task.schedule||"One-time"].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
 }
+function taskScheduleLabel(task){
+ if(task.schedule)return task.schedule;
+ if(task.at)return "Once · "+new Date(task.at).toLocaleString();
+ return "One-time";
+}
+function renderTasks(){
+ const tasks=filteredTasks();
+ const target=$("tasks-list");
+ if(target)target.innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(taskScheduleLabel(task))+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
+ renderTasksTable(tasks);
+}
+function renderTasksTable(tasks=filteredTasks()){
+ const body=$("tasks-table-body");if(!body)return;
+ const pages=Math.max(1,Math.ceil(tasks.length/TASKS_PAGE_SIZE));
+ tasksPage=Math.min(Math.max(1,tasksPage),pages);
+ const visible=tasks.slice((tasksPage-1)*TASKS_PAGE_SIZE,tasksPage*TASKS_PAGE_SIZE);
+ body.innerHTML=visible.length?visible.map(task=>{
+  const next=task.next_run||task.at;
+  const nextLabel=next?new Date(next).toLocaleString():"";
+  return '<tr tabindex="0" role="button" data-task-id="'+escapeHtml(task.id)+'" aria-label="Open '+escapeHtml(task.name)+'"><td class="tasks-table-title-cell"><strong>'+escapeHtml(task.name||"Untitled task")+'</strong>'+(task.description?'<span>'+escapeHtml(task.description)+'</span>':'<span class="tasks-table-agent">'+escapeHtml(task.agent||"")+'</span>')+'</td><td class="tasks-table-status-cell"><span class="tasks-status-label '+(task.enabled?"enabled":"disabled")+'">'+(task.enabled?"Enabled":"Disabled")+'</span></td><td class="tasks-table-schedule-cell"><span>'+escapeHtml(taskScheduleLabel(task))+'</span>'+(nextLabel?'<small>Next · '+escapeHtml(nextLabel)+'</small>':'')+'<span class="tasks-table-open" aria-hidden="true">›</span></td></tr>';
+ }).join(""):'<tr><td colspan="3" class="tasks-table-empty"><strong>'+(state.tasks.length?"No tasks found":"No tasks yet")+'</strong><span>'+(state.tasks.length?"Try changing your search or filters.":"Create a task to get started.")+'</span></td></tr>';
+ const info=$("tasks-page-info");if(info)info.textContent=tasks.length?("Showing "+((tasksPage-1)*TASKS_PAGE_SIZE+1)+"–"+Math.min(tasksPage*TASKS_PAGE_SIZE,tasks.length)+" of "+tasks.length):"0 tasks";
+ const prev=$("tasks-prev-page"),next=$("tasks-next-page");
+ if(prev)prev.disabled=tasksPage<=1;
+ if(next)next.disabled=tasksPage>=pages;
+}
+function showTasksOverview(){
+ const overview=$("tasks-overview"),editor=$("task-editor-view");
+ if(!overview||!editor)return;
+ overview.hidden=false;editor.hidden=true;
+ $("open-tasks").hidden=false;$("back-to-tasks").hidden=true;
+ $("tasks-main-title").textContent="All tasks";
+ $("tasks-main-subtitle").textContent="Your tasks, including their schedules and status";
+}
+function showTaskEditor(title){
+ const overview=$("tasks-overview"),editor=$("task-editor-view");
+ if(!overview||!editor)return;
+ overview.hidden=true;editor.hidden=false;
+ $("open-tasks").hidden=true;$("back-to-tasks").hidden=false;
+ $("tasks-main-title").textContent=title;
+ $("tasks-main-subtitle").textContent="View and edit task details";
+}
+
 function renderTaskAgents(){
  const select=$("task-agent"),selected=select.value;
  select.innerHTML=state.agents.map(agent=>'<option value="'+escapeHtml(agent.name)+'">'+escapeHtml(agent.name)+'</option>').join("");
@@ -554,6 +598,7 @@ function updateTaskSectionTabs(active="details"){
 on("task-section-nav","click",event=>{const tab=event.target.closest("[data-task-section-tab]");if(tab&&!tab.disabled) setTaskSection(tab.dataset.taskSectionTab)});
 function resetTaskEditor(){
  state.selectedTask=null;renderTasks();
+ showTasksOverview();
  updateTaskSectionTabs("details");
  const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
@@ -563,6 +608,7 @@ function resetTaskEditor(){
 }
 function startNewTask(){
  state.selectedTask="new";renderTasks();
+ showTaskEditor("New task");
  updateTaskSectionTabs("details");
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
@@ -573,6 +619,7 @@ function toLocalDateTime(value){const date=new Date(value);return new Date(date.
 function selectTask(id){
  const task=state.tasks.find(item=>item.id===id);if(!task)return;
  state.selectedTask=id;renderTasks();
+ showTaskEditor(task.name);
  updateTaskSectionTabs("details");
  for(const field of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
  $("delete-task").disabled=false;$("task-heading").textContent=task.name;
