@@ -39,12 +39,14 @@ function renderConversationsTable(conversations){
  const info=$("conversations-page-info");if(info)info.textContent=conversations.length?conversations.length+" conversations":"0 conversations";
 }
 function showConversationsOverview(){
+ document.body.dataset.conversationView="list";
  $("conversations-overview").hidden=false;$("conversation-detail-view").hidden=true;
  if($("open-conversations"))$("open-conversations").hidden=false;$("back-to-conversations").hidden=true;
  $("conversations-main-title").textContent="All conversations";
  $("conversations-main-subtitle").textContent="Your conversations, ordered by most recently updated";
 }
 function showConversationDetail(){
+ document.body.dataset.conversationView="detail";
  $("conversations-overview").hidden=true;$("conversation-detail-view").hidden=false;
  if($("open-conversations"))$("open-conversations").hidden=true;$("back-to-conversations").hidden=false;
  $("conversations-main-title").textContent="Conversation";
@@ -157,6 +159,7 @@ function renderNotesTable(){
  const info=$("notes-page-info");if(info)info.textContent=notes.length?notes.length+" notes":"0 notes";
 }
 function showNotesOverview(){
+ document.body.dataset.noteView="list";
  $("notes-overview").hidden=false;$("notes-editor-panel").hidden=true;
  if($("open-notes"))$("open-notes").hidden=false;
  if($("back-to-notes"))$("back-to-notes").hidden=true;
@@ -164,6 +167,7 @@ function showNotesOverview(){
  $("notes-main-subtitle").textContent="Your notes, ordered by most recently updated";
 }
 function showNoteEditor(title){
+ document.body.dataset.noteView="detail";
  $("notes-overview").hidden=true;$("notes-editor-panel").hidden=false;
  if($("open-notes"))$("open-notes").hidden=true;
  if($("back-to-notes"))$("back-to-notes").hidden=false;
@@ -582,6 +586,7 @@ function renderTasksTable(tasks=filteredTasks()){
  const info=$("tasks-page-info");if(info)info.textContent=tasks.length?tasks.length+" tasks":"0 tasks";
 }
 function showTasksOverview(){
+ document.body.dataset.taskView="list";
  const overview=$("tasks-overview"),editor=$("task-editor-view");
  if(!overview||!editor)return;
  overview.hidden=false;editor.hidden=true;
@@ -590,6 +595,7 @@ function showTasksOverview(){
  $("tasks-main-subtitle").textContent="Your tasks, including their schedules and status";
 }
 function showTaskEditor(title){
+ document.body.dataset.taskView="detail";
  const overview=$("tasks-overview"),editor=$("task-editor-view");
  if(!overview||!editor)return;
  overview.hidden=true;editor.hidden=false;
