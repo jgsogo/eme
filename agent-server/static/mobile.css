@@ -255,7 +255,7 @@ body[data-layout="mobile"] .conversation-date-cell{font-size:9px}
 /* Meals uses the same drawer and master workspace pattern as Tasks and Notes. */
 body[data-layout="mobile"][data-page="meals"] main {
   box-sizing: border-box;
-  height: 100dvh;
+  height: auto;
   min-height: 0;
   overflow: hidden;
 }
