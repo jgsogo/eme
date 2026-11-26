@@ -26,9 +26,9 @@ function installBottomNavigation() {
 }
 
 function setDrawerOpen(open) {
-  const sidebar = $mobile("conversation-sidebar") || $mobile("notes-sidebar") || $mobile("tasks-sidebar") || $mobile("meals-sidebar");
-  const backdrop = $mobile("drawer-backdrop") || $mobile("notes-drawer-backdrop") || $mobile("tasks-drawer-backdrop") || $mobile("meals-drawer-backdrop");
-  const toggle = $mobile("open-conversations") || $mobile("open-notes") || $mobile("open-tasks") || $mobile("open-meals");
+  const sidebar = $mobile("profile-sidebar") || $mobile("conversation-sidebar") || $mobile("notes-sidebar") || $mobile("tasks-sidebar") || $mobile("meals-sidebar");
+  const backdrop = $mobile("profile-drawer-backdrop") || $mobile("drawer-backdrop") || $mobile("notes-drawer-backdrop") || $mobile("tasks-drawer-backdrop") || $mobile("meals-drawer-backdrop");
+  const toggle = $mobile("open-profile") || $mobile("open-conversations") || $mobile("open-notes") || $mobile("open-tasks") || $mobile("open-meals");
   if (!sidebar || !backdrop || !toggle) return;
   sidebar.classList.toggle("open", open);
   backdrop.classList.toggle("open", open);
@@ -39,6 +39,17 @@ function setDrawerOpen(open) {
 
 function closeDrawer() { setDrawerOpen(false); }
 installBottomNavigation();
+$mobile("open-profile")?.addEventListener("click", () => setDrawerOpen(true));
+$mobile("close-profile")?.addEventListener("click", closeDrawer);
+$mobile("profile-drawer-backdrop")?.addEventListener("click", closeDrawer);
+$mobile("profile-sidebar")?.addEventListener("click", event => {
+  if (event.target.closest("a[data-profile-destination]")) closeDrawer();
+});
+const profilePath = window.location.pathname;
+const profileDestination = profilePath.startsWith("/mobile/integrations") ? "integrations" : profilePath.startsWith("/mobile/families") ? "families" : profilePath.startsWith("/mobile/admin/") ? "admin" : "profile";
+$mobile("profile-sidebar")?.querySelectorAll("a[data-profile-destination]").forEach(link => {
+  if (link.dataset.profileDestination === profileDestination) link.setAttribute("aria-current", "page");
+});
 $mobile("open-conversations")?.addEventListener("click", () => setDrawerOpen(true));
 $mobile("close-conversations")?.addEventListener("click", closeDrawer);
 $mobile("drawer-backdrop")?.addEventListener("click", closeDrawer);
