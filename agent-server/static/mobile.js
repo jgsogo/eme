@@ -50,27 +50,6 @@ const profileDestination = profilePath.startsWith("/mobile/integrations") ? "int
 $mobile("profile-sidebar")?.querySelectorAll("a[data-profile-destination]").forEach(link => {
   if (link.dataset.profileDestination === profileDestination) link.setAttribute("aria-current", "page");
 });
-$mobile("open-conversations")?.addEventListener("click", () => setDrawerOpen(true));
-$mobile("close-conversations")?.addEventListener("click", closeDrawer);
-$mobile("drawer-backdrop")?.addEventListener("click", closeDrawer);
-$mobile("open-notes")?.addEventListener("click", () => setDrawerOpen(true));
-$mobile("close-notes")?.addEventListener("click", closeDrawer);
-$mobile("notes-drawer-backdrop")?.addEventListener("click", closeDrawer);
-$mobile("open-tasks")?.addEventListener("click", () => setDrawerOpen(true));
-$mobile("close-tasks")?.addEventListener("click", closeDrawer);
-$mobile("tasks-drawer-backdrop")?.addEventListener("click", closeDrawer);
-$mobile("conversations")?.addEventListener("click", event => {
-  if (event.target.closest("li[data-id]")) closeDrawer();
-});
-$mobile("notes-list")?.addEventListener("click", event => {
-  if (event.target.closest("button[data-note-id]")) closeDrawer();
-});
-$mobile("new-conversation")?.addEventListener("click", closeDrawer);
-$mobile("new-note")?.addEventListener("click", closeDrawer);
-$mobile("new-task")?.addEventListener("click", closeDrawer);
-$mobile("tasks-list")?.addEventListener("click", event => {
-  if (event.target.closest("button[data-task-id]")) closeDrawer();
-});
 document.addEventListener("keydown", event => { if (event.key === "Escape") closeDrawer(); });
 
 $mobile("open-meals")?.addEventListener("click", () => setDrawerOpen(true));
