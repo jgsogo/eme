@@ -1411,3 +1411,5 @@ body[data-layout="mobile"] .new-conversation-dialog .family-details-heading{alig
 body[data-layout="mobile"] .new-conversation-dialog .family-details-heading button{flex:none}
 body[data-layout="mobile"] .new-conversation-dialog input,body[data-layout="mobile"] .new-conversation-dialog select{width:100%;min-height:42px;box-sizing:border-box}
 body[data-layout="mobile"] .new-conversation-dialog .notes-actions{justify-content:flex-end}
+
+body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8px;min-height:1.2em;font-size:12px;line-height:1.45;color:var(--muted)}
