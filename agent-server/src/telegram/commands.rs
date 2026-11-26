@@ -185,26 +185,20 @@ async fn create_conversation(
         }
     };
 
-    let available = agents
+    let agent_options = agents
         .iter()
-        .map(|agent| agent.name.as_str())
-        .collect::<Vec<_>>()
-        .join(", ");
-    let question = format!(
-        "Which agent should handle this conversation?\nAvailable agents: {available}\nReply with an exact name, or 'cancel'."
-    );
+        .map(|agent| (agent.name.clone(), agent.name.clone()))
+        .collect::<Vec<_>>();
     let agent = match gateway
-        .ask_text(chat_id, &question, default_timeout())
+        .ask_choice(
+            chat_id,
+            "Which agent should handle this conversation?",
+            agent_options,
+            default_timeout(),
+        )
         .await
     {
-        Ok(value) if value.trim().eq_ignore_ascii_case("cancel") => {
-            let _ = gateway
-                .send_message(chat_id, "Conversation creation cancelled.")
-                .await;
-            return;
-        }
-        Ok(value) if value.trim().is_empty() => default_agent.to_owned(),
-        Ok(value) => value.trim().to_owned(),
+        Ok(value) => value,
         Err(error) => {
             send_error(gateway, chat_id, "get the agent selection", error).await;
             return;
@@ -230,41 +224,37 @@ async fn create_conversation(
     let selected_family = if families.is_empty() {
         None
     } else {
-        let names = families
+        let mut family_options = families
             .iter()
-            .map(|family| family.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let question = format!(
-            "Which family should be associated with this conversation?\nAvailable families: {names}\nReply with an exact family name, or 'none' for no family, or 'cancel'."
-        );
+            .map(|family| (family.name.clone(), family.id.to_string()))
+            .collect::<Vec<_>>();
+        family_options.push(("None".to_owned(), "none".to_owned()));
         let answer = match gateway
-            .ask_text(chat_id, &question, default_timeout())
+            .ask_choice(
+                chat_id,
+                "Which family should be associated with this conversation?",
+                family_options,
+                default_timeout(),
+            )
             .await
         {
-            Ok(value) => value.trim().to_owned(),
+            Ok(value) => value,
             Err(error) => {
                 send_error(gateway, chat_id, "get the family selection", error).await;
                 return;
             }
         };
-        if answer.eq_ignore_ascii_case("cancel") {
-            let _ = gateway
-                .send_message(chat_id, "Conversation creation cancelled.")
-                .await;
-            return;
-        }
-        if answer.is_empty() || answer.eq_ignore_ascii_case("none") {
+        if answer == "none" {
             None
         } else {
             match families
                 .iter()
-                .find(|family| family.name.eq_ignore_ascii_case(&answer))
+                .find(|family| family.id.to_string() == answer)
             {
                 Some(family) => Some(family.id),
                 None => {
                     let _ = gateway
-                        .send_message(chat_id, "Unknown family. Creation cancelled.")
+                        .send_message(chat_id, "Unknown family selection. Creation cancelled.")
                         .await;
                     return;
                 }
