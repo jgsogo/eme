@@ -483,10 +483,8 @@ impl TraktOAuthService {
                                 || (*status == StatusCode::BAD_REQUEST
                                     && message.to_ascii_lowercase().contains("invalid_grant"))));
                     if permanent {
-                        if let Err(mark_error) = self.external_connections
-                            .mark_connection_broken(owner_id, link.external_connection_id).await {
-                            tracing::error!(%mark_error, "could not mark Trakt connection as broken");
-                        }
+                        let _ = self.external_connections
+                            .mark_connection_broken(owner_id, link.external_connection_id).await;
                     }
                     return Err(error);
                 }
