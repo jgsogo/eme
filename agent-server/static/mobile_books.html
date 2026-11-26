@@ -58,7 +58,7 @@
         <section class="book-detail-section">
          <div class="book-detail-section-heading"><div><h4>Reading details</h4><p class="hint">Your personal information and notes for this book</p></div></div>
          <label for="book-title">Title</label><input id="book-title" type="text" maxlength="500" required disabled>
-         <label for="book-authors">Authors</label><input id="book-authors" type="text" disabled>
+         <label for="book-authors">Authors <span class="hint">One author per line</span></label><textarea id="book-authors" rows="2" disabled placeholder="One author per line"></textarea>
          <label for="book-isbn">ISBN</label><input id="book-isbn" type="text" disabled>
          <div class="book-form-grid">
           <div><label for="book-status">Reading status</label><select id="book-status" disabled><option value="pending">To read</option><option value="reading">Currently reading</option><option value="read">Read</option></select></div>
