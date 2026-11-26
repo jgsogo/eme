@@ -453,8 +453,14 @@ impl TraktOAuthService {
         profile_id: MediaProfileId,
     ) -> Result<String, TraktError> {
         match family_id {
-            Some(family_id) => self.validate_profile_owner(owner_id, family_id, profile_id).await?,
-            None => self.validate_personal_profile_owner(owner_id, profile_id).await?,
+            Some(family_id) => {
+                self.validate_profile_owner(owner_id, family_id, profile_id)
+                    .await?;
+            }
+            None => {
+                self.validate_personal_profile_owner(owner_id, profile_id)
+                    .await?;
+            }
         }
         let link = self
             .media
