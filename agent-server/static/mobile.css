@@ -753,3 +753,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   body[data-layout="mobile"][data-page="families"] .family-view,
   body[data-layout="mobile"][data-page="integrations"] .integrations-view { min-height: 0; }
 }
+
+@media (min-width: 760px) {
+  body[data-layout="mobile"] .profile-menu-toggle { display: inline-flex !important; }
+  body[data-layout="mobile"] .profile-content-back { display: none !important; }
+}
