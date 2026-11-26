@@ -476,7 +476,7 @@ impl TraktOAuthService {
             .await {
                 Ok(token) => token,
                 Err(error) => {
-                    let permanent = matches!(error, TraktError::MissingRefreshToken)
+                    let permanent = matches!(&error, TraktError::MissingRefreshToken)
                         || matches!(&error, TraktError::Api { status, message }
                             if (*status == StatusCode::UNAUTHORIZED
                                 || *status == StatusCode::FORBIDDEN
