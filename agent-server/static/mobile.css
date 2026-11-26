@@ -524,9 +524,14 @@ body[data-layout="mobile"] main {
   padding-bottom: 8px;
 }
 
+body[data-layout="mobile"] main {
+  order: 1;
+}
+
 body[data-layout="mobile"] .mobile-bottom-nav {
   position: relative;
   inset: auto;
+  order: 2;
   flex: none;
   width: min(100%, 520px);
   margin: 0 auto;
