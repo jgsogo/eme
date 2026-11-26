@@ -21,6 +21,7 @@ fn imports_legacy_history_and_active_selection_idempotently() {
         agent: "assistant".into(),
         title: "Existing conversation".into(),
         archived: false,
+        removed_at: None,
         selected_family_id: None,
         created_at: Utc::now(),
         updated_at: Utc::now(),
@@ -87,5 +88,48 @@ fn imports_legacy_history_and_active_selection_idempotently() {
     );
     assert!(root.join("active-conversations.json").exists());
     drop(reopened);
+    let _ = fs::remove_dir_all(root);
+}
+
+
+#[test]
+fn removing_conversation_preserves_history_and_hides_it_from_normal_access() {
+    let root = temp_dir();
+    fs::create_dir_all(&root).unwrap();
+    let store = SqliteConversationStore::open(root.join("conversations.sqlite")).unwrap();
+    let conversation = store.create("telegram:42", "assistant").unwrap();
+    let messages = vec![Message::User { content: "keep this history".into() }];
+    store.save_messages(conversation.id, messages.clone()).unwrap();
+
+    store.delete("telegram:42", conversation.id).unwrap();
+
+    assert!(matches!(store.get(conversation.id), Err(ConversationStoreError::NotFound(_))));
+    assert!(store.list("telegram:42").unwrap().is_empty());
+    assert!(store.active("telegram:42").unwrap().is_none());
+    assert!(matches!(
+        store.save_messages(conversation.id, Vec::new()),
+        Err(ConversationStoreError::NotFound(_))
+    ));
+
+    let connection = store.lock();
+    let removed_at: Option<String> = connection
+        .query_row(
+            "SELECT removed_at FROM conversations WHERE id = ?1",
+            [conversation.id.to_string()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let message_count: i64 = connection
+        .query_row(
+            "SELECT COUNT(*) FROM conversation_messages WHERE conversation_id = ?1",
+            [conversation.id.to_string()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(removed_at.is_some());
+    assert_eq!(message_count, messages.len() as i64);
+
+    drop(connection);
+    drop(store);
     let _ = fs::remove_dir_all(root);
 }
