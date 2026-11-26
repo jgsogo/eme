@@ -1,9 +1,22 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>EME Agent Console · Integrations</title><link rel="stylesheet" href="/assets/mobile-base.css"><script src="/assets/console-auth.js" defer></script><script src="/assets/mobile.js" defer></script><script src="/assets/console.js" defer></script></head>
-<body data-layout="mobile" data-page="integrations">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>EME Agent Console · Integrations</title><link rel="stylesheet" href="/assets/mobile-base.css"><link rel="stylesheet" href="/assets/mobile.css"><script src="/assets/console-auth.js" defer></script><script src="/assets/mobile.js" defer></script><script src="/assets/console.js" defer></script></head>
+<body data-layout="mobile" data-page="integrations" data-profile-view="list">
 <header><div class="header-title"><h1 class="mobile-brand" aria-label="EME Agent Console">M</h1><nav class="main-nav" aria-label="Main navigation"><a class="main-nav-link" href="/mobile/conversations">Conversations</a><a class="main-nav-link" href="/mobile/notes">Notes</a><a class="main-nav-link" href="/mobile/tasks">Tasks</a><a class="main-nav-link" href="/mobile/meals">Meals</a></nav></div><div class="header-actions"><a class="profile-link active" href="/mobile/profile" aria-label="Profile" title="Profile">◎</a><button class="secondary" id="logout" hidden>Sign out</button><span id="connection" class="hint">Connecting…</span></div></header>
 <section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
-<main hidden><section class="integrations-view"><nav class="profile-section-nav" aria-label="Profile settings"><a class="profile-section-link" href="/mobile/profile">Profile</a><a class="profile-section-link active" href="/mobile/integrations" aria-current="page">Integrations</a><a class="profile-section-link" href="/mobile/families">Families</a></nav>
+<div class="profile-drawer-backdrop" id="profile-drawer-backdrop" aria-hidden="true"></div>
+<aside class="panel profile-drawer" id="profile-sidebar" aria-label="Profile navigation">
+ <div class="toolbar"><h2>Account</h2><button class="secondary" id="close-profile" type="button" aria-label="Close Profile menu">✕</button></div>
+ <nav class="profile-drawer-nav" aria-label="Profile">
+  <a href="/mobile/profile" data-profile-destination="profile">Profile</a>
+  <a href="/mobile/integrations" data-profile-destination="integrations">Integrations</a>
+  <a href="/mobile/families" data-profile-destination="families">Families</a>
+  <a href="/mobile/admin/usage" data-profile-destination="admin">Admin</a>
+ </nav>
+</aside><main hidden><div class="profile-shell-heading">
+ <button type="button" class="secondary profile-menu-toggle" id="open-profile" aria-label="Open Profile menu" aria-controls="profile-sidebar" aria-expanded="false">☰</button>
+ <button type="button" class="secondary profile-content-back" id="profile-content-back" aria-label="Back to list" hidden>←</button>
+ <div><h2>Integrations</h2><p class="hint">Connect external services and manage agent access.</p></div>
+</div><section class="integrations-view">
  <div class="integrations-heading"><div><h2>Integrations</h2><p class="hint">Connect external services and manage the data available to your agents.</p></div><button class="secondary" id="refresh-integrations">Refresh</button></div>
  <div class="integrations-layout">
   <aside id="integrations-sidebar" class="panel integrations-sidebar" aria-label="Available integrations">
