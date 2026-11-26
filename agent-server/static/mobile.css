@@ -232,7 +232,7 @@ body[data-layout="mobile"] .conversation-detail-view .chat{display:flex;flex:1;f
 body[data-layout="mobile"] .conversation-detail-view .chat-head{flex:none;padding:11px 12px;align-items:flex-start;flex-direction:column}
 body[data-layout="mobile"] .conversation-detail-view .chat-head>div:first-child{width:100%;min-width:0}
 body[data-layout="mobile"] .conversation-detail-view .chat-head>div:last-child{width:100%;flex-wrap:wrap;justify-content:flex-start}
-body[data-layout="mobile"] .conversation-detail-view .chat-head #family-selector{max-width:100%;min-width:0!important}
+
 body[data-layout="mobile"] .conversation-detail-view .run-events{flex:none;margin:0 12px}
 body[data-layout="mobile"] .conversation-detail-view .messages{flex:1;min-height:0;overflow-y:auto;padding:14px}
 body[data-layout="mobile"] .conversation-detail-view .composer{flex:none;padding:10px}
