@@ -7,8 +7,8 @@
  <section class="panel tasks-main-panel conversations-main-panel">
   <div class="tasks-main-heading"><button type="button" class="secondary tasks-back-button" id="back-to-conversations" aria-label="Back to all conversations" hidden>←</button><div><h2 id="conversations-main-title">All conversations</h2><p class="hint" id="conversations-main-subtitle">Your conversations, ordered by most recently updated</p></div></div>
   <section id="conversations-overview" class="tasks-overview item-overview">
+   <button id="new-conversation" class="mobile-list-fab" type="button" aria-label="New conversation" title="New conversation">＋</button>
    <div class="item-list-toolbar">
-    <div class="conversation-create-controls"><label for="agent">Agent for new conversation</label><select id="agent"></select><button id="new-conversation" type="button">＋ New conversation</button><div id="agent-desc" class="agent-desc"></div></div>
     <div class="conversation-filters task-list-filters"><label for="show-archived"><input type="checkbox" id="show-archived"> Show archived</label><input type="search" id="conversation-search" placeholder="Search conversations…" aria-label="Search conversations" autocomplete="off"></div>
    </div>
    <div id="conversations-table-body" class="item-card-list conversation-card-list" aria-live="polite"><div class="tasks-table-empty">Loading conversations…</div></div>
@@ -23,4 +23,15 @@
    </section>
   </section>
  </section>
-</div></section></main></body></html>
+</div></section></main>
+<dialog id="new-conversation-dialog" class="modal-dialog new-conversation-dialog" aria-labelledby="new-conversation-dialog-title">
+ <form id="new-conversation-form" class="notes-editor">
+  <div class="family-details-heading"><div><h3 id="new-conversation-dialog-title">New conversation</h3><p class="hint">Choose a name, family context and agent.</p></div><button id="new-conversation-close" type="button" class="secondary">Cancel</button></div>
+  <label for="new-conversation-name">Name</label><input id="new-conversation-name" type="text" maxlength="160" required value="New conversation">
+  <label for="new-conversation-family">Family</label><select id="new-conversation-family"><option value="">No family</option></select>
+  <label for="new-conversation-agent">Agent</label><select id="new-conversation-agent" required></select>
+  <div class="notes-actions"><button id="new-conversation-submit" type="submit">Create conversation</button></div>
+  <p id="new-conversation-status" class="hint" aria-live="polite"></p>
+ </form>
+</dialog>
+</body></html>
