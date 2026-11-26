@@ -367,10 +367,8 @@ impl TraktOAuthService {
         if link.owner_id != actor_id && !self.is_family_admin(actor_id, family_id).await? {
             return Err(TraktError::Forbidden);
         }
-        self.external_connections
-            .revoke_connection(link.owner_id, link.external_connection_id)
-            .await
-            .map_err(TraktError::ExternalStorage)?;
+        self.revoke_connection_if_present(link.owner_id, link.external_connection_id)
+            .await?;
         self.media
             .delete_external_connection_link(profile_id, "trakt")
             .await
@@ -378,6 +376,31 @@ impl TraktOAuthService {
         self.token_manager
             .invalidate(link.external_connection_id)
             .await;
+        Ok(())
+    }
+
+    /// Revoke credentials when they still exist and are not already revoked.
+    ///
+    /// Broken Trakt links may point to a revoked or missing external connection.
+    /// Those states must not prevent removal of the profile-level link.
+    async fn revoke_connection_if_present(
+        &self,
+        owner_id: UserId,
+        connection_id: ExternalConnectionId,
+    ) -> Result<(), TraktError> {
+        let connection = self
+            .external_connections
+            .get_connection(owner_id, connection_id)
+            .await
+            .map_err(TraktError::ExternalStorage)?;
+        if let Some(connection) = connection
+            && connection.status != ExternalConnectionStatus::Revoked
+        {
+            self.external_connections
+                .revoke_connection(owner_id, connection_id)
+                .await
+                .map_err(TraktError::ExternalStorage)?;
+        }
         Ok(())
     }
 
@@ -589,10 +612,8 @@ impl TraktOAuthService {
         if link.owner_id != actor_id {
             return Err(TraktError::Forbidden);
         }
-        self.external_connections
-            .revoke_connection(link.owner_id, link.external_connection_id)
-            .await
-            .map_err(TraktError::ExternalStorage)?;
+        self.revoke_connection_if_present(link.owner_id, link.external_connection_id)
+            .await?;
         self.media
             .delete_external_connection_link(profile_id, "trakt")
             .await
