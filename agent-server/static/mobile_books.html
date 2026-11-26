@@ -1,17 +1,103 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>EME · My books</title><link rel="stylesheet" href="/assets/mobile-base.css"><link rel="stylesheet" href="/assets/mobile.css"><script src="/assets/console-auth.js" defer></script><script src="/assets/books.js" defer></script><style>
-.profile-section-nav{display:flex;align-items:center;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-.profile-section-link{display:inline-block;padding:7px 11px;border-radius:7px;text-decoration:none;color:var(--muted);font-size:13px}
-.profile-section-link.active{background:var(--panel2);color:var(--text)}
-
-.books-view{padding:12px;overflow:auto;min-height:0}.books-details-panel{height:calc(100dvh - 190px);max-height:none;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:18px}.books-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}.books-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}.books-panel h2{margin:0 0 12px}.books-panel input,.books-panel select,.books-panel textarea{width:100%;margin:5px 0 12px;padding:9px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);color:var(--text)}.books-row{display:flex;gap:8px;align-items:center}.books-row>*{min-width:0;flex:1}.books-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.books-section-heading h2{margin:0}.books-section-heading button{flex:none;padding:7px 11px}.books-panel input.collection-search{margin:0 0 12px}.catalogue-results{max-height:min(420px,55vh);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-right:4px}.book-entry,.catalogue-entry,.holding{border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0}.book-entry.active{border-color:var(--accent)}.books-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.library-option{display:flex;gap:8px;align-items:center}.library-option input{width:auto}.muted,.books-status{color:var(--muted)}.holdings-grid{display:grid;gap:8px}
-.add-book-dialog{width:calc(100vw - 20px);max-width:760px;max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--border);border-radius:14px;background:var(--panel);color:var(--text);box-shadow:0 20px 70px #0009;overflow:hidden}.add-book-dialog::backdrop{background:rgba(3,8,14,.72);backdrop-filter:blur(2px)}.add-book-modal{display:flex;flex-direction:column;max-height:calc(100dvh - 24px);padding:16px}.modal-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--border)}.modal-heading h2{margin:0;color:var(--text);font-size:18px;letter-spacing:0;text-transform:none}.modal-heading p{margin:5px 0 0;color:var(--muted);font-size:12px}.modal-close{flex:none;padding:6px 9px}.catalogue-search-form{padding:13px 0 8px}.catalogue-search-form>label{display:block;margin-bottom:6px;font-size:12px;font-weight:650}.catalogue-search-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.catalogue-search-controls input{min-width:0;margin:0;padding:10px}.catalogue-search-controls button{padding:8px 10px;white-space:nowrap}.catalogue-filter-controls{display:flex;align-items:center;gap:10px;margin:6px 0 10px}.catalogue-filter-controls[hidden]{display:none}.catalogue-filter-controls label{flex:none;color:var(--muted);font-size:12px}.catalogue-filter-controls select{flex:1;min-width:0;margin:0;padding:7px 9px}.catalogue-entry-category{margin:0 0 5px;color:var(--muted);font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.04em;overflow-wrap:anywhere}.catalogue-results-summary{margin:7px 0;color:var(--muted);font-size:11px}.catalogue-results{flex:1;min-height:80px;max-height:min(55vh,520px);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:2px 3px 2px 0}.catalogue-entry{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin:8px 0;padding:12px;background:var(--panel2);border-color:var(--border)}.catalogue-entry-details{min-width:0}.catalogue-entry-title{display:block;font-size:14px;line-height:1.4}.catalogue-entry-meta,.catalogue-entry-author{margin:5px 0 0;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.catalogue-entry-add{width:100%;padding:9px 12px}.book-details-dialog{width:min(820px,calc(100vw - 32px));max-width:none;max-height:min(90dvh,900px);padding:0;border:1px solid var(--border);border-radius:16px;background:var(--panel);color:var(--text);box-shadow:0 24px 80px #0009;overflow:auto}.book-details-dialog::backdrop{background:rgba(3,8,14,.72);backdrop-filter:blur(2px)}.book-details-dialog .books-details-panel{height:auto;max-height:none;overflow:visible;padding:20px;border:0}.book-details-dialog .modal-heading{margin-bottom:16px}.books-table-wrap{display:block;width:100%;max-width:100%;box-sizing:border-box;overflow-x:auto;border:1px solid var(--border);border-radius:9px}.books-table{width:100%;min-width:100%;border-collapse:collapse;text-align:left;font-size:13px}.books-table th,.books-table td{padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap}.books-table th{background:var(--panel2);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}.books-table th button{padding:0;border:0;background:none;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer}.books-table tbody tr{cursor:pointer}.books-table tbody tr:hover,.books-table tbody tr:focus{background:var(--panel2);outline:none}.books-table tbody tr:last-child td{border-bottom:0}.books-table .book-title-cell{white-space:normal;min-width:180px;font-weight:650}.books-table .book-title-cell small{display:block;margin-top:3px;color:var(--muted);font-weight:400}.book-rating-stars{display:flex;gap:2px;white-space:nowrap}.book-rating-star{padding:1px 3px;border:0;background:transparent;color:var(--accent);font-size:18px;line-height:1;cursor:pointer}.book-rating-star:hover{transform:scale(1.15)}.book-rating-unavailable{color:var(--muted);font-size:12px}.books-holdings-table{min-width:620px}.books-holdings-table tbody tr{cursor:default}.books-holdings-table tbody tr:hover{background:transparent}.books-holdings-table .books-holdings-ambiguous td{white-space:normal;background:var(--panel2);color:var(--muted);font-weight:650}.books-table-empty{padding:18px;color:var(--muted);text-align:center}.catalogue-result-title{display:block;padding:0;border:0;background:transparent;color:var(--text);font:inherit;font-weight:650;text-align:left;white-space:normal;cursor:pointer}.catalogue-result-title:hover{text-decoration:underline}.catalogue-entry-meta{margin-top:4px}#catalogue-item-content{line-height:1.55}#catalogue-item-content dl{display:grid;grid-template-columns:minmax(100px,auto) 1fr;gap:7px 14px;margin:0}#catalogue-item-content dt{color:var(--muted)}#catalogue-item-content dd{margin:0;overflow-wrap:anywhere}#catalogue-item-content .holding{margin-top:10px}</style></head><body data-layout="mobile" data-page="books"><span id="connection" class="hint" hidden>Connecting…</span><main class="books-view"><nav class="profile-section-nav admin-section-nav" aria-label="Books">
-<a class="profile-section-link active" href="/mobile/books" aria-current="page">Books</a>
-<a class="profile-section-link" href="/mobile/books/libraries">Libraries</a>
-</nav>
-<p id="books-status" class="books-status" aria-live="polite"></p>
-<div id="books-section" class="books-grid">
-<section class="books-panel"><div class="books-section-heading"><h2>My collection</h2><button id="open-add-book" type="button">＋ Add book</button></div><input id="collection-search" class="collection-search" type="search" placeholder="Filter your collection…" aria-label="Filter your collection"><div class="books-status" id="collection-status">Loading…</div><div id="books-list"></div></section>
-<dialog id="book-details-dialog" class="book-details-dialog" aria-labelledby="book-heading"><section class="books-panel books-details-panel"><div class="modal-heading"><div><h2 id="book-heading">Book details</h2><p>Collection details and library availability</p></div><button id="close-book-details" type="button" class="secondary modal-close" aria-label="Close">✕</button></div><form id="book-form"><label for="book-title">Title</label><input id="book-title" required disabled><label for="book-authors">Authors</label><input id="book-authors" disabled><label for="book-isbn">ISBN</label><input id="book-isbn" disabled><label for="book-rating">Rating</label><select id="book-rating" disabled><option value="">Not rated</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select><label for="book-status">Reading status</label><select id="book-status" disabled><option value="pending">Pending</option><option value="reading">Reading</option><option value="read">Read</option></select><label class="library-option"><input id="book-want-to-buy" type="checkbox" disabled> Want to buy</label><label for="book-review">Review</label><textarea id="book-review" rows="3" disabled></textarea><div class="books-actions"><button id="save-book" type="submit" disabled>Save</button><button id="delete-book" type="button" class="danger" disabled>Remove</button><button id="refresh-catalogue" type="button" class="secondary" disabled>Refresh catalogue info</button><button id="refresh-holdings" type="button" class="secondary" disabled>Refresh availability</button></div></form><h3>Availability in your libraries</h3><div id="book-holdings" class="muted">Select a book.</div></section></dialog>
-</div>
-<dialog id="catalogue-item-dialog" class="book-details-dialog" aria-labelledby="catalogue-item-heading"><section class="books-panel books-details-panel"><div class="modal-heading"><div><h2 id="catalogue-item-heading">Catalogue record</h2><p id="catalogue-item-category"></p></div><button id="close-catalogue-item" type="button" class="secondary modal-close" aria-label="Close">✕</button></div><div id="catalogue-item-content" class="muted">Loading record details…</div></section></dialog><dialog id="add-book-dialog" class="add-book-dialog" aria-labelledby="add-book-heading"><div class="add-book-modal"><div class="modal-heading"><div><h2 id="add-book-heading">Add a book</h2><p>Search the RABEL catalogue by title, author or ISBN.</p></div><button id="close-add-book" type="button" class="secondary modal-close" aria-label="Close">✕</button></div><form id="catalogue-search" class="catalogue-search-form"><label for="catalogue-query">Catalogue search</label><div class="catalogue-search-controls"><input id="catalogue-query" type="search" placeholder="e.g. Don Quijote, Cervantes or ISBN" required><button type="submit">Search catalogue</button></div></form><p id="catalogue-results-summary" class="catalogue-results-summary" aria-live="polite">Enter a search term to find books.</p><div id="catalogue-filter-controls" class="catalogue-filter-controls" hidden><label for="catalogue-category-filter">Filter by document category</label><select id="catalogue-category-filter" aria-label="Filter by document category"><option value="">All document categories</option></select></div><div id="catalogue-results" class="catalogue-results" aria-live="polite"></div></div></dialog></main></body></html>
+<html lang="en">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta name="referrer" content="no-referrer">
+ <title>EME · My books</title>
+ <link rel="stylesheet" href="/assets/mobile-base.css">
+ <link rel="stylesheet" href="/assets/mobile.css">
+ <script src="/assets/console-auth.js" defer></script>
+ <script src="/assets/books.js" defer></script>
+ <script src="/assets/mobile.js" defer></script>
+</head>
+<body data-layout="mobile" data-page="books" data-book-view="list">
+ <span id="connection" class="hint" hidden>Connecting…</span>
+ <section id="invite-screen" hidden><div class="login-card"><h2>Join a family</h2><p>You have been invited to join a family in EME. Sign in with Telegram to accept this invitation.</p><label for="invite-relationship">Your relationship in this family</label><select id="invite-relationship"><option value="other">Other</option><option value="father">Father</option><option value="mother">Mother</option><option value="son">Son</option><option value="daughter">Daughter</option><option value="grandfather">Grandfather</option><option value="grandmother">Grandmother</option><option value="partner">Partner</option></select><button id="invite-accept">Accept invitation</button><p id="invite-status">This invitation can only be accepted once and may expire or be revoked.</p></div></section>
+ <main hidden>
+  <section class="notes-view tasks-view books-view">
+   <div class="tasks-workspace books-workspace">
+    <section class="panel tasks-main-panel books-main-panel">
+     <div class="tasks-main-heading books-main-heading">
+      <button type="button" class="secondary tasks-back-button" id="back-to-books" aria-label="Back to my collection" hidden>←</button>
+      <div id="books-main-heading-copy"><h2 id="books-main-title">My collection</h2><p class="hint" id="books-main-subtitle">Search your collection by title, author or ISBN</p></div>
+     </div>
+     <nav class="books-section-nav" aria-label="Book collection">
+      <a class="books-section-link active" href="/mobile/books" aria-current="page">My books</a>
+      <a class="books-section-link" href="/mobile/books/libraries">Preferred libraries</a>
+     </nav>
+     <p id="books-status" class="hint books-status" role="status" aria-live="polite"></p>
+     <section id="books-overview" class="tasks-overview item-overview">
+      <button id="open-add-book" class="mobile-list-fab" type="button" aria-label="Add a book" title="Add a book">＋</button>
+      <div class="item-list-toolbar">
+       <div class="books-filters">
+        <input id="collection-search" type="search" placeholder="Search title, author, ISBN…" aria-label="Search your collection" autocomplete="off">
+        <select id="reading-status-filter" aria-label="Filter by reading status">
+         <option value="">All reading statuses</option>
+         <option value="pending">To read</option>
+         <option value="reading">Currently reading</option>
+         <option value="read">Read</option>
+        </select>
+        <label for="want-to-buy-filter"><input id="want-to-buy-filter" type="checkbox"> Want to buy</label>
+       </div>
+      </div>
+      <div id="collection-status" class="hint item-list-count" aria-live="polite">Loading your collection…</div>
+      <div id="books-list" class="item-card-list book-card-list" aria-live="polite"><div class="tasks-table-empty">Loading your collection…</div></div>
+     </section>
+     <section id="book-detail-view" class="books-detail-view" hidden>
+      <section class="panel notes-editor-panel books-detail-panel">
+       <div class="book-detail-hero">
+        <div class="book-detail-heading-copy">
+         <h3 id="book-heading">Book details</h3>
+         <p id="book-summary" class="hint"></p>
+         <div id="book-badges" class="book-detail-badges"></div>
+        </div>
+       </div>
+       <form id="book-form" class="notes-editor">
+        <section class="book-detail-section">
+         <div class="book-detail-section-heading"><div><h4>Reading details</h4><p class="hint">Your personal information and notes for this book</p></div></div>
+         <label for="book-title">Title</label><input id="book-title" type="text" maxlength="500" required disabled>
+         <label for="book-authors">Authors <span class="hint">One author per line</span></label><textarea id="book-authors" rows="2" disabled placeholder="One author per line"></textarea>
+         <label for="book-isbn">ISBN</label><input id="book-isbn" type="text" disabled>
+         <div class="book-form-grid">
+          <div><label for="book-status">Reading status</label><select id="book-status" disabled><option value="pending">To read</option><option value="reading">Currently reading</option><option value="read">Read</option></select></div>
+          <div><label for="book-rating">Rating</label><select id="book-rating" disabled><option value="">Not rated</option><option value="1">1 / 5</option><option value="2">2 / 5</option><option value="3">3 / 5</option><option value="4">4 / 5</option><option value="5">5 / 5</option></select></div>
+         </div>
+         <label class="book-checkbox-label" for="book-want-to-buy"><input id="book-want-to-buy" type="checkbox" disabled> I want to buy this book</label>
+         <label for="book-review">Your review</label><textarea id="book-review" rows="4" disabled placeholder="What did you think of this book?"></textarea>
+         <div class="notes-actions book-form-actions">
+          <button id="save-book" type="submit" disabled>Save changes</button>
+          <button id="delete-book" type="button" class="danger" disabled>Remove from collection</button>
+         </div>
+        </section>
+       </form>
+       <section class="book-detail-section" aria-labelledby="book-bibliography-heading">
+        <div class="book-detail-section-heading"><div><h4 id="book-bibliography-heading">Bibliographic information</h4><p class="hint">Catalogue details from RABEL</p></div><button id="refresh-catalogue" type="button" class="secondary" disabled>Refresh</button></div>
+        <dl id="book-metadata" class="book-metadata"><div><dt>Catalogue data</dt><dd>Choose a book to see its bibliographic information.</dd></div></dl>
+       </section>
+       <section class="book-detail-section" aria-labelledby="book-holdings-heading">
+        <div class="book-detail-section-heading"><div><h4 id="book-holdings-heading">Availability in your libraries</h4><p class="hint">Live copy information from your preferred RABEL libraries</p></div><button id="refresh-holdings" type="button" class="secondary" disabled>Check again</button></div>
+        <div id="book-holdings" class="book-holdings"><p class="hint">Select a book to check its availability.</p></div>
+        <p class="book-library-link"><a href="/mobile/books/libraries">Manage preferred libraries</a></p>
+       </section>
+      </section>
+     </section>
+    </section>
+   </div>
+  </section>
+ </main>
+ <dialog id="add-book-dialog" class="modal-dialog book-dialog" aria-labelledby="add-book-heading">
+  <div class="add-book-modal">
+   <div class="modal-heading"><div><h2 id="add-book-heading">Add a book</h2><p>Search the RABEL catalogue by title, author or ISBN.</p></div><button id="close-add-book" type="button" class="secondary modal-close" aria-label="Close">✕</button></div>
+   <form id="catalogue-search" class="catalogue-search-form"><label for="catalogue-query">Catalogue search</label><div class="catalogue-search-controls"><input id="catalogue-query" type="search" placeholder="e.g. Don Quijote, Cervantes or ISBN" required><button type="submit">Search</button></div></form>
+   <p id="catalogue-results-summary" class="catalogue-results-summary" aria-live="polite">Enter a search term to find books.</p>
+   <div id="catalogue-filter-controls" class="catalogue-filter-controls" hidden><label for="catalogue-category-filter">Document category</label><select id="catalogue-category-filter" aria-label="Filter by document category"><option value="">All categories</option></select></div>
+   <div id="catalogue-results" class="catalogue-results" aria-live="polite"></div>
+  </div>
+ </dialog>
+ <dialog id="catalogue-item-dialog" class="modal-dialog catalogue-item-dialog" aria-labelledby="catalogue-item-heading">
+  <div class="modal-heading"><div><h2 id="catalogue-item-heading">Catalogue record</h2><p id="catalogue-item-category" class="hint"></p></div><button id="close-catalogue-item" type="button" class="secondary modal-close" aria-label="Close">✕</button></div>
+  <div id="catalogue-item-content" class="catalogue-item-content"></div>
+ </dialog>
+</body>
+</html>
