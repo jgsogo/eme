@@ -982,6 +982,7 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
     white-space: nowrap;
   }
   body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters {
+    flex-direction: row;
     flex-wrap: nowrap;
     height: 40px;
     min-height: 40px;
