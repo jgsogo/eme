@@ -862,7 +862,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
 @media (max-width: 759px) {
   body[data-layout="mobile"][data-page="conversations"] main,
   body[data-layout="mobile"][data-page="tasks"] main,
-  body[data-layout="mobile"][data-page="notes"] main {
+  body[data-layout="mobile"][data-page="notes"] main,
+  body[data-layout="mobile"][data-page="books"] main {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -875,7 +876,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .notes-view,
   body[data-layout="mobile"][data-page="tasks"] .notes-view,
-  body[data-layout="mobile"][data-page="notes"] .notes-view {
+  body[data-layout="mobile"][data-page="notes"] .notes-view,
+  body[data-layout="mobile"][data-page="books"] .notes-view {
     display: flex;
     flex: 1 1 auto;
     min-height: 0;
@@ -883,7 +885,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .tasks-workspace,
   body[data-layout="mobile"][data-page="tasks"] .tasks-workspace,
-  body[data-layout="mobile"][data-page="notes"] .tasks-workspace {
+  body[data-layout="mobile"][data-page="notes"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="books"] .tasks-workspace {
     display: flex;
     flex: 1 1 auto;
     width: 100%;
@@ -892,7 +895,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .tasks-main-panel,
   body[data-layout="mobile"][data-page="tasks"] .tasks-main-panel,
-  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel {
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="books"] .tasks-main-panel {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
@@ -904,7 +908,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .tasks-main-heading,
   body[data-layout="mobile"][data-page="tasks"] .tasks-main-heading,
-  body[data-layout="mobile"][data-page="notes"] .tasks-main-heading {
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-heading,
+  body[data-layout="mobile"][data-page="books"] .tasks-main-heading {
     flex: none;
     margin-bottom: 12px;
   }
@@ -915,7 +920,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .tasks-back-button,
   body[data-layout="mobile"][data-page="tasks"] .tasks-back-button,
-  body[data-layout="mobile"][data-page="notes"] .tasks-back-button {
+  body[data-layout="mobile"][data-page="notes"] .tasks-back-button,
+  body[data-layout="mobile"][data-page="books"] .tasks-back-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -931,7 +937,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .tasks-overview,
   body[data-layout="mobile"][data-page="tasks"] .tasks-overview,
-  body[data-layout="mobile"][data-page="notes"] .tasks-overview {
+  body[data-layout="mobile"][data-page="notes"] .tasks-overview,
+  body[data-layout="mobile"][data-page="books"] .tasks-overview {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
@@ -1200,7 +1207,8 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
 @media (min-width: 760px) {
   body[data-layout="mobile"][data-page="conversations"] main,
   body[data-layout="mobile"][data-page="tasks"] main,
-  body[data-layout="mobile"][data-page="notes"] main {
+  body[data-layout="mobile"][data-page="notes"] main,
+  body[data-layout="mobile"][data-page="books"] main {
     width: min(100%, 1120px);
     max-width: 1120px;
     min-height: 0;
@@ -1208,14 +1216,16 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .tasks-workspace,
   body[data-layout="mobile"][data-page="tasks"] .tasks-workspace,
-  body[data-layout="mobile"][data-page="notes"] .tasks-workspace {
+  body[data-layout="mobile"][data-page="notes"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="books"] .tasks-workspace {
     display: flex;
     width: 100%;
     min-height: 0;
   }
   body[data-layout="mobile"][data-page="conversations"] .tasks-main-panel,
   body[data-layout="mobile"][data-page="tasks"] .tasks-main-panel,
-  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel {
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="books"] .tasks-main-panel {
     width: 100%;
     min-width: 0;
   }
