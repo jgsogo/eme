@@ -12,10 +12,9 @@
   }
 
   function initMobileBooks($, api) {
-    const state = { books: [], selected: null, query: "", readingStatus: "", wantToBuy: false, selectionRequest: 0, holdingsRequest: 0 };
+    const state = { books: [], selected: null, query: "", readingStatus: "", wantToBuy: false, selectionRequest: 0, holdingsRequest: 0, catalogueSearchRequest: 0 };
     const status = message => { $("books-status").textContent = message || ""; };
     const readingLabel = value => ({ pending: "To read", reading: "Currently reading", read: "Read" }[value] || "To read");
-    const dateLabel = value => value ? new Date(value).toLocaleDateString() : "";
     const make = (tag, className, value) => {
       const node = document.createElement(tag);
       if (className) node.className = className;
@@ -155,6 +154,10 @@
       setView("detail");
       renderBooks();
       enableDetails(false);
+      $("book-heading").textContent = "Loading book…";
+      $("book-summary").textContent = "";
+      $("book-badges").replaceChildren();
+      $("book-metadata").replaceChildren(make("p", "hint", "Loading bibliographic information…"));
       $("book-holdings").replaceChildren(make("p", "hint", "Loading library availability…"));
       status("Loading book details…");
       try {
@@ -284,7 +287,9 @@
       categoryFilter.replaceChildren(new Option("All categories", ""));
       $("catalogue-filter-controls").hidden = true;
       try {
+        const request = ++state.catalogueSearchRequest;
         const results = await api("/books/catalogue/search?q=" + encodeURIComponent(query));
+        if (request !== state.catalogueSearchRequest) return;
         const categories = [...new Set(results.map(result => result.category || "Document type not specified"))]
           .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
         for (const category of categories) categoryFilter.add(new Option(category, category));
@@ -334,7 +339,7 @@
       button.disabled = true;
       try {
         await api("/books/" + encodeURIComponent(id), { method: "PUT", body: JSON.stringify(payload) });
-        await loadBooks(id);
+        await loadBooks(state.selected?.id === id ? id : state.selected?.id || null);
         status("Book saved.");
       } catch (error) {
         status("Could not save this book: " + error.message);
@@ -350,8 +355,8 @@
       button.disabled = true;
       try {
         await api("/books/" + encodeURIComponent(id), { method: "DELETE" });
-        state.selected = null;
-        await loadBooks(null);
+        if (state.selected?.id === id) state.selected = null;
+        await loadBooks(state.selected?.id || null);
         status("Book removed from your collection.");
       } catch (error) {
         status("Could not remove this book: " + error.message);
@@ -369,9 +374,11 @@
       status("Fetching the latest bibliographic record from RABEL…");
       try {
         const result = await api("/books/" + encodeURIComponent(id) + "/refresh-catalogue", { method: "POST" });
-        state.selected = result.book;
         state.books = state.books.map(book => book.id === id ? result.book : book);
-        populateBook(result.book);
+        if (state.selected?.id === id) {
+          state.selected = result.book;
+          populateBook(result.book);
+        }
         renderBooks();
         status("Catalogue information refreshed from RABEL.");
       } catch (error) {
