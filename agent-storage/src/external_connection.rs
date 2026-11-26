@@ -89,12 +89,14 @@ impl CredentialCipher {
 #[serde(rename_all = "snake_case")]
 pub enum ExternalConnectionStatus {
     Active,
+    Broken,
     Revoked,
 }
 impl ExternalConnectionStatus {
     fn parse(s: &str) -> Result<Self, ExternalConnectionStorageError> {
         match s {
             "active" => Ok(Self::Active),
+            "broken" => Ok(Self::Broken),
             "revoked" => Ok(Self::Revoked),
             _ => Err(ExternalConnectionStorageError::Backend(format!(
                 "invalid connection status: {s}"
@@ -196,6 +198,11 @@ pub trait ExternalConnectionStore: Send + Sync {
         token: Option<String>,
         scopes: Vec<String>,
     ) -> Result<ExternalConnection, ExternalConnectionStorageError>;
+    async fn mark_connection_broken(
+        &self,
+        owner: UserId,
+        id: ExternalConnectionId,
+    ) -> Result<(), ExternalConnectionStorageError>;
     async fn revoke_connection(
         &self,
         owner: UserId,
@@ -226,6 +233,13 @@ impl SqliteExternalConnectionStore {
         db.execute_batch(include_str!("../migrations/0001_identity_and_families.sql"))?;
         db.execute_batch(include_str!("../migrations/0002_family_invitations.sql"))?;
         db.execute_batch(include_str!("../migrations/0003_external_connections.sql"))?;
+        let schema_version: i64 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if schema_version < 4 {
+            db.execute_batch(include_str!(
+                "../migrations/0004_external_connection_broken_status.sql"
+            ))?;
+            db.pragma_update(None, "user_version", 4)?;
+        }
         Ok(Self {
             db: Arc::new(Mutex::new(db)),
             cipher: CredentialCipher::new(key),
@@ -394,11 +408,39 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
             .transpose()?;
         let db = self.db.lock().await;
         let now = Utc::now().to_rfc3339();
-        let n=if let Some(t)=token{db.execute("UPDATE external_connections SET encrypted_refresh_token=?1,granted_scopes=?2,updated_at=?3 WHERE owner_id=?4 AND id=?5 AND status='active'",params![t,s,now,o.to_string(),id.to_string()])}else{db.execute("UPDATE external_connections SET granted_scopes=?1,updated_at=?2 WHERE owner_id=?3 AND id=?4 AND status='active'",params![s,now,o.to_string(),id.to_string()])}.map_err(backend)?;
+        let n = if let Some(t) = token {
+            db.execute(
+                "UPDATE external_connections SET encrypted_refresh_token=?1,granted_scopes=?2,status='active',revoked_at=NULL,updated_at=?3 WHERE owner_id=?4 AND id=?5 AND status IN ('active','broken')",
+                params![t, s, now, o.to_string(), id.to_string()],
+            )
+        } else {
+            db.execute(
+                "UPDATE external_connections SET granted_scopes=?1,status='active',revoked_at=NULL,updated_at=?2 WHERE owner_id=?3 AND id=?4 AND status IN ('active','broken')",
+                params![s, now, o.to_string(), id.to_string()],
+            )
+        }
+        .map_err(backend)?;
         if n == 0 {
             return Err(ExternalConnectionStorageError::NotFound);
         }
         load(&db, o, id)?.ok_or(ExternalConnectionStorageError::NotFound)
+    }
+    async fn mark_connection_broken(
+        &self,
+        o: UserId,
+        id: ExternalConnectionId,
+    ) -> Result<(), ExternalConnectionStorageError> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        let n = db.execute(
+            "UPDATE external_connections SET status='broken',updated_at=?1 WHERE owner_id=?2 AND id=?3 AND status='active'",
+            params![now, o.to_string(), id.to_string()],
+        ).map_err(backend)?;
+        if n == 0 {
+            Err(ExternalConnectionStorageError::NotFound)
+        } else {
+            Ok(())
+        }
     }
     async fn revoke_connection(
         &self,
@@ -407,7 +449,7 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
     ) -> Result<(), ExternalConnectionStorageError> {
         let db = self.db.lock().await;
         let now = Utc::now().to_rfc3339();
-        let n=db.execute("UPDATE external_connections SET status='revoked',revoked_at=?1,updated_at=?1 WHERE owner_id=?2 AND id=?3 AND status='active'",params![now,o.to_string(),id.to_string()]).map_err(backend)?;
+        let n=db.execute("UPDATE external_connections SET status='revoked',revoked_at=?1,updated_at=?1 WHERE owner_id=?2 AND id=?3 AND status IN ('active','broken')",params![now,o.to_string(),id.to_string()]).map_err(backend)?;
         if n == 0 {
             Err(ExternalConnectionStorageError::NotFound)
         } else {

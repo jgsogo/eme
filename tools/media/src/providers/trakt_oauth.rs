@@ -271,22 +271,43 @@ impl TraktOAuthService {
             .filter(|token| !token.is_empty())
             .ok_or(TraktError::MissingRefreshToken)?;
         let user = self.fetch_user_settings(&tokens.access_token).await?;
-        let connection = self
+        let granted_scopes = if tokens.scopes().is_empty() {
+            authorization.requested_scopes
+        } else {
+            tokens.scopes()
+        };
+        let existing = self
             .external_connections
-            .create_connection(NewExternalConnection {
-                owner_id: pending.owner_id,
-                provider: "trakt".into(),
-                provider_subject: user.username.clone(),
-                display_email: None,
-                refresh_token,
-                granted_scopes: if tokens.scopes().is_empty() {
-                    authorization.requested_scopes
-                } else {
-                    tokens.scopes()
-                },
-            })
+            .list_connections(pending.owner_id)
             .await
-            .map_err(TraktError::ExternalStorage)?;
+            .map_err(TraktError::ExternalStorage)?
+            .into_iter()
+            .find(|connection| {
+                connection.provider == "trakt" && connection.provider_subject == user.username
+            });
+        let connection = if let Some(existing) = existing {
+            self.external_connections
+                .update_credentials(
+                    pending.owner_id,
+                    existing.id,
+                    Some(refresh_token),
+                    granted_scopes,
+                )
+                .await
+                .map_err(TraktError::ExternalStorage)?
+        } else {
+            self.external_connections
+                .create_connection(NewExternalConnection {
+                    owner_id: pending.owner_id,
+                    provider: "trakt".into(),
+                    provider_subject: user.username.clone(),
+                    display_email: None,
+                    refresh_token,
+                    granted_scopes,
+                })
+                .await
+                .map_err(TraktError::ExternalStorage)?
+        };
 
         let previous_link = self
             .media
@@ -346,10 +367,8 @@ impl TraktOAuthService {
         if link.owner_id != actor_id && !self.is_family_admin(actor_id, family_id).await? {
             return Err(TraktError::Forbidden);
         }
-        self.external_connections
-            .revoke_connection(link.owner_id, link.external_connection_id)
-            .await
-            .map_err(TraktError::ExternalStorage)?;
+        self.revoke_connection_if_present(link.owner_id, link.external_connection_id)
+            .await?;
         self.media
             .delete_external_connection_link(profile_id, "trakt")
             .await
@@ -357,6 +376,31 @@ impl TraktOAuthService {
         self.token_manager
             .invalidate(link.external_connection_id)
             .await;
+        Ok(())
+    }
+
+    /// Revoke credentials when they still exist and are not already revoked.
+    ///
+    /// Broken Trakt links may point to a revoked or missing external connection.
+    /// Those states must not prevent removal of the profile-level link.
+    async fn revoke_connection_if_present(
+        &self,
+        owner_id: UserId,
+        connection_id: ExternalConnectionId,
+    ) -> Result<(), TraktError> {
+        let connection = self
+            .external_connections
+            .get_connection(owner_id, connection_id)
+            .await
+            .map_err(TraktError::ExternalStorage)?;
+        if let Some(connection) = connection
+            && connection.status != ExternalConnectionStatus::Revoked
+        {
+            self.external_connections
+                .revoke_connection(owner_id, connection_id)
+                .await
+                .map_err(TraktError::ExternalStorage)?;
+        }
         Ok(())
     }
 
@@ -443,6 +487,114 @@ impl TraktOAuthService {
         Ok(())
     }
 
+    /// Verify that a linked profile can still authenticate with Trakt.
+    ///
+    /// This performs a read-only request to Trakt's account settings endpoint.
+    pub async fn test_connection(
+        &self,
+        owner_id: UserId,
+        family_id: Option<FamilyId>,
+        profile_id: MediaProfileId,
+    ) -> Result<String, TraktError> {
+        match family_id {
+            Some(family_id) => {
+                self.validate_profile_owner(owner_id, family_id, profile_id)
+                    .await?;
+            }
+            None => {
+                self.validate_personal_profile_owner(owner_id, profile_id)
+                    .await?;
+            }
+        }
+        let link = self
+            .media
+            .get_external_connection_link(profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?
+            .ok_or(TraktError::ConnectionUnavailable)?;
+        if link.owner_id != owner_id {
+            return Err(TraktError::Forbidden);
+        }
+        let access_token = match self
+            .token_manager
+            .access_token(owner_id, link.external_connection_id)
+            .await
+        {
+            Ok(token) => token,
+            Err(error) => {
+                let permanent = matches!(&error, TraktError::MissingRefreshToken)
+                    || matches!(&error, TraktError::Api { status, message }
+                        if (*status == StatusCode::UNAUTHORIZED
+                            || *status == StatusCode::FORBIDDEN
+                            || (*status == StatusCode::BAD_REQUEST
+                                && message.to_ascii_lowercase().contains("invalid_grant"))));
+                if permanent {
+                    let _ = self
+                        .external_connections
+                        .mark_connection_broken(owner_id, link.external_connection_id)
+                        .await;
+                }
+                return Err(error);
+            }
+        };
+        let user = match self.fetch_user_settings(&access_token).await {
+            Ok(user) => user,
+            Err(error) => {
+                let permanent = matches!(&error, TraktError::Api { status, .. }
+                    if *status == StatusCode::UNAUTHORIZED);
+                if permanent {
+                    let _ = self
+                        .external_connections
+                        .mark_connection_broken(owner_id, link.external_connection_id)
+                        .await;
+                }
+                return Err(error);
+            }
+        };
+        if user.username != link.provider_subject {
+            let _ = self
+                .external_connections
+                .mark_connection_broken(owner_id, link.external_connection_id)
+                .await;
+            return Err(TraktError::InvalidResponse(
+                "Trakt returned a different account than the one linked to this profile".into(),
+            ));
+        }
+        Ok(user.username)
+    }
+
+    /// Return the persisted status of a linked Trakt account.
+    pub async fn connection_status(
+        &self,
+        owner_id: UserId,
+        profile_id: MediaProfileId,
+    ) -> Result<Option<ExternalConnectionStatus>, TraktError> {
+        let Some(link) = self
+            .media
+            .get_external_connection_link(profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?
+        else {
+            return Ok(None);
+        };
+        if link.owner_id != owner_id {
+            return Err(TraktError::Forbidden);
+        }
+        let connection = self
+            .external_connections
+            .get_connection(owner_id, link.external_connection_id)
+            .await
+            .map_err(TraktError::ExternalStorage)?;
+        // A linked profile whose external credential is revoked or no longer
+        // exists cannot recover through a health check; it must be relinked.
+        Ok(Some(match connection.map(|connection| connection.status) {
+            Some(ExternalConnectionStatus::Active) => ExternalConnectionStatus::Active,
+            Some(ExternalConnectionStatus::Broken | ExternalConnectionStatus::Revoked) | None => {
+                ExternalConnectionStatus::Broken
+            }
+        }))
+    }
+
     /// Disconnect a Trakt account from the caller's own personal profile.
     pub async fn unlink_personal_profile(
         &self,
@@ -460,10 +612,8 @@ impl TraktOAuthService {
         if link.owner_id != actor_id {
             return Err(TraktError::Forbidden);
         }
-        self.external_connections
-            .revoke_connection(link.owner_id, link.external_connection_id)
-            .await
-            .map_err(TraktError::ExternalStorage)?;
+        self.revoke_connection_if_present(link.owner_id, link.external_connection_id)
+            .await?;
         self.media
             .delete_external_connection_link(profile_id, "trakt")
             .await
@@ -605,7 +755,12 @@ impl TraktTokenManager {
             .external_connections
             .refresh_token(owner_id, connection_id)
             .await
-            .map_err(TraktError::ExternalStorage)?;
+            .map_err(|error| match error {
+                agent_storage::ExternalConnectionStorageError::NotFound => {
+                    TraktError::ConnectionUnavailable
+                }
+                error => TraktError::ExternalStorage(error),
+            })?;
         let refresh_token_hash: [u8; 32] = Sha256::digest(refresh_token.as_bytes()).into();
         let connection = {
             let mut connections = self.connections.lock().await;
@@ -640,7 +795,14 @@ impl TraktTokenManager {
                 scopes,
             )
             .await
-            .map_err(TraktError::ExternalStorage)?;
+            .map_err(|error| match error {
+                // A disconnect or revocation may race with token refresh. In that
+                // case the connection is no longer usable, not a storage outage.
+                agent_storage::ExternalConnectionStorageError::NotFound => {
+                    TraktError::ConnectionUnavailable
+                }
+                error => TraktError::ExternalStorage(error),
+            })?;
         let lifetime = token
             .expires_in_seconds()
             .unwrap_or(300)
@@ -1035,6 +1197,86 @@ mod tests {
         );
 
         drop(manager);
+        drop(external);
+        let _ = fs::remove_file(db_path);
+    }
+
+    #[tokio::test]
+    async fn disconnect_cleans_up_revoked_or_missing_external_connections() {
+        let families = Arc::new(InMemoryFamilyStore::default());
+        let user_id = UserId::new();
+        let media = MediaStore::open_in_memory().unwrap();
+        let profile = media.get_or_create_personal_profile(user_id).await.unwrap();
+        let db_path = std::env::temp_dir().join(format!("media-trakt-unlink-{}.db", Uuid::new_v4()));
+        let external = Arc::new(SqliteExternalConnectionStore::open(&db_path, [6; 32]).unwrap());
+        let external_trait: Arc<dyn ExternalConnectionStore> = external.clone();
+        let service = TraktOAuthService::new(
+            TraktOAuthConfig::new("client", "http://localhost/callback").unwrap(),
+            media.clone(),
+            families,
+            external_trait,
+        )
+        .unwrap();
+
+        let connection = external
+            .create_connection(NewExternalConnection {
+                owner_id: user_id,
+                provider: "trakt".into(),
+                provider_subject: "example-user".into(),
+                display_email: None,
+                refresh_token: "refresh-token".into(),
+                granted_scopes: Vec::new(),
+            })
+            .await
+            .unwrap();
+        let link = MediaExternalConnectionLink {
+            owner_id: user_id,
+            family_id: None,
+            profile_id: profile.id,
+            provider: "trakt".into(),
+            external_connection_id: connection.id,
+            provider_subject: "example-user".into(),
+            display_name: None,
+            linked_at: Utc::now(),
+        };
+        media.save_external_connection_link(&link).await.unwrap();
+        external
+            .revoke_connection(user_id, connection.id)
+            .await
+            .unwrap();
+
+        service
+            .unlink_personal_profile(user_id, profile.id)
+            .await
+            .unwrap();
+        assert!(
+            media
+                .get_external_connection_link(profile.id, "trakt")
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        // A stale profile link can also outlive its external-connection row.
+        let stale_link = MediaExternalConnectionLink {
+            external_connection_id: ExternalConnectionId::new(),
+            linked_at: Utc::now(),
+            ..link
+        };
+        media.save_external_connection_link(&stale_link).await.unwrap();
+        service
+            .unlink_personal_profile(user_id, profile.id)
+            .await
+            .unwrap();
+        assert!(
+            media
+                .get_external_connection_link(profile.id, "trakt")
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        drop(service);
         drop(external);
         let _ = fs::remove_file(db_path);
     }
