@@ -194,8 +194,8 @@ $("usage-models")?.addEventListener("click",event=>{if(event.target.closest("[da
 $("pricing-search")?.addEventListener("input",renderPricing);
 $("pricing-versions")?.addEventListener("click",event=>{
  if(event.target.closest("[data-clear-pricing-filter]")){$("pricing-search").value="";renderPricing()}
- if(event.target.closest("[data-retry-pricing]"))loadPricing();\n if(event.target.closest("[data-retry-usage]")){load();loadPricing()}
+ if(event.target.closest("[data-retry-pricing]"))loadPricing();
 });
-$("pricing-form").addEventListener("submit",savePricing);
+$("usage-records")?.addEventListener("click",event=>{if(event.target.closest("[data-retry-usage]")){load();loadPricing()}});\n$("pricing-form").addEventListener("submit",savePricing);
 load();
 loadPricing();
