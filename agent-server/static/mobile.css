@@ -160,6 +160,58 @@ body[data-layout="mobile"] .tasks-pagination>div{display:flex;gap:7px}
 body[data-layout="mobile"] .tasks-pagination button{min-height:40px;padding:8px 12px;font-size:12px}
 body[data-layout="mobile"] .tasks-pagination button:disabled{opacity:.35}
 body[data-layout="mobile"] #tasks-overview[hidden],body[data-layout="mobile"] #task-editor-view[hidden]{display:none!important}
+/* Polished segmented tabs for the mobile task editor. */
+body[data-layout="mobile"] .task-editor-view .task-section-nav{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:5px;
+ padding:5px;
+ margin:0 0 12px;
+ border:1px solid var(--border);
+ border-radius:13px;
+ background:var(--panel2);
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:7px;
+ min-width:0;
+ min-height:44px;
+ padding:9px 8px;
+ border:1px solid transparent;
+ border-radius:9px;
+ background:transparent;
+ color:var(--muted);
+ font-size:12px;
+ font-weight:650;
+ line-height:1.25;
+ box-shadow:none;
+ transition:background .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab::before{
+ display:inline-block;
+ font-size:15px;
+ line-height:1;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab[data-task-section-tab="details"]::before{content:"✎"}
+body[data-layout="mobile"] .task-editor-view .task-section-tab[data-task-section-tab="history"]::before{content:"◷"}
+body[data-layout="mobile"] .task-editor-view .task-section-tab.active{
+ border-color:var(--border);
+ background:var(--panel);
+ color:var(--text);
+ box-shadow:0 1px 3px rgba(0,0,0,.12);
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab:focus-visible{
+ outline:2px solid var(--accent);
+ outline-offset:2px;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab:disabled{
+ opacity:.38;
+ cursor:not-allowed;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-content[hidden]{display:none!important}
+body[data-layout="mobile"] .task-editor-view .task-section-content{min-width:0}
 body[data-layout="mobile"] .task-editor-view{min-width:0}
 body[data-layout="mobile"] .task-editor-view .task-section-nav{display:flex;gap:7px;overflow-x:auto}
 body[data-layout="mobile"] .task-editor-view .notes-editor-panel{padding:12px}
