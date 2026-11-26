@@ -373,7 +373,8 @@ body[data-layout="mobile"][data-page="meals"] .recipes-sidebar {
 body[data-layout="mobile"][data-page="meals"] .recipe-main {
   min-width: 0;
 }
-body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .recipe-main {
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .recipe-main,
+body[data-layout="mobile"][data-page="meals"] .recipes-view > .recipe-main {
   flex: 1;
 }
 @media (min-width: 760px) {
