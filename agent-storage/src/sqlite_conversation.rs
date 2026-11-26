@@ -71,6 +71,7 @@ impl SqliteConversationStore {
             title: "New conversation".to_owned(),
             archived: false,
             selected_family_id: None,
+            removed_at: None,
             created_at: now,
             updated_at: now,
             messages: Vec::new(),
@@ -250,7 +251,7 @@ impl SqliteConversationStore {
         let tx = connection.transaction().map_err(sqlite_error)?;
         let actual_owner: Option<String> = tx
             .query_row(
-                "SELECT owner FROM conversations WHERE id = ?1",
+                "SELECT owner FROM conversations WHERE id = ?1 AND removed_at IS NULL",
                 [id.to_string()],
                 |row| row.get(0),
             )
@@ -288,7 +289,7 @@ impl SqliteConversationStore {
         let tx = connection.transaction().map_err(sqlite_error)?;
         let actual_owner: Option<String> = tx
             .query_row(
-                "SELECT owner FROM conversations WHERE id = ?1",
+                "SELECT owner FROM conversations WHERE id = ?1 AND removed_at IS NULL",
                 [id.to_string()],
                 |row| row.get(0),
             )
@@ -416,7 +417,7 @@ impl SqliteConversationStore {
             for (owner, id) in active {
                 let actual_owner: Option<String> = connection
                     .query_row(
-                        "SELECT owner FROM conversations WHERE id = ?1",
+                        "SELECT owner FROM conversations WHERE id = ?1 AND removed_at IS NULL",
                         [id.to_string()],
                         |row| row.get(0),
                     )
@@ -452,7 +453,7 @@ impl SqliteConversationStore {
         let tx = connection.transaction().map_err(sqlite_error)?;
         let exists: bool = tx
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?1)",
+                "SELECT EXISTS(SELECT 1 FROM conversations WHERE id = ?1 AND removed_at IS NULL)",
                 [conversation.id.to_string()],
                 |row| row.get(0),
             )
@@ -502,7 +503,7 @@ impl SqliteConversationStore {
         let connection = self.lock();
         let actual_owner: Option<String> = connection
             .query_row(
-                "SELECT owner FROM conversations WHERE id = ?1",
+                "SELECT owner FROM conversations WHERE id = ?1 AND removed_at IS NULL",
                 [id.to_string()],
                 |row| row.get(0),
             )
