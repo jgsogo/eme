@@ -1156,3 +1156,61 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* The mobile conversation/task/note routes are full-width lists at tablet and desktop widths too. */
+@media (min-width: 760px) {
+  body[data-layout="mobile"][data-page="conversations"] main,
+  body[data-layout="mobile"][data-page="tasks"] main,
+  body[data-layout="mobile"][data-page="notes"] main {
+    width: min(100%, 1120px);
+    max-width: 1120px;
+    min-height: 0;
+    padding: 16px 20px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="notes"] .tasks-workspace {
+    display: flex;
+    width: 100%;
+    min-height: 0;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel {
+    width: 100%;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-card-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    align-content: start;
+    gap: 12px;
+  }
+  body[data-layout="mobile"] .item-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 112px;
+    padding: 15px 42px 15px 15px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--panel2);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+  }
+  body[data-layout="mobile"] .item-card-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:9px;min-width:0; }
+  body[data-layout="mobile"] .item-card-heading strong { min-width:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-description { margin:0;color:var(--muted);font-size:12px;line-height:1.4;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-meta { display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;color:var(--muted);font-size:10px;line-height:1.4; }
+  body[data-layout="mobile"] .item-card-tag { display:inline-flex;align-items:center;max-width:100%;min-height:23px;padding:3px 8px;border:1px solid var(--border);border-radius:20px;color:var(--muted);font-size:10px;font-weight:650;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-tag.shared { color:var(--accent); }
+  body[data-layout="mobile"] .item-card-tag.running { color:var(--success,#25865a); }
+  body[data-layout="mobile"] .item-card-footnote { color:var(--muted);font-size:10px;line-height:1.4;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-arrow { position:absolute;top:50%;right:14px;color:var(--muted);font-size:24px;line-height:1;transform:translateY(-50%); }
+}
