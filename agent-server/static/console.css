@@ -1234,3 +1234,12 @@ body[data-page="conversations"] #conversations-table-body {
   .task-card-details { grid-template-columns: minmax(0, 1fr); }
   .task-card-next-run { grid-column: auto; }
 }
+
+
+/* Keep conversation-card actions aligned with the update timestamp. */
+@media (min-width: 761px) {
+  body[data-page="conversations"] .conversation-card-footer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
+  body[data-page="conversations"] .conversation-card-stats { grid-column: 1 / -1; }
+  body[data-page="conversations"] .conversation-card-updated { grid-column: 1; grid-row: 2; min-width: 0; }
+  body[data-page="conversations"] .conversation-card-actions { grid-column: 2; grid-row: 2; justify-self: end; align-self: center; width: auto; padding-top: 0; }
+}
