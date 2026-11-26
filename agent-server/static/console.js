@@ -165,8 +165,8 @@ function renderNoteFamilies(){
 async function loadNotes(){
  const button=$("refresh-notes");if(button)button.disabled=true;
  $("notes-list").innerHTML='<div class="empty" role="status">Loading notes…</div>';
- try{state.notes=await api("/notes");renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
- catch(e){$("notes-list").innerHTML='<div class="empty" role="alert">Unable to load notes: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-notes>Try again</button></p></div>'}
+ try{state.notes=await api("/notes");notesPage=1;renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
+ catch(e){const error='<div class="empty" role="alert">Unable to load notes: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-notes>Try again</button></p></div>';$("notes-list").innerHTML=error;$("notes-table-body").innerHTML='<tr><td colspan="3">'+error+'</td></tr>'}
  finally{if(button)button.disabled=false}
 }
 async function saveNote(event){
