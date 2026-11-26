@@ -464,3 +464,29 @@ body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .school-m
   max-width: 155px;
   padding: 8px;
 }
+
+/* School shows the complete selected week as a vertical Monday-to-Sunday list. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-heading {
+  margin: 0 0 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-heading h3 {
+  margin: 0 0 3px;
+  font-size: 16px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-heading p {
+  margin: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-menu-day-detail {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-menu-day-detail-heading {
+  margin-bottom: 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-menu-day-detail-heading h3 {
+  font-size: 15px;
+}
