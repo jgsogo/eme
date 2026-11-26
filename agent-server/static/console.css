@@ -312,6 +312,7 @@ body:has(#shopping-list-panel) main{overflow:auto}
 .school-menu-editor .recipe-form>textarea{display:block}
 .school-menu-field-help{display:block;margin:-7px 0 12px}
 .school-menu-toolbar{justify-content:flex-start}
+.planner-status-row{margin:-4px 16px 12px}
 
 
 /* Compact monthly school-menu calendar. */
