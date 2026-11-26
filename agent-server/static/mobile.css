@@ -537,3 +537,22 @@ body[data-layout="mobile"] .mobile-bottom-nav {
   margin: 0 auto;
   transform: none;
 }
+
+/* Meal Planner follows the same Monday-to-Sunday card layout as School menus. */
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .meal-planner-weekly-main {
+  flex: 0 0 auto;
+  min-height: max-content;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .school-menu-week-days .meal-planner-day {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-day-slots {
+  display: grid;
+  gap: 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-calendar-slot {
+  margin: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-school-menu {
+  margin-top: 12px;
+}
