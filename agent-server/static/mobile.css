@@ -124,6 +124,7 @@ body[data-layout="mobile"] .tasks-pagination button{min-height:40px;padding:8px 
 body[data-layout="mobile"] .tasks-pagination button:disabled{opacity:.35}
 body[data-layout="mobile"] #tasks-overview[hidden],body[data-layout="mobile"] #task-editor-view[hidden]{display:none!important}
 /* Notes reuse the Tasks workspace, drawer, header, table and pagination styles. */
+body[data-layout="mobile"] .notes-sidebar-actions #close-notes{display:inline-flex}
 body[data-layout="mobile"] .notes-sidebar .notes-filters{display:flex;flex-direction:column;gap:8px;padding:8px 0}
 body[data-layout="mobile"] .notes-sidebar .notes-filters input,
 body[data-layout="mobile"] .notes-sidebar .notes-filters select{width:100%;min-width:0;min-height:40px;box-sizing:border-box}
