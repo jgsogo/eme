@@ -89,7 +89,7 @@ function render(){
 }
 async function load(){
  const runId=new URLSearchParams(window.location.search).get("run_id");
- const refresh=$("usage-refresh");refresh.disabled=true;
+ const refresh=$("usage-refresh");if(refresh)refresh.disabled=true;
  $("usage-status").textContent=runId?"Loading run usage…":"Loading usage records…";
  $("usage-status").className="usage-status";
  $("usage-models").innerHTML='<p class="usage-empty" role="status">Loading usage…</p>';
@@ -111,8 +111,8 @@ async function load(){
   $("usage-status").textContent="Could not load usage: "+error.message;
   $("usage-status").className="usage-status error";
   $("usage-models").innerHTML='<p class="usage-empty" role="alert">Usage data could not be loaded.</p>';
-  $("usage-records").innerHTML='<tr><td colspan="8" class="usage-empty" role="alert">Usage data could not be loaded. Use Refresh to try again.</td></tr>';
- }finally{refresh.disabled=false}
+  $("usage-records").innerHTML=refresh?'<tr><td colspan="8" class="usage-empty" role="alert">Usage data could not be loaded. Use Refresh to try again.</td></tr>':'<tr><td colspan="8" class="usage-empty" role="alert">Usage data could not be loaded. <button type="button" class="secondary" data-retry-usage>Try again</button></td></tr>';
+ }finally{if(refresh)refresh.disabled=false}
 }
 function renderPricing(){
  const rate=value=>value==null?"—":(value/1000000).toFixed(6);
@@ -186,7 +186,7 @@ async function savePricing(event){
   status.textContent="Could not save pricing: "+error.message;
  }finally{if(submitButton)submitButton.disabled=false}
 }
-$("usage-refresh").addEventListener("click",()=>{load();loadPricing()});
+$("usage-refresh")?.addEventListener("click",()=>{load();loadPricing()});
 $("usage-period").addEventListener("change",render);
 $("usage-record-search")?.addEventListener("input",render);
 $("usage-model-search")?.addEventListener("input",render);
@@ -196,6 +196,7 @@ $("pricing-versions")?.addEventListener("click",event=>{
  if(event.target.closest("[data-clear-pricing-filter]")){$("pricing-search").value="";renderPricing()}
  if(event.target.closest("[data-retry-pricing]"))loadPricing();
 });
+$("usage-records")?.addEventListener("click",event=>{if(event.target.closest("[data-retry-usage]")){load();loadPricing()}});
 $("pricing-form").addEventListener("submit",savePricing);
 load();
 loadPricing();

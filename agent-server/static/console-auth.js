@@ -52,12 +52,26 @@ document.body.style.visibility = "hidden";
 (async () => {
   try {
     await authRequest("/auth/session");
+    const signOut = document.getElementById("logout");
+    if (signOut) signOut.hidden = false;
+    const connection = document.getElementById("connection");
+    if (connection) {
+      connection.textContent = "Connected";
+      connection.className = "hint";
+      connection.setAttribute("role", "status");
+    }
     document.body.style.visibility = "visible";
     resolveReady();
   } catch (error) {
     if (error.status === 401) {
       window.location.replace(loginUrl());
       return;
+    }
+    const connection = document.getElementById("connection");
+    if (connection) {
+      connection.textContent = "Connection error: " + error.message;
+      connection.className = "hint error";
+      connection.setAttribute("role", "status");
     }
     document.body.style.visibility = "visible";
     rejectReady(error);

@@ -12,7 +12,7 @@ function render(){
 }
 async function load(){
  const button=$("tools-refresh");
- button.disabled=true;button.textContent="Refreshing…";
+ if(button){button.disabled=true;button.textContent="Refreshing…";}
  $("tools-status").textContent="Loading registered tools…";
  $("tools-list").innerHTML='<p class="usage-empty" role="status">Loading tools…</p>';
  try{
@@ -24,10 +24,10 @@ async function load(){
   $("tools-status").textContent="Could not load tools.";
   $("tools-status").className="usage-status error";
   $("tools-list").innerHTML='<div class="usage-empty" role="alert">Could not load tools: '+escapeHtml(error.message)+'<p><button type="button" class="secondary" data-retry>Try again</button></p></div>';
- }finally{button.disabled=false;button.textContent="Refresh"}
+ }finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 $("tools-search").addEventListener("input",render);
-$("tools-refresh").addEventListener("click",load);
+$("tools-refresh")?.addEventListener("click",load);
 $("tools-list").addEventListener("click",event=>{
  if(event.target.closest("[data-clear-search]")){$("tools-search").value="";render()}
  if(event.target.closest("[data-retry]"))load();
