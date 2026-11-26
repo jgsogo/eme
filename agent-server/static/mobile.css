@@ -614,3 +614,141 @@ body[data-layout="mobile"][data-page="meals"] .recipe-back-button {
     display: none !important;
   }
 }
+
+
+/* Shared Profile / Integrations / Families / Admin navigation. */
+body[data-layout="mobile"] .profile-drawer-backdrop {
+  position: fixed;
+  z-index: 39;
+  inset: 0;
+  background: rgba(0,0,0,.48);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease, visibility .2s ease;
+}
+body[data-layout="mobile"] .profile-drawer-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+body[data-layout="mobile"] .profile-drawer {
+  position: fixed;
+  z-index: 40;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  width: min(86vw, 340px);
+  max-width: 340px;
+  height: 100dvh;
+  max-height: none;
+  padding: 14px;
+  box-sizing: border-box;
+  transform: translateX(-105%);
+  transition: transform .22s ease;
+  will-change: transform;
+  overflow: auto;
+  border-radius: 0 12px 12px 0;
+  box-shadow: 12px 0 32px rgba(0,0,0,.35);
+}
+body[data-layout="mobile"] .profile-drawer.open { transform: translateX(0); }
+body[data-layout="mobile"] .profile-drawer .toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+body[data-layout="mobile"] .profile-drawer .toolbar h2 { margin: 0; font-size: 18px; }
+body[data-layout="mobile"] .profile-drawer-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+body[data-layout="mobile"] .profile-drawer-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 9px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+body[data-layout="mobile"] .profile-drawer-nav a[aria-current="page"] {
+  background: var(--panel2);
+  color: var(--accent);
+}
+body[data-layout="mobile"] .profile-shell-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+}
+body[data-layout="mobile"] .profile-shell-heading > div { min-width: 0; flex: 1; }
+body[data-layout="mobile"] .profile-shell-heading h2 {
+  margin: 0 0 3px;
+  font-size: 19px;
+  line-height: 1.25;
+}
+body[data-layout="mobile"] .profile-shell-heading p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+body[data-layout="mobile"] .profile-menu-toggle,
+body[data-layout="mobile"] .profile-content-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 18px;
+  line-height: 1;
+}
+body[data-layout="mobile"] .profile-content-back[hidden] { display: none; }
+
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="integrations"][data-profile-view="list"] .integration-details { display: none; }
+  body[data-layout="mobile"][data-page="integrations"][data-profile-view="detail"] .integrations-sidebar { display: none; }
+  body[data-layout="mobile"][data-page="integrations"] .integration-nav-list {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  body[data-layout="mobile"][data-page="integrations"] .integration-nav-item {
+    width: 100%;
+    min-width: 0;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  body[data-layout="mobile"][data-page="families"][data-profile-view="list"] .family-details-panel { display: none; }
+  body[data-layout="mobile"][data-page="families"][data-profile-view="detail"] .family-list-panel { display: none; }
+  body[data-layout="mobile"][data-page="families"] .family-list-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: none;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="families"] .families-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  body[data-layout="mobile"][data-page="families"][data-profile-view="detail"] .family-details-panel {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-view,
+  body[data-layout="mobile"][data-page="integrations"] .integrations-view { min-height: 0; }
+}
