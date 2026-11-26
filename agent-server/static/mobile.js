@@ -9,6 +9,7 @@ function installBottomNavigation() {
     { href: "/mobile/conversations", label: "Chats", icon: '<svg viewBox="0 0 24 24"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 1 1 20 11.5Z"/><path d="M8 11h8M8 14h5"/></svg>', active: path.startsWith("/mobile/conversations") },
     { href: "/mobile/notes", label: "Notes", icon: '<svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg>', active: path.startsWith("/mobile/notes") },
     { href: "/mobile/tasks", label: "Tasks", icon: '<svg viewBox="0 0 24 24"><path d="m4 7 2 2 4-4M12 7h8M4 16l2 2 4-4M12 16h8"/></svg>', active: path.startsWith("/mobile/tasks") },
+    { href: "/mobile/books", label: "Books", icon: '<svg viewBox="0 0 24 24"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v18H6.5A2.5 2.5 0 0 1 4 17.5z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20M8 6h8M8 10h6"/></svg>', active: ["/mobile/books", "/mobile/books/libraries"].includes(path) },
     { href: "/mobile/meals", label: "Meals", icon: '<svg viewBox="0 0 24 24"><path d="M7 3v7M4 3v4a3 3 0 0 0 6 0V3M7 10v11M17 3v18M17 3c3 2 3 7 0 9"/></svg>', active: ["/mobile/meals", "/mobile/meal-planner", "/mobile/shopping-list", "/mobile/school-menus"].includes(path) },
     { href: "/mobile/profile", label: "Profile", icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>', active: ["/mobile/profile", "/mobile/families", "/mobile/integrations", "/mobile/admin/usage", "/mobile/admin/tools", "/mobile/admin/agents", "/mobile/admin/providers"].includes(path) }
   ];
