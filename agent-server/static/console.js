@@ -820,8 +820,8 @@ function renderGoogleConnections(){
   return {connection,calendars:!query||accountMatches?calendars:calendars.filter(calendar=>[calendar.name,calendar.summary,calendar.id].some(value=>String(value||"").toLocaleLowerCase().includes(query))),accountMatches};
  }).filter(item=>!query||item.accountMatches||item.calendars.length);
  target.innerHTML=connections.length?connections.map(({connection,calendars})=>{
-  const writeScope=googleHasWriteScope(connection),status=connection.status==="active"?"Active":"Disconnected";
-  return '<section class="panel google-account" data-connection-id="'+escapeHtml(connection.id)+'"><div class="google-account-heading"><div><h3>'+escapeHtml(connection.email||"Google account")+'</h3><p class="hint">'+status+' · '+(googleHasReadScope(connection)?"Calendar read access":"No calendar read scope")+' · '+(writeScope?"Google write scope granted":"Read-only Google scope")+'</p></div><button type="button" class="secondary" data-google-action="test" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Test connection</button><button type="button" class="danger" data-google-action="disconnect" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Disconnect</button></div><div class="calendar-toolbar"><div><h4>Calendars</h4><p class="hint">New calendars are not selected automatically.</p></div><button type="button" class="secondary" data-google-action="sync" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Sync calendars</button></div>'+(connection.status!=="active"?'<p class="hint">Reconnect this Google account to restore access.</p>':calendars.length?calendars.map(calendar=>renderGoogleCalendar(connection,calendar,writeScope)).join(""):'<p class="hint">'+(query?"No calendars match this filter.":"No calendars discovered yet. Select “Sync calendars” to load them from Google.")+'</p>')+'</section>';
+  const writeScope=googleHasWriteScope(connection),broken=connection.status==="broken",status=broken?"Broken":connection.status==="active"?"Active":"Disconnected";
+  return '<section class="panel google-account" data-connection-id="'+escapeHtml(connection.id)+'"><div class="google-account-heading"><div><h3>'+ (broken?'<span class="integration-warning-icon" role="img" aria-label="Broken integration" title="This connection needs attention">⚠</span> ':'')+escapeHtml(connection.email||"Google account")+'</h3><p class="hint">'+status+(broken?' · Reauthorize this Google account to restore access.':' · '+(googleHasReadScope(connection)?"Calendar read access":"No calendar read scope")+' · '+(writeScope?"Google write scope granted":"Read-only Google scope"))+'</p></div><button type="button" class="secondary" data-google-action="test" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Test connection</button><button type="button" class="danger" data-google-action="disconnect" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Disconnect</button></div><div class="calendar-toolbar"><div><h4>Calendars</h4><p class="hint">New calendars are not selected automatically.</p></div><button type="button" class="secondary" data-google-action="sync" data-connection-id="'+escapeHtml(connection.id)+'" '+(connection.status!=="active"?"disabled":"")+'>Sync calendars</button></div>'+(connection.status!=="active"?'<p class="hint">Reconnect this Google account to restore access.</p>':calendars.length?calendars.map(calendar=>renderGoogleCalendar(connection,calendar,writeScope)).join(""):'<p class="hint">'+(query?"No calendars match this filter.":"No calendars discovered yet. Select “Sync calendars” to load them from Google.")+'</p>')+'</section>';
  }).join(""):'<div class="panel integrations-empty"><div class="empty">No accounts or calendars match this filter. <button type="button" class="secondary" data-clear-google-filter>Clear filter</button></div></div>';
 }
 function renderGoogleCalendar(connection,calendar,writeScope){
@@ -848,14 +848,14 @@ function renderTraktProfiles(){
  if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet.</div></div>';return}
  const profiles=state.traktProfiles.filter(profile=>[profile.profile_name,profile.family_name,profile.trakt?.username,profile.trakt?.display_name].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
  target.innerHTML=profiles.length?profiles.map(profile=>{
-  const trakt=profile.trakt,sync=profile.sync||{},lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
+  const trakt=profile.trakt,sync=profile.sync||{},broken=Boolean(profile.trakt_broken),lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
   const account=trakt?'<strong>'+escapeHtml(trakt.display_name||trakt.username)+'</strong><small>Trakt account · @'+escapeHtml(trakt.username)+'</small>':'<span class="hint">No Trakt account connected</span>';
   const summary=state.traktSummaries[profile.profile_id]||{};
   const actions=trakt?'<button type="button" class="secondary" data-trakt-action="test" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id||"")+'">Test connection</button><button type="button" data-trakt-action="sync" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id||"")+'">Sync now</button><button type="button" class="danger" data-trakt-action="disconnect" data-profile-id="'+escapeHtml(profile.profile_id)+'" data-family-id="'+escapeHtml(profile.family_id||"")+'">Disconnect</button>':'<span class="hint">Use the Connect Trakt action above to link this profile.</span>';
   const hasImportedData=(summary.watched_movies||0)+(summary.watched_shows||0)+(summary.ratings||0)+(summary.watchlist_items||0)>0;
   const stats=hasImportedData?'<div class="trakt-stats"><div><strong>'+Number(summary.watched_movies||0).toLocaleString()+'</strong><span>Movies watched</span></div><div><strong>'+Number(summary.watched_shows||0).toLocaleString()+'</strong><span>Shows watched</span></div><div><strong>'+Number(summary.ratings||0).toLocaleString()+'</strong><span>Ratings</span></div><div><strong>'+Number(summary.watchlist_items||0).toLocaleString()+'</strong><span>Watchlist</span></div></div>':'<p class="hint trakt-no-data">'+(trakt?"No imported Trakt activity yet. Select Sync now to import your history, ratings and watchlist.":"No imported Trakt data for this profile.")+'</p>';
   const recent=(summary.recently_watched||[]).length?'<div class="trakt-recent"><h4>Recently watched</h4><ul>'+summary.recently_watched.map(item=>'<li><span>'+escapeHtml(item.title)+'</span><small>'+((item.kind==="movie")?"Movie":"TV show")+' · '+escapeHtml(new Date(item.watched_at).toLocaleDateString())+'</small></li>').join("")+'</ul></div>':'';
-  return '<section class="panel google-account"><div class="google-account-heading"><div><h3>'+escapeHtml(profile.profile_name)+'</h3><p class="hint">'+escapeHtml(profile.family_name)+' · '+(trakt?"Connected":"Not connected")+'</p></div></div><div class="calendar-toolbar"><div>'+account+'<p class="hint">'+(trakt?"Last synchronized: "+escapeHtml(lastSync):"Imported media data is retained when Trakt is disconnected.")+'</p></div><div class="integration-button-row">'+actions+'</div></div><div class="trakt-data">'+stats+recent+'</div></section>';
+  return '<section class="panel google-account"><div class="google-account-heading"><div><h3>'+(broken?'<span class="integration-warning-icon" role="img" aria-label="Broken integration" title="This connection needs attention">⚠</span> ':'')+escapeHtml(profile.profile_name)+'</h3><p class="hint">'+escapeHtml(profile.family_name)+' · '+(broken?'<strong class="integration-broken-label">Broken · reconnect required</strong>':trakt?"Connected":"Not connected")+'</p></div></div><div class="calendar-toolbar"><div>'+account+'<p class="hint">'+(trakt?"Last synchronized: "+escapeHtml(lastSync):"Imported media data is retained when Trakt is disconnected.")+'</p></div><div class="integration-button-row">'+actions+'</div></div><div class="trakt-data">'+stats+recent+'</div></section>';
  }).join(""):'<div class="panel integrations-empty"><div class="empty">No media profiles match this filter. <button type="button" class="secondary" data-clear-trakt-filter>Clear filter</button></div></div>';
 }
 async function loadTraktProfiles(loadSummaries=true){
@@ -902,7 +902,7 @@ async function handleTraktIntegrationAction(event){
   if(action==="test"){
    const family=familyId?"?family_id="+encodeURIComponent(familyId):"";
    const result=await api("/media/trakt/profiles/"+encodeURIComponent(profileId)+"/test"+family,{method:"POST"});
-   status.textContent=result.message||"Trakt connection is working.";
+   status.textContent=result.message||"Trakt connection is working.";status.className="hint integration-status-ok";status.setAttribute("role","status");
   }else if(action==="connect")await connectTrakt(profile);
   else if(action==="sync"){
    const result=await api("/media/trakt/profiles/"+encodeURIComponent(profileId)+"/sync"+(familyId?"?family_id="+encodeURIComponent(familyId):""),{method:"POST"});
@@ -912,7 +912,7 @@ async function handleTraktIntegrationAction(event){
    await api("/media/trakt/profiles/"+encodeURIComponent(profileId),{method:"DELETE",body:JSON.stringify(familyId?{family_id:familyId}:{})});
    await loadTraktProfiles();status.textContent="Trakt account disconnected.";
   }
- }catch(e){status.textContent=e.message}finally{button.disabled=false}
+ }catch(e){status.textContent="Connection test failed: "+e.message;status.className="hint integration-status-error";status.setAttribute("role","alert");if(action==="test")await loadTraktProfiles(false).catch(()=>{})}finally{button.disabled=false}
 }
 async function connectGoogle(){
  const button=$("google-connect"),status=$("integrations-status"),access=$("google-connect-access").value,popup=window.open("about:blank","eme-google-oauth","popup,width=620,height=760");
@@ -947,7 +947,7 @@ async function handleGoogleIntegrationAction(event){
  try{
   if(action==="test"){
    const result=await api("/integrations/google/connections/"+encodeURIComponent(account)+"/test",{method:"POST"});
-   status.textContent=result.message||"Google Calendar connection is working.";
+   status.textContent=result.message||"Google Calendar connection is working.";status.className="hint integration-status-ok";status.setAttribute("role","status");
   }else if(action==="disconnect"){
    const connection=state.googleConnections.find(c=>c.id===account);
    if(!window.confirm("Disconnect "+(connection?.email||"this Google account")+"? Agents will immediately lose access to its calendars."))return;
@@ -960,7 +960,7 @@ async function handleGoogleIntegrationAction(event){
   }else if(action==="unshare"){
    await api("/integrations/google/calendars/"+encodeURIComponent(calendar)+"/family-sharing",{method:"DELETE"});await loadGoogleConnections();status.textContent="Family sharing removed.";
   }
- }catch(e){status.textContent=e.message}
+ }catch(e){status.textContent="Connection test failed: "+e.message;status.className="hint integration-status-error";status.setAttribute("role","alert");if(action==="test")await loadGoogleConnections().catch(()=>{})}
  finally{button.disabled=false}
 }
 async function handleGoogleCalendarChange(event){
