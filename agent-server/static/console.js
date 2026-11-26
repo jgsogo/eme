@@ -106,6 +106,13 @@ function noteDate(note){
 }
 function renderNotes(){
  const target=$("notes-list");if(!target)return;
+ if(!$("notes-overview")){
+  const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
+  const familyFilter=$("note-family-filter")?.value||"";
+  const notes=state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter)));
+  target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
+  return;
+ }
  const notes=filteredNotes();
  target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(noteDate(note))+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
  renderNotesTable();
@@ -131,14 +138,16 @@ function showNoteEditor(title){
  $("notes-main-subtitle").textContent="View and edit note details";
 }
 function resetNoteEditor(){
- state.selectedNote=null;renderNotes();showNotesOverview();
+ state.selectedNote=null;renderNotes();
+ if($("notes-overview"))showNotesOverview();
  if($("note-heading"))$("note-heading").textContent="Select a note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
  for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=true;
  $("delete-note").disabled=true;$("notes-status").textContent="Choose a note or create a new one. Notes are private by default.";
 }
 function startNewNote(){
- state.selectedNote="new";renderNotes();showNoteEditor("New note");
+ state.selectedNote="new";renderNotes();
+ if($("notes-overview"))showNoteEditor("New note");
  if($("note-heading"))$("note-heading").textContent="New note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
  for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=false;
@@ -148,14 +157,15 @@ function startNewNote(){
 async function selectNote(id){
  const note=state.notes.find(item=>item.id===id);if(!note)return;
  try{
-  const full=await api("/notes/"+encodeURIComponent(id));state.selectedNote=id;renderNotes();showNoteEditor(full.title);
+  const full=await api("/notes/"+encodeURIComponent(id));state.selectedNote=id;renderNotes();
+  if($("notes-overview"))showNoteEditor(full.title);
   if($("note-heading"))$("note-heading").textContent=full.title;
   $("note-title").value=full.title;$("note-content").value=full.content;$("note-family").value=full.family_id||"";
   const editable=full.owner_id===state.currentUserId;
   for(const field of ["note-title","note-content","note-family","save-note"])$(field).disabled=!editable;
   $("delete-note").disabled=!editable;
   $("notes-status").textContent=!editable?"Shared note · read-only":(full.family_id?"Shared with "+(state.families.find(f=>f.id===full.family_id)?.name||"a family"):"Private note");
- }catch(e){$("notes-status").textContent=e.message;$("notes-main-subtitle").textContent="Unable to open note: "+e.message}
+ }catch(e){$("notes-status").textContent=e.message;if($("notes-main-subtitle"))$("notes-main-subtitle").textContent="Unable to open note: "+e.message}
 }
 function renderNoteFamilies(){
  const select=$("note-family");if(!select)return;const selected=select.value;
