@@ -7,6 +7,7 @@ async function api(path, options={}) {
   if(!response.ok){const error=new Error(typeof body==="string"&&body?body:response.statusText);error.status=response.status;throw error}
   return body;
 }
+function setConnectionStatus(value){const element=$("connection");if(element)element.textContent=value}
 function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function dateString(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")}
 function parseDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d,12)}
@@ -133,8 +134,8 @@ async function loadWeek(){
   state.participation=context.participation||[];
   if(context.current_plan)state.plans.set(monday,context.current_plan);
   renderWeek();
-  $("connection")?.textContent="Connected";
- }catch(e){if(request===state.request){state.failedWeeks=new Set([monday]);$("planner-week-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+' <button type="button" class="text-button" id="retry-week">Retry</button></p>';$("retry-week")?.addEventListener("click",loadWeek);$("connection")?.textContent="Connection error"}}
+  setConnectionStatus("Connected");
+ }catch(e){if(request===state.request){state.failedWeeks=new Set([monday]);$("planner-week-view").innerHTML='<p class="empty" role="alert">'+esc(e.message)+' <button type="button" class="text-button" id="retry-week">Retry</button></p>';$("retry-week")?.addEventListener("click",loadWeek);setConnectionStatus("Connection error")}}
 }
 $("recipe-search").addEventListener("input",e=>{state.recipeSearch=e.target.value;renderRecipePicker()});
 $("assignment-recipes-list").addEventListener("change",e=>{
@@ -155,4 +156,4 @@ $("week-date").addEventListener("change",loadWeek);
 window.addEventListener("eme:family-changed",()=>loadWeek());
 window.addEventListener("focus",()=>loadWeek());
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")loadWeek()});
-(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("week-date").value=dateString(mondayOf(new Date()));await loadWeek()}catch(e){$("connection")?.textContent="Error loading planner: "+e.message}})();
+(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("week-date").value=dateString(mondayOf(new Date()));await loadWeek()}catch(e){setConnectionStatus("Error loading planner: "+e.message)}})();
