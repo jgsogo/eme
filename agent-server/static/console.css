@@ -1259,3 +1259,66 @@ body[data-page="conversations"] #conversations-table-body {
   body[data-page="conversations"] .conversation-card-updated { grid-column: 1; grid-row: 2; min-width: 0; }
   body[data-page="conversations"] .conversation-card-actions { grid-column: 2; grid-row: 2; justify-self: end; align-self: center; width: auto; padding-top: 0; }
 }
+
+/* Desktop shopping-list controls: separate date-range actions from list filters. */
+@media (min-width: 761px) {
+  .shopping-list-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 18px;
+  }
+  .shopping-list-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+  }
+  .shopping-list-field:first-child { width: 200px; }
+  .shopping-list-field:nth-child(2) { width: 140px; }
+  .shopping-list-controls #shopping-refresh { min-width: 132px; }
+  .shopping-list-controls #shopping-restore-all { margin-left: auto; }
+  .shopping-list-filters {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+    flex-wrap: nowrap;
+    margin: 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .shopping-list-filters input[type="search"] {
+    width: 320px;
+    max-width: 45%;
+    height: 40px;
+    margin: 0;
+    padding: 8px 11px;
+    color: var(--text);
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+  .shopping-list-filters label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .shopping-list-filters input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+  .shopping-list-range {
+    margin: -3px 0 0;
+    padding: 0;
+    border: 0;
+    color: var(--muted);
+    font-size: 12px;
+  }
+}
+
