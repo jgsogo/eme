@@ -283,8 +283,7 @@ impl TraktOAuthService {
             .map_err(TraktError::ExternalStorage)?
             .into_iter()
             .find(|connection| {
-                connection.provider == "trakt"
-                    && connection.provider_subject == user.username
+                connection.provider == "trakt" && connection.provider_subject == user.username
             });
         let connection = if let Some(existing) = existing {
             self.external_connections
