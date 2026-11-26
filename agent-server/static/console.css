@@ -1106,3 +1106,17 @@ body:not(.login-page) { visibility:hidden; }
 @media (max-width: 1100px) {
   .item-card-list { grid-template-columns: minmax(0, 1fr); }
 }
+
+
+/* Desktop conversations pane: keep the cards independently scrollable. */
+body[data-page="conversations"] #conversation-sidebar {
+  min-height: 0;
+}
+body[data-page="conversations"] #conversations-table-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-content: start;
+  scrollbar-gutter: stable;
+}
