@@ -233,7 +233,14 @@ impl SqliteExternalConnectionStore {
         db.execute_batch(include_str!("../migrations/0001_identity_and_families.sql"))?;
         db.execute_batch(include_str!("../migrations/0002_family_invitations.sql"))?;
         db.execute_batch(include_str!("../migrations/0003_external_connections.sql"))?;
-        db.execute_batch(include_str!("../migrations/0004_external_connection_broken_status.sql"))?;
+        let schema_version: i64 =
+            db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if schema_version < 4 {
+            db.execute_batch(include_str!(
+                "../migrations/0004_external_connection_broken_status.sql"
+            ))?;
+            db.pragma_update(None, "user_version", 4)?;
+        }
         Ok(Self {
             db: Arc::new(Mutex::new(db)),
             cipher: CredentialCipher::new(key),
