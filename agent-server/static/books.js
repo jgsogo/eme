@@ -6,6 +6,531 @@
     if (!response.ok) throw new Error(await response.text() || `HTTP ${response.status}`);
     return response.status === 204 ? null : response.json();
   }
+  if (document.body.dataset.layout === "mobile") {
+    initMobileBooks($, api);
+    return;
+  }
+
+  function initMobileBooks($, api) {
+    const state = { books: [], selected: null, query: "", readingStatus: "", wantToBuy: false, selectionRequest: 0, holdingsRequest: 0 };
+    const status = message => { $("books-status").textContent = message || ""; };
+    const readingLabel = value => ({ pending: "To read", reading: "Currently reading", read: "Read" }[value] || "To read");
+    const dateLabel = value => value ? new Date(value).toLocaleDateString() : "";
+    const make = (tag, className, value) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (value !== undefined && value !== null) node.textContent = String(value);
+      return node;
+    };
+    const setView = view => {
+      document.body.dataset.bookView = view;
+      $("books-overview").hidden = view !== "list";
+      $("book-detail-view").hidden = view !== "detail";
+      $("back-to-books").hidden = view !== "detail";
+      $("open-add-book").hidden = view !== "list";
+      $("books-main-title").textContent = view === "detail" ? "Book details" : "My collection";
+      $("books-main-subtitle").textContent = view === "detail"
+        ? "Your reading notes, bibliographic information and library availability"
+        : "Your personal book collection and reading list";
+    };
+
+    function filteredBooks() {
+      const query = state.query.trim().toLocaleLowerCase();
+      return state.books.filter(book => {
+        const matchesQuery = !query || [
+          book.title, ...(book.authors || []), book.isbn, book.publisher,
+          book.publication_year, book.reading_status, book.review,
+          ...(book.subjects || []), ...(book.notes || []),
+          book.want_to_buy ? "want to buy" : ""
+        ].join(" ").toLocaleLowerCase().includes(query);
+        return matchesQuery
+          && (!state.readingStatus || book.reading_status === state.readingStatus)
+          && (!state.wantToBuy || book.want_to_buy);
+      }).sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+    }
+
+    function renderBooks() {
+      const list = $("books-list");
+      list.replaceChildren();
+      const books = filteredBooks();
+      $("collection-status").textContent = books.length + " of " + state.books.length + " books";
+      if (!books.length) {
+        const empty = make("div", "tasks-table-empty");
+        const heading = make("strong", "", state.books.length ? "No books match these filters" : "Your collection is empty");
+        const description = make("span", "", state.books.length
+          ? "Try a different search or clear the reading-status filters."
+          : "Search the RABEL catalogue to add your first book.");
+        empty.append(heading, description);
+        if (!state.books.length) {
+          const add = make("button", "secondary", "Find books");
+          add.type = "button";
+          add.addEventListener("click", () => $("add-book-dialog").showModal());
+          empty.append(add);
+        }
+        list.append(empty);
+        return;
+      }
+
+      for (const book of books) {
+        const card = make("button", "item-card book-item-card");
+        card.type = "button";
+        card.dataset.bookId = book.id;
+        card.setAttribute("aria-label", "Open details for " + book.title);
+        if (state.selected?.id === book.id) card.setAttribute("aria-current", "true");
+
+        const heading = make("div", "item-card-heading");
+        heading.append(make("strong", "", book.title || "Untitled book"));
+        if (book.publication_year) heading.append(make("span", "book-card-year", book.publication_year));
+        const author = make("p", "item-card-description", (book.authors || []).join(", ") || "Author not specified");
+        const meta = make("div", "item-card-meta");
+        const statusTag = make("span", "item-card-tag book-status-tag " + (book.reading_status || "pending"), readingLabel(book.reading_status));
+        meta.append(statusTag);
+        if (book.rating != null) meta.append(make("span", "item-card-tag", "★ " + book.rating + "/5"));
+        if (book.want_to_buy) meta.append(make("span", "item-card-tag book-want-tag", "Want to buy"));
+        const footnoteParts = [book.publisher, book.publication_year, book.isbn ? "ISBN " + book.isbn : ""].filter(Boolean);
+        const footnote = make("div", "item-card-footnote", footnoteParts.join(" · "));
+        card.append(heading, author, meta);
+        if (footnote.textContent) card.append(footnote);
+        card.append(make("span", "item-card-arrow", "›"));
+        card.addEventListener("click", () => selectBook(book.id));
+        list.append(card);
+      }
+    }
+
+    function enableDetails(enabled) {
+      ["book-title", "book-authors", "book-isbn", "book-rating", "book-status", "book-want-to-buy",
+        "book-review", "save-book", "delete-book", "refresh-catalogue", "refresh-holdings"]
+        .forEach(id => { $(id).disabled = !enabled; });
+    }
+
+    function populateBook(book) {
+      $("book-heading").textContent = book.title || "Untitled book";
+      $("book-summary").textContent = [
+        (book.authors || []).join(", "),
+        [book.publisher, book.publication_year].filter(Boolean).join(" · ")
+      ].filter(Boolean).join(" — ");
+      $("book-title").value = book.title || "";
+      $("book-authors").value = (book.authors || []).join(", ");
+      $("book-isbn").value = book.isbn || "";
+      $("book-rating").value = book.rating ?? "";
+      $("book-status").value = book.reading_status || "pending";
+      $("book-want-to-buy").checked = Boolean(book.want_to_buy);
+      $("book-review").value = book.review || "";
+
+      const badges = $("book-badges");
+      badges.replaceChildren();
+      badges.append(make("span", "item-card-tag book-status-tag " + (book.reading_status || "pending"), readingLabel(book.reading_status)));
+      if (book.rating != null) badges.append(make("span", "item-card-tag", "★ " + book.rating + " / 5"));
+      if (book.want_to_buy) badges.append(make("span", "item-card-tag book-want-tag", "Want to buy"));
+      renderBookMetadata(book);
+    }
+
+    function renderBookMetadata(book) {
+      const target = $("book-metadata");
+      target.replaceChildren();
+      const fields = [
+        ["Publisher", book.publisher],
+        ["Publication", book.publication_statement],
+        ["Year", book.publication_year],
+        ["Physical description", book.physical_description],
+        ["Series", book.series],
+        ["Statement of responsibility", book.responsibility],
+        ["Notes", (book.notes || []).join("; ")],
+        ["Subjects", (book.subjects || []).join("; ")]
+      ].filter(([, value]) => value !== null && value !== undefined && value !== "");
+      if (!fields.length) {
+        target.append(make("p", "hint", "No additional catalogue details are available yet. Use Refresh to try retrieving the full RABEL record."));
+        return;
+      }
+      for (const [label, value] of fields) {
+        const row = make("div", "book-metadata-row");
+        row.append(make("dt", "", label), make("dd", "", String(value)));
+        target.append(row);
+      }
+    }
+
+    async function selectBook(id) {
+      const request = ++state.selectionRequest;
+      state.selected = state.books.find(book => book.id === id) || { id };
+      setView("detail");
+      renderBooks();
+      enableDetails(false);
+      $("book-holdings").replaceChildren(make("p", "hint", "Loading library availability…"));
+      status("Loading book details…");
+      try {
+        const book = await api("/books/" + encodeURIComponent(id));
+        if (request !== state.selectionRequest) return;
+        state.selected = book;
+        populateBook(book);
+        enableDetails(true);
+        renderBooks();
+        status("");
+        await loadHoldings(id);
+      } catch (error) {
+        if (request !== state.selectionRequest) return;
+        status("Could not load this book: " + error.message);
+        $("book-holdings").replaceChildren(make("p", "hint", "Availability could not be loaded."));
+      }
+    }
+
+    async function loadBooks(selectedId = state.selected?.id || null) {
+      const books = await api("/books");
+      state.books = Array.isArray(books) ? books : [];
+      renderBooks();
+      if (selectedId && state.books.some(book => book.id === selectedId)) {
+        await selectBook(selectedId);
+      } else {
+        state.selected = null;
+        state.selectionRequest++;
+        state.holdingsRequest++;
+        enableDetails(false);
+        setView("list");
+      }
+    }
+
+    function renderCatalogueItem(result) {
+      $("catalogue-item-heading").textContent = result.title || "Catalogue record";
+      $("catalogue-item-category").textContent = result.category || "Document type not specified";
+      const content = $("catalogue-item-content");
+      content.replaceChildren();
+      const fields = [
+        ["Authors", (result.authors || []).join(", ")],
+        ["Statement of responsibility", result.responsibility],
+        ["Publisher", result.publisher],
+        ["Publication", result.publication_statement || result.publication],
+        ["Year", result.publication_year],
+        ["Physical description", result.physical_description],
+        ["Series", result.series],
+        ["Notes", (result.notes || []).join("; ")],
+        ["Subjects", (result.subjects || []).join("; ")],
+        ["ISBN", result.isbn]
+      ].filter(([, value]) => value !== null && value !== undefined && value !== "");
+      if (!fields.length) content.append(make("p", "hint", "The search result does not include additional bibliographic details."));
+      else {
+        const dl = make("dl", "book-metadata");
+        for (const [label, value] of fields) {
+          const row = make("div", "book-metadata-row");
+          row.append(make("dt", "", label), make("dd", "", String(value)));
+          dl.append(row);
+        }
+        content.append(dl);
+      }
+      $("catalogue-item-dialog").showModal();
+    }
+
+    function filterCatalogueResults() {
+      const selected = $("catalogue-category-filter").value;
+      const cards = [...$("catalogue-results").children];
+      let visible = 0;
+      for (const card of cards) {
+        const matches = !selected || card.dataset.category === selected;
+        card.hidden = !matches;
+        if (matches) visible++;
+      }
+      $("catalogue-results-summary").textContent = cards.length
+        ? visible + " of " + cards.length + " catalogue results"
+        : "No matching records";
+    }
+
+    async function addCatalogueResult(result) {
+      const button = $("catalogue-results").querySelector('[data-add-result="' + CSS.escape(result.record_ref || result.title || "") + '"]');
+      if (button) button.disabled = true;
+      try {
+        const book = await api("/books", {
+          method: "POST",
+          body: JSON.stringify({
+            title: result.title || "Untitled book",
+            authors: result.authors || [],
+            isbn: result.isbn || null,
+            publisher: result.publisher || null,
+            publication_year: result.publication_year || null,
+            responsibility: result.responsibility || null,
+            publication_statement: result.publication_statement || result.publication || null,
+            physical_description: result.physical_description || null,
+            series: result.series || null,
+            notes: result.notes || [],
+            subjects: result.subjects || [],
+            catalogue_url: null
+          })
+        });
+        $("add-book-dialog").close();
+        $("catalogue-results").replaceChildren();
+        $("catalogue-results-summary").textContent = "Enter a search term to find books.";
+        $("catalogue-query").value = "";
+        $("catalogue-category-filter").replaceChildren(new Option("All categories", ""));
+        $("catalogue-filter-controls").hidden = true;
+        state.query = "";
+        $("collection-search").value = "";
+        $("reading-status-filter").value = "";
+        $("want-to-buy-filter").checked = false;
+        state.readingStatus = "";
+        state.wantToBuy = false;
+        await loadBooks(book.id);
+        status("Book added to your collection.");
+      } catch (error) {
+        status("Could not add this book: " + error.message);
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function searchCatalogue(event) {
+      event.preventDefault();
+      const query = $("catalogue-query").value.trim();
+      if (!query) return;
+      const summary = $("catalogue-results-summary");
+      const container = $("catalogue-results");
+      const categoryFilter = $("catalogue-category-filter");
+      summary.textContent = "Searching RABEL…";
+      container.replaceChildren();
+      categoryFilter.replaceChildren(new Option("All categories", ""));
+      $("catalogue-filter-controls").hidden = true;
+      try {
+        const results = await api("/books/catalogue/search?q=" + encodeURIComponent(query));
+        const categories = [...new Set(results.map(result => result.category || "Document type not specified"))]
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+        for (const category of categories) categoryFilter.add(new Option(category, category));
+        $("catalogue-filter-controls").hidden = results.length === 0;
+        for (const result of results) {
+          const category = result.category || "Document type not specified";
+          const card = make("article", "catalogue-entry");
+          card.dataset.category = category;
+          const details = make("div", "catalogue-entry-details");
+          details.append(make("span", "catalogue-entry-category", category));
+          const title = make("button", "catalogue-result-title", result.title || "Untitled record");
+          title.type = "button";
+          title.addEventListener("click", () => renderCatalogueItem(result));
+          details.append(title);
+          details.append(make("p", "catalogue-entry-author", (result.authors || []).filter(Boolean).join(", ") || "Author not specified"));
+          if (result.publisher || result.publication_year || result.isbn) {
+            details.append(make("p", "catalogue-entry-meta", [result.publisher, result.publication_year, result.isbn ? "ISBN " + result.isbn : ""].filter(Boolean).join(" · ")));
+          }
+          const add = make("button", "catalogue-entry-add", "Add to my collection");
+          add.type = "button";
+          add.dataset.addResult = result.record_ref || result.title || "";
+          add.addEventListener("click", () => addCatalogueResult(result));
+          card.append(details, add);
+          container.append(card);
+        }
+        filterCatalogueResults();
+      } catch (error) {
+        summary.textContent = "Catalogue search failed";
+        container.append(make("p", "hint", error.message));
+      }
+    }
+
+    async function saveBook(event) {
+      event.preventDefault();
+      if (!state.selected) return;
+      const id = state.selected.id;
+      const payload = {
+        title: $("book-title").value.trim(),
+        authors: $("book-authors").value.split(",").map(value => value.trim()).filter(Boolean),
+        isbn: $("book-isbn").value.trim() || null,
+        rating: $("book-rating").value ? Number($("book-rating").value) : null,
+        reading_status: $("book-status").value,
+        want_to_buy: $("book-want-to-buy").checked,
+        review: $("book-review").value || null
+      };
+      const button = $("save-book");
+      button.disabled = true;
+      try {
+        await api("/books/" + encodeURIComponent(id), { method: "PUT", body: JSON.stringify(payload) });
+        await loadBooks(id);
+        status("Book saved.");
+      } catch (error) {
+        status("Could not save this book: " + error.message);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function removeBook() {
+      if (!state.selected || !confirm("Remove this book from your collection?")) return;
+      const id = state.selected.id;
+      const button = $("delete-book");
+      button.disabled = true;
+      try {
+        await api("/books/" + encodeURIComponent(id), { method: "DELETE" });
+        state.selected = null;
+        await loadBooks(null);
+        status("Book removed from your collection.");
+      } catch (error) {
+        status("Could not remove this book: " + error.message);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function refreshCatalogue() {
+      if (!state.selected) return;
+      const id = state.selected.id;
+      const button = $("refresh-catalogue");
+      button.disabled = true;
+      button.textContent = "Refreshing…";
+      status("Fetching the latest bibliographic record from RABEL…");
+      try {
+        const result = await api("/books/" + encodeURIComponent(id) + "/refresh-catalogue", { method: "POST" });
+        state.selected = result.book;
+        state.books = state.books.map(book => book.id === id ? result.book : book);
+        populateBook(result.book);
+        renderBooks();
+        status("Catalogue information refreshed from RABEL.");
+      } catch (error) {
+        status("Could not refresh catalogue information: " + error.message);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Refresh";
+      }
+    }
+
+    async function loadHoldings(id = state.selected?.id) {
+      if (!id) return;
+      const request = ++state.holdingsRequest;
+      const container = $("book-holdings");
+      container.replaceChildren(make("p", "hint", "Checking your preferred libraries…"));
+      try {
+        const data = await api("/books/" + encodeURIComponent(id) + "/holdings");
+        if (request !== state.holdingsRequest || state.selected?.id !== id) return;
+        container.replaceChildren();
+        const libraries = data.libraries || [];
+        if (!libraries.length) {
+          container.append(make("p", "hint", "Choose preferred libraries to check local availability."));
+          return;
+        }
+
+        const normalize = value => String(value ?? "").trim().toLocaleLowerCase();
+        const recordKey = record => JSON.stringify([
+          normalize(record.catalogue_title), (record.authors || []).map(normalize).sort(),
+          normalize(record.isbn), normalize(record.publisher), record.publication_year ?? null,
+          normalize(record.physical_description), normalize(record.series)
+        ]);
+        const copyKey = copy => JSON.stringify([
+          normalize(copy.signature), normalize(copy.location), normalize(copy.material),
+          normalize(copy.availability), normalize(copy.catalogue_note)
+        ]);
+        const identicalScopes = new Map();
+        for (const library of libraries) {
+          const records = (library.records || []).map(record => ({
+            key: recordKey(record),
+            copies: (record.copies || []).map(copyKey).sort(),
+            status: record.status || "",
+            error: record.error || ""
+          })).sort((a, b) => a.key.localeCompare(b.key));
+          const fingerprint = JSON.stringify([library.status, library.error || "", records]);
+          if (!identicalScopes.has(fingerprint)) identicalScopes.set(fingerprint, { ...library, library_names: [library.library_name] });
+          else if (!identicalScopes.get(fingerprint).library_names.includes(library.library_name)) identicalScopes.get(fingerprint).library_names.push(library.library_name);
+        }
+
+        const scopes = [...identicalScopes.values()];
+        container.append(make("p", "hint book-holdings-summary",
+          scopes.length < libraries.length
+            ? libraries.length + " selected library entries share " + scopes.length + " distinct catalogue result sets."
+            : scopes.length + " distinct catalogue result sets."));
+        const recordsByKey = new Map();
+        const messages = [];
+        for (const library of scopes) {
+          if (library.status === "not_found") {
+            messages.push({ names: library.library_names, message: "No matching catalogue record" });
+            continue;
+          }
+          if (library.status === "error") {
+            messages.push({ names: library.library_names, message: library.error || "Could not query this library" });
+            continue;
+          }
+          for (const record of library.records || []) {
+            const key = recordKey(record);
+            if (!recordsByKey.has(key)) recordsByKey.set(key, { record, copies: new Map(), libraries: new Set() });
+            const grouped = recordsByKey.get(key);
+            for (const name of library.library_names) grouped.libraries.add(name);
+            for (const copy of record.copies || []) {
+              const copyId = copyKey(copy);
+              if (!grouped.copies.has(copyId)) grouped.copies.set(copyId, { copy, count: 0, libraries: new Set() });
+              const groupedCopy = grouped.copies.get(copyId);
+              groupedCopy.count += 1;
+              for (const name of library.library_names) groupedCopy.libraries.add(name);
+            }
+          }
+        }
+
+        for (const message of messages) {
+          const notice = make("div", "book-holdings-notice");
+          notice.append(make("strong", "", message.names.join(" · ")), make("p", "", message.message));
+          container.append(notice);
+        }
+
+        for (const { record, copies, libraries: names } of recordsByKey.values()) {
+          const section = make("section", "book-holding-record");
+          section.append(make("h5", "", record.catalogue_title || "Catalogue record"));
+          const metadata = [
+            (record.authors || []).join(", "),
+            [record.publisher, record.publication_year].filter(Boolean).join(", "),
+            record.physical_description,
+            record.isbn ? "ISBN " + record.isbn : ""
+          ].filter(Boolean);
+          if (metadata.length) section.append(make("p", "hint", metadata.join(" · ")));
+          section.append(make("p", "book-holding-libraries", [...names].join(" · ")));
+          if (!copies.size) {
+            section.append(make("p", "hint", record.error || "No copy details reported."));
+          } else {
+            const copyList = make("div", "book-copy-list");
+            for (const { copy, count, libraries: copyLibraries } of copies.values()) {
+              const item = make("article", "book-copy-card");
+              item.append(make("strong", "book-copy-signature", copy.signature || "Library copy"));
+              const fields = [
+                ["Location", copy.location],
+                ["Material", copy.material],
+                ["Availability", copy.availability],
+                ["Copies", count > 1 ? "×" + count : "1"],
+                ["Details", [copy.catalogue_note, copyLibraries.size > 1 ? [...copyLibraries].join(" · ") : ""].filter(Boolean).join(" · ")]
+              ].filter(([, value]) => value !== null && value !== undefined && value !== "");
+              const dl = make("dl", "book-copy-metadata");
+              for (const [label, value] of fields) {
+                const row = make("div", "book-copy-field");
+                row.append(make("dt", "", label), make("dd", "", String(value)));
+                dl.append(row);
+              }
+              item.append(dl);
+              copyList.append(item);
+            }
+            section.append(copyList);
+          }
+          container.append(section);
+        }
+
+        const checked = scopes.flatMap(library => (library.records || []).map(record => record.checked_at).filter(Boolean));
+        if (checked.length) container.append(make("p", "hint book-holdings-checked",
+          "Availability checked: " + [...new Set(checked.map(value => new Date(value).toLocaleString()))].join(" · ")));
+      } catch (error) {
+        if (request === state.holdingsRequest && state.selected?.id === id) {
+          container.replaceChildren(make("p", "hint error", "Could not check availability: " + error.message));
+        }
+      }
+    }
+
+    $("collection-search").addEventListener("input", event => { state.query = event.target.value; renderBooks(); });
+    $("reading-status-filter").addEventListener("change", event => { state.readingStatus = event.target.value; renderBooks(); });
+    $("want-to-buy-filter").addEventListener("change", event => { state.wantToBuy = event.target.checked; renderBooks(); });
+    $("back-to-books").addEventListener("click", () => setView("list"));
+    $("open-add-book").addEventListener("click", () => $("add-book-dialog").showModal());
+    $("close-add-book").addEventListener("click", () => $("add-book-dialog").close());
+    $("add-book-dialog").addEventListener("click", event => { if (event.target === $("add-book-dialog")) $("add-book-dialog").close(); });
+    $("catalogue-search").addEventListener("submit", searchCatalogue);
+    $("catalogue-category-filter").addEventListener("change", filterCatalogueResults);
+    $("close-catalogue-item").addEventListener("click", () => $("catalogue-item-dialog").close());
+    $("catalogue-item-dialog").addEventListener("click", event => { if (event.target === $("catalogue-item-dialog")) $("catalogue-item-dialog").close(); });
+    $("book-form").addEventListener("submit", saveBook);
+    $("delete-book").addEventListener("click", removeBook);
+    $("refresh-catalogue").addEventListener("click", refreshCatalogue);
+    $("refresh-holdings").addEventListener("click", () => loadHoldings());
+    enableDetails(false);
+    setView("list");
+    loadBooks(null).catch(error => {
+      $("collection-status").textContent = "Could not load your collection.";
+      $("books-list").replaceChildren(make("p", "hint error", error.message));
+      status(error.message);
+    });
+  }
+
   const status = message => { $("books-status").textContent = message; };
   function button(label, action) { const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.addEventListener("click", action); return b; }
   async function setBookRating(book, rating) {
