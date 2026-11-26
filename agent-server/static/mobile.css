@@ -510,8 +510,9 @@ body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .planner-
 }
 
 
-/* Let the School panel grow with all seven day cards instead of clipping its background. */
-body[data-layout="mobile"][data-page="meals"] .school-menu-weekly-main {
+/* The shared Meals rule gives direct recipe panels flex: 1; override it for the
+   School week so the rounded panel follows the full height of all seven day cards. */
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .school-menu-weekly-main {
   flex: 0 0 auto;
   min-height: max-content;
 }
