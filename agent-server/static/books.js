@@ -100,7 +100,7 @@
         meta.append(statusTag);
         if (book.rating != null) meta.append(make("span", "item-card-tag", "★ " + book.rating + "/5"));
         if (book.want_to_buy) meta.append(make("span", "item-card-tag book-want-tag", "Want to buy"));
-        const footnoteParts = [book.publisher, book.publication_year, book.isbn ? "ISBN " + book.isbn : ""].filter(Boolean);
+        const footnoteParts = [book.publisher, book.isbn ? "ISBN " + book.isbn : ""].filter(Boolean);
         const footnote = make("div", "item-card-footnote", footnoteParts.join(" · "));
         card.append(heading, author, meta);
         if (footnote.textContent) card.append(footnote);
@@ -118,10 +118,7 @@
 
     function populateBook(book) {
       $("book-heading").textContent = book.title || "Untitled book";
-      $("book-summary").textContent = [
-        (book.authors || []).join(", "),
-        [book.publisher, book.publication_year].filter(Boolean).join(" · ")
-      ].filter(Boolean).join(" — ");
+      $("book-summary").textContent = (book.authors || []).join(", ");
       $("book-title").value = book.title || "";
       $("book-authors").value = (book.authors || []).join("\n");
       $("book-isbn").value = book.isbn || "";
