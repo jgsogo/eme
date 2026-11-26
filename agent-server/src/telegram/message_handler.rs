@@ -433,6 +433,7 @@ pub(super) async fn handle_message(
             tokio::spawn(report(
                 gateway.clone(),
                 message.chat_id,
+                message.message_id,
                 manager.clone(),
                 store.clone(),
                 conversation.id,
