@@ -5,7 +5,7 @@
 <main hidden><section class="notes-view tasks-view conversations-view"><div class="tasks-workspace conversations-workspace">
  <ul id="conversations" hidden></ul>
  <section class="panel tasks-main-panel conversations-main-panel">
-  <div class="tasks-main-heading"><button type="button" class="secondary tasks-back-button" id="back-to-conversations" aria-label="Back to all conversations" hidden>←</button><div><h2 id="conversations-main-title">All conversations</h2><p class="hint" id="conversations-main-subtitle">Your conversations, ordered by most recently updated</p></div></div>
+  <div class="tasks-main-heading"><div><h2 id="conversations-main-title">All conversations</h2><p class="hint" id="conversations-main-subtitle">Your conversations, ordered by most recently updated</p></div></div>
   <section id="conversations-overview" class="tasks-overview item-overview">
    <button id="new-conversation" class="mobile-list-fab" type="button" aria-label="New conversation" title="New conversation">＋</button>
    <div class="item-list-toolbar">
@@ -16,10 +16,10 @@
   </section>
   <section id="conversation-detail-view" class="conversation-detail-view" hidden>
    <section class="panel chat">
-    <div class="chat-head"><div><h2 id="conversation-title">No conversation selected</h2><small id="conversation-meta">Create a conversation to get started</small></div><div class="chat-actions" style="display:flex;align-items:center;gap:10px"><label for="family-selector">Family</label><select id="family-selector" aria-label="Family context" disabled style="width:auto;min-width:130px;margin:0;padding:7px 9px"><option value="">No family</option></select><div class="run-status" id="run-status"></div><button class="secondary" id="rename-conversation" disabled>Rename</button></div></div>
+    <div class="chat-head"><button type="button" class="secondary tasks-back-button" id="back-to-conversations" aria-label="Back to all conversations" hidden>←</button><div><h2 id="conversation-title">No conversation selected</h2><small id="conversation-meta">Create a conversation to get started</small></div><div class="chat-actions" style="display:flex;align-items:center;gap:10px"><label for="family-selector">Family</label><select id="family-selector" aria-label="Family context" disabled style="width:auto;min-width:130px;margin:0;padding:7px 9px"><option value="">No family</option></select><div class="run-status" id="run-status"></div><button class="secondary" id="rename-conversation" disabled>Rename</button></div></div>
     <details class="run-events"><summary>Current run events</summary><ol id="run-events"><li>No run selected.</li></ol></details>
     <div class="messages" id="messages"><div class="empty">Choose an existing conversation or create a new one.</div></div>
-    <form class="composer" id="composer"><div class="composer-row"><textarea id="prompt" placeholder="Write a message…" disabled></textarea><button class="send-button" id="send" type="submit" aria-label="Send message" title="Send message" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button></div><div class="composer-hint hint">Enter to send · Shift+Enter for a new line</div></form>
+    <form class="composer" id="composer"><div class="composer-row"><textarea id="prompt" placeholder="Write a message…" rows="1" disabled></textarea><button class="send-button" id="send" type="submit" aria-label="Send message" title="Send message" disabled><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button></div></form>
    </section>
   </section>
  </section>
