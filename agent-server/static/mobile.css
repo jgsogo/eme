@@ -1433,6 +1433,9 @@ body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8p
     gap: 8px;
     padding: 6px 9px;
   }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > .tasks-back-button[hidden] {
+    display: none;
+  }
   body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > .tasks-back-button {
     display: inline-flex;
     align-items: center;
