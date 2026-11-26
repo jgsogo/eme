@@ -774,7 +774,7 @@ on("trakt-connect","click",async()=>{
 
 async function showConsole(){
  document.body.classList.remove("login-active");
- $("invite-screen").hidden=true;$("logout")?.hidden=false;
+ $("invite-screen").hidden=true;if($("logout"))$("logout").hidden=false;
  if(pendingInviteToken){document.querySelector("main").hidden=true;$("invite-screen").hidden=false;$("connection").textContent="Accept invitation";return}
  document.querySelector("main").hidden=false;
  if(page==="conversations"){
@@ -810,7 +810,7 @@ window.emeConsoleReady.then(async () => {
     if (error?.status === 401) return;
     document.body.classList.remove("login-active");
     $("invite-screen").hidden = true;
-    $("logout")?.hidden = false;
+    if ($("logout")) $("logout").hidden = false;
     document.querySelector("main").hidden = false;
     $("connection").textContent = "Error loading page: " + error.message;
     $("connection").className = "hint error";
