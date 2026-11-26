@@ -75,7 +75,7 @@
     } table.append(tbody);wrap.append(table);list.append(wrap);
   }
   function enableDetails(enabled) {
-    ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book",].forEach(id => $(id).disabled = !enabled);
+    ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book","refresh-catalogue","refresh-holdings"].forEach(id => { if ($(id)) $(id).disabled = !enabled; });
   }
   function populateBookForm(book) {
     $("book-heading").textContent = book.title;
