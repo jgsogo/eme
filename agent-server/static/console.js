@@ -22,38 +22,21 @@ function updateAgentDescription(){const a=state.agents.find(x=>x.name===$("agent
 function renderConversations(){
  const query=state.conversationSearch.trim().toLocaleLowerCase();
  const conversations=state.conversations.filter(c=>!query||[c.title,c.agent,c.id].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
- const search=$("conversation-search");
- if(search&&search.value!==state.conversationSearch)search.value=state.conversationSearch;
- const archived=$("show-archived");
- if(archived)archived.checked=state.showArchived;
- $("conversations").innerHTML=conversations.length?conversations.map(c=>{const activeRun=state.activeRuns[c.id];return '<li data-id="'+escapeHtml(c.id)+'" class="'+(c.id===state.selected?"active":"")+'"><div class="conversation-row"><div class="conversation-main"><div class="conv-title">'+escapeHtml(c.title||"New conversation")+'</div><div class="conv-agent">'+escapeHtml(c.agent)+'</div><div class="conv-meta">'+new Date(c.updated_at).toLocaleString()+' · '+c.message_count+' messages · ~'+Number(c.history_tokens_estimate||0).toLocaleString()+' history tokens</div>'+(activeRun?'<div class="conv-run-status" aria-label="Agent is '+escapeHtml(activeRun.status)+'"><span class="conv-run-dot"></span>Agent '+(activeRun.status==="queued"?"queued":"working")+'</div>':"")+'</div><div class="conversation-actions"><button type="button" class="secondary conversation-archive" data-archive-id="'+escapeHtml(c.id)+'" aria-label="'+(state.showArchived?"Restore ":"Archive ")+escapeHtml(c.title||"conversation")+'">'+(state.showArchived?"Restore":"Archive")+'</button><button type="button" class="danger conversation-delete" data-delete-id="'+escapeHtml(c.id)+'" aria-label="Delete '+escapeHtml(c.title||"conversation")+'" title="Delete conversation">Delete</button></div></div></li>'}).join(""):'<li style="cursor:default;color:var(--muted)">'+(query?"No conversations match your search.":state.showArchived?"No archived conversations.":"No conversations yet.")+'</li>';
+ const search=$("conversation-search");if(search&&search.value!==state.conversationSearch)search.value=state.conversationSearch;
+ const archived=$("show-archived");if(archived)archived.checked=state.showArchived;
+ const legacyList=$("conversations");
+ if(legacyList)legacyList.innerHTML=conversations.map(c=>'<li data-id="'+escapeHtml(c.id)+'">'+escapeHtml(c.title||"New conversation")+'</li>').join("");
  renderConversationsTable(conversations);
-}
-
-let conversationsPage=1;
-const CONVERSATIONS_PAGE_SIZE=10;
-function renderConversationsTable(conversations){
- const body=$("conversations-table-body");if(!body)return;
- const pages=Math.max(1,Math.ceil(conversations.length/CONVERSATIONS_PAGE_SIZE));
- conversationsPage=Math.min(Math.max(1,conversationsPage),pages);
- const visible=conversations.slice((conversationsPage-1)*CONVERSATIONS_PAGE_SIZE,conversationsPage*CONVERSATIONS_PAGE_SIZE);
- body.innerHTML=visible.length?visible.map(c=>{
-  const family=state.families.find(f=>f.id===c.selected_family_id);
-  return '<tr tabindex="0" role="button" data-conversation-id="'+escapeHtml(c.id)+'" aria-label="Open '+escapeHtml(c.title||"New conversation")+'"><td class="tasks-table-title-cell"><strong>'+escapeHtml(c.title||"New conversation")+'</strong><span>'+escapeHtml(c.message_count||0)+' messages · ~'+Number(c.history_tokens_estimate||0).toLocaleString()+' history tokens</span></td><td><strong>'+escapeHtml(c.agent||"—")+'</strong>'+(state.activeRuns[c.id]?'<span class="conversation-run-label">Agent '+(state.activeRuns[c.id].status==="queued"?"queued":"working")+'</span>':'')+'</td><td class="conversation-family-cell">'+escapeHtml(family?.name||"Private")+'</td><td class="conversation-date-cell">'+escapeHtml(c.updated_at?new Date(c.updated_at).toLocaleDateString():"—")+'<span class="tasks-table-open" aria-hidden="true">›</span></td></tr>';
- }).join(""):'<tr><td colspan="4" class="tasks-table-empty"><strong>'+(state.conversations.length?"No conversations found":state.showArchived?"No archived conversations":"No conversations yet")+'</strong><span>'+(state.conversations.length?"Try changing your search.":"Create a conversation to get started.")+'</span></td></tr>';
- $("conversations-page-info").textContent=conversations.length?"Showing "+((conversationsPage-1)*CONVERSATIONS_PAGE_SIZE+1)+"–"+Math.min(conversationsPage*CONVERSATIONS_PAGE_SIZE,conversations.length)+" of "+conversations.length:"0 conversations";
- $("conversations-prev-page").disabled=conversationsPage<=1;
- $("conversations-next-page").disabled=conversationsPage>=pages;
 }
 function showConversationsOverview(){
  $("conversations-overview").hidden=false;$("conversation-detail-view").hidden=true;
- $("open-conversations").hidden=false;$("back-to-conversations").hidden=true;
+ if($("open-conversations"))$("open-conversations").hidden=false;$("back-to-conversations").hidden=true;
  $("conversations-main-title").textContent="All conversations";
  $("conversations-main-subtitle").textContent="Your conversations, ordered by most recently updated";
 }
 function showConversationDetail(){
  $("conversations-overview").hidden=true;$("conversation-detail-view").hidden=false;
- $("open-conversations").hidden=true;$("back-to-conversations").hidden=false;
+ if($("open-conversations"))$("open-conversations").hidden=true;$("back-to-conversations").hidden=false;
  $("conversations-main-title").textContent="Conversation";
  $("conversations-main-subtitle").textContent="View and continue the conversation";
 }
@@ -156,16 +139,12 @@ function renderNotes(){
 }
 function renderNotesTable(){
  const body=$("notes-table-body");if(!body)return;
- const notes=filteredNotes(),pages=Math.max(1,Math.ceil(notes.length/NOTES_PAGE_SIZE));
- notesPage=Math.min(Math.max(1,notesPage),pages);
- const visible=notes.slice((notesPage-1)*NOTES_PAGE_SIZE,notesPage*NOTES_PAGE_SIZE);
- body.innerHTML=visible.length?visible.map(note=>{
+ const notes=filteredNotes();
+ body.innerHTML=notes.length?notes.map(note=>{
   const family=note.family_id?state.families.find(f=>f.id===note.family_id)?.name||"Family":"Private";
-  return '<tr tabindex="0" role="button" data-note-id="'+escapeHtml(note.id)+'" aria-label="Open '+escapeHtml(note.title)+'"><td class="notes-table-title-cell tasks-table-title-cell"><strong>'+escapeHtml(note.title||"Untitled note")+'</strong></td><td class="notes-table-family-cell">'+escapeHtml(family)+'</td><td class="notes-table-date-cell tasks-table-schedule-cell"><time>'+escapeHtml(noteDate(note))+'</time><span class="notes-table-open tasks-table-open" aria-hidden="true">›</span></td></tr>';
- }).join(""):'<tr><td colspan="3" class="notes-table-empty tasks-table-empty"><strong>'+(state.notes.length?"No notes found":"No notes yet")+'</strong><span>'+(state.notes.length?"Try changing your search or filters.":"Create a note to keep something worth remembering.")+'</span></td></tr>';
- $("notes-page-info").textContent=notes.length?("Showing "+((notesPage-1)*NOTES_PAGE_SIZE+1)+"–"+Math.min(notesPage*NOTES_PAGE_SIZE,notes.length)+" of "+notes.length):"0 notes";
- $("notes-prev-page").disabled=notesPage<=1;
- $("notes-next-page").disabled=notesPage>=pages;
+  return '<button type="button" class="item-card note-item-card" data-note-id="'+escapeHtml(note.id)+'" aria-label="Open '+escapeHtml(note.title||"Untitled note")+'"><div class="item-card-heading"><strong>'+escapeHtml(note.title||"Untitled note")+'</strong><span class="item-card-tag '+(note.family_id?"shared":"private")+'">'+escapeHtml(family)+'</span></div><div class="item-card-meta"><span>'+(note.family_id?"Shared note":"Private note")+'</span><span>Updated · '+escapeHtml(noteDate(note))+'</span></div><span class="item-card-arrow" aria-hidden="true">›</span></button>';
+ }).join(""):'<div class="tasks-table-empty"><strong>'+(state.notes.length?"No notes found":"No notes yet")+'</strong><span>'+(state.notes.length?"Try changing your search or filters.":"Create a note to keep something worth remembering.")+'</span></div>';
+ const info=$("notes-page-info");if(info)info.textContent=notes.length?notes.length+" notes":"0 notes";
 }
 function showNotesOverview(){
  $("notes-overview").hidden=false;$("notes-editor-panel").hidden=true;
@@ -556,7 +535,7 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
  setStatus("Running · "+runId.slice(0,8));
 }
 on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",()=>{tasksPage=1;renderTasks()});on("tasks-enabled-only","change",()=>{tasksPage=1;renderTasks()});on("note-search","input",()=>{notesPage=1;renderNotes()});on("note-family-filter","change",()=>{notesPage=1;renderNotes()});
-on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("back-to-tasks","click",resetTaskEditor);on("tasks-prev-page","click",()=>{tasksPage--;renderTasksTable()});on("tasks-next-page","click",()=>{tasksPage++;renderTasksTable()});on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;tasksPage=1;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("tasks-table-body","click",e=>{const row=e.target.closest("tr[data-task-id]");if(row)selectTask(row.dataset.taskId)});on("tasks-table-body","keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("tr[data-task-id]")){e.preventDefault();selectTask(e.target.dataset.taskId)}});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("tr[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("tr[data-note-id]")){e.preventDefault();selectNote(e.target.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("back-to-notes","click",resetNoteEditor);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("back-to-tasks","click",resetTaskEditor);on("tasks-prev-page","click",()=>{tasksPage--;renderTasksTable()});on("tasks-next-page","click",()=>{tasksPage++;renderTasksTable()});on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;tasksPage=1;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("tasks-table-body","click",e=>{const row=e.target.closest("[data-task-id]");if(row)selectTask(row.dataset.taskId)});on("tasks-table-body","keydown",e=>{const row=e.target.closest("[data-task-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectTask(row.dataset.taskId)}});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{const row=e.target.closest("[data-note-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectNote(row.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("back-to-notes","click",resetNoteEditor);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
  const button=$("refresh-tasks");if(button)button.disabled=true;
@@ -585,24 +564,18 @@ function renderTasks(){
 }
 function renderTasksTable(tasks=filteredTasks()){
  const body=$("tasks-table-body");if(!body)return;
- const pages=Math.max(1,Math.ceil(tasks.length/TASKS_PAGE_SIZE));
- tasksPage=Math.min(Math.max(1,tasksPage),pages);
- const visible=tasks.slice((tasksPage-1)*TASKS_PAGE_SIZE,tasksPage*TASKS_PAGE_SIZE);
- body.innerHTML=visible.length?visible.map(task=>{
+ body.innerHTML=tasks.length?tasks.map(task=>{
   const next=task.next_run||task.at;
   const nextLabel=next?new Date(next).toLocaleString():"";
-  return '<tr tabindex="0" role="button" data-task-id="'+escapeHtml(task.id)+'" aria-label="Open '+escapeHtml(task.name)+'"><td class="tasks-table-title-cell"><strong>'+escapeHtml(task.name||"Untitled task")+'</strong>'+(task.description?'<span>'+escapeHtml(task.description)+'</span>':'<span class="tasks-table-agent">'+escapeHtml(task.agent||"")+'</span>')+'</td><td class="tasks-table-status-cell"><span class="tasks-status-label '+(task.enabled?"enabled":"disabled")+'">'+(task.enabled?"Enabled":"Disabled")+'</span></td><td class="tasks-table-schedule-cell"><span>'+escapeHtml(taskScheduleLabel(task))+'</span>'+(nextLabel?'<small>Next · '+escapeHtml(nextLabel)+'</small>':'')+'<span class="tasks-table-open" aria-hidden="true">›</span></td></tr>';
- }).join(""):'<tr><td colspan="3" class="tasks-table-empty"><strong>'+(state.tasks.length?"No tasks found":"No tasks yet")+'</strong><span>'+(state.tasks.length?"Try changing your search or filters.":"Create a task to get started.")+'</span></td></tr>';
- const info=$("tasks-page-info");if(info)info.textContent=tasks.length?("Showing "+((tasksPage-1)*TASKS_PAGE_SIZE+1)+"–"+Math.min(tasksPage*TASKS_PAGE_SIZE,tasks.length)+" of "+tasks.length):"0 tasks";
- const prev=$("tasks-prev-page"),next=$("tasks-next-page");
- if(prev)prev.disabled=tasksPage<=1;
- if(next)next.disabled=tasksPage>=pages;
+  return '<button type="button" class="item-card task-item-card" data-task-id="'+escapeHtml(task.id)+'" aria-label="Open '+escapeHtml(task.name||"Untitled task")+'"><div class="item-card-heading"><strong>'+escapeHtml(task.name||"Untitled task")+'</strong><span class="tasks-status-label '+(task.enabled?"enabled":"disabled")+'">'+(task.enabled?"Enabled":"Disabled")+'</span></div><p class="item-card-description">'+escapeHtml(task.description||task.agent||"No description")+'</p><div class="item-card-meta"><span class="item-card-tag">'+escapeHtml(taskScheduleLabel(task))+'</span><span>Agent · '+escapeHtml(task.agent||"—")+'</span></div>'+(nextLabel?'<div class="item-card-footnote">Next run · '+escapeHtml(nextLabel)+'</div>':'')+'<span class="item-card-arrow" aria-hidden="true">›</span></button>';
+ }).join(""):'<div class="tasks-table-empty"><strong>'+(state.tasks.length?"No tasks found":"No tasks yet")+'</strong><span>'+(state.tasks.length?"Try changing your search or filters.":"Create a task to get started.")+'</span></div>';
+ const info=$("tasks-page-info");if(info)info.textContent=tasks.length?tasks.length+" tasks":"0 tasks";
 }
 function showTasksOverview(){
  const overview=$("tasks-overview"),editor=$("task-editor-view");
  if(!overview||!editor)return;
  overview.hidden=false;editor.hidden=true;
- $("open-tasks").hidden=false;$("back-to-tasks").hidden=true;
+ if($("open-tasks"))$("open-tasks").hidden=false;$("back-to-tasks").hidden=true;
  $("tasks-main-title").textContent="All tasks";
  $("tasks-main-subtitle").textContent="Your tasks, including their schedules and status";
 }
@@ -610,7 +583,7 @@ function showTaskEditor(title){
  const overview=$("tasks-overview"),editor=$("task-editor-view");
  if(!overview||!editor)return;
  overview.hidden=true;editor.hidden=false;
- $("open-tasks").hidden=true;$("back-to-tasks").hidden=false;
+ if($("open-tasks"))$("open-tasks").hidden=true;$("back-to-tasks").hidden=false;
  $("tasks-main-title").textContent=title;
  $("tasks-main-subtitle").textContent="View and edit task details";
 }
@@ -958,8 +931,8 @@ on("invite-accept","click",async()=>{
 });
 on("show-archived","change",async e=>{state.showArchived=e.target.checked;try{await loadConversations()}catch(e){setStatus(e.message,"error")}});
 on("conversation-search","input",e=>{state.conversationSearch=e.target.value;conversationsPage=1;renderConversations()});
-on("conversations-table-body","click",e=>{const row=e.target.closest("tr[data-conversation-id]");if(row)selectConversation(row.dataset.conversationId)});
-on("conversations-table-body","keydown",e=>{const row=e.target.closest("tr[data-conversation-id]");if(row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();selectConversation(row.dataset.conversationId)}});
+on("conversations-table-body","click",e=>{const row=e.target.closest("[data-conversation-id]");if(row)selectConversation(row.dataset.conversationId)});
+on("conversations-table-body","keydown",e=>{const row=e.target.closest("[data-conversation-id]");if(row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();selectConversation(row.dataset.conversationId)}});
 on("back-to-conversations","click",clearSelectedConversation);
 on("conversations-prev-page","click",()=>{conversationsPage=Math.max(1,conversationsPage-1);renderConversations()});
 on("conversations-next-page","click",()=>{conversationsPage++;renderConversations()});
