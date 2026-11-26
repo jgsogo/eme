@@ -516,3 +516,19 @@ body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .school-menu-w
   flex: 0 0 auto;
   min-height: max-content;
 }
+
+/* Keep the bottom navigation in the page layout instead of floating over scrollable content.
+   The main area then naturally ends above the navigation on every mobile view. */
+body[data-layout="mobile"] main {
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+body[data-layout="mobile"] .mobile-bottom-nav {
+  position: relative;
+  inset: auto;
+  flex: none;
+  width: min(100%, 520px);
+  margin: 0 auto;
+  transform: none;
+}
