@@ -54,7 +54,7 @@ function appendMenuLog(message) {
 }
 
 function renderMenuPlaceholder(entry) {
-  const status = entry ? statusLabel(entry.status) : "Unknown";
+  const status = entry ? statusLabel(entry.status) : "No menu recorded";
   return '<p class="school-menu-placeholder">' + esc(status) + '</p>';
 }
 
