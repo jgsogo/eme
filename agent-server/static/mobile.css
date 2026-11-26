@@ -786,6 +786,7 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   body[data-layout="mobile"][data-page="profile"] .notes-view {
     display: flex;
     flex: 1 1 auto;
+    height: auto;
     min-height: 0;
     overflow: hidden;
   }
@@ -838,6 +839,7 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   body[data-layout="mobile"][data-page="families"] .family-view {
     display: flex;
     flex: 1 1 auto;
+    height: auto;
     min-height: 0;
     overflow: hidden;
   }
