@@ -66,6 +66,19 @@
           add.type = "button";
           add.addEventListener("click", () => $("add-book-dialog").showModal());
           empty.append(add);
+        } else {
+          const clear = make("button", "secondary", "Clear filters");
+          clear.type = "button";
+          clear.addEventListener("click", () => {
+            state.query = "";
+            state.readingStatus = "";
+            state.wantToBuy = false;
+            $("collection-search").value = "";
+            $("reading-status-filter").value = "";
+            $("want-to-buy-filter").checked = false;
+            renderBooks();
+          });
+          empty.append(clear);
         }
         list.append(empty);
         return;
