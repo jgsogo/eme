@@ -250,3 +250,149 @@ body[data-layout="mobile"] .tasks-sidebar .conversations{flex:1;min-height:100px
 
 body[data-layout="mobile"] .notes-table-family-cell,body[data-layout="mobile"] .conversation-family-cell{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
 body[data-layout="mobile"] .conversation-date-cell{font-size:9px}
+
+
+/* Meals uses the same drawer and master workspace pattern as Tasks and Notes. */
+body[data-layout="mobile"][data-page="meals"] main {
+  box-sizing: border-box;
+  height: calc(100dvh - 72px);
+  min-height: 0;
+  overflow: hidden;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-workspace {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-sidebar #close-meals {
+  display: inline-flex;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav {
+  display: grid;
+  gap: 6px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a:hover,
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a:focus-visible {
+  background: var(--panel2);
+  border-color: var(--border);
+  outline: none;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  margin-bottom: 12px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading > div:first-of-type {
+  min-width: 0;
+  flex: 1;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading p {
+  margin: 0;
+  font-size: 11px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading .menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 18px;
+  line-height: 1;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector {
+  flex: 0 1 150px;
+  width: auto;
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector label {
+  display: none;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  font-size: 12px;
+}
+body[data-layout="mobile"][data-page="meals"] .recipes-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+}
+body[data-layout="mobile"][data-page="meals"] .recipes-sidebar {
+  max-height: 32dvh;
+  min-height: 130px;
+}
+body[data-layout="mobile"][data-page="meals"] .recipe-main {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .recipe-main {
+  flex: 1;
+}
+@media (min-width: 760px) {
+  body[data-layout="mobile"][data-page="meals"] .recipes-view {
+    display: grid;
+    grid-template-columns: minmax(230px, .8fr) minmax(0, 2fr);
+  }
+  body[data-layout="mobile"][data-page="meals"] .recipes-sidebar {
+    max-height: none;
+  }
+}
+@media (max-width: 420px) {
+  body[data-layout="mobile"][data-page="meals"] .meals-main-heading {
+    flex-wrap: wrap;
+  }
+  body[data-layout="mobile"][data-page="meals"] .meals-main-heading > div:first-of-type {
+    flex: 1;
+  }
+  body[data-layout="mobile"][data-page="meals"] .meals-family-selector {
+    flex: 1 0 100%;
+    margin-left: 49px;
+  }
+}
