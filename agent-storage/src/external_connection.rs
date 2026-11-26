@@ -450,7 +450,7 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
     ) -> Result<(), ExternalConnectionStorageError> {
         let db = self.db.lock().await;
         let now = Utc::now().to_rfc3339();
-        let n=db.execute("UPDATE external_connections SET status='revoked',revoked_at=?1,updated_at=?1 WHERE owner_id=?2 AND id=?3 AND status='active'",params![now,o.to_string(),id.to_string()]).map_err(backend)?;
+        let n=db.execute("UPDATE external_connections SET status='revoked',revoked_at=?1,updated_at=?1 WHERE owner_id=?2 AND id=?3 AND status IN ('active','broken')",params![now,o.to_string(),id.to_string()]).map_err(backend)?;
         if n == 0 {
             Err(ExternalConnectionStorageError::NotFound)
         } else {
