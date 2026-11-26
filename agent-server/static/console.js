@@ -7,6 +7,13 @@ let familyActionHandler=null;
 const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
+function setProfileView(view){
+ if(document.body.dataset.layout!=="mobile")return;
+ document.body.dataset.profileView=view;
+ const back=$("profile-content-back"),menu=$("open-profile");
+ if(back)back.hidden=view!=="detail";
+ if(menu)menu.hidden=view==="detail";
+}
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function setStatus(message,kind=""){const node=$("run-status")||$("connection");if(node){node.textContent=message;node.className=(node.id==="run-status"?"run-status ":"hint ")+kind}}
@@ -447,7 +454,7 @@ async function deleteFamily(){
 }
 async function loadFamilyDetails(familyId){
  state.managedFamilyId=familyId||null;
- if(document.body.dataset.layout==="mobile")document.body.dataset.profileView=familyId?"detail":"list";
+ setProfileView(familyId?"detail":"list");
  $("family-empty").hidden=!!familyId;$("family-management").hidden=!familyId;
  if(!familyId){state.familyDetails=null;state.familyInvitations=[];$("managed-family-name").textContent="Select a family";$("managed-family-meta").textContent="Choose a family to manage its members and invitations.";renderFamiliesList();renderFamilyMembers();renderFamilyInvitations();renderFamilyLifecycle();return}
  const family=state.families.find(item=>item.id===familyId);
@@ -746,7 +753,7 @@ function renderIntegrationView(){
 function selectIntegration(name){
  if(!["google","trakt"].includes(name))return;
  state.activeIntegration=name;
- if(document.body.dataset.layout==="mobile")document.body.dataset.profileView="detail";
+ setProfileView("detail");
  renderIntegrationView();
 }
 function renderGoogleConnections(){
@@ -909,7 +916,7 @@ on("integrations-sidebar","click",event=>{
  if(button)selectIntegration(button.dataset.integration);
 });
 on("profile-content-back","click",()=>{
- if(page==="integrations")document.body.dataset.profileView="list";
+ if(page==="integrations")setProfileView("list");
  else if(page==="families")void loadFamilyDetails(null);
 });
 on("google-search","input",renderGoogleConnections);on("google-connections","click",e=>{if(e.target.closest("[data-clear-google-filter]")){$("google-search").value="";renderGoogleConnections();return}handleGoogleIntegrationAction(e)});
