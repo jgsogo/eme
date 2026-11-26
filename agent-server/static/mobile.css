@@ -860,3 +860,299 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
     -webkit-overflow-scrolling: touch;
   }
 }
+
+
+/* Conversations, Tasks and Notes use full-page card lists and back-arrow detail navigation. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="conversations"] main,
+  body[data-layout="mobile"][data-page="tasks"] main,
+  body[data-layout="mobile"][data-page="notes"] main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .notes-view,
+  body[data-layout="mobile"][data-page="tasks"] .notes-view,
+  body[data-layout="mobile"][data-page="notes"] .notes-view {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="notes"] .tasks-workspace {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-heading,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-heading,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-heading {
+    flex: none;
+    margin-bottom: 12px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-heading .menu-toggle,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-heading .menu-toggle,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-heading .menu-toggle {
+    display: none !important;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-back-button,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-back-button,
+  body[data-layout="mobile"][data-page="notes"] .tasks-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 7px;
+    font-size: 21px;
+    line-height: 1;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-overview,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-overview,
+  body[data-layout="mobile"][data-page="notes"] .tasks-overview {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body[data-layout="mobile"] .item-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    flex: none;
+  }
+  body[data-layout="mobile"] .item-list-toolbar > button {
+    align-self: flex-start;
+    min-height: 42px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 10px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls label,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls .agent-desc {
+    grid-column: 1 / -1;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls label {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls select {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls button {
+    min-height: 42px;
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .agent-desc {
+    font-size: 11px;
+    line-height: 1.4;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters,
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters input[type="search"],
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters input[type="search"],
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters input[type="search"] {
+    flex: 1 1 160px;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters select,
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters select {
+    flex: 1 1 130px;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters label,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    margin: 0;
+    font-size: 11px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters label input,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters label input {
+    width: auto;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters button,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters button,
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters button {
+    min-height: 40px;
+  }
+  body[data-layout="mobile"] .item-card-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 10px;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 104px;
+    padding: 14px 42px 14px 14px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--panel2);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s ease, transform .15s ease, background .15s ease;
+  }
+  body[data-layout="mobile"] .item-card:active {
+    transform: scale(.99);
+    border-color: var(--accent);
+  }
+  body[data-layout="mobile"] .item-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  body[data-layout="mobile"] .item-card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 9px;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-card-heading strong {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-description {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  body[data-layout="mobile"] .item-card-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 23px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-tag.shared { color: var(--accent); }
+  body[data-layout="mobile"] .item-card-tag.running { color: var(--success, #25865a); }
+  body[data-layout="mobile"] .item-card-tag.private { color: var(--muted); }
+  body[data-layout="mobile"] .item-card-footnote {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-arrow {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    color: var(--muted);
+    font-size: 24px;
+    line-height: 1;
+    transform: translateY(-50%);
+  }
+  body[data-layout="mobile"] .item-list-count {
+    flex: none;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  body[data-layout="mobile"] .task-item-card .tasks-status-label {
+    flex: none;
+    font-size: 10px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .conversation-detail-view,
+  body[data-layout="mobile"][data-page="tasks"] .task-editor-view,
+  body[data-layout="mobile"][data-page="notes"] .notes-editor-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .conversation-detail-view {
+    display: flex;
+    flex-direction: column;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .conversation-detail-view > .chat {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+@media (min-width: 600px) and (max-width: 759px) {
+  body[data-layout="mobile"] .item-card-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
