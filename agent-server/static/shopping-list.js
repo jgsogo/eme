@@ -2,11 +2,14 @@ const $=id=>document.getElementById(id);
 const state={familyId:"",list:null,loading:false};
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let value=null;try{value=raw?JSON.parse(raw):null}catch{value=raw}if(!response.ok)throw new Error(typeof value==="string"&&value?value:response.statusText);return value}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function parseDate(v){if(/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(v)){const[d,m,y]=v.split("/").map(Number);return new Date(y,m-1,d,12)}const[y,m,d]=v.split("-").map(Number);return new Date(y,m-1,d,12)}
-function dateString(d){return[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")}\nfunction validDateInput(v){if(desktopDatePicker){if(!/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(v))return false;const d=parseDate(v);return d.getFullYear()>=1900&&formatDate(d)===v}if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(v))return false;const d=parseDate(v);return dateString(d)===v}
+function parseDate(v){if(/^\d{2}\/\d{2}\/\d{4}$/.test(v)){const[d,m,y]=v.split("/").map(Number);return new Date(y,m-1,d,12)}const[y,m,d]=v.split("-").map(Number);return new Date(y,m-1,d,12)}
+function dateString(d){return[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-")}
+function validDateInput(v){if(desktopDatePicker){if(!/^\d{2}\/\d{2}\/\d{4}$/.test(v))return false;const d=parseDate(v);return d.getFullYear()>=1900&&formatDate(d)===v}if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const d=parseDate(v);return dateString(d)===v}
 function monday(d){const x=new Date(d);x.setDate(x.getDate()-(x.getDay()+6)%7);return x}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
-function formatDate(d){return[String(d.getDate()).padStart(2,"0"),String(d.getMonth()+1).padStart(2,"0"),d.getFullYear()].join("/")}\nfunction fieldDate(d){return desktopDatePicker?formatDate(d):dateString(d)}\nconst desktopDatePicker=window.matchMedia("(min-width: 761px)").matches;
+function formatDate(d){return[String(d.getDate()).padStart(2,"0"),String(d.getMonth()+1).padStart(2,"0"),d.getFullYear()].join("/")}
+function fieldDate(d){return desktopDatePicker?formatDate(d):dateString(d)}
+const desktopDatePicker=window.matchMedia("(min-width: 761px)").matches;
 function quantity(item){if(item.quantity===null||item.quantity===undefined)return"";const n=Number.isInteger(item.quantity)?item.quantity:Number(item.quantity.toFixed(2));return n+(item.unit?" "+item.unit:"")}
 
 function installDesktopDatePicker(){
