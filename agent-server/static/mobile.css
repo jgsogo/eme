@@ -1413,3 +1413,102 @@ body[data-layout="mobile"] .new-conversation-dialog input,body[data-layout="mobi
 body[data-layout="mobile"] .new-conversation-dialog .notes-actions{justify-content:flex-end}
 
 body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8px;min-height:1.2em;font-size:12px;line-height:1.45;color:var(--muted)}
+
+
+/* Keep the conversation itself as the primary mobile workspace. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversations-main-panel {
+    gap: 4px;
+    padding: 6px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .tasks-main-heading {
+    flex: none;
+    min-height: 30px;
+    padding: 0 2px;
+    margin: 0;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .tasks-main-heading > div {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .tasks-main-heading .tasks-back-button {
+    min-height: 30px;
+    padding: 3px 9px;
+    line-height: 1;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head {
+    flex: none;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 9px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > div:first-child {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head h2 {
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head small {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > div:last-child {
+    flex: 0 0 auto;
+    width: auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head label[for="family-selector"] {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head #family-selector {
+    width: 108px !important;
+    min-width: 0 !important;
+    max-width: 108px;
+    margin: 0;
+    padding: 5px 6px;
+    font-size: 11px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head .run-status {
+    max-width: 72px;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view #rename-conversation {
+    flex: none;
+    padding: 5px 7px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .run-events {
+    flex: none;
+    margin: 0 8px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .run-events summary {
+    padding: 4px 0;
+    font-size: 11px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .messages {
+    padding: 8px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer {
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer-hint {
+    margin-top: 3px;
+    font-size: 10px;
+  }
+}
