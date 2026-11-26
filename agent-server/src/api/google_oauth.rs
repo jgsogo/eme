@@ -496,6 +496,12 @@ async fn test_connection(
             "calendar_count": calendars.len(),
         })),
         Err(error) => {
+            let detail = error.to_string();
+            if detail.contains("401") || detail.to_ascii_lowercase().contains("unauthorized") {
+                if let Err(mark_error) = store.mark_connection_broken(owner, connection_id).await {
+                    tracing::error!(%mark_error, connection_id = %connection.id, "could not mark Google connection as broken");
+                }
+            }
             tracing::warn!(%error, connection_id = %connection.id, "Google Calendar API health check failed");
             HttpResponse::BadGateway()
                 .body(format!("Google Calendar API check failed: {error}"))
