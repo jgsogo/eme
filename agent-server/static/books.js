@@ -232,8 +232,7 @@
         : "No matching records";
     }
 
-    async function addCatalogueResult(result) {
-      const button = $("catalogue-results").querySelector('[data-add-result="' + CSS.escape(result.record_ref || result.title || "") + '"]');
+    async function addCatalogueResult(result, button) {
       if (button) button.disabled = true;
       try {
         const book = await api("/books", {
@@ -307,7 +306,7 @@
           const add = make("button", "catalogue-entry-add", "Add to my collection");
           add.type = "button";
           add.dataset.addResult = result.record_ref || result.title || "";
-          add.addEventListener("click", () => addCatalogueResult(result));
+          add.addEventListener("click", () => addCatalogueResult(result, add));
           card.append(details, add);
           container.append(card);
         }
