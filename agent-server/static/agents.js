@@ -28,7 +28,7 @@ async function load(){
  }finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 $("agents-search").addEventListener("input",render);
-$("agents-refresh").addEventListener("click",load);
+$("agents-refresh")?.addEventListener("click",load);
 $("agents-list").addEventListener("click",event=>{
  if(event.target.closest("[data-clear-search]")){$("agents-search").value="";render()}
  if(event.target.closest("[data-retry]"))load();
