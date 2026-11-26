@@ -1536,3 +1536,13 @@ body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8p
     min-height: 38px;
   }
 }
+
+
+/* The chat is the only visible panel in conversation detail; the parent is just a layout wrapper. */
+body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversations-main-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
