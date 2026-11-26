@@ -443,6 +443,41 @@ impl TraktOAuthService {
         Ok(())
     }
 
+    /// Verify that a linked profile can still authenticate with Trakt.
+    ///
+    /// This performs a read-only request to Trakt's account settings endpoint.
+    pub async fn test_connection(
+        &self,
+        owner_id: UserId,
+        family_id: Option<FamilyId>,
+        profile_id: MediaProfileId,
+    ) -> Result<String, TraktError> {
+        match family_id {
+            Some(family_id) => self.validate_profile_owner(owner_id, family_id, profile_id).await?,
+            None => self.validate_personal_profile_owner(owner_id, profile_id).await?,
+        }
+        let link = self
+            .media
+            .get_external_connection_link(profile_id, "trakt")
+            .await
+            .map_err(TraktError::MediaStorage)?
+            .ok_or(TraktError::ConnectionUnavailable)?;
+        if link.owner_id != owner_id {
+            return Err(TraktError::Forbidden);
+        }
+        let access_token = self
+            .token_manager
+            .access_token(owner_id, link.external_connection_id)
+            .await?;
+        let user = self.fetch_user_settings(&access_token).await?;
+        if user.username != link.provider_subject {
+            return Err(TraktError::InvalidResponse(
+                "Trakt returned a different account than the one linked to this profile".into(),
+            ));
+        }
+        Ok(user.username)
+    }
+
     /// Disconnect a Trakt account from the caller's own personal profile.
     pub async fn unlink_personal_profile(
         &self,
