@@ -289,6 +289,7 @@ body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a {
   font-size: 14px;
   font-weight: 600;
 }
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a.active,
 body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a:hover,
 body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a:focus-visible {
   background: var(--panel2);
