@@ -54,7 +54,7 @@ async function testProvider(button){
 }
 async function load(){
  const button=$("providers-refresh");
- button.disabled=true;button.textContent="Refreshing…";
+ if(button){button.disabled=true;button.textContent="Refreshing…";}
  $("providers-status").textContent="Loading configured providers…";
  $("providers-list").innerHTML='<p class="usage-empty" role="status">Loading providers…</p>';
  try{
@@ -65,7 +65,7 @@ async function load(){
   $("providers-status").textContent="Could not load providers.";
   $("providers-status").className="usage-status error";
   $("providers-list").innerHTML='<div class="usage-empty" role="alert">Could not load providers: '+escapeHtml(error.message)+'<p><button type="button" class="secondary" data-retry>Try again</button></p></div>';
- }finally{button.disabled=false;button.textContent="Refresh"}
+ }finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 $("providers-search").addEventListener("input",render);
 $("providers-refresh").addEventListener("click",load);
