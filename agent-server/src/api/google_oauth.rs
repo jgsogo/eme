@@ -441,7 +441,10 @@ async fn test_connection(
         Ok(id) => id,
         Err(_) => return HttpResponse::BadRequest().body("Invalid connection ID"),
     };
-    let store = state.store.as_ref().expect("enabled state has connection storage");
+    let store = state
+        .store
+        .as_ref()
+        .expect("enabled state has connection storage");
     let connection = match store.get_connection(owner, connection_id).await {
         Ok(Some(connection))
             if connection.provider == "google"
@@ -459,24 +462,35 @@ async fn test_connection(
             return HttpResponse::InternalServerError().body("Could not load Google credentials");
         }
     };
-    let config = state.config.as_ref().expect("enabled state has OAuth config");
-    let access_token = match state.token_manager
-        .refresh_access_token(connection_id, config, &refresh_token).await {
+    let config = state
+        .config
+        .as_ref()
+        .expect("enabled state has OAuth config");
+    let access_token = match state
+        .token_manager
+        .refresh_access_token(connection_id, config, &refresh_token)
+        .await
+    {
         Ok(token) => token,
         Err(error) => {
             tracing::warn!(%error, connection_id = %connection.id, "Google OAuth health check failed");
-            return HttpResponse::BadGateway().body(format!("Google authentication failed: {error}"));
+            return HttpResponse::BadGateway()
+                .body(format!("Google authentication failed: {error}"));
         }
     };
     match list_calendars_with_access_token(&access_token).await {
         Ok(calendars) => HttpResponse::Ok().json(serde_json::json!({
             "success": true,
-            "message": format!("Google Calendar is working. {} calendar(s) accessible.", calendars.len()),
+            "message": format!(
+                "Google Calendar is working. {} calendar(s) accessible.",
+                calendars.len()
+            ),
             "calendar_count": calendars.len(),
         })),
         Err(error) => {
             tracing::warn!(%error, connection_id = %connection.id, "Google Calendar API health check failed");
-            HttpResponse::BadGateway().body(format!("Google Calendar API check failed: {error}"))
+            HttpResponse::BadGateway()
+                .body(format!("Google Calendar API check failed: {error}"))
         }
     }
 }
