@@ -186,7 +186,8 @@ async function remove() {
 async function loadWeek() {
   const selectedDate = $("menu-date").value;
   if (!selectedDate) return;
-  const dates = weekDates(selectedDate);
+  selectWeekContaining(selectedDate);
+  const dates = weekDates($("menu-date").value);
   const from = dates[0], to = dates[6];
   const request = ++state.loadRequest;
   state.selected = null;
@@ -207,15 +208,23 @@ async function loadWeek() {
   }
 }
 
+function selectWeekContaining(value) {
+  if (!value) return;
+  $("menu-date").value = dateString(mondayOf(parseDate(value)));
+}
+
 function shiftWeek(offset) {
-  const selected = parseDate($("menu-date").value);
-  $("menu-date").value = dateString(addDays(selected, offset * 7));
+  const monday = mondayOf(parseDate($("menu-date").value));
+  $("menu-date").value = dateString(addDays(monday, offset * 7));
   loadWeek();
 }
 
 $("previous-day").addEventListener("click", () => shiftWeek(-1));
 $("next-day").addEventListener("click", () => shiftWeek(1));
-$("menu-date").addEventListener("change", () => loadWeek());
+$("menu-date").addEventListener("change", () => {
+  selectWeekContaining($("menu-date").value);
+  loadWeek();
+});
 
 window.addEventListener("eme:family-changed", () => {
   state.familyId = window.emeMealsFamily.currentFamilyId();
@@ -228,7 +237,7 @@ window.addEventListener("eme:family-changed", () => {
     await window.emeConsoleReady;
     await window.emeMealsFamily.init();
     state.familyId = window.emeMealsFamily.currentFamilyId();
-    $("menu-date").value = dateString(new Date());
+    selectWeekContaining(dateString(new Date()));
     await loadWeek();
   } catch (error) {
     console.error("Failed to load school menus", error);
