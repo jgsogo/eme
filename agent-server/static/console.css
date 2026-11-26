@@ -630,13 +630,28 @@ main.meal-planner-page{overflow-y:auto;overflow-x:hidden}
   .profile-section-link.active { color: var(--text); background: var(--panel2); }
   .meals-header-row {
     display: flex;
-    flex-direction: column-reverse;
-    align-items: stretch;
-    gap: 12px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
     margin: 0 0 20px;
   }
-  .meals-header-row .profile-section-nav { margin: 0; }
-  .meals-family-selector { align-self: flex-end; max-width: 320px; width: 100%; }
+  .meals-header-row .profile-section-nav {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+  }
+  .meals-family-selector {
+    align-self: center;
+    flex: none;
+    width: auto;
+    max-width: 320px;
+    margin-left: auto;
+  }
+  .meals-page-heading { margin: 0 0 14px; }
+  .meals-page-heading h2 { margin: 0; }
+  .meals-page-heading p { margin: 4px 0 0; }
   .list-panel-heading {
     display: flex;
     align-items: center;
