@@ -93,22 +93,52 @@ function renderNoteFamilyFilter(){
  select.innerHTML='<option value="">All notes</option><option value="private">Private notes</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
  if([...select.options].some(option=>option.value===selected))select.value=selected;
 }
-function renderNotes(){
- const target=$("notes-list");if(!target)return;
+let notesPage=1;
+const NOTES_PAGE_SIZE=10;
+function filteredNotes(){
  const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
  const familyFilter=$("note-family-filter")?.value||"";
- const notes=state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter)));
- target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
+ return state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter))).sort((a,b)=>new Date(b.updated_at||b.created_at||0)-new Date(a.updated_at||a.created_at||0));
+}
+function noteDate(note){
+ const value=note.updated_at||note.created_at;
+ return value?new Date(value).toLocaleDateString(): "—";
+}
+function renderNotes(){
+ const target=$("notes-list");if(!target)return;
+ const notes=filteredNotes();
+ target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(noteDate(note))+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
+ renderNotesTable();
+}
+function renderNotesTable(){
+ const body=$("notes-table-body");if(!body)return;
+ const notes=filteredNotes(),pages=Math.max(1,Math.ceil(notes.length/NOTES_PAGE_SIZE));
+ notesPage=Math.min(Math.max(1,notesPage),pages);
+ const visible=notes.slice((notesPage-1)*NOTES_PAGE_SIZE,notesPage*NOTES_PAGE_SIZE);
+ body.innerHTML=visible.length?visible.map(note=>'<tr tabindex="0" role="button" data-note-id="'+escapeHtml(note.id)+'" aria-label="Open '+escapeHtml(note.title)+'"><td><strong>'+escapeHtml(note.title)+'</strong></td><td>'+escapeHtml(note.family_id?"Shared with "+(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+'</td><td>'+escapeHtml(noteDate(note))+'</td></tr>').join(""):'<tr><td colspan="3" class="empty">'+(state.notes.length?"No notes match these filters.":"No notes yet. Create one to get started.")+'</td></tr>';
+ $("notes-page-info").textContent=notes.length?("Showing "+((notesPage-1)*NOTES_PAGE_SIZE+1)+"–"+Math.min(notesPage*NOTES_PAGE_SIZE,notes.length)+" of "+notes.length):"0 notes";
+ $("notes-prev-page").disabled=notesPage<=1;
+ $("notes-next-page").disabled=notesPage>=pages;
+}
+function showNotesOverview(){
+ $("notes-overview").hidden=false;$("notes-editor-panel").hidden=true;
+ $("notes-main-title").textContent="All notes";
+ $("notes-main-subtitle").textContent="Your notes, ordered by most recently updated";
+}
+function showNoteEditor(title){
+ $("notes-overview").hidden=true;$("notes-editor-panel").hidden=false;
+ $("notes-main-title").textContent=title;
+ $("notes-main-subtitle").textContent="View and edit note details";
 }
 function resetNoteEditor(){
- state.selectedNote=null;renderNotes();
+ state.selectedNote=null;renderNotes();showNotesOverview();
  if($("note-heading"))$("note-heading").textContent="Select a note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
  for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=true;
  $("delete-note").disabled=true;$("notes-status").textContent="Choose a note or create a new one. Notes are private by default.";
 }
 function startNewNote(){
- state.selectedNote="new";renderNotes();
+ state.selectedNote="new";renderNotes();showNoteEditor("New note");
  if($("note-heading"))$("note-heading").textContent="New note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
  for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=false;
@@ -118,7 +148,7 @@ function startNewNote(){
 async function selectNote(id){
  const note=state.notes.find(item=>item.id===id);if(!note)return;
  try{
-  const full=await api("/notes/"+encodeURIComponent(id));state.selectedNote=id;renderNotes();
+  const full=await api("/notes/"+encodeURIComponent(id));state.selectedNote=id;renderNotes();showNoteEditor(full.title);
   if($("note-heading"))$("note-heading").textContent=full.title;
   $("note-title").value=full.title;$("note-content").value=full.content;$("note-family").value=full.family_id||"";
   const editable=full.owner_id===state.currentUserId;
@@ -470,8 +500,8 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
  };
  setStatus("Running · "+runId.slice(0,8));
 }
-on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",renderNotes);on("note-family-filter","change",renderNotes);
-on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",()=>{notesPage=1;renderNotes()});on("note-family-filter","change",()=>{notesPage=1;renderNotes()});
+on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("tr[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.matches("tr[data-note-id]")){e.preventDefault();selectNote(e.target.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("back-to-notes","click",resetNoteEditor);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
  const button=$("refresh-tasks");if(button)button.disabled=true;
