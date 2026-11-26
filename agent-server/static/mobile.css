@@ -758,3 +758,103 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   body[data-layout="mobile"] .profile-menu-toggle { display: inline-flex !important; }
   body[data-layout="mobile"] .profile-content-back { display: none !important; }
 }
+
+
+/* Profile pages reuse the fixed-heading / flexible-panel layout from Meals. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="profile"] main:not([hidden]),
+  body[data-layout="mobile"][data-page="integrations"] main:not([hidden]),
+  body[data-layout="mobile"][data-page="families"] main:not([hidden]) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px;
+  }
+
+  body[data-layout="mobile"][data-page="profile"] .profile-shell-heading,
+  body[data-layout="mobile"][data-page="integrations"] .profile-shell-heading,
+  body[data-layout="mobile"][data-page="families"] .profile-shell-heading {
+    flex: none;
+  }
+
+  /* Profile: let the form panel occupy the available height and scroll internally. */
+  body[data-layout="mobile"][data-page="profile"] .notes-view {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="profile"] #profile.notes-layout {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    height: auto;
+  }
+  body[data-layout="mobile"][data-page="profile"] #profile > .profile-main-panel {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none !important;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Integrations: the selected list or detail panel fills the content region. */
+  body[data-layout="mobile"][data-page="integrations"] .integrations-view {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="integrations"] .integrations-layout {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="integrations"] .integrations-sidebar,
+  body[data-layout="mobile"][data-page="integrations"] .integration-details {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Families: the list/detail panel owns scrolling, not the outer page. */
+  body[data-layout="mobile"][data-page="families"] .notes-view,
+  body[data-layout="mobile"][data-page="families"] .family-view {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-layout {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-list-panel,
+  body[data-layout="mobile"][data-page="families"] .family-details-panel {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
