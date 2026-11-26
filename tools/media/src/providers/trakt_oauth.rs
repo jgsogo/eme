@@ -271,22 +271,44 @@ impl TraktOAuthService {
             .filter(|token| !token.is_empty())
             .ok_or(TraktError::MissingRefreshToken)?;
         let user = self.fetch_user_settings(&tokens.access_token).await?;
-        let connection = self
+        let granted_scopes = if tokens.scopes().is_empty() {
+            authorization.requested_scopes
+        } else {
+            tokens.scopes()
+        };
+        let existing = self
             .external_connections
-            .create_connection(NewExternalConnection {
-                owner_id: pending.owner_id,
-                provider: "trakt".into(),
-                provider_subject: user.username.clone(),
-                display_email: None,
-                refresh_token,
-                granted_scopes: if tokens.scopes().is_empty() {
-                    authorization.requested_scopes
-                } else {
-                    tokens.scopes()
-                },
-            })
+            .list_connections(pending.owner_id)
             .await
-            .map_err(TraktError::ExternalStorage)?;
+            .map_err(TraktError::ExternalStorage)?
+            .into_iter()
+            .find(|connection| {
+                connection.provider == "trakt"
+                    && connection.provider_subject == user.username
+            });
+        let connection = if let Some(existing) = existing {
+            self.external_connections
+                .update_credentials(
+                    pending.owner_id,
+                    existing.id,
+                    Some(refresh_token),
+                    granted_scopes,
+                )
+                .await
+                .map_err(TraktError::ExternalStorage)?
+        } else {
+            self.external_connections
+                .create_connection(NewExternalConnection {
+                    owner_id: pending.owner_id,
+                    provider: "trakt".into(),
+                    provider_subject: user.username.clone(),
+                    display_email: None,
+                    refresh_token,
+                    granted_scopes,
+                })
+                .await
+                .map_err(TraktError::ExternalStorage)?
+        };
 
         let previous_link = self
             .media
