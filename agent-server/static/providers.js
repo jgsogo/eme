@@ -68,7 +68,7 @@ async function load(){
  }finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 $("providers-search").addEventListener("input",render);
-$("providers-refresh").addEventListener("click",load);
+$("providers-refresh")?.addEventListener("click",load);
 $("providers-list").addEventListener("click",event=>{
  if(event.target.closest("[data-clear-search]")){$("providers-search").value="";render();return}
  if(event.target.closest("[data-retry]")){load();return}
