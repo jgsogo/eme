@@ -34,7 +34,10 @@ function renderConversationsTable(conversations){
   const family=state.families.find(f=>f.id===c.selected_family_id);
   const activeRun=state.activeRuns[c.id];
   const updated=c.updated_at?new Date(c.updated_at).toLocaleString():"—";
-  return '<button type="button" class="item-card conversation-item-card" data-conversation-id="'+escapeHtml(c.id)+'" aria-label="Open '+escapeHtml(c.title||"New conversation")+'"><div class="item-card-heading"><strong>'+escapeHtml(c.title||"New conversation")+'</strong>'+(activeRun?'<span class="item-card-tag running">Agent '+(activeRun.status==="queued"?"queued":"working")+'</span>':'')+'</div><p class="item-card-description">Agent · '+escapeHtml(c.agent||"—")+'</p><div class="item-card-meta"><span class="item-card-tag">'+escapeHtml(family?.name||"Private")+'</span><span>'+escapeHtml(c.message_count||0)+' messages</span><span>~'+Number(c.history_tokens_estimate||0).toLocaleString()+' tokens</span></div><div class="item-card-footnote">Updated · '+escapeHtml(updated)+'</div><span class="item-card-arrow" aria-hidden="true">›</span></button>';
+  const actionLabel=state.showArchived?"Restore":"Archive";
+  const archiveIcon=state.showArchived?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v13H3zM2 3h20v4H2zM10 11l2 2 2-2M12 13V9"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v13H3zM2 3h20v4H2zM12 10v7m-3-3 3 3 3-3"/></svg>';
+  const actions='<div class="conversation-card-actions"><button type="button" class="conversation-card-action" data-archive-id="'+escapeHtml(c.id)+'" aria-label="'+actionLabel+' conversation" title="'+actionLabel+'">'+archiveIcon+'</button><button type="button" class="conversation-card-action danger" data-delete-id="'+escapeHtml(c.id)+'" aria-label="Remove conversation" title="Remove"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>';
+  return '<div class="item-card conversation-item-card" data-conversation-id="'+escapeHtml(c.id)+'" role="button" tabindex="0" aria-label="Open '+escapeHtml(c.title||"New conversation")+'"><div class="item-card-heading"><strong>'+escapeHtml(c.title||"New conversation")+'</strong><div class="conversation-card-top-right">'+(activeRun?'<span class="item-card-tag running">Agent '+(activeRun.status==="queued"?"queued":"working")+'</span>':'')+actions+'</div></div><p class="item-card-description">Agent · '+escapeHtml(c.agent||"—")+'</p><div class="item-card-meta"><span class="item-card-tag">'+escapeHtml(family?.name||"Private")+'</span><span>'+escapeHtml(c.message_count||0)+' messages</span><span>~'+Number(c.history_tokens_estimate||0).toLocaleString()+' tokens</span></div><div class="item-card-footnote">Updated · '+escapeHtml(updated)+'</div><span class="item-card-arrow" aria-hidden="true">›</span></div>';
  }).join(""):'<div class="tasks-table-empty"><strong>'+(state.conversations.length?"No conversations found":state.showArchived?"No archived conversations":"No conversations yet")+'</strong><span>'+(state.conversations.length?"Try changing your search.":"Create a conversation to get started.")+'</span></div>';
  const info=$("conversations-page-info");if(info)info.textContent=conversations.length?conversations.length+" conversations":"0 conversations";
 }
@@ -948,8 +951,14 @@ on("invite-accept","click",async()=>{
 });
 on("show-archived","change",async e=>{state.showArchived=e.target.checked;try{await loadConversations()}catch(e){setStatus(e.message,"error")}});
 on("conversation-search","input",e=>{state.conversationSearch=e.target.value;conversationsPage=1;renderConversations()});
-on("conversations-table-body","click",e=>{const row=e.target.closest("[data-conversation-id]");if(row)selectConversation(row.dataset.conversationId)});
-on("conversations-table-body","keydown",e=>{const row=e.target.closest("[data-conversation-id]");if(row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();selectConversation(row.dataset.conversationId)}});
+on("conversations-table-body","click",e=>{
+ const archiveButton=e.target.closest("button[data-archive-id]");
+ if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}
+ const deleteButton=e.target.closest("button[data-delete-id]");
+ if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}
+ const row=e.target.closest("[data-conversation-id]");if(row)selectConversation(row.dataset.conversationId);
+});
+on("conversations-table-body","keydown",e=>{const row=e.target.closest("[data-conversation-id]");if(row&&e.target===row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();selectConversation(row.dataset.conversationId)}});
 on("back-to-conversations","click",clearSelectedConversation);
 on("conversations-prev-page","click",()=>{conversationsPage=Math.max(1,conversationsPage-1);renderConversations()});
 on("conversations-next-page","click",()=>{conversationsPage++;renderConversations()});
