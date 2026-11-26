@@ -506,6 +506,10 @@ impl TraktOAuthService {
             }
         };
         if user.username != link.provider_subject {
+            let _ = self
+                .external_connections
+                .mark_connection_broken(owner_id, link.external_connection_id)
+                .await;
             return Err(TraktError::InvalidResponse(
                 "Trakt returned a different account than the one linked to this profile".into(),
             ));
