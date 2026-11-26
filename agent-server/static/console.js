@@ -792,7 +792,7 @@ function renderTraktProfiles(){
  }
  if(connectButton)connectButton.disabled=connectable.length===0;
  const query=$("trakt-search")?.value.trim().toLocaleLowerCase()||"";
- if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet. Refresh to retry provisioning.</div></div>';return}
+ if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet.</div></div>';return}
  const profiles=state.traktProfiles.filter(profile=>[profile.profile_name,profile.family_name,profile.trakt?.username,profile.trakt?.display_name].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
  target.innerHTML=profiles.length?profiles.map(profile=>{
   const trakt=profile.trakt,sync=profile.sync||{},lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
@@ -910,7 +910,7 @@ async function handleGoogleCalendarChange(event){
  catch(e){status.textContent=e.message;await loadGoogleConnections()}
 }
 on("google-connect","click",connectGoogle);
-on("refresh-integrations","click",loadIntegrations);
+
 on("integrations-sidebar","click",event=>{
  const button=event.target.closest("[data-integration]");
  if(button)selectIntegration(button.dataset.integration);
