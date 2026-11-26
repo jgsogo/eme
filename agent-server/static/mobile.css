@@ -1573,6 +1573,7 @@ body[data-layout="mobile"][data-page="books"] .books-main-panel{display:flex;fle
 body[data-layout="mobile"][data-page="books"] .books-main-heading{display:flex;align-items:center;gap:9px;flex:none;margin:0}
 body[data-layout="mobile"][data-page="books"] .books-main-heading>div{min-width:0;flex:1}
 body[data-layout="mobile"][data-page="books"] .books-main-heading h2{margin:0 0 4px;font-size:18px;overflow-wrap:anywhere}
+body[data-layout="mobile"][data-page="books"] .tasks-back-button[hidden]{display:none!important}
 body[data-layout="mobile"][data-page="books"] .books-section-nav{display:flex;flex:none;align-items:center;gap:5px;padding:0 0 9px;border-bottom:1px solid var(--border)}
 body[data-layout="mobile"][data-page="books"] .books-section-link{display:inline-flex;align-items:center;min-height:34px;padding:7px 11px;border-radius:8px;color:var(--muted);font-size:12px;font-weight:650;text-decoration:none}
 body[data-layout="mobile"][data-page="books"] .books-section-link.active{background:var(--panel2);color:var(--text)}
