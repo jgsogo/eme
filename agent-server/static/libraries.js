@@ -157,7 +157,7 @@
       state.loaded = true;
       render();
       if($("libraries-refreshed"))$("libraries-refreshed").textContent = `Last refreshed: ${new Date().toLocaleString()}`;
-      status("Library list loaded. Your current selections were preserved.");
+      status("Library list refreshed. Your current selections were preserved.");
     } catch (error) {
       status(`Could not load libraries: ${error.message}`, true);
     } finally {
