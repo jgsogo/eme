@@ -272,7 +272,7 @@ impl ConversationStore {
         Ok(conversation)
     }
 
-    /// Permanently deletes a conversation belonging to owner.
+    /// Marks a conversation as removed without deleting its document.
     ///
     /// If the conversation is currently active for that owner, its active
     /// pointer is removed as part of the same process-local critical section.
@@ -328,7 +328,14 @@ impl ConversationStore {
     ) -> Result<Conversation, ConversationStoreError> {
         let path = self.conversation_path(id);
         match fs::read(path) {
-            Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
+            Ok(bytes) => {
+                let conversation: Conversation = serde_json::from_slice(&bytes)?;
+                if conversation.removed_at.is_some() {
+                    Err(ConversationStoreError::NotFound(id))
+                } else {
+                    Ok(conversation)
+                }
+            },
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 Err(ConversationStoreError::NotFound(id))
             }
