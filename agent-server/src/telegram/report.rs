@@ -38,10 +38,7 @@ pub(super) async fn report(
                 active_conversations.lock().await.remove(&conversation_id);
                 if let Err(error) = gateway.send_message(chat_id, &truncate(&text)).await {
                     eprintln!("Telegram result delivery failed: {error}");
-                } else if let Err(error) = gateway
-                    .clear_message_reaction(chat_id, message_id)
-                    .await
-                {
+                } else if let Err(error) = gateway.clear_message_reaction(chat_id, message_id).await {
                     eprintln!("Telegram reaction cleanup failed: {error}");
                 }
 
