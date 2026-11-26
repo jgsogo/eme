@@ -448,7 +448,10 @@ async fn test_connection(
     let connection = match store.get_connection(owner, connection_id).await {
         Ok(Some(connection))
             if connection.provider == "google"
-                && connection.status == ExternalConnectionStatus::Active => connection,
+                && connection.status == ExternalConnectionStatus::Active =>
+        {
+            connection
+        }
         Ok(_) => return HttpResponse::NotFound().body("Active Google connection not found"),
         Err(error) => {
             tracing::error!(%error, "could not inspect Google connection for health check");
@@ -474,8 +477,15 @@ async fn test_connection(
         Ok(token) => token,
         Err(error) => {
             let detail = error.to_string();
-            let permanent = ["invalid_grant", "invalid credentials", "token has been expired", "token expired", "revoked"]
-                .iter().any(|marker| detail.to_ascii_lowercase().contains(marker));
+            let permanent = [
+                "invalid_grant",
+                "invalid credentials",
+                "token has been expired",
+                "token expired",
+                "revoked",
+            ]
+            .iter()
+            .any(|marker| detail.to_ascii_lowercase().contains(marker));
             if permanent {
                 if let Err(mark_error) = store.mark_connection_broken(owner, connection_id).await {
                     tracing::error!(%mark_error, connection_id = %connection.id, "could not mark Google connection as broken");
@@ -503,8 +513,7 @@ async fn test_connection(
                 }
             }
             tracing::warn!(%error, connection_id = %connection.id, "Google Calendar API health check failed");
-            HttpResponse::BadGateway()
-                .body(format!("Google Calendar API check failed: {error}"))
+            HttpResponse::BadGateway().body(format!("Google Calendar API check failed: {error}"))
         }
     }
 }
