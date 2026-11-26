@@ -490,3 +490,21 @@ body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-men
 body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-menu-day-detail-heading h3 {
   font-size: 15px;
 }
+
+
+/* Keep the School week label inline, matching the Planner month selector. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .planner-week-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: inherit;
+  font-weight: inherit;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .planner-week-controls input {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  max-width: 155px;
+}
