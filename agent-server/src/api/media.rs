@@ -349,6 +349,42 @@ async fn sync_trakt_profile(
     }
 }
 
+#[post("/trakt/profiles/{profile_id}/test")]
+async fn test_trakt_profile_connection(
+    request: HttpRequest,
+    auth: Data<TelegramAuth>,
+    identities: Data<Arc<FileUserIdentityStore>>,
+    state: Data<MediaApiState>,
+    profile_id: PathParam<String>,
+    query: Query<TraktSyncQuery>,
+) -> impl Responder {
+    let owner_id = match current_user_id(&request, &auth, &identities) {
+        Ok(user_id) => user_id,
+        Err(response) => return response,
+    };
+    let profile_id = match MediaProfileId::from_str(&profile_id) {
+        Ok(id) => id,
+        Err(error) => return HttpResponse::BadRequest().body(error.to_string()),
+    };
+    let Some(oauth) = state.trakt_oauth.as_ref() else {
+        return HttpResponse::ServiceUnavailable().body("Trakt OAuth is not configured");
+    };
+    let family_id = match query.family_id.as_deref() {
+        Some(value) => match parse_id::<FamilyId>(value) {
+            Ok(id) => Some(id),
+            Err(error) => return HttpResponse::BadRequest().body(error),
+        },
+        None => None,
+    };
+    match oauth.test_connection(owner_id, family_id, profile_id).await {
+        Ok(username) => HttpResponse::Ok().json(json!({
+            "success": true,
+            "message": format!("Trakt is working. Connected as @{username}."),
+        })),
+        Err(error) => trakt_error_response(error),
+    }
+}
+
 #[delete("/trakt/profiles/{profile_id}")]
 async fn unlink_trakt_profile(
     request: HttpRequest,
@@ -389,6 +425,7 @@ pub fn media_api() -> Scope {
         .service(start_trakt_link)
         .service(complete_trakt_link)
         .service(trakt_profile_summary)
+        .service(test_trakt_profile_connection)
         .service(sync_trakt_profile)
         .service(unlink_trakt_profile)
 }
