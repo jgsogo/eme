@@ -156,7 +156,7 @@
       else state.selected = previous;
       state.loaded = true;
       render();
-      $("libraries-refreshed").textContent = `Last refreshed: ${new Date().toLocaleString()}`;
+      if($("libraries-refreshed"))$("libraries-refreshed").textContent = `Last refreshed: ${new Date().toLocaleString()}`;
       status("Library list refreshed. Your current selections were preserved.");
     } catch (error) {
       status(`Could not load libraries: ${error.message}`, true);
@@ -188,7 +188,7 @@
     state.query = event.target.value;
     render();
   });
-  $("libraries-refresh").addEventListener("click", refresh);
+  $("libraries-refresh")?.addEventListener("click", refresh);
   $("libraries-save").addEventListener("click", save);
   refresh();
 })();
