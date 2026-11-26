@@ -186,7 +186,7 @@ async function savePricing(event){
   status.textContent="Could not save pricing: "+error.message;
  }finally{if(submitButton)submitButton.disabled=false}
 }
-$("usage-refresh").addEventListener("click",()=>{load();loadPricing()});
+$("usage-refresh")?.addEventListener("click",()=>{load();loadPricing()});
 $("usage-period").addEventListener("change",render);
 $("usage-record-search")?.addEventListener("input",render);
 $("usage-model-search")?.addEventListener("input",render);
