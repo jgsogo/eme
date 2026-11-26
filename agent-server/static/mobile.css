@@ -62,3 +62,24 @@ body[data-layout="mobile"] .chat-head{align-items:center;flex-direction:row;flex
 body[data-layout="mobile"] .chat-head>div:first-of-type{flex:1;min-width:0;width:auto}
 body[data-layout="mobile"] .chat-head>div:last-child{width:100%;justify-content:flex-start}
 body[data-layout="mobile"] .chat-head .menu-toggle{flex:none}
+
+
+/* Notes use the same responsive slide-out drawer as Conversations. */
+body[data-layout="mobile"] .notes-view{height:100%;min-height:0;overflow:hidden}
+body[data-layout="mobile"] .notes-workspace{display:block;height:100%;min-height:0}
+body[data-layout="mobile"] .notes-sidebar{position:fixed;z-index:30;inset:0 auto 0 0;width:min(86vw,340px);max-width:340px;height:100dvh;max-height:none;transform:translateX(-105%);transition:transform .22s ease;will-change:transform;overflow:hidden;border-radius:0 12px 12px 0;box-shadow:12px 0 32px rgba(0,0,0,.35)}
+body[data-layout="mobile"] .notes-sidebar.open{transform:translateX(0)}
+body[data-layout="mobile"] .notes-sidebar .notes-list{min-height:100px;overflow-y:auto}
+body[data-layout="mobile"] .notes-sidebar .notes-filters{display:flex;flex-direction:column}
+body[data-layout="mobile"] .notes-sidebar-actions #close-notes{display:inline-flex}
+body[data-layout="mobile"] .notes-main-panel{height:100%;box-sizing:border-box;padding:12px;overflow:auto}
+body[data-layout="mobile"] .notes-main-heading{align-items:flex-start}
+body[data-layout="mobile"] .notes-main-heading .menu-toggle{display:inline-flex;flex:none}
+body[data-layout="mobile"] .notes-table{min-width:480px}
+body[data-layout="mobile"] .notes-table th,body[data-layout="mobile"] .notes-table td{padding:9px 7px;font-size:11px}
+body[data-layout="mobile"] .notes-pagination{align-items:flex-start;flex-wrap:wrap}
+body[data-layout="mobile"] .notes-editor-panel{padding-top:12px}
+body[data-layout="mobile"] .notes-editor-panel textarea{min-height:160px}
+body[data-layout="mobile"] .notes-actions{flex-wrap:wrap}
+body[data-layout="mobile"] .notes-actions button{flex:1 1 auto}
+body[data-layout="mobile"] .notes-actions #back-to-notes{margin-left:0}
