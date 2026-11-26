@@ -471,10 +471,26 @@ impl TraktOAuthService {
         if link.owner_id != owner_id {
             return Err(TraktError::Forbidden);
         }
-        let access_token = self
-            .token_manager
+        let access_token = match self.token_manager
             .access_token(owner_id, link.external_connection_id)
-            .await?;
+            .await {
+                Ok(token) => token,
+                Err(error) => {
+                    let permanent = matches!(error, TraktError::MissingRefreshToken)
+                        || matches!(&error, TraktError::Api { status, message }
+                            if (*status == StatusCode::UNAUTHORIZED
+                                || *status == StatusCode::FORBIDDEN
+                                || (*status == StatusCode::BAD_REQUEST
+                                    && message.to_ascii_lowercase().contains("invalid_grant"))));
+                    if permanent {
+                        if let Err(mark_error) = self.external_connections
+                            .mark_connection_broken(owner_id, link.external_connection_id).await {
+                            tracing::error!(%mark_error, "could not mark Trakt connection as broken");
+                        }
+                    }
+                    return Err(error);
+                }
+            };
         let user = self.fetch_user_settings(&access_token).await?;
         if user.username != link.provider_subject {
             return Err(TraktError::InvalidResponse(
@@ -482,6 +498,26 @@ impl TraktOAuthService {
             ));
         }
         Ok(user.username)
+    }
+
+    /// Return the persisted status of a linked Trakt account.
+    pub async fn connection_status(
+        &self,
+        owner_id: UserId,
+        profile_id: MediaProfileId,
+    ) -> Result<Option<ExternalConnectionStatus>, TraktError> {
+        let Some(link) = self.media
+            .get_external_connection_link(profile_id, "trakt").await
+            .map_err(TraktError::MediaStorage)? else {
+                return Ok(None);
+            };
+        if link.owner_id != owner_id {
+            return Err(TraktError::Forbidden);
+        }
+        let connection = self.external_connections
+            .get_connection(owner_id, link.external_connection_id).await
+            .map_err(TraktError::ExternalStorage)?;
+        Ok(connection.map(|connection| connection.status))
     }
 
     /// Disconnect a Trakt account from the caller's own personal profile.
