@@ -1,0 +1,319 @@
+const $ = id => document.getElementById(id);
+const state = { entries: [], selected: null, loadRequest: 0, showWeekends: true, familyId: "" };
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+  });
+  const raw = await response.text();
+  let body = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    body = raw;
+  }
+  if (!response.ok) {
+    throw new Error(typeof body === "string" && body ? body : response.statusText);
+  }
+  return body;
+}
+
+function setConnectionStatus(value) { const element = $("connection"); if (element) { element.textContent = value; element.className = value.toLowerCase().includes("error") ? "hint error" : "hint"; } }
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]);
+}
+
+function dateString(date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
+function monthString(date) {
+  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0");
+}
+
+function monthStart(value) {
+  return new Date(value + "-01T12:00:00");
+}
+
+function statusLabel(status) {
+  return ({
+    known: "Menu published",
+    not_published: "Menu not published",
+    closed: "School closed",
+    unknown: "Unknown",
+  })[status] || status;
+}
+
+function formatDay(date, options) {
+  return new Date(date + "T12:00:00").toLocaleDateString("en-GB", options);
+}
+
+
+function appendMenuLog(message) {
+  const log = $("menu-status-log");
+  if (!log) return;
+  const item = document.createElement("p");
+  item.className = "hint";
+  item.setAttribute("role", "status");
+  item.textContent = message;
+  log.append(item);
+}
+
+function renderMenuPlaceholder(entry) {
+  const status = entry ? statusLabel(entry.status) : "Unknown";
+  return '<p class="school-menu-placeholder">' + esc(status) + '</p>';
+}
+
+function renderMenuItems(items) {
+  const names = items.map(item => item.name).filter(Boolean);
+  if (!names.length) return '<p class="school-menu-placeholder">No dishes recorded</p>';
+  return '<ul class="school-menu-items">' + names.map(name => '<li>' + esc(name) + '</li>').join("") + '</ul>';
+}
+
+function renderMonthView() {
+  const first = monthStart($("month-date").value);
+  const year = first.getFullYear();
+  const month = first.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const offset = (first.getDay() + 6) % 7;
+  const visibleOffset = state.showWeekends ? offset : Math.min(offset, 5);
+  const cells = [];
+  for (let i = 0; i < visibleOffset; i++) cells.push('<div class="school-menu-calendar-empty" aria-hidden="true"></div>');
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateObject = new Date(year, month, day, 12);
+    const weekday = dateObject.getDay();
+    if (!state.showWeekends && (weekday === 0 || weekday === 6)) continue;
+    const date = dateString(dateObject);
+    const entry = state.entries.find(item => item.date === date);
+    const hasMenu = Boolean(entry);
+    const content = entry?.status === "known"
+      ? renderMenuItems(entry.items || [])
+      : renderMenuPlaceholder(entry);
+    const statusClass = entry?.status === "closed"
+      ? " status-closed"
+      : entry?.status !== "known"
+        ? " status-unknown"
+        : "";
+    cells.push(
+      '<article class="school-menu-day' + (hasMenu ? ' has-entry' : '') + statusClass + '">' +
+      '<header class="school-menu-day-heading"><strong>' + day + '</strong><span>' + esc(formatDay(date, { weekday: "short" })) + '</span></header>' +
+      '<section class="meal-calendar-slot school-menu-lunch-slot">' +
+      '<div class="meal-calendar-slot-heading"><h3>Lunch</h3>' +
+      '<button type="button" class="text-button" data-edit-date="' + date + '">' +
+      (hasMenu ? "Edit" : "＋ Add") + '</button></div>' +
+      '<div class="meal-slot-details school-menu-lunch-details">' + content + '</div>' +
+      '</section></article>'
+    );
+  }
+  const calendar = $("menu-month-view");
+  calendar.classList.toggle("weekdays-only", !state.showWeekends);
+  calendar.innerHTML =
+    '<div class="school-menu-calendar-weekdays">' +
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].slice(0, state.showWeekends ? 7 : 5).map(day => '<span>' + day + '</span>').join("") +
+    '</div><div class="school-menu-month">' + cells.join("") + '</div>';
+
+  $("menu-month-view").querySelectorAll("[data-edit-date]").forEach(button => {
+    button.addEventListener("click", () => {
+      const date = button.dataset.editDate;
+      edit(state.entries.find(item => item.date === date), date);
+    });
+  });
+
+  // The editor is a dialog and is managed independently from the calendar render.
+}
+
+function edit(entry, date) {
+  state.selected = date;
+  const isNew = !entry;
+  const editor = $("menu-editor");
+  if (!editor) return;
+
+  editor.innerHTML =
+    '<section class="school-menu-editor">' +
+    '<div class="school-menu-editor-heading"><h2 id="menu-editor-title">' +
+    (isNew ? "Add menu for " : "Edit menu for ") +
+    esc(formatDay(date, { weekday: "long", day: "numeric", month: "long", year: "numeric" })) +
+    '</h2></div>' +
+    '<form id="menu-form" class="recipe-form">' +
+    '<label for="menu-status">Menu status</label>' +
+    '<select id="menu-status">' +
+    '<option value="known">Menu published</option>' +
+    '<option value="closed">School closed</option>' +
+    '<option value="unknown">Unknown</option>' +
+    '</select>' +
+    '<label for="menu-items">Dishes</label>' +
+    '<textarea id="menu-items" rows="5" placeholder="One dish per line&#10;Vegetable soup&#10;Baked fish with potatoes"></textarea>' +
+    '<p class="hint school-menu-field-help">Enter one dish name per line.</p>' +
+    '<div class="recipe-actions">' +
+    '<button type="submit">' + (isNew ? "Add menu" : "Save changes") + '</button>' +
+    '<button type="button" class="secondary" id="cancel-menu">Cancel</button>' +
+    (isNew ? "" : '<button type="button" class="danger" id="delete-menu">Delete menu</button>') +
+    '</div>' +
+    '<p id="menu-status-message" class="hint" aria-live="polite"></p>' +
+    '</form></section>';
+
+  $("menu-status").value = entry?.status || "known";
+  $("menu-items").value = (entry?.items || []).map(item => item.name).join("\n");
+  $("menu-dialog").showModal();
+
+  $("menu-form").addEventListener("submit", save);
+  $("cancel-menu").addEventListener("click", () => {
+    $("menu-dialog").close();
+  });
+  $("delete-menu")?.addEventListener("click", remove);
+}
+
+$("menu-dialog").addEventListener("close", () => { state.selected = null; });
+
+function parseItems() {
+  return $("menu-items").value.split("\n").map(line => line.trim()).filter(Boolean).map(name => ({
+    name,
+    notes: null,
+    allergens: null,
+    dietary_alternatives: [],
+  }));
+}
+
+async function save(event) {
+  event.preventDefault();
+  const button = event.submitter || $("menu-form").querySelector('[type="submit"]');
+  const date = state.selected;
+  const items = parseItems();
+  const status = $("menu-status").value;
+  if (status === "known" && items.length === 0) {
+    $("menu-status-message").textContent = "Add at least one dish before publishing a menu.";
+    return;
+  }
+  if (status !== "known" && items.length > 0) {
+    $("menu-status-message").textContent = "Dishes can only be saved when the menu status is “Menu published”.";
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), {
+      method: "PUT",
+      body: JSON.stringify({ date, status, items }),
+    });
+    state.selected = null;
+    $("menu-dialog").close();
+    await loadMonth();
+    appendMenuLog("Menu saved for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
+  } catch (error) {
+    const message = $("menu-status-message");
+    if (message) message.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function remove() {
+  const date = state.selected;
+  if (!date || !confirm("Delete this school menu record?")) return;
+  const button = $("delete-menu");
+  button.disabled = true;
+  try {
+    await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), { method: "DELETE" });
+    state.selected = null;
+    $("menu-dialog").close();
+    await loadMonth();
+    appendMenuLog("Menu deleted for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
+  } catch (error) {
+    const message = $("menu-status-message");
+    if (message) message.textContent = error.message;
+    button.disabled = false;
+  }
+}
+
+async function loadMonth() {
+  const value = $("month-date").value;
+  if (!value) return;
+  const request = ++state.loadRequest;
+  const start = monthStart(value);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 12);
+  state.selected = null;
+  $("menu-content").innerHTML = '<p class="empty">Loading school menus…</p>';
+
+  try {
+    if (!state.familyId) {
+      state.entries = [];
+      $("menu-content").innerHTML = '<p class="empty">Create or join a family to manage school menus. <a href="/console/families">Manage families</a>.</p>';
+      setConnectionStatus("No family selected");
+      return;
+    }
+    const entries = await api("/meal-planner/school-menus/?family_id=" + encodeURIComponent(state.familyId) + "&from=" +
+      dateString(start) + "&to=" + dateString(end));
+    if (request !== state.loadRequest) return;
+    state.entries = entries;
+    const count = new Set(entries.filter(entry => entry.status === "known").map(entry => entry.date)).size;
+    $("menu-content").innerHTML =
+      '<div id="menu-month-view"></div><div id="menu-status-log" class="school-menu-status-log" aria-live="polite"></div>';
+    appendMenuLog(count
+      ? "Month loaded. Published menus are available for " + count + " of " + end.getDate() + " days."
+      : "Month loaded successfully, but no published menus are available for this month.");
+    renderMonthView();
+  } catch (error) {
+    if (request === state.loadRequest) {
+      $("menu-content").innerHTML =
+        '<p class="empty" role="alert">Could not load school menus for this month: ' +
+        esc(error.message) + '</p>';
+    }
+    throw error;
+  }
+}
+
+$("previous-month").addEventListener("click", () => {
+  const date = monthStart($("month-date").value);
+  date.setMonth(date.getMonth() - 1);
+  $("month-date").value = monthString(date);
+  loadMonth().catch(() => {});
+});
+
+$("next-month").addEventListener("click", () => {
+  const date = monthStart($("month-date").value);
+  date.setMonth(date.getMonth() + 1);
+  $("month-date").value = monthString(date);
+  loadMonth().catch(() => {});
+});
+
+$("month-date").addEventListener("change", () => loadMonth().catch(() => {}));
+
+$("show-weekends").addEventListener("change", event => {
+  state.showWeekends = event.target.checked;
+  try {
+    localStorage.setItem("eme-school-menus-show-weekends", String(state.showWeekends));
+  } catch {
+    // The preference still applies for this page session when storage is unavailable.
+  }
+  if ($("menu-month-view")) renderMonthView();
+});
+
+try {
+  state.showWeekends = localStorage.getItem("eme-school-menus-show-weekends") !== "false";
+} catch {
+  // Keep the default seven-day view when storage is unavailable.
+}
+$("show-weekends").checked = state.showWeekends;
+
+window.addEventListener("eme:family-changed", () => { state.familyId = window.emeMealsFamily.currentFamilyId(); state.selected = null; loadMonth(); });
+
+(async () => {
+  try {
+    await window.emeConsoleReady;
+    await window.emeMealsFamily.init();
+    state.familyId = window.emeMealsFamily.currentFamilyId();
+    $("month-date").value = monthString(new Date());
+    await loadMonth();
+  } catch (error) {
+    setConnectionStatus("Connection error");
+    const content = $("menu-content");
+    if (content) content.innerHTML = '<p class="empty" role="alert">Could not initialize school menus: ' + esc(error.message) + '</p>';
+    console.error("Failed to load school menus", error);
+  } finally {
+    $("menu-content")?.closest("main")?.removeAttribute("hidden");
+  }
+})();

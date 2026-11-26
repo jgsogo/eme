@@ -498,6 +498,20 @@ pub(super) async fn weekly_planner_script() -> impl Responder {
         .body(include_str!("../../static/weekly-planner.js"))
 }
 
+#[get("/assets/desktop-monthly-planner.js")]
+pub(super) async fn desktop_monthly_planner_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/desktop-monthly-planner.js"))
+}
+
+#[get("/assets/desktop-monthly-school-menus.js")]
+pub(super) async fn desktop_monthly_school_menus_script() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/javascript; charset=utf-8")
+        .body(include_str!("../../static/desktop-monthly-school-menus.js"))
+}
+
 #[get("/console/tasks")]
 pub(super) async fn tasks_page() -> impl Responder {
     HttpResponse::Ok()

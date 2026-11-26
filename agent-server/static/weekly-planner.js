@@ -156,4 +156,4 @@ $("week-date").addEventListener("change",loadWeek);
 window.addEventListener("eme:family-changed",()=>loadWeek());
 window.addEventListener("focus",()=>loadWeek());
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")loadWeek()});
-(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("week-date").value=dateString(mondayOf(new Date()));await loadWeek()}catch(e){setConnectionStatus("Error loading planner: "+e.message)}})();
+(async()=>{try{await window.emeConsoleReady;await window.emeMealsFamily.init();$("week-date").value=dateString(mondayOf(new Date()));await loadWeek()}catch(e){setConnectionStatus("Error loading planner: "+e.message);const view=$("planner-week-view");if(view)view.innerHTML='<p class="empty" role="alert">'+esc(e.message)+'</p>'}finally{$("planner-week-view")?.closest("main")?.removeAttribute("hidden")}})();

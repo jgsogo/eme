@@ -618,7 +618,7 @@
     } table.append(tbody);wrap.append(table);list.append(wrap);
   }
   function enableDetails(enabled) {
-    ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book","refresh-catalogue","refresh-holdings"].forEach(id => $(id).disabled = !enabled);
+    ["book-title","book-authors","book-isbn","book-rating","book-status","book-want-to-buy","book-review","save-book","delete-book","refresh-catalogue","refresh-holdings"].forEach(id => { if ($(id)) $(id).disabled = !enabled; });
   }
   function populateBookForm(book) {
     $("book-heading").textContent = book.title;
@@ -960,8 +960,8 @@
   $("catalogue-category-filter").addEventListener("change", filterCatalogueResults);
   $("book-form").addEventListener("submit", saveBook);
   $("delete-book").addEventListener("click", removeBook);
-  $("refresh-catalogue").addEventListener("click", refreshCatalogue);
-  $("refresh-holdings").addEventListener("click", loadHoldings);
+  $("refresh-catalogue")?.addEventListener("click", refreshCatalogue);
+  $("refresh-holdings")?.addEventListener("click", loadHoldings);
   enableDetails(false);
   loadBooks().catch(error => status(error.message));
 })();

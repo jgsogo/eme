@@ -241,5 +241,9 @@ window.addEventListener("eme:family-changed", () => {
     await loadWeek();
   } catch (error) {
     console.error("Failed to load school menus", error);
+    const content = $("menu-content");
+    if (content) content.innerHTML = '<p class="empty" role="alert">Could not initialize school menus: ' + esc(error.message) + '</p>';
+  } finally {
+    $("menu-content")?.closest("main")?.removeAttribute("hidden");
   }
 })();

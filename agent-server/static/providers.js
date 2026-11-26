@@ -28,7 +28,7 @@ function render(){
   const models=provider.models.map((model,index)=>{
    const capabilities=(model.capabilities||[]).map(capability=>'<span class="provider-capability">'+escapeHtml(formatCapability(capability))+'</span>').join("");
    const capabilityCount=(model.capabilities||[]).length;
-   return '<section class="provider-model" data-model-index="'+index+'"><div class="provider-model-header"><div class="provider-model-identity"><h4>'+escapeHtml(model.name)+'</h4><span class="provider-model-count">'+capabilityCount+' '+(capabilityCount===1?'capability':'capabilities')+'</span></div><div class="provider-model-test-group"><button class="secondary provider-test-button" type="button" data-test-model="'+escapeHtml(model.name)+'">'+testIcon+'<span>Test model</span></button><div class="provider-model-result" aria-live="polite"></div></div></div><div class="provider-capabilities"><span class="provider-field-label">Capabilities</span><div class="provider-capability-list">'+(capabilities||'<span class="provider-no-capabilities">None declared</span>')+'</div></div></section>';
+   return '<section class="provider-model" data-model-index="'+index+'"><div class="provider-model-header"><div class="provider-model-identity"><h4>'+escapeHtml(model.name)+'</h4><span class="provider-model-count">'+capabilityCount+' '+(capabilityCount===1?'capability':'capabilities')+'</span></div></div><div class="provider-model-test-group"><button class="secondary provider-test-button" type="button" data-test-model="'+escapeHtml(model.name)+'">'+testIcon+'<span>Test model</span></button><div class="provider-model-result" aria-live="polite"></div></div><div class="provider-capabilities"><span class="provider-field-label">Capabilities</span><div class="provider-capability-list">'+(capabilities||'<span class="provider-no-capabilities">None declared</span>')+'</div></div></section>';
   }).join("");
   return '<article class="panel provider-card" data-provider="'+escapeHtml(provider.name)+'"><header class="provider-card-header"><div class="provider-card-identity"><span class="provider-card-kicker">PROVIDER</span><h3>'+escapeHtml(provider.name)+'</h3><p><span class="provider-field-label">Client adapter</span><span class="provider-client-name">'+escapeHtml(provider.client)+'</span></p></div><div class="provider-card-actions"><span class="provider-models-count">'+(provider.models||[]).length+' '+((provider.models||[]).length===1?'model':'models')+'</span><button class="secondary provider-test-button provider-test-all" type="button" data-test-provider>'+testIcon+'<span>Test all models</span></button></div></header><div class="provider-model-list">'+(models||'<p class="provider-no-models">No models match this filter.</p>')+'</div></article>'; }).join(""):'<div class="usage-empty">'+(query?'No providers or models match this filter. <button type="button" class="secondary" data-clear-search>Clear filter</button>':'No providers are configured.')+'</div>';
  $("providers-status").textContent=query?providers.length+" of "+state.providers.length+" providers · "+visibleModels+" matching models":providers.length+" providers · "+visibleModels+" configured models";
@@ -54,7 +54,7 @@ async function testProvider(button){
 }
 async function load(){
  const button=$("providers-refresh");
- button.disabled=true;button.textContent="Refreshing…";
+ if(button){button.disabled=true;button.textContent="Refreshing…";}
  $("providers-status").textContent="Loading configured providers…";
  $("providers-list").innerHTML='<p class="usage-empty" role="status">Loading providers…</p>';
  try{
@@ -65,10 +65,10 @@ async function load(){
   $("providers-status").textContent="Could not load providers.";
   $("providers-status").className="usage-status error";
   $("providers-list").innerHTML='<div class="usage-empty" role="alert">Could not load providers: '+escapeHtml(error.message)+'<p><button type="button" class="secondary" data-retry>Try again</button></p></div>';
- }finally{button.disabled=false;button.textContent="Refresh"}
+ }finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 $("providers-search").addEventListener("input",render);
-$("providers-refresh").addEventListener("click",load);
+$("providers-refresh")?.addEventListener("click",load);
 $("providers-list").addEventListener("click",event=>{
  if(event.target.closest("[data-clear-search]")){$("providers-search").value="";render();return}
  if(event.target.closest("[data-retry]")){load();return}
