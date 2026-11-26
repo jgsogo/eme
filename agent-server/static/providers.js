@@ -38,7 +38,7 @@ async function testModel(button){
  button.disabled=true;button.innerHTML="<span>Testing…</span>";result.className="provider-model-result pending";result.textContent="Sending a test completion request…";
  try{const results=await submitTest(card.dataset.provider,button.dataset.testModel);if(!results.length)throw new Error("The server returned no test result");renderResult(result,results[0])}
  catch(error){result.className="provider-model-result error";result.textContent="Test failed: "+error.message}
- finally{button.disabled=false;button.innerHTML=testIcon+"<span>Test</span>"}
+ finally{button.disabled=false;button.innerHTML=testIcon+"<span>Test model</span>"}
 }
 async function testProvider(button){
  const card=button.closest("[data-provider]"),rows=[...card.querySelectorAll(".provider-model")],modelButtons=rows.map(row=>row.querySelector("[data-test-model]"));
@@ -50,7 +50,7 @@ async function testProvider(button){
   results.forEach(result=>{const row=rows.find(candidate=>candidate.querySelector("[data-test-model]")?.dataset.testModel===result.model);if(row)renderResult(row.querySelector(".provider-model-result"),result)});
  }catch(error){
   rows.forEach(row=>{const result=row.querySelector(".provider-model-result");if(result.classList.contains("pending")){result.className="provider-model-result error";result.textContent="Test failed: "+error.message}});
- }finally{button.disabled=false;button.innerHTML=testIcon+"<span>Test all</span>";modelButtons.forEach(modelButton=>modelButton.disabled=false)}
+ }finally{button.disabled=false;button.innerHTML=testIcon+"<span>Test all models</span>";modelButtons.forEach(modelButton=>modelButton.disabled=false)}
 }
 async function load(){
  const button=$("providers-refresh");
