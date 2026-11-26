@@ -51,4 +51,5 @@ $mobile("conversations")?.addEventListener("click", event => {
 $mobile("notes-list")?.addEventListener("click", event => {
   if (event.target.closest("button[data-note-id]")) closeDrawer();
 });
+$mobile("unselect-notes")?.addEventListener("click", closeDrawer);
 document.addEventListener("keydown", event => { if (event.key === "Escape") closeDrawer(); });
