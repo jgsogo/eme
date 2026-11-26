@@ -559,6 +559,7 @@ body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-sc
 
 
 /* Recipes use a mobile master/detail transition while retaining the desktop split view. */
+@media (max-width: 759px) {
 body[data-layout="mobile"][data-page="meals"][data-recipe-view="list"] .recipes-view > .recipe-main {
   display: none;
 }
@@ -584,6 +585,7 @@ body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] .recipe
   display: block;
   flex: 1;
   min-width: 0;
+}
 }
 body[data-layout="mobile"][data-page="meals"] .recipe-back-button {
   display: none;
