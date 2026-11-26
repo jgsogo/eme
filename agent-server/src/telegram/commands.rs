@@ -185,11 +185,19 @@ async fn create_conversation(
         }
     };
 
-    let agent_options = agents
+    if agents.is_empty() {
+        let _ = gateway
+            .send_message(chat_id, "No agents are configured; conversation creation cancelled.")
+            .await;
+        return;
+    }
+    let mut agent_options = agents
         .iter()
-        .map(|agent| (agent.name.clone(), agent.name.clone()))
+        .enumerate()
+        .map(|(index, agent)| (agent.name.clone(), index.to_string()))
         .collect::<Vec<_>>();
-    let agent = match gateway
+    agent_options.push(("Cancel".to_owned(), "cancel".to_owned()));
+    let agent_selection = match gateway
         .ask_choice(
             chat_id,
             "Which agent should handle this conversation?",
@@ -204,15 +212,23 @@ async fn create_conversation(
             return;
         }
     };
-    if !agents.iter().any(|item| item.name == agent) {
+    if agent_selection == "cancel" {
         let _ = gateway
-            .send_message(
-                chat_id,
-                "Unknown agent. Creation cancelled; use /agents to browse agents.",
-            )
+            .send_message(chat_id, "Conversation creation cancelled.")
             .await;
         return;
     }
+    let Some(agent) = agent_selection
+        .parse::<usize>()
+        .ok()
+        .and_then(|index| agents.get(index))
+        .map(|agent| agent.name.clone())
+    else {
+        let _ = gateway
+            .send_message(chat_id, "Invalid agent selection. Conversation creation cancelled.")
+            .await;
+        return;
+    };
 
     let families = match family_service.list_families(user_id).await {
         Ok(value) => value,
@@ -226,9 +242,11 @@ async fn create_conversation(
     } else {
         let mut family_options = families
             .iter()
-            .map(|family| (family.name.clone(), family.id.to_string()))
+            .enumerate()
+            .map(|(index, family)| (family.name.clone(), index.to_string()))
             .collect::<Vec<_>>();
         family_options.push(("None".to_owned(), "none".to_owned()));
+        family_options.push(("Cancel".to_owned(), "cancel".to_owned()));
         let answer = match gateway
             .ask_choice(
                 chat_id,
@@ -244,17 +262,24 @@ async fn create_conversation(
                 return;
             }
         };
+        if answer == "cancel" {
+            let _ = gateway
+                .send_message(chat_id, "Conversation creation cancelled.")
+                .await;
+            return;
+        }
         if answer == "none" {
             None
         } else {
-            match families
-                .iter()
-                .find(|family| family.id.to_string() == answer)
+            match answer
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| families.get(index))
             {
                 Some(family) => Some(family.id),
                 None => {
                     let _ = gateway
-                        .send_message(chat_id, "Unknown family selection. Creation cancelled.")
+                        .send_message(chat_id, "Invalid family selection. Creation cancelled.")
                         .await;
                     return;
                 }
