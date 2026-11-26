@@ -489,7 +489,18 @@ impl TraktOAuthService {
                     return Err(error);
                 }
             };
-        let user = self.fetch_user_settings(&access_token).await?;
+        let user = match self.fetch_user_settings(&access_token).await {
+            Ok(user) => user,
+            Err(error) => {
+                let permanent = matches!(&error, TraktError::Api { status, .. }
+                    if *status == StatusCode::UNAUTHORIZED);
+                if permanent {
+                    let _ = self.external_connections
+                        .mark_connection_broken(owner_id, link.external_connection_id).await;
+                }
+                return Err(error);
+            }
+        };
         if user.username != link.provider_subject {
             return Err(TraktError::InvalidResponse(
                 "Trakt returned a different account than the one linked to this profile".into(),
