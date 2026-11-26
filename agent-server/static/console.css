@@ -1389,3 +1389,23 @@ body[data-page="conversations"] #conversations-table-body {
 .integration-broken-message,.integration-card-error{margin:12px 0 0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--err) 55%,transparent);border-radius:8px;background:color-mix(in srgb,var(--err) 10%,transparent);color:var(--err);font-size:12px;font-weight:650}
 #integrations-status.integration-status-error{color:var(--err);font-size:13px;font-weight:700;background:color-mix(in srgb,var(--err) 10%,transparent);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);border-radius:8px;padding:10px 12px;min-height:0}
 #integrations-status.integration-status-ok{color:var(--ok);font-weight:650}
+
+
+/* Keep conversation actions beside the title on desktop without changing mobile layout. */
+@media (min-width: 761px) {
+  body[data-page="conversations"] .conversation-item-card {
+    position: relative;
+  }
+  body[data-page="conversations"] .conversation-card-heading > strong {
+    padding-right: 96px;
+  }
+  body[data-page="conversations"] .conversation-card-footer > .conversation-card-actions {
+    position: absolute;
+    top: 9px;
+    right: 14px;
+    width: auto;
+    padding: 0;
+    align-self: auto;
+    justify-content: flex-end;
+  }
+}
