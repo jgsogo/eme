@@ -105,3 +105,10 @@ body[data-layout="mobile"] .notes-editor-panel textarea{min-height:160px}
 body[data-layout="mobile"] .notes-actions{flex-wrap:wrap}
 body[data-layout="mobile"] .notes-actions button{flex:1 1 auto}
 body[data-layout="mobile"] .notes-actions #back-to-notes{margin-left:0}
+
+/* Keep the mobile Notes master/detail views mutually exclusive. */
+body[data-layout="mobile"] .notes-overview[hidden],body[data-layout="mobile"] .notes-editor-panel[hidden]{display:none!important}
+body[data-layout="mobile"] .notes-sidebar-heading{display:flex;align-items:center;gap:8px}
+body[data-layout="mobile"] .notes-sidebar-heading #new-note{flex:1}
+body[data-layout="mobile"] .notes-sidebar-heading #unselect-notes{flex:none;white-space:nowrap}
+body[data-layout="mobile"] .notes-sidebar-heading #unselect-notes[hidden]{display:none}
