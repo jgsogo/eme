@@ -1393,3 +1393,23 @@ body[data-page="conversations"] #conversations-table-body {
     margin: 0;
   }
 }
+
+
+/* Keep conversation actions beside the title on desktop without changing mobile layout. */
+@media (min-width: 761px) {
+  body[data-page="conversations"] .conversation-item-card {
+    position: relative;
+  }
+  body[data-page="conversations"] .conversation-card-heading > strong {
+    padding-right: 96px;
+  }
+  body[data-page="conversations"] .conversation-card-footer > .conversation-card-actions {
+    position: absolute;
+    top: 9px;
+    right: 14px;
+    width: auto;
+    padding: 0;
+    align-self: auto;
+    justify-content: flex-end;
+  }
+}
