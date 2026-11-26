@@ -499,8 +499,10 @@ impl TraktOAuthService {
                 let permanent = matches!(&error, TraktError::Api { status, .. }
                     if *status == StatusCode::UNAUTHORIZED);
                 if permanent {
-                    let _ = self.external_connections
-                        .mark_connection_broken(owner_id, link.external_connection_id).await;
+                    let _ = self
+                        .external_connections
+                        .mark_connection_broken(owner_id, link.external_connection_id)
+                        .await;
                 }
                 return Err(error);
             }
