@@ -1256,3 +1256,56 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   body[data-layout="mobile"] .item-card-footnote { color:var(--muted);font-size:10px;line-height:1.4;overflow-wrap:anywhere; }
   body[data-layout="mobile"] .item-card-arrow { position:absolute;top:50%;right:14px;color:var(--muted);font-size:24px;line-height:1;transform:translateY(-50%); }
 }
+
+
+/* Conversation card actions sit in the top-right corner without triggering card navigation. */
+body[data-layout="mobile"][data-page="conversations"] .conversation-item-card {
+  cursor: pointer;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-top-right {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action:hover,
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action.danger:hover,
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action.danger:focus-visible {
+  border-color: var(--danger, #c44);
+  color: var(--danger, #c44);
+}
