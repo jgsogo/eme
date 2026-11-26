@@ -32,13 +32,14 @@ function installDesktopDatePicker(){
   popup.querySelectorAll("[data-month]").forEach(button=>button.addEventListener("click",()=>{month.setMonth(month.getMonth()+Number(button.dataset.month));render()}));
   popup.querySelectorAll("[data-date]").forEach(button=>button.addEventListener("click",()=>{field.value=button.dataset.date;field.dispatchEvent(new Event("change",{bubbles:true}));popup.hidden=true;toggle.setAttribute("aria-expanded","false")}));
  };
- const open=()=>{const date=/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(field.value)?parseDate(field.value):new Date();month=new Date(date.getFullYear(),date.getMonth(),1,12);render();popup.hidden=false;toggle.setAttribute("aria-expanded","true")};
+ const open=()=>{const date=/^\d{2}\/\d{2}\/\d{4}$/.test(field.value)?parseDate(field.value):new Date();month=new Date(date.getFullYear(),date.getMonth(),1,12);render();popup.hidden=false;toggle.setAttribute("aria-expanded","true")};
  toggle.addEventListener("click",()=>{if(popup.hidden)open();else{popup.hidden=true;toggle.setAttribute("aria-expanded","false")}});
  field.addEventListener("focus",()=>{if(popup.hidden)open()});
  field.addEventListener("keydown",event=>{if(event.key==="Escape"){popup.hidden=true;toggle.setAttribute("aria-expanded","false")}});
  document.addEventListener("pointerdown",event=>{if(!wrap.contains(event.target)){popup.hidden=true;toggle.setAttribute("aria-expanded","false")}});
 }
-\nfunction range(){const start=monday(parseDate($("shopping-start").value));const end=addDays(start,Number($("shopping-weeks").value)*7-1);return{start:dateString(start),end:dateString(end),startDate:start,endDate:end}}
+
+function range(){const start=monday(parseDate($("shopping-start").value));const end=addDays(start,Number($("shopping-weeks").value)*7-1);return{start:dateString(start),end:dateString(end),startDate:start,endDate:end}}
 async function loadList(){
  if(state.loading)return;state.loading=true;$("shopping-refresh").disabled=true;$("shopping-content").innerHTML='<p class="hint">Collecting ingredients from planned meals…</p>';
  try{
