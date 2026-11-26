@@ -17,8 +17,7 @@ body[data-layout="mobile"] .mobile-admin-main {
   width: 100%;
   max-width: 760px;
   margin: 0 auto;
-  padding: var(--mobile-admin-page-gap) var(--mobile-admin-page-gap)
-    calc(88px + env(safe-area-inset-bottom));
+  padding: var(--mobile-admin-page-gap);
   overflow-x: hidden !important;
   overflow-y: auto !important;
   overscroll-behavior-y: contain;
