@@ -89,12 +89,14 @@ impl CredentialCipher {
 #[serde(rename_all = "snake_case")]
 pub enum ExternalConnectionStatus {
     Active,
+    Broken,
     Revoked,
 }
 impl ExternalConnectionStatus {
     fn parse(s: &str) -> Result<Self, ExternalConnectionStorageError> {
         match s {
             "active" => Ok(Self::Active),
+            "broken" => Ok(Self::Broken),
             "revoked" => Ok(Self::Revoked),
             _ => Err(ExternalConnectionStorageError::Backend(format!(
                 "invalid connection status: {s}"
@@ -196,6 +198,11 @@ pub trait ExternalConnectionStore: Send + Sync {
         token: Option<String>,
         scopes: Vec<String>,
     ) -> Result<ExternalConnection, ExternalConnectionStorageError>;
+    async fn mark_connection_broken(
+        &self,
+        owner: UserId,
+        id: ExternalConnectionId,
+    ) -> Result<(), ExternalConnectionStorageError>;
     async fn revoke_connection(
         &self,
         owner: UserId,
@@ -399,6 +406,19 @@ impl ExternalConnectionStore for SqliteExternalConnectionStore {
             return Err(ExternalConnectionStorageError::NotFound);
         }
         load(&db, o, id)?.ok_or(ExternalConnectionStorageError::NotFound)
+    }
+    async fn mark_connection_broken(
+        &self,
+        o: UserId,
+        id: ExternalConnectionId,
+    ) -> Result<(), ExternalConnectionStorageError> {
+        let db = self.db.lock().await;
+        let now = Utc::now().to_rfc3339();
+        let n = db.execute(
+            "UPDATE external_connections SET status='broken',updated_at=?1 WHERE owner_id=?2 AND id=?3 AND status='active'",
+            params![now, o.to_string(), id.to_string()],
+        ).map_err(backend)?;
+        if n == 0 { Err(ExternalConnectionStorageError::NotFound) } else { Ok(()) }
     }
     async fn revoke_connection(
         &self,
