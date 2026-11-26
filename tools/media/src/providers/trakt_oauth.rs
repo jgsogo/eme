@@ -294,7 +294,12 @@ impl TraktOAuthService {
                     granted_scopes,
                 )
                 .await
-                .map_err(TraktError::ExternalStorage)?
+                .map_err(|error| match error {
+                    agent_storage::ExternalConnectionStorageError::NotFound => {
+                        TraktError::ConnectionUnavailable
+                    }
+                    error => TraktError::ExternalStorage(error),
+                })?
         } else {
             self.external_connections
                 .create_connection(NewExternalConnection {
@@ -388,11 +393,16 @@ impl TraktOAuthService {
         owner_id: UserId,
         connection_id: ExternalConnectionId,
     ) -> Result<(), TraktError> {
-        let connection = self
+        let connection = match self
             .external_connections
             .get_connection(owner_id, connection_id)
             .await
-            .map_err(TraktError::ExternalStorage)?;
+        {
+            Ok(connection) => connection,
+            // The media link can outlive its external-connection row.
+            Err(agent_storage::ExternalConnectionStorageError::NotFound) => None,
+            Err(error) => return Err(TraktError::ExternalStorage(error)),
+        };
         if let Some(connection) = connection
             && connection.status != ExternalConnectionStatus::Revoked
         {
@@ -580,11 +590,17 @@ impl TraktOAuthService {
         if link.owner_id != owner_id {
             return Err(TraktError::Forbidden);
         }
-        let connection = self
+        let connection = match self
             .external_connections
             .get_connection(owner_id, link.external_connection_id)
             .await
-            .map_err(TraktError::ExternalStorage)?;
+        {
+            Ok(connection) => connection,
+            // A stale media link must be reported as broken, not as a storage
+            // failure. The user can then disconnect and relink the account.
+            Err(agent_storage::ExternalConnectionStorageError::NotFound) => None,
+            Err(error) => return Err(TraktError::ExternalStorage(error)),
+        };
         // A linked profile whose external credential is revoked or no longer
         // exists cannot recover through a health check; it must be relinked.
         Ok(Some(match connection.map(|connection| connection.status) {
@@ -742,12 +758,17 @@ impl TraktTokenManager {
         owner_id: UserId,
         connection_id: ExternalConnectionId,
     ) -> Result<String, TraktError> {
-        let connection_metadata = self
+        let connection_metadata = match self
             .external_connections
             .get_connection(owner_id, connection_id)
             .await
-            .map_err(TraktError::ExternalStorage)?
-            .ok_or(TraktError::ConnectionUnavailable)?;
+        {
+            Ok(Some(connection)) => connection,
+            Ok(None) | Err(agent_storage::ExternalConnectionStorageError::NotFound) => {
+                return Err(TraktError::ConnectionUnavailable);
+            }
+            Err(error) => return Err(TraktError::ExternalStorage(error)),
+        };
         if connection_metadata.status != ExternalConnectionStatus::Active {
             return Err(TraktError::ConnectionUnavailable);
         }
