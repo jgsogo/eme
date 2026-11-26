@@ -4,23 +4,58 @@ const consoleBase=document.body.dataset.layout==="mobile"?"/mobile":"/console";
 const pendingInviteMatch=window.location.pathname.match(/^\/invite\/([a-fA-F0-9]{64})$/);
 let pendingInviteToken=pendingInviteMatch?pendingInviteMatch[1]:null;
 let familyActionHandler=null;
-const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
+const state={googleConnections:[],googleCalendars:{},traktProfiles:[],traktSummaries:{},activeIntegration:"google",agents:[],families:[],familyDetails:null,familyInvitations:[],conversations:[],showArchived:false,conversationSearch:"",notes:[],selectedNote:null,tasks:[],taskExecutions:[],selectedTask:null,selected:null,editingConversationId:null,selectedFamilyId:null,managedFamilyId:null,currentUserId:null,messageCount:0,messages:[],retry:null,runId:null,eventSource:null,runEvents:[],activeRuns:{}};
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>$(id)?.addEventListener(event,handler);
+function setProfileView(view){
+ if(document.body.dataset.layout!=="mobile")return;
+ document.body.dataset.profileView=view;
+ const back=$("profile-content-back"),menu=$("open-profile");
+ if(back)back.hidden=view!=="detail";
+ if(menu)menu.hidden=view==="detail";
+}
 async function api(path,options={}){const response=await fetch(path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const raw=await response.text();let body=null;try{body=raw?JSON.parse(raw):null}catch{body=raw}if(!response.ok)throw new Error(typeof body==="string"?body:body?.error||response.statusText);return body}
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function setStatus(message,kind=""){const node=$("run-status")||$("connection");if(node){node.textContent=message;node.className=(node.id==="run-status"?"run-status ":"hint ")+kind}}
-function renderAgents(){const previous=$("agent").value;$("agent").innerHTML=state.agents.map(a=>'<option value="'+escapeHtml(a.name)+'">'+escapeHtml(a.name)+'</option>').join("");if(state.agents.some(a=>a.name===previous))$("agent").value=previous;updateAgentDescription()}
-function updateAgentDescription(){const a=state.agents.find(x=>x.name===$("agent").value);$("agent-desc").textContent=a?[(a.capabilities||[]).join(", "),(a.tools||[]).length+" tools",a.description].filter(Boolean).join(" · "):""}
+function renderAgents(){const previous=$("agent")?.value||$("new-conversation-agent")?.value||"";const options=state.agents.map(a=>'<option value="'+escapeHtml(a.name)+'">'+escapeHtml(a.name)+'</option>').join("");if($("agent")){$("agent").innerHTML=options;if(state.agents.some(a=>a.name===previous))$("agent").value=previous;updateAgentDescription()}const dialogAgent=$("new-conversation-agent");if(dialogAgent){dialogAgent.innerHTML=options;if(state.agents.some(a=>a.name===previous))dialogAgent.value=previous}}
+function updateAgentDescription(){const dialogSelector=$("new-conversation-agent"),selector=dialogSelector||$("agent"),description=dialogSelector?$("new-conversation-agent-desc"):$("agent-desc");if(!selector||!description)return;const a=state.agents.find(x=>x.name===selector.value);description.textContent=a?[a.description,(a.capabilities||[]).join(", "),(a.tools||[]).length+" tools"].filter(Boolean).join(" · "):""}
 function renderConversations(){
  const query=state.conversationSearch.trim().toLocaleLowerCase();
  const conversations=state.conversations.filter(c=>!query||[c.title,c.agent,c.id].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
- const search=$("conversation-search");
- if(search&&search.value!==state.conversationSearch)search.value=state.conversationSearch;
- const archived=$("show-archived");
- if(archived)archived.checked=state.showArchived;
- $("conversations").innerHTML=conversations.length?conversations.map(c=>{const activeRun=state.activeRuns[c.id];return '<li data-id="'+escapeHtml(c.id)+'" class="'+(c.id===state.selected?"active":"")+'"><div class="conversation-row"><div class="conversation-main"><div class="conv-title">'+escapeHtml(c.title||"New conversation")+'</div><div class="conv-agent">'+escapeHtml(c.agent)+'</div><div class="conv-meta">'+new Date(c.updated_at).toLocaleString()+' · '+c.message_count+' messages · ~'+Number(c.history_tokens_estimate||0).toLocaleString()+' history tokens</div>'+(activeRun?'<div class="conv-run-status" aria-label="Agent is '+escapeHtml(activeRun.status)+'"><span class="conv-run-dot"></span>Agent '+(activeRun.status==="queued"?"queued":"working")+'</div>':"")+'</div><div class="conversation-actions"><button type="button" class="secondary conversation-archive" data-archive-id="'+escapeHtml(c.id)+'" aria-label="'+(state.showArchived?"Restore ":"Archive ")+escapeHtml(c.title||"conversation")+'">'+(state.showArchived?"Restore":"Archive")+'</button><button type="button" class="danger conversation-delete" data-delete-id="'+escapeHtml(c.id)+'" aria-label="Delete '+escapeHtml(c.title||"conversation")+'" title="Delete conversation">Delete</button></div></div></li>'}).join(""):'<li style="cursor:default;color:var(--muted)">'+(query?"No conversations match your search.":state.showArchived?"No archived conversations.":"No conversations yet.")+'</li>';
+ const search=$("conversation-search");if(search&&search.value!==state.conversationSearch)search.value=state.conversationSearch;
+ const archived=$("show-archived");if(archived)archived.checked=state.showArchived;
+ const legacyList=$("conversations");
+ if(legacyList)legacyList.innerHTML=conversations.map(c=>'<li data-id="'+escapeHtml(c.id)+'">'+escapeHtml(c.title||"New conversation")+'</li>').join("");
+ renderConversationsTable(conversations);
 }
+function renderConversationsTable(conversations){
+ const body=$("conversations-table-body");if(!body)return;
+ body.innerHTML=conversations.length?conversations.map(c=>{
+  const family=state.families.find(f=>f.id===c.selected_family_id);
+  const activeRun=state.activeRuns[c.id];
+  const updated=c.updated_at?new Date(c.updated_at).toLocaleString():"—";
+  const actionLabel=state.showArchived?"Restore":"Archive";
+  const archiveIcon=state.showArchived?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v13H3zM2 3h20v4H2zM10 11l2 2 2-2M12 13V9"/></svg>':'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v13H3zM2 3h20v4H2zM12 10v7m-3-3 3 3 3-3"/></svg>';
+  const actions='<div class="conversation-card-actions"><button type="button" class="conversation-card-action" data-edit-id="'+escapeHtml(c.id)+'" aria-label="Edit conversation" title="Edit conversation" '+(activeRun?'disabled':'')+'><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg></button><button type="button" class="conversation-card-action" data-archive-id="'+escapeHtml(c.id)+'" aria-label="'+actionLabel+' conversation" title="'+actionLabel+'">'+archiveIcon+'</button><button type="button" class="conversation-card-action danger" data-delete-id="'+escapeHtml(c.id)+'" aria-label="Remove conversation" title="Remove"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>';
+  return '<div class="item-card conversation-item-card" data-conversation-id="'+escapeHtml(c.id)+'" role="group" tabindex="0" aria-label="Conversation: '+escapeHtml(c.title||"New conversation")+'"><div class="conversation-card-heading"><strong>'+escapeHtml(c.title||"New conversation")+'</strong>'+actions+'</div><div class="conversation-card-agent">'+escapeHtml(c.agent||"No agent assigned")+'</div><div class="conversation-card-footer"><div class="conversation-card-stats"><span class="conversation-card-family">'+escapeHtml(family?.name||"Private")+'</span><span>'+escapeHtml(c.message_count||0)+' messages</span><span>~'+Number(c.history_tokens_estimate||0).toLocaleString()+' tokens</span>'+(activeRun?'<span class="conversation-card-running">● '+(activeRun.status==="queued"?"Queued":"Running")+'</span>':'')+'</div><span class="conversation-card-updated">Updated '+escapeHtml(updated)+'</span></div><span class="item-card-arrow" aria-hidden="true">›</span></div>';
+ }).join(""):'<div class="tasks-table-empty"><strong>'+(state.conversations.length?"No conversations found":state.showArchived?"No archived conversations":"No conversations yet")+'</strong><span>'+(state.conversations.length?"Try changing your search.":"Create a conversation to get started.")+'</span></div>';
+ const info=$("conversations-page-info");if(info)info.textContent=conversations.length?conversations.length+" conversations":"0 conversations";
+}
+function showConversationsOverview(){
+ document.body.dataset.conversationView="list";
+ $("conversations-overview").hidden=false;$("conversation-detail-view").hidden=true;
+ if($("open-conversations"))$("open-conversations").hidden=false;$("back-to-conversations").hidden=true;
+ $("conversations-main-title").textContent="All conversations";
+ $("conversations-main-subtitle").textContent="Your conversations, ordered by most recently updated";
+}
+function showConversationDetail(){
+ document.body.dataset.conversationView="detail";
+ $("conversations-overview").hidden=true;$("conversation-detail-view").hidden=false;
+ if($("open-conversations"))$("open-conversations").hidden=true;$("back-to-conversations").hidden=false;
+ $("conversations-main-title").textContent="Conversation";
+ $("conversations-main-subtitle").textContent="View and continue the conversation";
+}
+
 function messageParts(message){if(!message||typeof message!=="object")return null;const [kind,value]=Object.entries(message)[0]||[];if(!kind)return null;return {kind:kind.toLowerCase(),value:value||{}}}
 function renderMarkdown(source){
  if(typeof marked==="undefined"||typeof DOMPurify==="undefined")return escapeHtml(source).replace(/\\n/g,"<br>");
@@ -84,7 +119,7 @@ function renderRunEvents(events=[]){
   return '<li class="run-event run-event-'+escapeHtml(event.kind)+'"><strong>'+escapeHtml(labels[event.kind]||event.kind)+'</strong><span>'+escapeHtml(iteration+details.join(" · "))+'</span></li>';
  }).join(""):"<li>No events yet.</li>"
 }
-function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId}
+function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId;if($("edit-conversation-settings"))$("edit-conversation-settings").disabled=!state.selected||!!state.runId}
 async function loadConversations(){const [conversations,runs]=await Promise.all([api(state.showArchived?"/conversations/archived":"/conversations"),api("/runs")]);state.conversations=conversations;state.activeRuns={};for(const run of runs){if(run.conversation_id&&["queued","running"].includes(run.status)&&!state.activeRuns[run.conversation_id])state.activeRuns[run.conversation_id]=run}renderConversations()}
 async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies();renderNoteFamilyFilter()}
 function renderNoteFamilyFilter(){
@@ -93,15 +128,59 @@ function renderNoteFamilyFilter(){
  select.innerHTML='<option value="">All notes</option><option value="private">Private notes</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
  if([...select.options].some(option=>option.value===selected))select.value=selected;
 }
-function renderNotes(){
- const target=$("notes-list");if(!target)return;
+let notesPage=1;
+const NOTES_PAGE_SIZE=10;
+function filteredNotes(){
  const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
  const familyFilter=$("note-family-filter")?.value||"";
- const notes=state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter)));
- target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
+ return state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter))).sort((a,b)=>new Date(b.updated_at||b.created_at||0)-new Date(a.updated_at||a.created_at||0));
+}
+function noteDate(note){
+ const value=note.updated_at||note.created_at;
+ return value?new Date(value).toLocaleDateString(): "—";
+}
+function renderNotes(){
+ const target=$("notes-list");if(!target)return;
+ if(!$("notes-overview")){
+  const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
+  const familyFilter=$("note-family-filter")?.value||"";
+  const notes=state.notes.filter(note=>(!query||String(note.title||"").toLocaleLowerCase().includes(query))&&(!familyFilter||(familyFilter==="private"?!note.family_id:note.family_id===familyFilter)));
+  target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(new Date(note.updated_at).toLocaleDateString())+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
+  return;
+ }
+ const notes=filteredNotes();
+ target.innerHTML=notes.length?notes.map(note=>'<button type="button" class="family-list-item'+(note.id===state.selectedNote?" active":"")+'" data-note-id="'+escapeHtml(note.id)+'"><strong>'+escapeHtml(note.title)+'</strong><span>'+(note.family_id?"Shared with "+escapeHtml(state.families.find(f=>f.id===note.family_id)?.name||"a family"):"Private")+' · '+escapeHtml(noteDate(note))+'</span></button>').join(""):'<div class="empty">'+(state.notes.length?'No notes match these filters. <button type="button" class="secondary" data-clear-note-filters>Clear filters</button>':'No notes yet. Create one to get started.')+'</div>';
+ renderNotesTable();
+}
+function renderNotesTable(){
+ const body=$("notes-table-body");if(!body)return;
+ const notes=filteredNotes();
+ body.innerHTML=notes.length?notes.map(note=>{
+  const family=note.family_id?state.families.find(f=>f.id===note.family_id)?.name||"Family":null;
+  const sharing=note.family_id?"Shared note · "+family:"Private note";
+  return '<button type="button" class="item-card note-item-card" data-note-id="'+escapeHtml(note.id)+'" aria-label="Open '+escapeHtml(note.title||"Untitled note")+'"><div class="item-card-heading"><strong>'+escapeHtml(note.title||"Untitled note")+'</strong></div><div class="item-card-meta"><span>'+escapeHtml(sharing)+'</span><span>Updated · '+escapeHtml(noteDate(note))+'</span></div><span class="item-card-arrow" aria-hidden="true">›</span></button>';
+ }).join(""):'<div class="tasks-table-empty"><strong>'+(state.notes.length?"No notes found":"No notes yet")+'</strong><span>'+(state.notes.length?"Try changing your search or filters.":"Create a note to keep something worth remembering.")+'</span></div>';
+ const info=$("notes-page-info");if(info)info.textContent=notes.length?notes.length+" notes":"0 notes";
+}
+function showNotesOverview(){
+ document.body.dataset.noteView="list";
+ $("notes-overview").hidden=false;$("notes-editor-panel").hidden=true;
+ if($("open-notes"))$("open-notes").hidden=false;
+ if($("back-to-notes"))$("back-to-notes").hidden=true;
+ $("notes-main-title").textContent="All notes";
+ $("notes-main-subtitle").textContent="Your notes, ordered by most recently updated";
+}
+function showNoteEditor(title){
+ document.body.dataset.noteView="detail";
+ $("notes-overview").hidden=true;$("notes-editor-panel").hidden=false;
+ if($("open-notes"))$("open-notes").hidden=true;
+ if($("back-to-notes"))$("back-to-notes").hidden=false;
+ $("notes-main-title").textContent=title;
+ $("notes-main-subtitle").textContent="View and edit note details";
 }
 function resetNoteEditor(){
  state.selectedNote=null;renderNotes();
+ if($("notes-overview"))showNotesOverview();
  if($("note-heading"))$("note-heading").textContent="Select a note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
  for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=true;
@@ -109,6 +188,7 @@ function resetNoteEditor(){
 }
 function startNewNote(){
  state.selectedNote="new";renderNotes();
+ if($("notes-overview"))showNoteEditor("New note");
  if($("note-heading"))$("note-heading").textContent="New note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
  for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=false;
@@ -119,13 +199,14 @@ async function selectNote(id){
  const note=state.notes.find(item=>item.id===id);if(!note)return;
  try{
   const full=await api("/notes/"+encodeURIComponent(id));state.selectedNote=id;renderNotes();
+  if($("notes-overview"))showNoteEditor(full.title);
   if($("note-heading"))$("note-heading").textContent=full.title;
   $("note-title").value=full.title;$("note-content").value=full.content;$("note-family").value=full.family_id||"";
   const editable=full.owner_id===state.currentUserId;
   for(const field of ["note-title","note-content","note-family","save-note"])$(field).disabled=!editable;
   $("delete-note").disabled=!editable;
   $("notes-status").textContent=!editable?"Shared note · read-only":(full.family_id?"Shared with "+(state.families.find(f=>f.id===full.family_id)?.name||"a family"):"Private note");
- }catch(e){$("notes-status").textContent=e.message}
+ }catch(e){$("notes-status").textContent=e.message;if($("notes-main-subtitle"))$("notes-main-subtitle").textContent="Unable to open note: "+e.message}
 }
 function renderNoteFamilies(){
  const select=$("note-family");if(!select)return;const selected=select.value;
@@ -135,8 +216,8 @@ function renderNoteFamilies(){
 async function loadNotes(){
  const button=$("refresh-notes");if(button)button.disabled=true;
  $("notes-list").innerHTML='<div class="empty" role="status">Loading notes…</div>';
- try{state.notes=await api("/notes");renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
- catch(e){$("notes-list").innerHTML='<div class="empty" role="alert">Unable to load notes: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-notes>Try again</button></p></div>'}
+ try{state.notes=await api("/notes");notesPage=1;renderNotes();if(state.selectedNote&&!state.notes.some(n=>n.id===state.selectedNote))resetNoteEditor()}
+ catch(e){const error='<div class="empty" role="alert">Unable to load notes: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-notes>Try again</button></p></div>';$("notes-list").innerHTML=error;if($("notes-table-body"))$("notes-table-body").innerHTML='<tr><td colspan="3">'+error+'</td></tr>'}
  finally{if(button)button.disabled=false}
 }
 async function saveNote(event){
@@ -370,6 +451,7 @@ async function deleteFamily(){
 }
 async function loadFamilyDetails(familyId){
  state.managedFamilyId=familyId||null;
+ setProfileView(familyId?"detail":"list");
  $("family-empty").hidden=!!familyId;$("family-management").hidden=!familyId;
  if(!familyId){state.familyDetails=null;state.familyInvitations=[];$("managed-family-name").textContent="Select a family";$("managed-family-meta").textContent="Choose a family to manage its members and invitations.";renderFamiliesList();renderFamilyMembers();renderFamilyInvitations();renderFamilyLifecycle();return}
  const family=state.families.find(item=>item.id===familyId);
@@ -397,10 +479,65 @@ async function renameFamily(){
  catch(e){setStatus(e.message,"error")}
 }
 
-async function selectConversation(id){closeRunStream();state.runId=null;state.runEvents=[];state.selected=id;state.retry=null;state.messages=[];renderRunEvents([]);try{localStorage.setItem("eme.selectedConversation",id)}catch{}renderConversations();$("messages").innerHTML='<div class="empty">Loading conversation…</div>';try{const [c,runs]=await Promise.all([api("/conversations/"+encodeURIComponent(id)),api("/conversations/"+encodeURIComponent(id)+"/runs")]);if(state.selected!==id)return;$("conversation-title").textContent=c.title||"New conversation";$("conversation-meta").textContent="Agent · "+c.agent+" · Conversation "+c.id+" · ~"+Number(c.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";$("rename-conversation").disabled=false;$("agent").value=c.agent;updateAgentDescription();state.selectedFamilyId=c.selected_family_id||null;renderFamilySelector();state.messageCount=(c.messages||[]).length;state.messages=c.messages||[];const activeRun=runs.find(run=>["queued","running"].includes(run.status));if(activeRun){state.runId=activeRun.run_id;state.activeRuns[id]=activeRun;const alreadyShown=state.messages.some(message=>{const part=messageParts(message);return part?.kind==="user"&&part.value.content===activeRun.input});if(!alreadyShown)state.messages=[...state.messages,{user:{content:activeRun.input}}];renderMessages(state.messages,{label:activeRun.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+activeRun.status)}else{delete state.activeRuns[id];renderMessages(state.messages);setStatus("")}renderConversations();setComposerEnabled(!activeRun);if(activeRun)connectRunStream(id,activeRun.run_id,state.messageCount,activeRun.input)}catch(e){if(state.selected===id){setStatus(e.message,"error");setComposerEnabled(true)}}}
-async function createConversation(){const agent=$("agent").value;if(!agent)return;try{const c=await api("/conversations",{method:"POST",body:JSON.stringify({agent,family_id:state.selectedFamilyId})});state.showArchived=false;await loadConversations();await selectConversation(c.id);$("prompt").focus()}catch(e){setStatus(e.message,"error")}}
-async function renameConversation(){if(!state.selected)return;const current=state.conversations.find(c=>c.id===state.selected);if(!current)return;const title=window.prompt("Conversation name",current.title||"New conversation");if(title===null)return;if(!title.trim()){setStatus("Conversation name must not be empty","error");return}try{const updated=await api("/conversations/"+encodeURIComponent(state.selected),{method:"PUT",body:JSON.stringify({title})});state.conversations=state.conversations.map(c=>c.id===updated.id?{...c,...updated}:c);$("conversation-title").textContent=updated.title;$("conversation-meta").textContent="Agent · "+updated.agent+" · Conversation "+updated.id+" · ~"+Number(updated.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";renderConversations();setStatus("Conversation renamed","ok")}catch(e){setStatus(e.message,"error")}}
-function clearSelectedConversation(){closeRunStream();state.runId=null;state.runEvents=[];state.selected=null;try{localStorage.removeItem("eme.selectedConversation")}catch{}state.selectedFamilyId=null;renderFamilySelector();state.messageCount=0;state.messages=[];$("conversation-title").textContent="No conversation selected";$("conversation-meta").textContent="Create a conversation to get started";$("rename-conversation").disabled=true;$("messages").innerHTML='<div class="empty">Choose an existing conversation or create a new one.</div>';$("prompt").value="";setComposerEnabled(false);renderConversations()}
+async function selectConversation(id){if($('conversation-detail-view'))showConversationDetail();closeRunStream();state.runId=null;state.runEvents=[];state.selected=id;state.retry=null;state.messages=[];renderRunEvents([]);try{localStorage.setItem("eme.selectedConversation",id)}catch{}renderConversations();$("messages").innerHTML='<div class="empty">Loading conversation…</div>';try{const [c,runs]=await Promise.all([api("/conversations/"+encodeURIComponent(id)),api("/conversations/"+encodeURIComponent(id)+"/runs")]);if(state.selected!==id)return;$("conversation-title").textContent=c.title||"New conversation";$("conversation-meta").textContent="Agent · "+c.agent+" · Conversation "+c.id+" · ~"+Number(c.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";$("edit-conversation-settings").disabled=false;if($("agent"))$("agent").value=c.agent;updateAgentDescription();state.selectedFamilyId=c.selected_family_id||null;renderFamilySelector();state.messageCount=(c.messages||[]).length;state.messages=c.messages||[];const activeRun=runs.find(run=>["queued","running"].includes(run.status));if(activeRun){state.runId=activeRun.run_id;state.activeRuns[id]=activeRun;const alreadyShown=state.messages.some(message=>{const part=messageParts(message);return part?.kind==="user"&&part.value.content===activeRun.input});if(!alreadyShown)state.messages=[...state.messages,{user:{content:activeRun.input}}];renderMessages(state.messages,{label:activeRun.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+activeRun.status)}else{delete state.activeRuns[id];renderMessages(state.messages);setStatus("")}renderConversations();setComposerEnabled(!activeRun);if(activeRun)connectRunStream(id,activeRun.run_id,state.messageCount,activeRun.input)}catch(e){if(state.selected===id){setStatus(e.message,"error");setComposerEnabled(true)}}}
+function openNewConversationDialog(){const dialog=$("new-conversation-dialog");if(!dialog)return;const name=$("new-conversation-name"),family=$("new-conversation-family"),agent=$("new-conversation-agent");name.value="New conversation";family.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");family.value=state.families.some(f=>f.id===state.selectedFamilyId)?state.selectedFamilyId:"";const preferred=$("agent")?.value||agent.value;if(state.agents.some(a=>a.name===preferred))agent.value=preferred;updateAgentDescription();$("new-conversation-status").textContent="";$("new-conversation-submit").disabled=!state.agents.length;dialog.showModal();name.focus();name.select()}
+async function createConversation(event){event.preventDefault();const name=$("new-conversation-name").value.trim(),agent=$("new-conversation-agent").value,familyId=$("new-conversation-family").value||null,status=$("new-conversation-status"),button=$("new-conversation-submit");if(!name){status.textContent="Conversation name must not be empty.";return}if(!agent){status.textContent="Choose an agent.";return}button.disabled=true;status.textContent="Creating conversation…";try{const c=await api("/conversations",{method:"POST",body:JSON.stringify({agent,family_id:familyId})});const updated=await api("/conversations/"+encodeURIComponent(c.id),{method:"PUT",body:JSON.stringify({title:name})});state.showArchived=false;state.selectedFamilyId=familyId;$("new-conversation-dialog").close();await loadConversations();await selectConversation(updated.id||c.id);$("prompt").focus()}catch(e){status.textContent=e.message;setStatus(e.message,"error")}finally{button.disabled=false}}
+function openEditConversationDialog(id=state.selected){
+ if(!id)return;
+ const conversation=state.conversations.find(c=>c.id===id);
+ if(!conversation||state.activeRuns[id]||(state.selected===id&&state.runId))return;
+ state.editingConversationId=id;
+ const dialog=$("edit-conversation-dialog"),name=$("edit-conversation-name"),family=$("edit-conversation-family");
+ name.value=conversation.title||"New conversation";
+ family.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");
+ family.value=conversation.selected_family_id||"";
+ $("edit-conversation-status").textContent="";
+ $("edit-conversation-save").disabled=false;
+ dialog.showModal();name.focus();name.select();
+}
+async function saveConversationSettings(event){
+ event.preventDefault();
+ const id=state.editingConversationId;
+ if(!id||state.activeRuns[id]||(state.selected===id&&state.runId))return;
+ const name=$("edit-conversation-name").value.trim(),familyId=$("edit-conversation-family").value||null;
+ const status=$("edit-conversation-status"),button=$("edit-conversation-save");
+ if(!name){status.textContent="Conversation name must not be empty.";return}
+ const previous=state.conversations.find(c=>c.id===id);
+ if(!previous)return;
+ button.disabled=true;status.textContent="Saving changes…";
+ try{
+  let updated=previous;
+  if(name!==(previous.title||"New conversation"))updated=await api("/conversations/"+encodeURIComponent(id),{method:"PUT",body:JSON.stringify({title:name})});
+  if(familyId!==(previous.selected_family_id||null)){
+   const familyUpdated=await api("/conversations/"+encodeURIComponent(id)+"/family",{method:"PUT",body:JSON.stringify({family_id:familyId})});
+   updated={...updated,...familyUpdated};
+  }
+  const selectedFamilyId=updated.selected_family_id??familyId;
+  state.conversations=state.conversations.map(c=>c.id===id?{...c,...updated,title:updated.title||name,selected_family_id:selectedFamilyId}:c);
+  if(state.selected===id){
+   state.selectedFamilyId=selectedFamilyId;
+   $("conversation-title").textContent=updated.title||name;
+   $("conversation-meta").textContent="Agent · "+(updated.agent||previous.agent)+" · Conversation "+id+" · ~"+Number(updated.history_tokens_estimate??previous.history_tokens_estimate??0).toLocaleString()+" history tokens (estimated)";
+  }
+  renderConversations();
+  $("edit-conversation-dialog").close();
+  setStatus("Conversation settings saved","ok");
+ }catch(error){
+  status.textContent=error.message;
+  setStatus(error.message,"error");
+  try{
+   const latest=await api("/conversations/"+encodeURIComponent(id));
+   state.conversations=state.conversations.map(c=>c.id===id?{...c,...latest}:c);
+   if(state.selected===id){
+    state.selectedFamilyId=latest.selected_family_id||null;
+    $("conversation-title").textContent=latest.title||"New conversation";
+    renderFamilySelector();
+   }
+   renderConversations();
+  }catch{}
+ }finally{button.disabled=false}
+}
+function clearSelectedConversation(){if($('conversations-overview'))showConversationsOverview();closeRunStream();state.runId=null;state.runEvents=[];state.selected=null;try{localStorage.removeItem("eme.selectedConversation")}catch{}state.selectedFamilyId=null;renderFamilySelector();state.messageCount=0;state.messages=[];$("conversation-title").textContent="No conversation selected";$("conversation-meta").textContent="Create a conversation to get started";$("edit-conversation-settings").disabled=true;$("messages").innerHTML='<div class="empty">Choose an existing conversation or create a new one.</div>';$("prompt").value="";setComposerEnabled(false);renderConversations()}
 async function archiveConversation(id){
  const conversation=state.conversations.find(c=>c.id===id);if(!conversation)return;
  const restoring=state.showArchived;
@@ -470,9 +607,14 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
  };
  setStatus("Running · "+runId.slice(0,8));
 }
-on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",renderTasks);on("tasks-enabled-only","change",renderTasks);on("note-search","input",renderNotes);on("note-family-filter","change",renderNotes);
-on("new-task","click",startNewTask);on("refresh-tasks","click",loadTasks);on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("new-note","click",startNewNote);on("refresh-notes","click",loadNotes);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
-on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("family-selector","change",async()=>{if(!state.selected)return;const selector=$("family-selector"),previous=state.selectedFamilyId;selector.disabled=true;try{const updated=await api("/conversations/"+encodeURIComponent(state.selected)+"/family",{method:"PUT",body:JSON.stringify({family_id:selector.value||null})});state.selectedFamilyId=updated.selected_family_id||null;selector.value=state.selectedFamilyId||"";setStatus(state.selectedFamilyId?"Family context updated":"Family context cleared","ok")}catch(e){selector.value=previous||"";setStatus(e.message,"error")}finally{selector.disabled=!state.selected||!!state.runId}});on("rename-conversation","click",renameConversation);on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("agent","change",updateAgentDescription);on("new-conversation","click",createConversation);on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
+on("families-list","click",e=>{const item=e.target.closest("button[data-family-id]");if(item)loadFamilyDetails(item.dataset.familyId)});on("family-search","input",renderFamiliesList);on("family-members-search","input",renderFamilyMembers);on("family-invitations-search","input",renderFamilyInvitations);on("task-search","input",()=>{tasksPage=1;renderTasks()});on("tasks-enabled-only","change",()=>{tasksPage=1;renderTasks()});on("note-search","input",()=>{notesPage=1;renderNotes()});on("note-family-filter","change",()=>{notesPage=1;renderNotes()});
+function updateListFabVisibility(overview,button){if(!overview||!button)return;button.hidden=overview.scrollTop>8;}
+for(const [overviewId,buttonId] of [["conversations-overview","new-conversation"],["tasks-overview","new-task"],["notes-overview","new-note"]]){
+ const overview=$(overviewId),button=$(buttonId);
+ if(overview&&button){overview.addEventListener("scroll",()=>updateListFabVisibility(overview,button),{passive:true});updateListFabVisibility(overview,button);}
+}
+on("new-task","click",startNewTask);on("back-to-tasks","click",resetTaskEditor);on("tasks-prev-page","click",()=>{tasksPage--;renderTasksTable()});on("tasks-next-page","click",()=>{tasksPage++;renderTasksTable()});on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;tasksPage=1;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("tasks-table-body","click",e=>{const row=e.target.closest("[data-task-id]");if(row)selectTask(row.dataset.taskId)});on("tasks-table-body","keydown",e=>{const row=e.target.closest("[data-task-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectTask(row.dataset.taskId)}});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{const row=e.target.closest("[data-note-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectNote(row.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("back-to-notes","click",resetNoteEditor);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("edit-conversation-settings","click",openEditConversationDialog);on("edit-conversation-form","submit",saveConversationSettings);on("edit-conversation-cancel","click",()=> $("edit-conversation-dialog").close());on("edit-conversation-dialog","click",event=>{if(event.target===$("edit-conversation-dialog"))$("edit-conversation-dialog").close()});on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("new-conversation","click",openNewConversationDialog);on("new-conversation-form","submit",createConversation);on("new-conversation-agent","change",updateAgentDescription);on("new-conversation-close","click",()=>$("new-conversation-dialog").close());on("new-conversation-dialog","click",event=>{if(event.target===$("new-conversation-dialog"))$("new-conversation-dialog").close()});on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
  const button=$("refresh-tasks");if(button)button.disabled=true;
  $("tasks-list").innerHTML='<div class="empty" role="status">Loading tasks…</div>';
@@ -480,12 +622,52 @@ async function loadTasks(){
  catch(e){$("tasks-list").innerHTML='<div class="empty" role="alert">Unable to load tasks: '+escapeHtml(e.message)+'<p><button type="button" class="secondary" data-retry-tasks>Try again</button></p></div>'}
  finally{if(button)button.disabled=false}
 }
-function renderTasks(){
+let tasksPage=1;
+const TASKS_PAGE_SIZE=10;
+function filteredTasks(){
  const query=$("task-search")?.value.trim().toLocaleLowerCase()||"";
  const enabledOnly=$("tasks-enabled-only")?.checked||false;
- const tasks=state.tasks.filter(task=>(!enabledOnly||task.enabled)&&[task.name,task.description,task.agent,task.schedule||"One-time"].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
- $("tasks-list").innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
+ return state.tasks.filter(task=>(!enabledOnly||task.enabled)&&[task.name,task.description,task.agent,task.schedule||"One-time"].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
 }
+function taskScheduleLabel(task){
+ if(task.schedule)return task.schedule;
+ if(task.at)return "Once";
+ return "One-time";
+}
+function renderTasks(){
+ const tasks=filteredTasks();
+ const target=$("tasks-list");
+ if(target)target.innerHTML=tasks.length?tasks.map(task=>'<button type="button" class="family-list-item '+(task.id===state.selectedTask?"active":"")+'" data-task-id="'+escapeHtml(task.id)+'"><strong>'+escapeHtml(task.name)+'</strong><span>'+(task.enabled?"Enabled":"Disabled")+' · '+escapeHtml(task.schedule||"One-time")+(task.next_run?' · Next '+escapeHtml(new Date(task.next_run).toLocaleString()):'')+'</span></button>').join(""):'<div class="empty">'+(state.tasks.length?'No tasks match these filters. <button type="button" class="secondary" data-clear-task-filters>Clear filters</button>':'No tasks yet. Create one to get started.')+'</div>';
+ renderTasksTable(tasks);
+}
+function renderTasksTable(tasks=filteredTasks()){
+ const body=$("tasks-table-body");if(!body)return;
+ body.innerHTML=tasks.length?tasks.map(task=>{
+  const next=task.next_run||task.at;
+  const nextLabel=next?new Date(next).toLocaleString():"";
+  return '<button type="button" class="item-card task-item-card" data-task-id="'+escapeHtml(task.id)+'" aria-label="Open '+escapeHtml(task.name||"Untitled task")+'"><div class="item-card-heading"><strong>'+escapeHtml(task.name||"Untitled task")+'</strong><span class="tasks-status-label '+(task.enabled?"enabled":"disabled")+'">'+(task.enabled?"Enabled":"Disabled")+'</span></div><p class="item-card-description">'+escapeHtml(task.description||task.agent||"No description")+'</p><div class="item-card-meta"><span class="item-card-tag">'+escapeHtml(taskScheduleLabel(task))+'</span><span>Agent · '+escapeHtml(task.agent||"—")+'</span></div>'+(nextLabel?'<div class="item-card-footnote">Next run · '+escapeHtml(nextLabel)+'</div>':'')+'<span class="item-card-arrow" aria-hidden="true">›</span></button>';
+ }).join(""):'<div class="tasks-table-empty"><strong>'+(state.tasks.length?"No tasks found":"No tasks yet")+'</strong><span>'+(state.tasks.length?"Try changing your search or filters.":"Create a task to get started.")+'</span></div>';
+ const info=$("tasks-page-info");if(info)info.textContent=tasks.length?tasks.length+" tasks":"0 tasks";
+}
+function showTasksOverview(){
+ document.body.dataset.taskView="list";
+ const overview=$("tasks-overview"),editor=$("task-editor-view");
+ if(!overview||!editor)return;
+ overview.hidden=false;editor.hidden=true;
+ if($("open-tasks"))$("open-tasks").hidden=false;$("back-to-tasks").hidden=true;
+ $("tasks-main-title").textContent="All tasks";
+ $("tasks-main-subtitle").textContent="Your tasks, including their schedules and status";
+}
+function showTaskEditor(title){
+ document.body.dataset.taskView="detail";
+ const overview=$("tasks-overview"),editor=$("task-editor-view");
+ if(!overview||!editor)return;
+ overview.hidden=true;editor.hidden=false;
+ if($("open-tasks"))$("open-tasks").hidden=true;$("back-to-tasks").hidden=false;
+ $("tasks-main-title").textContent=title;
+ $("tasks-main-subtitle").textContent="View and edit task details";
+}
+
 function renderTaskAgents(){
  const select=$("task-agent"),selected=select.value;
  select.innerHTML=state.agents.map(agent=>'<option value="'+escapeHtml(agent.name)+'">'+escapeHtml(agent.name)+'</option>').join("");
@@ -497,19 +679,41 @@ function renderTaskFamilies(){
  select.innerHTML='<option value="">No family context</option>'+state.families.map(family=>'<option value="'+escapeHtml(family.id)+'">'+escapeHtml(family.name)+'</option>').join("");
  select.value=state.families.some(family=>family.id===selected)?selected:"";
 }
-function setTaskSection(active){
- const tabs=document.querySelectorAll("[data-task-section-tab]");
- for(const tab of tabs){const selected=tab.dataset.taskSectionTab===active;tab.classList.toggle("active",selected);tab.setAttribute("aria-selected",String(selected));}
+function setTaskSection(active,focus=false){
+ const tabs=[...document.querySelectorAll("[data-task-section-tab]")];
+ const selectedTab=tabs.find(tab=>tab.dataset.taskSectionTab===active&&!tab.disabled);
+ if(!selectedTab)return;
+ for(const tab of tabs){
+  const selected=tab===selectedTab;
+  tab.classList.toggle("active",selected);
+  tab.setAttribute("aria-selected",String(selected));
+  tab.tabIndex=selected?0:-1;
+ }
  for(const section of document.querySelectorAll("[data-task-section]"))section.hidden=section.dataset.taskSection!==active;
+ if(focus)selectedTab.focus();
 }
 function updateTaskSectionTabs(active="details"){
  const historyTab=document.querySelector("[data-task-section-tab=\"history\"]");
  if(historyTab)historyTab.disabled=!state.selectedTask||state.selectedTask==="new";
  setTaskSection(historyTab?.disabled?"details":active);
 }
-on("task-section-nav","click",event=>{const tab=event.target.closest("[data-task-section-tab]");if(tab&&!tab.disabled) setTaskSection(tab.dataset.taskSectionTab)});
+on("task-section-nav","click",event=>{const tab=event.target.closest("[data-task-section-tab]");if(tab&&!tab.disabled)setTaskSection(tab.dataset.taskSectionTab)});
+on("task-section-nav","keydown",event=>{
+ const tabs=[...document.querySelectorAll("[data-task-section-tab]:not(:disabled)")];
+ const current=tabs.indexOf(event.target.closest("[data-task-section-tab]"));
+ if(current<0)return;
+ let next=current;
+ if(event.key==="ArrowRight")next=(current+1)%tabs.length;
+ else if(event.key==="ArrowLeft")next=(current-1+tabs.length)%tabs.length;
+ else if(event.key==="Home")next=0;
+ else if(event.key==="End")next=tabs.length-1;
+ else return;
+ event.preventDefault();
+ setTaskSection(tabs[next].dataset.taskSectionTab,true);
+});
 function resetTaskEditor(){
  state.selectedTask=null;renderTasks();
+ showTasksOverview();
  updateTaskSectionTabs("details");
  const executionPanel=$("task-executions");if(executionPanel)executionPanel.hidden=true;
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=true;
@@ -519,6 +723,7 @@ function resetTaskEditor(){
 }
 function startNewTask(){
  state.selectedTask="new";renderTasks();
+ showTaskEditor("New task");
  updateTaskSectionTabs("details");
  for(const id of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(id).disabled=false;
  $("task-heading").textContent="New task";
@@ -529,6 +734,7 @@ function toLocalDateTime(value){const date=new Date(value);return new Date(date.
 function selectTask(id){
  const task=state.tasks.find(item=>item.id===id);if(!task)return;
  state.selectedTask=id;renderTasks();
+ showTaskEditor(task.name);
  updateTaskSectionTabs("details");
  for(const field of ["task-name","task-description","task-agent","task-prompt","task-family","task-schedule","task-at","task-timezone","task-enabled","save-task"])$(field).disabled=false;
  $("delete-task").disabled=false;$("task-heading").textContent=task.name;
@@ -600,6 +806,7 @@ function renderIntegrationView(){
 function selectIntegration(name){
  if(!["google","trakt"].includes(name))return;
  state.activeIntegration=name;
+ setProfileView("detail");
  renderIntegrationView();
 }
 function renderGoogleConnections(){
@@ -638,7 +845,7 @@ function renderTraktProfiles(){
  }
  if(connectButton)connectButton.disabled=connectable.length===0;
  const query=$("trakt-search")?.value.trim().toLocaleLowerCase()||"";
- if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet. Refresh to retry provisioning.</div></div>';return}
+ if(!state.traktProfiles.length){target.innerHTML='<div class="panel integrations-empty"><div class="empty">No personal media profile is available yet.</div></div>';return}
  const profiles=state.traktProfiles.filter(profile=>[profile.profile_name,profile.family_name,profile.trakt?.username,profile.trakt?.display_name].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
  target.innerHTML=profiles.length?profiles.map(profile=>{
   const trakt=profile.trakt,sync=profile.sync||{},lastSync=sync.last_synced_at?new Date(sync.last_synced_at).toLocaleString():"Never synchronized";
@@ -667,7 +874,7 @@ async function loadIntegrations(){
  const status=$("integrations-status");renderIntegrationView();await loadFamilies();const errors=[];
  try{await loadGoogleConnections()}catch(e){const message=e.message.includes("Google OAuth is not configured")?"Google Calendar integration is not configured on this server.":e.message;$("google-connections").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(message)+'</div></div>';errors.push(message)}
  try{await loadTraktProfiles()}catch(e){const message=e.message.includes("Trakt OAuth is not configured")?"Trakt integration is not configured on this server.":e.message;$("trakt-profiles").innerHTML='<div class="panel integrations-empty"><div class="empty">'+escapeHtml(message)+'</div></div>';errors.push(message);renderIntegrationNav()}
- status.textContent=errors.length?errors.join(" "):"Integration settings loaded.";
+ status.textContent=errors.join(" ");
 }
 async function connectTrakt(profile){
  const status=$("integrations-status"),popup=window.open("about:blank","eme-trakt-oauth","popup,width=620,height=760");
@@ -756,10 +963,14 @@ async function handleGoogleCalendarChange(event){
  catch(e){status.textContent=e.message;await loadGoogleConnections()}
 }
 on("google-connect","click",connectGoogle);
-on("refresh-integrations","click",loadIntegrations);
+
 on("integrations-sidebar","click",event=>{
  const button=event.target.closest("[data-integration]");
  if(button)selectIntegration(button.dataset.integration);
+});
+on("profile-content-back","click",()=>{
+ if(page==="integrations")setProfileView("list");
+ else if(page==="families")void loadFamilyDetails(null);
 });
 on("google-search","input",renderGoogleConnections);on("google-connections","click",e=>{if(e.target.closest("[data-clear-google-filter]")){$("google-search").value="";renderGoogleConnections();return}handleGoogleIntegrationAction(e)});
 on("google-connections","change",handleGoogleCalendarChange);
@@ -774,12 +985,12 @@ on("trakt-connect","click",async()=>{
 
 async function showConsole(){
  document.body.classList.remove("login-active");
- $("invite-screen").hidden=true;$("logout").hidden=false;
+ $("invite-screen").hidden=true;if($("logout"))$("logout").hidden=false;
  if(pendingInviteToken){document.querySelector("main").hidden=true;$("invite-screen").hidden=false;$("connection").textContent="Accept invitation";return}
  document.querySelector("main").hidden=false;
  if(page==="conversations"){
   state.agents=await api("/agents");renderAgents();await Promise.all([loadFamilies(),loadConversations()]);
-  if(state.conversations.length){let preferred=null;try{preferred=localStorage.getItem("eme.selectedConversation")}catch{}const selected=state.conversations.find(c=>c.id===preferred)||state.conversations[0];await selectConversation(selected.id)}else renderFamilySelector();
+  if($("conversations-overview")){clearSelectedConversation();conversationsPage=1;renderConversations()}else if(state.conversations.length){let preferred=null;try{preferred=localStorage.getItem("eme.selectedConversation")}catch{}const selected=state.conversations.find(c=>c.id===preferred)||state.conversations[0];await selectConversation(selected.id)}else renderFamilySelector();
  }else if(page==="families"){
   await loadFamilies();
   await loadFamilyDetails(state.families[0]?.id||null);
@@ -799,8 +1010,21 @@ on("invite-accept","click",async()=>{
  try{await api("/invitations/accept",{method:"POST",body:JSON.stringify({token:pendingInviteToken,relationship:$("invite-relationship").value})});pendingInviteToken=null;window.history.replaceState({},"", consoleBase+"/families");$("invite-screen").hidden=true;await showConsole();setStatus("Family invitation accepted","ok")}catch(e){status.textContent=e.message;button.disabled=false}
 });
 on("show-archived","change",async e=>{state.showArchived=e.target.checked;try{await loadConversations()}catch(e){setStatus(e.message,"error")}});
-on("conversation-search","input",e=>{state.conversationSearch=e.target.value;renderConversations()});
-on("refresh","click",async()=>{try{await Promise.all([loadConversations(),loadFamilies()]);if(state.managedFamilyId)await loadFamilyDetails(state.managedFamilyId)}catch(e){setStatus(e.message,"error")}});
+on("conversation-search","input",e=>{state.conversationSearch=e.target.value;conversationsPage=1;renderConversations()});
+on("conversations-table-body","click",e=>{
+ const editButton=e.target.closest("button[data-edit-id]");
+ if(editButton){e.stopPropagation();openEditConversationDialog(editButton.dataset.editId);return}
+ const archiveButton=e.target.closest("button[data-archive-id]");
+ if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}
+ const deleteButton=e.target.closest("button[data-delete-id]");
+ if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}
+ const row=e.target.closest("[data-conversation-id]");if(row)selectConversation(row.dataset.conversationId);
+});
+on("conversations-table-body","keydown",e=>{const row=e.target.closest("[data-conversation-id]");if(row&&e.target===row&&(e.key==="Enter"||e.key===" ")){e.preventDefault();selectConversation(row.dataset.conversationId)}});
+on("back-to-conversations","click",clearSelectedConversation);
+on("conversations-prev-page","click",()=>{conversationsPage=Math.max(1,conversationsPage-1);renderConversations()});
+on("conversations-next-page","click",()=>{conversationsPage++;renderConversations()});
+
 window.emeConsoleReady.then(async () => {
   try {
     await showConsole();
@@ -810,7 +1034,7 @@ window.emeConsoleReady.then(async () => {
     if (error?.status === 401) return;
     document.body.classList.remove("login-active");
     $("invite-screen").hidden = true;
-    $("logout").hidden = false;
+    if ($("logout")) $("logout").hidden = false;
     document.querySelector("main").hidden = false;
     $("connection").textContent = "Error loading page: " + error.message;
     $("connection").className = "hint error";

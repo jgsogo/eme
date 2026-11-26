@@ -68,7 +68,7 @@ function render(){
  const modelQuery=$("usage-model-search")?.value.trim().toLocaleLowerCase()||"";
  const visibleModels=models.filter(model=>[model.provider,model.model].some(value=>String(value||"").toLocaleLowerCase().includes(modelQuery)));
  const max=Math.max(1,...visibleModels.map(m=>m.input+m.output));
- $("usage-model-count").textContent=modelQuery?visibleModels.length+" of "+models.length+" models":models.length+" models";
+ if($("usage-model-count"))$("usage-model-count").textContent=modelQuery?visibleModels.length+" of "+models.length+" models":models.length+" models";
  $("usage-models").innerHTML=visibleModels.length?visibleModels.map(model=>{
   const total=model.input+model.output;
   const inputWidth=total?model.input/max*100:0;
@@ -84,7 +84,7 @@ function render(){
  $("usage-records").innerHTML=visible.length?visible.map(record=>{
   const input=quantity(record,"input_tokens"),output=quantity(record,"output_tokens");
   const source=record.cost?record.cost.origin.replaceAll("_"," ")+" · "+record.cost.status+" · "+record.cost.pricing_version:"No matching price";
-  return '<tr><td>'+escapeHtml(new Date(record.occurred_at).toLocaleString())+'</td><td title="'+escapeHtml(record.run_id)+'"><a href="/console/admin/usage?run_id='+encodeURIComponent(record.run_id)+'">'+escapeHtml(String(record.run_id).slice(0,8))+'</a></td><td>'+escapeHtml(record.agent)+'</td><td>'+escapeHtml(record.provider)+'<span class="usage-model-id">'+escapeHtml(record.model)+'</span></td><td><span class="usage-outcome '+escapeHtml(record.outcome)+'">'+escapeHtml(record.outcome.replaceAll("_"," "))+'</span></td><td>'+(input===null?"—":number(input))+'</td><td>'+(output===null?"—":number(output))+'</td><td>'+escapeHtml(costLabel(record.cost))+'<span class="usage-cost-detail">'+escapeHtml(source)+'</span></td></tr>';
+  return '<tr><td>'+escapeHtml(new Date(record.occurred_at).toLocaleString())+'</td><td title="'+escapeHtml(record.run_id)+'"><a href="'+(document.body.dataset.layout==="mobile"?"/mobile/admin/usage":"/console/admin/usage")+'?run_id='+encodeURIComponent(record.run_id)+'">'+escapeHtml(String(record.run_id).slice(0,8))+'</a></td><td>'+escapeHtml(record.agent)+'</td><td>'+escapeHtml(record.provider)+'<span class="usage-model-id">'+escapeHtml(record.model)+'</span></td><td><span class="usage-outcome '+escapeHtml(record.outcome)+'">'+escapeHtml(record.outcome.replaceAll("_"," "))+'</span></td><td>'+(input===null?"—":number(input))+'</td><td>'+(output===null?"—":number(output))+'</td><td>'+escapeHtml(costLabel(record.cost))+'<span class="usage-cost-detail">'+escapeHtml(source)+'</span></td></tr>';
  }).join(""):'<tr><td colspan="8" class="usage-empty">'+(query?'No invocations match this filter.':'No usage records for this period.')+'</td></tr>';
 }
 async function load(){
@@ -119,7 +119,7 @@ function renderPricing(){
  const date=value=>value?new Date(value).toLocaleString():"No end date";
  const query=$("pricing-search")?.value.trim().toLocaleLowerCase()||"";
  const prices=state.pricing.filter(price=>[price.provider,price.model,price.version,price.currency,price.effective_from,price.effective_until].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
- $("pricing-count").textContent=query?prices.length+" of "+state.pricing.length+" versions":state.pricing.length+" versions";
+ if($("pricing-count"))$("pricing-count").textContent=query?prices.length+" of "+state.pricing.length+" versions":state.pricing.length+" versions";
  $("pricing-versions").innerHTML=prices.length?'<table class="pricing-table"><thead><tr><th scope="col">Provider / model</th><th scope="col">Version</th><th scope="col">Currency</th><th scope="col">Effective</th><th scope="col">Input / 1M</th><th scope="col">Output / 1M</th><th scope="col">Cached / 1M</th><th scope="col">Reasoning / 1M</th></tr></thead><tbody>'+prices.map(price=>{
   const rates=price.rates_per_million||{};
   return '<tr><td>'+escapeHtml(price.provider)+'<span class="usage-model-id">'+escapeHtml(price.model)+'</span></td><td>'+escapeHtml(price.version)+'</td><td>'+escapeHtml(price.currency)+'</td><td>'+escapeHtml(date(price.effective_from))+'<span class="usage-model-id">'+escapeHtml(price.effective_until?date(price.effective_until):"Open-ended")+'</span></td><td>'+rate(rates.input_tokens)+'</td><td>'+rate(rates.output_tokens)+'</td><td>'+rate(rates.cached_input_tokens)+'</td><td>'+rate(rates.reasoning_tokens)+'</td></tr>';

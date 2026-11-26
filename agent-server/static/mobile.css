@@ -53,3 +53,1504 @@ body[data-layout="mobile"] .integration-actions button{width:100%}
 
 body[data-layout="mobile"] .notes-filters{gap:6px}
 body[data-layout="mobile"] .notes-filters input,body[data-layout="mobile"] .notes-filters select{width:100%;min-height:38px}
+
+
+/* Mobile section content replaces the redundant global brand bar. */
+body[data-layout="mobile"] header{display:none}
+body[data-layout="mobile"] main{min-height:calc(100dvh - 72px)}
+body[data-layout="mobile"] .chat-head{align-items:center;flex-direction:row;flex-wrap:wrap}
+body[data-layout="mobile"] .chat-head>div:first-of-type{flex:1;min-width:0;width:auto}
+body[data-layout="mobile"] .chat-head>div:last-child{width:100%;justify-content:flex-start}
+body[data-layout="mobile"] .chat-head .menu-toggle{flex:none}
+
+
+/* Mobile Tasks master/detail layout, matching Notes. */
+body[data-layout="mobile"] .tasks-view{height:100%;min-height:0;overflow:hidden}
+body[data-layout="mobile"] .tasks-workspace{display:block;height:100%;min-height:0}
+body[data-layout="mobile"] .tasks-sidebar{position:fixed;z-index:30;inset:0 auto 0 0;width:min(86vw,340px);max-width:340px;height:100dvh;max-height:none;transform:translateX(-105%);transition:transform .22s ease;will-change:transform;overflow:hidden;border-radius:0 12px 12px 0;box-shadow:12px 0 32px rgba(0,0,0,.35)}
+body[data-layout="mobile"] .tasks-sidebar.open{transform:translateX(0)}
+body[data-layout="mobile"] .tasks-sidebar .notes-list{min-height:100px;overflow-y:auto}
+body[data-layout="mobile"] .tasks-sidebar .task-list-filters{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+body[data-layout="mobile"] .tasks-sidebar .task-list-filters input[type="search"]{width:100%;min-height:40px}
+body[data-layout="mobile"] .tasks-sidebar .task-list-filters label{display:flex;align-items:center;gap:8px}
+body[data-layout="mobile"] .tasks-sidebar .task-list-filters label input{width:auto;margin:0}
+body[data-layout="mobile"] .tasks-main-panel{height:100%;box-sizing:border-box;padding:12px;overflow:auto}
+body[data-layout="mobile"] .tasks-main-heading{display:flex;align-items:flex-start;gap:9px;margin-bottom:12px}
+body[data-layout="mobile"] .tasks-main-heading>div{min-width:0;flex:1}
+body[data-layout="mobile"] .tasks-main-heading h2{margin:0 0 4px;font-size:18px;overflow-wrap:anywhere}
+body[data-layout="mobile"] .tasks-main-heading .menu-toggle,
+body[data-layout="mobile"] .tasks-main-heading .tasks-back-button{
+ display:inline-flex;
+ align-items:center;
+ justify-content:center;
+ flex:none;
+ box-sizing:border-box;
+ width:40px;
+ height:40px;
+ min-width:40px;
+ min-height:40px;
+ padding:7px 10px;
+ font-size:18px;
+ line-height:1;
+}
+body[data-layout="mobile"] .tasks-main-heading .tasks-back-button[hidden]{display:none}
+body[data-layout="mobile"] .tasks-overview{display:flex;flex-direction:column;gap:12px;min-height:0}
+body[data-layout="mobile"] .tasks-table-wrap{width:100%;min-width:0;overflow:visible;border:1px solid var(--border);border-radius:12px;background:var(--panel2)}
+body[data-layout="mobile"] .tasks-table{width:100%;min-width:0;border-collapse:separate;border-spacing:0;table-layout:fixed}
+body[data-layout="mobile"] .tasks-table th{padding:10px 9px;color:var(--muted);font-size:10px;font-weight:650;letter-spacing:.06em;text-align:left;text-transform:uppercase;background:var(--panel);border-bottom:1px solid var(--border)}
+body[data-layout="mobile"] .tasks-table th:first-child{width:42%}
+body[data-layout="mobile"] .tasks-table th:nth-child(2){width:22%}
+body[data-layout="mobile"] .tasks-table th:last-child{width:36%}
+body[data-layout="mobile"] .tasks-table td{padding:11px 9px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;overflow-wrap:anywhere}
+body[data-layout="mobile"] .tasks-table tbody tr:last-child td{border-bottom:0}
+body[data-layout="mobile"] .tasks-table tbody tr[role="button"]{cursor:pointer;transition:background .15s ease}
+body[data-layout="mobile"] .tasks-table tbody tr[role="button"]:active{background:rgba(104,169,220,.12)}
+body[data-layout="mobile"] .tasks-table tbody tr[role="button"]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+body[data-layout="mobile"] .tasks-table-title-cell strong{display:block;color:var(--text);font-size:12px;font-weight:650;line-height:1.35}
+body[data-layout="mobile"] .tasks-table-title-cell>span{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.3}
+body[data-layout="mobile"] .tasks-status-label{display:inline-block;font-size:10px;font-weight:650}
+body[data-layout="mobile"] .tasks-status-label.enabled{color:var(--accent)}
+body[data-layout="mobile"] .tasks-status-label.disabled{color:var(--muted)}
+body[data-layout="mobile"] .tasks-table-schedule-cell{position:relative;padding-right:19px!important;color:var(--text);font-size:10px}
+body[data-layout="mobile"] .tasks-table-schedule-cell small{display:block;margin-top:4px;color:var(--muted);font-size:9px;line-height:1.3}
+body[data-layout="mobile"] .tasks-table-open{position:absolute;right:5px;top:50%;transform:translateY(-50%);color:var(--accent);font-size:19px;line-height:1}
+body[data-layout="mobile"] .tasks-table-empty{padding:30px 14px!important;text-align:center;color:var(--muted)}
+body[data-layout="mobile"] .tasks-table-empty strong,body[data-layout="mobile"] .tasks-table-empty span{display:block}
+body[data-layout="mobile"] .tasks-table-empty strong{color:var(--text);font-size:13px;margin-bottom:4px}
+body[data-layout="mobile"] .tasks-table-empty span{font-size:11px}
+body[data-layout="mobile"] .tasks-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 2px}
+body[data-layout="mobile"] .tasks-pagination>div{display:flex;gap:7px}
+body[data-layout="mobile"] .tasks-pagination button{min-height:40px;padding:8px 12px;font-size:12px}
+body[data-layout="mobile"] .tasks-pagination button:disabled{opacity:.35}
+body[data-layout="mobile"] #tasks-overview[hidden],body[data-layout="mobile"] #task-editor-view[hidden]{display:none!important}
+/* Notes reuse the Tasks workspace, drawer, header, table and pagination styles. */
+body[data-layout="mobile"] .notes-sidebar-actions #close-notes{display:inline-flex}
+body[data-layout="mobile"] .notes-sidebar .notes-filters{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+body[data-layout="mobile"] .notes-sidebar .notes-filters input,
+body[data-layout="mobile"] .notes-sidebar .notes-filters select{width:100%;min-width:0;min-height:40px;box-sizing:border-box}
+body[data-layout="mobile"] .notes-table th:first-child{width:44%}
+body[data-layout="mobile"] .notes-table th:nth-child(2){width:25%}
+body[data-layout="mobile"] .notes-table th:last-child{width:31%;text-align:right}
+body[data-layout="mobile"] .notes-table td{padding:11px 9px;font-size:12px}
+body[data-layout="mobile"] .notes-table-title-cell strong{overflow-wrap:anywhere}
+body[data-layout="mobile"] .notes-table-date-cell{white-space:normal;text-align:right;color:var(--muted);font-size:10px}
+body[data-layout="mobile"] .notes-table-date-cell time{display:inline-block;max-width:76px;white-space:normal;line-height:1.35}
+body[data-layout="mobile"] .notes-table-open{right:5px;top:50%;margin:0;transform:translateY(-50%)}
+body[data-layout="mobile"] .notes-table-sharing{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.3}
+body[data-layout="mobile"] .notes-editor-panel{padding:12px}
+body[data-layout="mobile"] .notes-editor-panel textarea{min-height:160px}
+body[data-layout="mobile"] #notes-overview[hidden],body[data-layout="mobile"] #notes-editor-panel[hidden]{display:none!important}
+body[data-layout="mobile"] .notes-sidebar-heading{display:flex;align-items:center;gap:8px}
+body[data-layout="mobile"] .notes-sidebar-heading #new-note{flex:1}
+body[data-layout="mobile"] .notes-main-heading .notes-back-button[hidden]{display:none}
+body[data-layout="mobile"] .notes-actions{flex-wrap:wrap}
+body[data-layout="mobile"] .notes-actions button{flex:1 1 auto}
+
+/* Polished segmented tabs for the mobile task editor. */
+body[data-layout="mobile"] .task-editor-view .task-section-nav{
+ display:grid;
+ grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:5px;
+ padding:5px;
+ margin:0 0 12px;
+ border:1px solid var(--border);
+ border-radius:13px;
+ background:var(--panel2);
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab{
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ gap:7px;
+ min-width:0;
+ min-height:44px;
+ padding:9px 8px;
+ border:1px solid transparent;
+ border-radius:9px;
+ background:transparent;
+ color:var(--muted);
+ font-size:12px;
+ font-weight:650;
+ line-height:1.25;
+ box-shadow:none;
+ transition:background .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab::before{
+ display:inline-block;
+ font-size:15px;
+ line-height:1;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab[data-task-section-tab="details"]::before{content:"✎"}
+body[data-layout="mobile"] .task-editor-view .task-section-tab[data-task-section-tab="history"]::before{content:"◷"}
+body[data-layout="mobile"] .task-editor-view .task-section-tab.active{
+ border-color:var(--border);
+ background:var(--panel);
+ color:var(--text);
+ box-shadow:0 1px 3px rgba(0,0,0,.12);
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab:focus-visible{
+ outline:2px solid var(--accent);
+ outline-offset:2px;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-tab:disabled{
+ opacity:.38;
+ cursor:not-allowed;
+}
+body[data-layout="mobile"] .task-editor-view .task-section-content[hidden]{display:none!important}
+body[data-layout="mobile"] .task-editor-view .task-section-content{min-width:0}
+body[data-layout="mobile"] .task-editor-view{min-width:0}
+body[data-layout="mobile"] .task-editor-view .task-section-nav{display:flex;gap:7px;overflow-x:auto}
+body[data-layout="mobile"] .task-editor-view .notes-editor-panel{padding:12px}
+body[data-layout="mobile"] .task-editor-view .notes-editor-panel textarea{min-height:160px}
+body[data-layout="mobile"] .task-execution-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+body[data-layout="mobile"] .task-execution-controls label{flex:1 1 100%}
+body[data-layout="mobile"] .task-execution-controls input{min-width:0;flex:1 1 150px}
+
+
+/* Mobile Conversations reuse the Tasks/Notes master-detail presentation. */
+body[data-layout="mobile"] .conversations-view{height:100%;min-height:0;overflow:hidden}
+body[data-layout="mobile"] .conversations-workspace{display:block;height:100%;min-height:0}
+body[data-layout="mobile"] .conversation-filters{display:flex;flex-direction:column;gap:8px;padding:8px 0}
+body[data-layout="mobile"] .conversation-filters input[type="search"]{width:100%;min-height:40px;box-sizing:border-box}
+body[data-layout="mobile"] .conversation-filters label{display:flex;align-items:center;gap:8px}
+body[data-layout="mobile"] .conversation-filters label input{width:auto;margin:0}
+body[data-layout="mobile"] .conversations-main-panel{display:flex;flex-direction:column;min-height:0}
+body[data-layout="mobile"] .conversations-main-panel .tasks-main-heading{flex:none}
+body[data-layout="mobile"] .conversations-table th:first-child{width:38%}
+body[data-layout="mobile"] .conversations-table th:nth-child(2){width:17%}
+body[data-layout="mobile"] .conversations-table th:nth-child(3){width:22%}
+body[data-layout="mobile"] .conversations-table th:last-child{width:23%;text-align:right}
+body[data-layout="mobile"] .conversations-table td{font-size:11px}
+body[data-layout="mobile"] .conversations-table td:nth-child(2){overflow-wrap:anywhere}
+body[data-layout="mobile"] .conversations-table td:nth-child(2) strong{font-size:11px}
+body[data-layout="mobile"] .conversation-date-cell{position:relative;padding-right:18px!important;text-align:right;color:var(--muted);font-size:10px;white-space:normal}
+body[data-layout="mobile"] .conversation-date-cell .tasks-table-open{right:4px}
+body[data-layout="mobile"] .conversation-run-label{display:block;margin-top:4px;color:var(--accent);font-size:9px}
+body[data-layout="mobile"] #conversations-overview[hidden],body[data-layout="mobile"] #conversation-detail-view[hidden]{display:none!important}
+body[data-layout="mobile"] .conversation-detail-view{display:flex;flex:1;min-height:0;overflow:hidden}
+body[data-layout="mobile"] .conversation-detail-view .chat{display:flex;flex:1;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;padding:0}
+body[data-layout="mobile"] .conversation-detail-view .chat-head{flex:none;padding:11px 12px;align-items:flex-start;flex-direction:column}
+body[data-layout="mobile"] .conversation-detail-view .chat-head>div:first-child{width:100%;min-width:0}
+body[data-layout="mobile"] .conversation-detail-view .chat-head>div:last-child{width:100%;flex-wrap:wrap;justify-content:flex-start}
+
+body[data-layout="mobile"] .conversation-detail-view .run-events{flex:none;margin:0 12px}
+body[data-layout="mobile"] .conversation-detail-view .messages{flex:1;min-height:0;overflow-y:auto;padding:14px}
+body[data-layout="mobile"] .conversation-detail-view .composer{flex:none;padding:10px}
+body[data-layout="mobile"] .conversation-detail-view .composer-row{display:flex;align-items:flex-end;gap:8px}
+body[data-layout="mobile"] .conversation-detail-view .composer-row textarea{min-width:0;flex:1}
+body[data-layout="mobile"] .conversation-detail-view .send-button{flex:none}
+body[data-layout="mobile"] .conversation-detail-view .chat-head h2{font-size:16px}
+body[data-layout="mobile"] .conversations-main-heading .tasks-back-button[hidden]{display:none}
+body[data-layout="mobile"] .conversations-sidebar .conversations{flex:1;min-height:100px;overflow-y:auto}
+body[data-layout="mobile"] .tasks-sidebar .conversations{flex:1;min-height:100px;overflow-y:auto}
+
+body[data-layout="mobile"] .notes-table-family-cell,body[data-layout="mobile"] .conversation-family-cell{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
+body[data-layout="mobile"] .conversation-date-cell{font-size:9px}
+
+
+/* Meals uses the same drawer and master workspace pattern as Tasks and Notes. */
+body[data-layout="mobile"][data-page="meals"] main {
+  box-sizing: border-box;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-workspace {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-sidebar #close-meals {
+  display: inline-flex;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav {
+  display: grid;
+  gap: 6px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a.active,
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a:hover,
+body[data-layout="mobile"][data-page="meals"] .meals-drawer-nav a:focus-visible {
+  background: var(--panel2);
+  border-color: var(--border);
+  outline: none;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  margin-bottom: 12px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading > div:first-of-type {
+  min-width: 0;
+  flex: 1;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading p {
+  margin: 0;
+  font-size: 11px;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading .menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 18px;
+  line-height: 1;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector {
+  flex: 0 1 150px;
+  width: auto;
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector label {
+  display: none;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin: 0;
+  font-size: 12px;
+}
+body[data-layout="mobile"][data-page="meals"] .recipes-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+}
+body[data-layout="mobile"][data-page="meals"] .recipes-sidebar {
+  max-height: 32dvh;
+  min-height: 130px;
+}
+body[data-layout="mobile"][data-page="meals"] .recipe-main {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .recipe-main,
+body[data-layout="mobile"][data-page="meals"] .recipes-view > .recipe-main {
+  flex: 1;
+}
+@media (min-width: 760px) {
+  body[data-layout="mobile"][data-page="meals"] .recipes-view {
+    display: grid;
+    grid-template-columns: minmax(230px, .8fr) minmax(0, 2fr);
+  }
+  body[data-layout="mobile"][data-page="meals"] .recipes-sidebar {
+    max-height: none;
+  }
+}
+@media (max-width: 420px) {
+  body[data-layout="mobile"][data-page="meals"] .meals-main-heading {
+    flex-wrap: nowrap;
+    gap: 7px;
+  }
+  body[data-layout="mobile"][data-page="meals"] .meals-main-heading > div:first-of-type {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  body[data-layout="mobile"][data-page="meals"] .meals-family-selector {
+    flex: 0 1 124px;
+    width: 124px;
+    min-width: 0;
+    margin-left: 0;
+  }
+  body[data-layout="mobile"][data-page="meals"] .meals-family-selector select {
+    padding-left: 6px;
+    padding-right: 20px;
+    font-size: 11px;
+  }
+}
+
+/* School menus open directly on one day, with compact previous/next controls. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar button{flex:none;width:42px;min-width:42px;min-height:42px;padding:8px;font-size:20px}
+body[data-layout="mobile"][data-page="meals"] .school-menu-date-label{display:flex;flex:1;flex-direction:column;gap:4px;max-width:240px;color:var(--muted);font-size:11px;font-weight:600}
+body[data-layout="mobile"][data-page="meals"] .school-menu-date-label input{box-sizing:border-box;width:100%;min-height:42px;margin:0;color:var(--text);font-size:14px}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail{padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--panel2)}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:16px}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading h3{margin:0 0 5px;font-size:17px;text-transform:capitalize}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading p{margin:0}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-detail-heading button{flex:none;min-height:40px}
+
+/* Keep the family selector in the heading row on every Meals sub-view. */
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-main-heading > div:first-of-type {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector {
+  flex: 0 1 140px;
+  width: 140px;
+  min-width: 0;
+  max-width: 40%;
+  margin-left: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meals-family-selector select {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Use the same compact arrow + date + arrow row as the Planner view. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: 8px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .planner-week-controls {
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: 8px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .school-menu-date-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: none;
+  white-space: nowrap;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .school-menu-date-label input {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  max-width: 155px;
+  padding: 8px;
+}
+
+/* School shows the complete selected week as a vertical Monday-to-Sunday list. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-heading {
+  margin: 0 0 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-heading h3 {
+  margin: 0 0 3px;
+  font-size: 16px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-heading p {
+  margin: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-menu-day-detail {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-menu-day-detail-heading {
+  margin-bottom: 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-week-days .school-menu-day-detail-heading h3 {
+  font-size: 15px;
+}
+
+
+/* Keep the School week label inline, matching the Planner month selector. */
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .planner-week-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: inherit;
+  font-weight: inherit;
+}
+body[data-layout="mobile"][data-page="meals"] .school-menu-day-toolbar .planner-week-controls input {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  max-width: 155px;
+}
+
+
+/* The shared Meals rule gives direct recipe panels flex: 1; override it for the
+   School week so the rounded panel follows the full height of all seven day cards. */
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .school-menu-weekly-main {
+  flex: 0 0 auto;
+  min-height: max-content;
+}
+
+/* Keep the bottom navigation in the page layout instead of floating over scrollable content.
+   The main area then naturally ends above the navigation on every mobile view. */
+body[data-layout="mobile"] main {
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+body[data-layout="mobile"] main {
+  order: 1;
+}
+
+body[data-layout="mobile"] .mobile-bottom-nav {
+  position: relative;
+  inset: auto;
+  order: 2;
+  flex: none;
+  width: min(100%, 520px);
+  margin: 0 auto;
+  transform: none;
+}
+
+/* Meal Planner follows the same Monday-to-Sunday card layout as School menus. */
+body[data-layout="mobile"][data-page="meals"] .meals-main-panel > .meal-planner-weekly-main {
+  flex: 0 0 auto;
+  min-height: max-content;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .school-menu-week-days .meal-planner-day {
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-day-slots {
+  display: grid;
+  gap: 10px;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-calendar-slot {
+  margin: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-school-menu {
+  margin-top: 12px;
+}
+
+
+/* Recipes use a mobile master/detail transition while retaining the desktop split view. */
+@media (max-width: 759px) {
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="list"] .recipes-view > .recipe-main {
+  display: none;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="list"] .recipes-view > .recipes-sidebar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  max-height: none;
+  min-height: 0;
+  overflow: hidden;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="list"] .recipe-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] .recipes-view > .recipes-sidebar {
+  display: none;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] .recipes-view > .recipe-main {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+}
+body[data-layout="mobile"][data-page="meals"] .recipe-back-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px;
+  font-size: 21px;
+  line-height: 1;
+}
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] #open-meals {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] #recipe-back {
+    display: inline-flex;
+  }
+}
+@media (min-width: 760px) {
+  body[data-layout="mobile"][data-page="meals"] .recipe-back-button {
+    display: none !important;
+  }
+}
+
+
+/* Shared Profile / Integrations / Families / Admin navigation. */
+body[data-layout="mobile"] .profile-drawer-backdrop {
+  position: fixed;
+  z-index: 39;
+  inset: 0;
+  background: rgba(0,0,0,.48);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s ease, visibility .2s ease;
+}
+body[data-layout="mobile"] .profile-drawer-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+body[data-layout="mobile"] .profile-drawer {
+  position: fixed;
+  z-index: 40;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  width: min(86vw, 340px);
+  max-width: 340px;
+  height: 100dvh;
+  max-height: none;
+  padding: 14px;
+  box-sizing: border-box;
+  transform: translateX(-105%);
+  transition: transform .22s ease;
+  will-change: transform;
+  overflow: auto;
+  border-radius: 0 12px 12px 0;
+  box-shadow: 12px 0 32px rgba(0,0,0,.35);
+}
+body[data-layout="mobile"] .profile-drawer.open { transform: translateX(0); }
+body[data-layout="mobile"] .profile-drawer .toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+body[data-layout="mobile"] .profile-drawer .toolbar h2 { margin: 0; font-size: 18px; }
+body[data-layout="mobile"] .profile-drawer-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+body[data-layout="mobile"] .profile-drawer-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 9px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+body[data-layout="mobile"] .profile-drawer-nav a[aria-current="page"] {
+  background: var(--panel2);
+  color: var(--accent);
+}
+body[data-layout="mobile"] .profile-shell-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 12px;
+}
+body[data-layout="mobile"] .profile-shell-heading > div { min-width: 0; flex: 1; }
+body[data-layout="mobile"] .profile-shell-heading h2 {
+  margin: 0 0 3px;
+  font-size: 19px;
+  line-height: 1.25;
+}
+body[data-layout="mobile"] .profile-shell-heading p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+body[data-layout="mobile"] .profile-menu-toggle,
+body[data-layout="mobile"] .profile-content-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 18px;
+  line-height: 1;
+}
+body[data-layout="mobile"] .profile-content-back[hidden],
+body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
+
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="integrations"][data-profile-view="list"] .integration-details { display: none; }
+  body[data-layout="mobile"][data-page="integrations"][data-profile-view="detail"] .integrations-sidebar { display: none; }
+  body[data-layout="mobile"][data-page="integrations"] .integration-nav-list {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+  body[data-layout="mobile"][data-page="integrations"] .integration-nav-item {
+    width: 100%;
+    min-width: 0;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  body[data-layout="mobile"][data-page="families"][data-profile-view="list"] .family-details-panel { display: none; }
+  body[data-layout="mobile"][data-page="families"][data-profile-view="detail"] .family-list-panel { display: none; }
+  body[data-layout="mobile"][data-page="families"] .family-list-panel {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: none;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="families"] .families-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  body[data-layout="mobile"][data-page="families"][data-profile-view="detail"] .family-details-panel {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-view,
+  body[data-layout="mobile"][data-page="integrations"] .integrations-view { min-height: 0; }
+}
+
+@media (min-width: 760px) {
+  body[data-layout="mobile"] .profile-menu-toggle { display: inline-flex !important; }
+  body[data-layout="mobile"] .profile-content-back { display: none !important; }
+}
+
+
+/* Profile pages reuse the fixed-heading / flexible-panel layout from Meals. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="profile"] main:not([hidden]),
+  body[data-layout="mobile"][data-page="integrations"] main:not([hidden]),
+  body[data-layout="mobile"][data-page="families"] main:not([hidden]) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px;
+  }
+
+  body[data-layout="mobile"][data-page="profile"] .profile-shell-heading,
+  body[data-layout="mobile"][data-page="integrations"] .profile-shell-heading,
+  body[data-layout="mobile"][data-page="families"] .profile-shell-heading {
+    flex: none;
+  }
+
+  /* Profile: let the form panel occupy the available height and scroll internally. */
+  body[data-layout="mobile"][data-page="profile"] .notes-view {
+    display: flex;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="profile"] #profile.notes-layout {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    height: auto;
+  }
+  body[data-layout="mobile"][data-page="profile"] #profile > .profile-main-panel {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none !important;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Integrations: the selected list or detail panel fills the content region. */
+  body[data-layout="mobile"][data-page="integrations"] .integrations-view {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="integrations"] .integrations-layout {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="integrations"] .integrations-sidebar,
+  body[data-layout="mobile"][data-page="integrations"] .integration-details {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Families: the list/detail panel owns scrolling, not the outer page. */
+  body[data-layout="mobile"][data-page="families"] .notes-view,
+  body[data-layout="mobile"][data-page="families"] .family-view {
+    display: flex;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-layout {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="families"] .family-list-panel,
+  body[data-layout="mobile"][data-page="families"] .family-details-panel {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
+/* Conversations, Tasks and Notes use full-page card lists and back-arrow detail navigation. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="conversations"] main,
+  body[data-layout="mobile"][data-page="tasks"] main,
+  body[data-layout="mobile"][data-page="notes"] main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .notes-view,
+  body[data-layout="mobile"][data-page="tasks"] .notes-view,
+  body[data-layout="mobile"][data-page="notes"] .notes-view {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="notes"] .tasks-workspace {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 12px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-heading,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-heading,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-heading {
+    flex: none;
+    margin-bottom: 12px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-heading .menu-toggle,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-heading .menu-toggle,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-heading .menu-toggle {
+    display: none !important;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-back-button,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-back-button,
+  body[data-layout="mobile"][data-page="notes"] .tasks-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 7px;
+    font-size: 21px;
+    line-height: 1;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-overview,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-overview,
+  body[data-layout="mobile"][data-page="notes"] .tasks-overview {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body[data-layout="mobile"] .item-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    flex: none;
+  }
+  body[data-layout="mobile"] .item-list-toolbar > button {
+    align-self: flex-start;
+    min-height: 42px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 10px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls label,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls .agent-desc {
+    grid-column: 1 / -1;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls label {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls select {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .conversation-create-controls button {
+    min-height: 42px;
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters label {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    white-space: nowrap;
+    box-sizing: border-box;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters input[type="search"] {
+    flex: 1 1 0;
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+  }
+  body[data-layout="mobile"][data-page="tasks"] .item-list-toolbar .task-list-filters,
+  body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters {
+    flex-wrap: nowrap;
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+  }
+  body[data-layout="mobile"][data-page="tasks"] .item-list-toolbar .task-list-filters input[type="search"],
+  body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters input[type="search"],
+  body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters select {
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
+  }
+  body[data-layout="mobile"][data-page="tasks"] .item-list-toolbar .task-list-filters input[type="search"],
+  body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters input[type="search"] {
+    flex: 1 1 0;
+  }
+  body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters select {
+    flex: 0 1 130px;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .agent-desc {
+    font-size: 11;
+    line-height: 1.4;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters,
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters input[type="search"],
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters input[type="search"],
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters input[type="search"] {
+    flex: 1 1 160px;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters select,
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters select {
+    flex: 1 1 130px;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters label,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    margin: 0;
+    font-size: 11px;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters label input,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters label input {
+    width: auto;
+    margin: 0;
+  }
+  body[data-layout="mobile"] .item-list-toolbar .task-list-filters button,
+  body[data-layout="mobile"] .item-list-toolbar .conversation-filters button,
+  body[data-layout="mobile"] .item-list-toolbar .notes-filters button {
+    min-height: 40px;
+  }
+  body[data-layout="mobile"] .item-card-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 10px;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 104px;
+    padding: 14px 42px 14px 14px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--panel2);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s ease, transform .15s ease, background .15s ease;
+  }
+  body[data-layout="mobile"] .item-card:active {
+    transform: scale(.99);
+    border-color: var(--accent);
+  }
+  body[data-layout="mobile"] .item-card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  body[data-layout="mobile"] .item-card-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 9px;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-card-heading strong {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-description {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  body[data-layout="mobile"] .item-card-tag {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    min-height: 23px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 650;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-tag.shared { color: var(--accent); }
+  body[data-layout="mobile"] .item-card-tag.running { color: var(--success, #25865a); }
+  body[data-layout="mobile"] .item-card-tag.private { color: var(--muted); }
+  body[data-layout="mobile"] .item-card-footnote {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  body[data-layout="mobile"] .item-card-arrow {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    color: var(--muted);
+    font-size: 24px;
+    line-height: 1;
+    transform: translateY(-50%);
+  }
+  body[data-layout="mobile"] .item-list-count {
+    flex: none;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  body[data-layout="mobile"] .task-item-card .tasks-status-label {
+    flex: none;
+    font-size: 10px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .conversation-detail-view,
+  body[data-layout="mobile"][data-page="tasks"] .task-editor-view,
+  body[data-layout="mobile"][data-page="notes"] .notes-editor-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .conversation-detail-view {
+    display: flex;
+    flex-direction: column;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .conversation-detail-view > .chat {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+@media (min-width: 600px) and (max-width: 759px) {
+  body[data-layout="mobile"] .item-card-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* The mobile conversation/task/note routes are full-width lists at tablet and desktop widths too. */
+@media (min-width: 760px) {
+  body[data-layout="mobile"][data-page="conversations"] main,
+  body[data-layout="mobile"][data-page="tasks"] main,
+  body[data-layout="mobile"][data-page="notes"] main {
+    width: min(100%, 1120px);
+    max-width: 1120px;
+    min-height: 0;
+    padding: 16px 20px;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-workspace,
+  body[data-layout="mobile"][data-page="notes"] .tasks-workspace {
+    display: flex;
+    width: 100%;
+    min-height: 0;
+  }
+  body[data-layout="mobile"][data-page="conversations"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="tasks"] .tasks-main-panel,
+  body[data-layout="mobile"][data-page="notes"] .tasks-main-panel {
+    width: 100%;
+    min-width: 0;
+  }
+  body[data-layout="mobile"] .item-card-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    align-content: start;
+    gap: 12px;
+  }
+  body[data-layout="mobile"] .item-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 112px;
+    padding: 15px 42px 15px 15px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--panel2);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+  }
+  body[data-layout="mobile"] .item-card-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:9px;min-width:0; }
+  body[data-layout="mobile"] .item-card-heading strong { min-width:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-description { margin:0;color:var(--muted);font-size:12px;line-height:1.4;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-meta { display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;color:var(--muted);font-size:10px;line-height:1.4; }
+  body[data-layout="mobile"] .item-card-tag { display:inline-flex;align-items:center;max-width:100%;min-height:23px;padding:3px 8px;border:1px solid var(--border);border-radius:20px;color:var(--muted);font-size:10px;font-weight:650;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-tag.shared { color:var(--accent); }
+  body[data-layout="mobile"] .item-card-tag.running { color:var(--success,#25865a); }
+  body[data-layout="mobile"] .item-card-footnote { color:var(--muted);font-size:10px;line-height:1.4;overflow-wrap:anywhere; }
+  body[data-layout="mobile"] .item-card-arrow { position:absolute;top:50%;right:14px;color:var(--muted);font-size:24px;line-height:1;transform:translateY(-50%); }
+}
+
+
+/* Conversation card actions sit in the top-right corner without triggering card navigation. */
+body[data-layout="mobile"][data-page="conversations"] .conversation-item-card {
+  cursor: pointer;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-top-right {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action:hover,
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action.danger:hover,
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action.danger:focus-visible {
+  border-color: var(--danger, #c44);
+  color: var(--danger, #c44);
+}
+
+
+/* Conversation cards use a compact, consistent title / agent / metadata hierarchy. */
+body[data-layout="mobile"][data-page="conversations"] .conversation-item-card {
+  gap: 10px;
+  padding: 14px;
+  min-height: 0;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-heading > strong {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-agent {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-family {
+  color: var(--text);
+  font-weight: 650;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-running {
+  color: var(--success, #25865a);
+  font-weight: 650;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-updated {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-item-card .item-card-arrow {
+  display: none;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-actions {
+  flex: none;
+}
+body[data-layout="mobile"][data-page="conversations"] .conversation-card-action {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+}
+@media (min-width: 760px) {
+  body[data-layout="mobile"][data-page="conversations"] .conversation-item-card {
+    padding: 14px;
+  }
+}
+
+
+/* Shared mobile list floating action button, shown only at the top of each list. */
+body[data-layout="mobile"] .mobile-list-fab {
+  position: fixed;
+  z-index: 25;
+  right: 20px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  min-height: 54px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 30px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+}
+body[data-layout="mobile"] .mobile-list-fab[hidden] {
+  display: none !important;
+}
+
+/* New conversation dialog fields and actions. */
+body[data-layout="mobile"] .new-conversation-dialog{width:min(440px,calc(100vw - 28px));padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--panel);color:var(--text);box-shadow:0 18px 60px rgba(0,0,0,.4)}
+body[data-layout="mobile"] .new-conversation-dialog::backdrop{background:rgba(0,0,0,.58)}
+body[data-layout="mobile"] .new-conversation-dialog .family-details-heading{align-items:flex-start;gap:12px}
+body[data-layout="mobile"] .new-conversation-dialog .family-details-heading button{flex:none}
+body[data-layout="mobile"] .new-conversation-dialog input,body[data-layout="mobile"] .new-conversation-dialog select{width:100%;min-height:42px;box-sizing:border-box}
+body[data-layout="mobile"] .new-conversation-dialog .notes-actions{justify-content:flex-end}
+
+body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8px;min-height:1.2em;font-size:12px;line-height:1.45;color:var(--muted)}
+
+
+/* Keep the conversation itself as the primary mobile workspace. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversations-main-panel {
+    gap: 4px;
+    padding: 6px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .tasks-main-heading {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head {
+    flex: none;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 9px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > .tasks-back-button[hidden] {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > .tasks-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 3px;
+    font-size: 18px;
+    line-height: 1;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > div:nth-child(2) {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head h2 {
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head small {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head > div:last-child {
+    flex: 0 0 auto;
+    width: auto;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head .run-status {
+    max-width: 72px;
+    overflow: hidden;
+    font-size: 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .conversation-settings-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 5px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .conversation-settings-button svg {
+    display: block;
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .run-events {
+    flex: none;
+    margin: 0 8px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .run-events summary {
+    padding: 4px 0;
+    font-size: 11px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .messages {
+    padding: 8px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer {
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer-row {
+    align-items: center;
+    gap: 6px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer textarea {
+    box-sizing: border-box;
+    height: 38px;
+    min-height: 38px;
+    max-height: 38px;
+    padding: 8px 10px;
+    line-height: 20px;
+    resize: none;
+    overflow-y: auto;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .composer .send-button {
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
+  }
+}
+
+
+/* The chat is the only visible panel in conversation detail; the parent is just a layout wrapper. */
+body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversations-main-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+
+/* Give the conversation detail view the full mobile viewport height. */
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .mobile-bottom-nav {
+    display: none;
+  }
+}
