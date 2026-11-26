@@ -22,7 +22,7 @@ function installBottomNavigation() {
     </a>`
   ).join("");
 
-  document.querySelector("header")?.insertAdjacentElement("afterend", nav);
+  document.querySelector("main")?.insertAdjacentElement("beforebegin", nav);
 }
 
 function setDrawerOpen(open) {
