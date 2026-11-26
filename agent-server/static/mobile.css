@@ -1472,17 +1472,6 @@ body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8p
     justify-content: flex-end;
     gap: 6px;
   }
-  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head label[for="family-selector"] {
-    display: none;
-  }
-  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head #family-selector {
-    width: 108px !important;
-    min-width: 0 !important;
-    max-width: 108px;
-    margin: 0;
-    padding: 5px 6px;
-    font-size: 11px;
-  }
   body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .chat-head .run-status {
     max-width: 72px;
     overflow: hidden;
@@ -1490,11 +1479,26 @@ body[data-layout="mobile"] .new-conversation-dialog .agent-desc{margin:-4px 0 8p
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view #rename-conversation {
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .conversation-settings-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex: none;
-    padding: 5px 7px;
-    font-size: 11px;
-    white-space: nowrap;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 5px;
+  }
+  body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .conversation-settings-button svg {
+    display: block;
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
   body[data-layout="mobile"][data-page="conversations"][data-conversation-view="detail"] .conversation-detail-view .run-events {
     flex: none;
