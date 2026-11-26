@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { entries: [], selected: null, loadRequest: 0, showWeekends: true, familyId: "" };
+const state = { entries: [], selected: null, loadRequest: 0, familyId: "" };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -27,14 +27,6 @@ function esc(value) {
 
 function dateString(date) {
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-}
-
-function monthString(date) {
-  return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0");
-}
-
-function monthStart(value) {
-  return new Date(value + "-01T12:00:00");
 }
 
 function statusLabel(status) {
@@ -157,7 +149,7 @@ async function save(event) {
     });
     state.selected = null;
     $("menu-dialog").close();
-    await loadMonth();
+    await loadDay();
     appendMenuLog("Menu saved for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
     const message = $("menu-status-message");
@@ -176,7 +168,7 @@ async function remove() {
     await api("/meal-planner/school-menus/" + date + "?family_id=" + encodeURIComponent(state.familyId), { method: "DELETE" });
     state.selected = null;
     $("menu-dialog").close();
-    await loadMonth();
+    await loadDay();
     appendMenuLog("Menu deleted for " + formatDay(date, { weekday: "long", day: "numeric", month: "long" }) + ".");
   } catch (error) {
     const message = $("menu-status-message");
@@ -214,42 +206,10 @@ function shiftDay(offset) {
   loadDay().catch(() => {});
 }
 
-$("previous-month").addEventListener("click", () => {
-  const date = monthStart($("month-date").value);
-  date.setMonth(date.getMonth() - 1);
-  $("month-date").value = monthString(date);
-  loadMonth().catch(() => {});
-});
-
-$("next-month").addEventListener("click", () => {
-  const date = monthStart($("month-date").value);
-  date.setMonth(date.getMonth() + 1);
-  $("month-date").value = monthString(date);
-  loadMonth().catch(() => {});
-});
-
-$("month-date").addEventListener("change", () => loadMonth().catch(() => {}));
-
-$("show-weekends").addEventListener("change", event => {
-  state.showWeekends = event.target.checked;
-  try {
-    localStorage.setItem("eme-school-menus-show-weekends", String(state.showWeekends));
-  } catch {
-    // The preference still applies for this page session when storage is unavailable.
-  }
-  if ($("menu-month-view")) renderMonthView();
-});
-
-try {
-  state.showWeekends = localStorage.getItem("eme-school-menus-show-weekends") !== "false";
-} catch {
-  // Keep the default seven-day view when storage is unavailable.
-}
-$("show-weekends").checked = state.showWeekends;
-
 $("previous-day").addEventListener("click", () => shiftDay(-1));
 $("next-day").addEventListener("click", () => shiftDay(1));
 $("menu-date").addEventListener("change", () => loadDay().catch(() => {}));
+
 window.addEventListener("eme:family-changed", () => { state.familyId = window.emeMealsFamily.currentFamilyId(); state.selected = null; loadDay(); });
 
 (async () => {
