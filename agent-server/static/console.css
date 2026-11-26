@@ -1342,17 +1342,27 @@ body[data-page="conversations"] #conversations-table-body {
   .shopping-date-picker input[aria-invalid="true"] { border-color:var(--err); }
 }
 
-/* Let the desktop shopping-list panel fill the available vertical space. */
+/* Let the desktop shopping-list panel use only the space left by the page header. */
 @media (min-width: 761px) {
+  main.meal-planner-page:has(.shopping-list-main) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  main.meal-planner-page:has(.shopping-list-main) > .shopping-list-main {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+  }
   .shopping-list-main {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
   }
   #shopping-content {
     flex: 1 1 auto;
     min-height: 0;
+    overflow: auto;
   }
   #shopping-content:has(> .empty) {
     display: flex;
