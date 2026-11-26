@@ -983,12 +983,22 @@ body[data-layout="mobile"] .profile-menu-toggle[hidden] { display: none; }
   }
   body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters {
     flex-wrap: nowrap;
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
   }
   body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters label {
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
     white-space: nowrap;
+    box-sizing: border-box;
   }
   body[data-layout="mobile"][data-page="conversations"] .item-list-toolbar .conversation-filters input[type="search"] {
     flex: 1 1 0;
+    height: 40px;
+    min-height: 40px;
+    box-sizing: border-box;
   }
   body[data-layout="mobile"][data-page="tasks"] .item-list-toolbar .task-list-filters,
   body[data-layout="mobile"][data-page="notes"] .item-list-toolbar .notes-filters {
