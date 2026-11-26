@@ -1341,3 +1341,28 @@ body[data-page="conversations"] #conversations-table-body {
   .shopping-date-picker-grid button:hover,.shopping-date-picker-grid button.selected { background:var(--panel2); border-color:var(--accent); }
   .shopping-date-picker input[aria-invalid="true"] { border-color:var(--err); }
 }
+
+/* Let the desktop shopping-list panel fill the available vertical space. */
+@media (min-width: 761px) {
+  .shopping-list-main {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  #shopping-content {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  #shopping-content:has(> .empty) {
+    display: flex;
+  }
+  #shopping-content > .empty {
+    display: grid;
+    flex: 1 1 auto;
+    place-items: center;
+    width: 100%;
+    min-height: 0;
+    margin: 0;
+  }
+}
