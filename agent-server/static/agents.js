@@ -13,7 +13,7 @@ function render(){
 }
 async function load(){
  const button=$("agents-refresh");
- button.disabled=true;button.textContent="Refreshing…";
+ if(button){button.disabled=true;button.textContent="Refreshing…";}
  $("agents-status").textContent="Loading configured agents…";
  $("agents-list").innerHTML='<p class="usage-empty" role="status">Loading agents…</p>';
  try{
@@ -25,7 +25,7 @@ async function load(){
   $("agents-status").textContent="Could not load agents.";
   $("agents-status").className="usage-status error";
   $("agents-list").innerHTML='<div class="usage-empty" role="alert">Could not load agents: '+escapeHtml(error.message)+'<p><button type="button" class="secondary" data-retry>Try again</button></p></div>';
- }finally{button.disabled=false;button.textContent="Refresh"}
+ }finally{if(button){button.disabled=false;button.textContent="Refresh"}}
 }
 $("agents-search").addEventListener("input",render);
 $("agents-refresh").addEventListener("click",load);
