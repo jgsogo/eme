@@ -585,17 +585,38 @@ function renderTaskFamilies(){
  select.innerHTML='<option value="">No family context</option>'+state.families.map(family=>'<option value="'+escapeHtml(family.id)+'">'+escapeHtml(family.name)+'</option>').join("");
  select.value=state.families.some(family=>family.id===selected)?selected:"";
 }
-function setTaskSection(active){
- const tabs=document.querySelectorAll("[data-task-section-tab]");
- for(const tab of tabs){const selected=tab.dataset.taskSectionTab===active;tab.classList.toggle("active",selected);tab.setAttribute("aria-selected",String(selected));}
+function setTaskSection(active,focus=false){
+ const tabs=[...document.querySelectorAll("[data-task-section-tab]")];
+ const selectedTab=tabs.find(tab=>tab.dataset.taskSectionTab===active&&!tab.disabled);
+ if(!selectedTab)return;
+ for(const tab of tabs){
+  const selected=tab===selectedTab;
+  tab.classList.toggle("active",selected);
+  tab.setAttribute("aria-selected",String(selected));
+  tab.tabIndex=selected?0:-1;
+ }
  for(const section of document.querySelectorAll("[data-task-section]"))section.hidden=section.dataset.taskSection!==active;
+ if(focus)selectedTab.focus();
 }
 function updateTaskSectionTabs(active="details"){
  const historyTab=document.querySelector("[data-task-section-tab=\"history\"]");
  if(historyTab)historyTab.disabled=!state.selectedTask||state.selectedTask==="new";
  setTaskSection(historyTab?.disabled?"details":active);
 }
-on("task-section-nav","click",event=>{const tab=event.target.closest("[data-task-section-tab]");if(tab&&!tab.disabled) setTaskSection(tab.dataset.taskSectionTab)});
+on("task-section-nav","click",event=>{const tab=event.target.closest("[data-task-section-tab]");if(tab&&!tab.disabled)setTaskSection(tab.dataset.taskSectionTab)});
+on("task-section-nav","keydown",event=>{
+ const tabs=[...document.querySelectorAll("[data-task-section-tab]:not(:disabled)")];
+ const current=tabs.indexOf(event.target.closest("[data-task-section-tab]"));
+ if(current<0)return;
+ let next=current;
+ if(event.key==="ArrowRight")next=(current+1)%tabs.length;
+ else if(event.key==="ArrowLeft")next=(current-1+tabs.length)%tabs.length;
+ else if(event.key==="Home")next=0;
+ else if(event.key==="End")next=tabs.length-1;
+ else return;
+ event.preventDefault();
+ setTaskSection(tabs[next].dataset.taskSectionTab,true);
+});
 function resetTaskEditor(){
  state.selectedTask=null;renderTasks();
  showTasksOverview();
