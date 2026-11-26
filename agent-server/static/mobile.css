@@ -556,3 +556,59 @@ body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-ca
 body[data-layout="mobile"][data-page="meals"] .meal-planner-weekly-main .meal-school-menu {
   margin-top: 12px;
 }
+
+
+/* Recipes use a mobile master/detail transition while retaining the desktop split view. */
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="list"] .recipes-view > .recipe-main {
+  display: none;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="list"] .recipes-view > .recipes-sidebar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  max-height: none;
+  min-height: 0;
+  overflow: hidden;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="list"] .recipe-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] .recipes-view > .recipes-sidebar {
+  display: none;
+}
+body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] .recipes-view > .recipe-main {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+body[data-layout="mobile"][data-page="meals"] .recipe-back-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px;
+  font-size: 21px;
+  line-height: 1;
+}
+@media (max-width: 759px) {
+  body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] #open-meals {
+    display: none;
+  }
+  body[data-layout="mobile"][data-page="meals"][data-recipe-view="detail"] #recipe-back {
+    display: inline-flex;
+  }
+}
+@media (min-width: 760px) {
+  body[data-layout="mobile"][data-page="meals"] .recipe-back-button {
+    display: none !important;
+  }
+}
