@@ -902,3 +902,10 @@ body:not(.login-page) { visibility:hidden; }
 .integration-broken-label{color:var(--err);font-weight:700}
 #integrations-status.integration-status-error{color:var(--err);font-size:13px;font-weight:700;background:color-mix(in srgb,var(--err) 10%,transparent);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);border-radius:8px;padding:10px 12px;min-height:0}
 #integrations-status.integration-status-ok{color:var(--ok);font-weight:650}
+
+/* Per-integration health state and test feedback */
+.integration-warning-icon{display:inline-flex;align-items:center;justify-content:center;color:var(--err);font-size:16px;margin-right:6px;vertical-align:middle}
+.integration-broken-label{color:var(--err);font-weight:700}
+.integration-broken-message,.integration-card-error{margin:12px 0 0;padding:10px 12px;border:1px solid color-mix(in srgb,var(--err) 55%,transparent);border-radius:8px;background:color-mix(in srgb,var(--err) 10%,transparent);color:var(--err);font-size:12px;font-weight:650}
+#integrations-status.integration-status-error{color:var(--err);font-size:13px;font-weight:700;background:color-mix(in srgb,var(--err) 10%,transparent);border:1px solid color-mix(in srgb,var(--err) 45%,transparent);border-radius:8px;padding:10px 12px;min-height:0}
+#integrations-status.integration-status-ok{color:var(--ok);font-weight:650}
