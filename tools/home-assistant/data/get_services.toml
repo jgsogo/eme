@@ -1,0 +1,6 @@
+name = "home_assistant.get_services"
+description = "List the domains and services currently available in Home Assistant."
+
+[parameters]
+type = "object"
+additionalProperties = false

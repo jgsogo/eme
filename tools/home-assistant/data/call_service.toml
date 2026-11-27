@@ -1,0 +1,24 @@
+name = "home_assistant.call_service"
+description = "Call a Home Assistant service. This can change devices or trigger automations. Only expose this tool to agents explicitly allowed to control the home. Use home_assistant.get_services to discover available services."
+
+[parameters]
+type = "object"
+required = ["domain", "service"]
+additionalProperties = false
+
+[parameters.properties.domain]
+type = "string"
+minLength = 1
+pattern = "^[A-Za-z0-9_.]+$"
+description = "Service domain, for example light, switch, climate, or automation."
+
+[parameters.properties.service]
+type = "string"
+minLength = 1
+pattern = "^[A-Za-z0-9_.]+$"
+description = "Service name, for example turn_on, turn_off, or set_temperature."
+
+[parameters.properties.service_data]
+type = "object"
+default = {}
+description = "JSON object containing service-specific data, commonly including entity_id and service parameters."

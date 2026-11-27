@@ -21,6 +21,7 @@ members = [
     "tools/media",
     "tools/rabel",
     "tools/books",
+    "tools/home-assistant",
 ]
 
 [workspace.dependencies]

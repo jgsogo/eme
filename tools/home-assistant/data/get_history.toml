@@ -1,0 +1,16 @@
+name = "home_assistant.get_history"
+description = "Retrieve historical state changes from Home Assistant, optionally for one entity and starting at an ISO 8601 timestamp."
+
+[parameters]
+type = "object"
+additionalProperties = false
+
+[parameters.properties.entity_id]
+type = "string"
+minLength = 1
+pattern = "^[A-Za-z0-9_.]+$"
+description = "Optional entity ID to filter the history, for example sensor.temperature."
+
+[parameters.properties.timestamp]
+type = "string"
+description = "Optional ISO 8601 timestamp marking the beginning of the history period."
