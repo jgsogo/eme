@@ -576,3 +576,11 @@ $("providers-list").addEventListener("change", event => {
 });
 
 load();
+
+
+// Close the native model dialog when the user clicks its backdrop.
+// A click inside the dialog (including its scrollable content) must not close it.
+$("providers-list").addEventListener("click", event => {
+  const dialog = event.target.closest("dialog.provider-model-dialog");
+  if (dialog && event.target === dialog) dialog.close();
+});
