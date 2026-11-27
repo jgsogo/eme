@@ -718,6 +718,23 @@ impl RunManager {
         Ok(result)
     }
 
+    /// Lists only the newest executions for a task, with the durable total count.
+    pub async fn task_runs_page(&self, task_id: Uuid, limit: u64) -> Result<(Vec<Run>, u64), String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Ok((Vec::new(), 0));
+        };
+        let (stored, total) = storage.list_task_runs_page(task_id, limit).await.map_err(|error| error.to_string())?;
+        let mut by_id = stored.into_iter().map(from_stored_run).map(|run| (run.id.as_uuid(), run)).collect::<HashMap<_, _>>();
+        for entry in self.runs.lock().await.values() {
+            if by_id.contains_key(&entry.run.id.as_uuid()) {
+                by_id.insert(entry.run.id.as_uuid(), entry.run.clone());
+            }
+        }
+        let mut result = by_id.into_values().collect::<Vec<_>>();
+        result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+        Ok((result, total))
+    }
+
     /// Lists durable invocation usage, optionally restricted to one run.
     pub async fn usage_records(&self, run_id: Option<RunId>) -> Result<Vec<UsageRecord>, String> {
         let Some(storage) = current_storage(&self.persistence) else {
