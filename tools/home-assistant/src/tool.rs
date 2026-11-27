@@ -104,7 +104,9 @@ impl Tool for HomeAssistantTool {
                         errors: vec!["'service_data' must be a JSON object".into()],
                     });
                 }
-                client.call_service(&token, domain, service, service_data).await
+                client
+                    .call_service(&token, domain, service, service_data)
+                    .await
             }
             Operation::GetHistory => {
                 let entity_id = Self::optional_argument(&arguments, "entity_id");
