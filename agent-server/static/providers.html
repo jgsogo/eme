@@ -7,6 +7,7 @@
   <title>Admin · Providers · EME</title>
   <link rel="stylesheet" href="/assets/console.css">
   <link rel="stylesheet" href="/assets/usage.css">
+  <link rel="stylesheet" href="/assets/providers.css">
   <style>
     .provider-card{padding:0;overflow:hidden}
     .provider-card-header{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 24px 20px;border-bottom:1px solid var(--border)}
@@ -90,6 +91,10 @@
       <div class="usage-actions">
         <label for="providers-search">Filter providers and models</label>
         <input id="providers-search" type="search" placeholder="Provider, model or capability" autocomplete="off">
+        <div class="provider-view-switch" role="group" aria-label="Provider display mode">
+          <button type="button" data-provider-view="cards" aria-pressed="true">Cards</button>
+          <button type="button" data-provider-view="table" aria-pressed="false">Table</button>
+        </div>
       </div>
     </div>
     <p id="providers-status" class="usage-status" role="status">Loading configured providers…</p>
