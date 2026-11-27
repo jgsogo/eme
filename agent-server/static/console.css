@@ -1463,3 +1463,26 @@ body[data-page="conversations"] #conversations-table-body {
 .notes-editor-panel .note-mode-tab svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .note-markdown-preview .note-preview-title{margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);font-size:1.55em;line-height:1.25}
 @media(max-width:600px){.notes-editor-panel>.family-details-heading{align-items:flex-start}.notes-editor-panel .note-mode-toolbar{margin-top:0}}
+
+
+/* Give the rendered note a calm reading surface and a comfortable measure. */
+.note-markdown-preview {
+  box-sizing: border-box;
+  width: min(100%, 860px);
+  margin: 22px auto;
+  padding: 34px clamp(20px, 4vw, 40px) 30px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+.note-markdown-preview .note-preview-title {
+  margin-top: 0;
+  padding-top: 4px;
+}
+@media (max-width: 600px) {
+  .note-markdown-preview {
+    width: 100%;
+    margin: 14px auto;
+    padding: 22px 17px;
+  }
+}
