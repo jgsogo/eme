@@ -94,6 +94,8 @@ impl ConfiguredAgentResolver {
         media_tools::register_media_tools(&mut tools, media_services)
             .map_err(|error| anyhow::anyhow!(error))
             .context("registering media tools")?;
+        home_assistant_tool::register_tools(&mut tools)
+            .context("registering Home Assistant tools")?;
         let tools = Arc::new(tools);
 
         let agents =
