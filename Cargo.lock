@@ -277,6 +277,7 @@ dependencies = [
  "common-tools",
  "futures-util",
  "google-tool",
+ "home-assistant-tool",
  "meal-planner",
  "media-tools",
  "mercadona-tool",
@@ -319,6 +320,7 @@ name = "agent-storage"
 version = "0.1.0"
 dependencies = [
  "agent-metering",
+ "agent-models",
  "agent-runtime",
  "async-trait",
  "chrono",
@@ -1523,6 +1525,21 @@ name = "hermit-abi"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
+
+[[package]]
+name = "home-assistant-tool"
+version = "0.1.0"
+dependencies = [
+ "agent-config",
+ "agent-runtime",
+ "async-trait",
+ "reqwest 0.12.28",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "url",
+ "wiremock",
+]
 
 [[package]]
 name = "http"
