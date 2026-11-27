@@ -10,7 +10,7 @@ access_tier = "free_tier"
 capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 
 [[models]]
-name = "gemini-3.5-flash"
+name = "gemini-3.6-flash"
 enabled = true
 access_tier = "free_tier"
 capabilities = ["chat", "reasoning", "coding", "tool_calling"]
