@@ -24,9 +24,5 @@ pub trait ModelCatalogOverrideStore: Send + Sync {
         value: ModelOverride,
     ) -> Result<(), StorageError>;
 
-    async fn clear_model_override(
-        &self,
-        provider: &str,
-        model: &str,
-    ) -> Result<(), StorageError>;
+    async fn clear_model_override(&self, provider: &str, model: &str) -> Result<(), StorageError>;
 }
