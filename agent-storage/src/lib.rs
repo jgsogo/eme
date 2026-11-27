@@ -13,6 +13,7 @@ mod memory;
 mod sqlite_conversation;
 mod sqlite_execution;
 mod sqlite_family;
+mod sqlite_model_catalog_overrides;
 
 pub use connected_calendar::{
     CalendarAccessMode, CalendarFamilyAccess, ConnectedCalendar, ConnectedCalendarId,
@@ -20,8 +21,9 @@ pub use connected_calendar::{
     SqliteConnectedCalendarStore,
 };
 pub use contracts::{
-    ConversationMessageStore, ExecutionStore, RunEventStore, RunStore, StorageError, StoredMessage,
-    StoredRun, StoredRunEvent, StoredRunStatus, TaskRunStore, UsageStore,
+    ConversationMessageStore, ExecutionStore, ModelCatalogOverrideStore, RunEventStore, RunStore,
+    StorageError, StoredMessage, StoredRun, StoredRunEvent, StoredRunStatus, TaskRunStore,
+    UsageStore,
 };
 pub use conversation::{Conversation, ConversationId, ConversationStore, ConversationStoreError};
 pub use external_connection::{
@@ -46,3 +48,4 @@ pub use memory::InMemoryStorage;
 pub use sqlite_conversation::{LegacyImportReport, SqliteConversationStore};
 pub use sqlite_execution::SqliteExecutionStore;
 pub use sqlite_family::SqliteFamilyStore;
+pub use sqlite_model_catalog_overrides::SqliteModelCatalogOverrideStore;

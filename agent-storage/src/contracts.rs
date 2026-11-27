@@ -1,6 +1,7 @@
 //! Persistence contracts and data transfer objects for agent execution.
 
 mod conversation_message_store;
+mod model_catalog_override_store;
 mod run_event_store;
 mod run_store;
 mod storage_error;
@@ -12,6 +13,7 @@ mod task_run_store;
 mod usage_store;
 
 pub use conversation_message_store::ConversationMessageStore;
+pub use model_catalog_override_store::ModelCatalogOverrideStore;
 pub use run_event_store::RunEventStore;
 pub use run_store::RunStore;
 pub use storage_error::StorageError;
