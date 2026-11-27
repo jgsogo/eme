@@ -9,4 +9,16 @@ base_url = "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
 name = "@cf/zai-org/glm-4.7-flash"
 enabled = true
 access_tier = "free_tier"
-capabilities = ["chat", "reasoning", "tool_calling"]
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "@cf/deepseek-ai/deepseek-v4.1-flash-1017"
+enabled = true
+access_tier = "paid"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "@cf/qwen/qwen3.8-27b"
+enabled = true
+access_tier = "free_tier"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
