@@ -48,6 +48,9 @@ impl SqliteExecutionStore {
         connection
             .execute_batch(include_str!("../migrations/0010_one_shot_run_owners.sql"))
             .map_err(backend)?;
+        connection
+            .execute_batch(include_str!("../migrations/0011_run_history_pagination.sql"))
+            .map_err(backend)?;
         ensure_message_column(
             &connection,
             "run_id",
