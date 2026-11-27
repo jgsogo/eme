@@ -472,14 +472,8 @@ async fn stream_run_events(
             }
         }
 
-        if manager
-            .get(run_id)
-            .await
-            .is_some_and(|run| !matches!(run.status, RunStatus::Queued | RunStatus::Running))
-        {
-            return;
-        }
-
+        // A run can enter a terminal in-memory state before its transcript has
+        // been persisted. Keep listening until its terminal event is published.
         let mut heartbeat = tokio::time::interval(Duration::from_secs(15));
         loop {
             tokio::select! {
@@ -517,6 +511,20 @@ async fn stream_run_events(
                     }
                 }
                 _ = heartbeat.tick() => {
+                    // Reconcile from the ordered history as well as the broadcast channel.
+                    // This recovers events if a subscriber reconnects or falls behind.
+                    for event in manager.events(run_id).await.unwrap_or_default() {
+                        if last_sequence.is_some_and(|last| event.sequence <= last) {
+                            continue;
+                        }
+                        let Some((sequence, terminal)) = send_sse_event(&sender, event).await else {
+                            return;
+                        };
+                        last_sequence = Some(sequence);
+                        if terminal {
+                            return;
+                        }
+                    }
                     if sender.send(Bytes::from_static(b": keep-alive\n\n")).await.is_err() {
                         return;
                     }
