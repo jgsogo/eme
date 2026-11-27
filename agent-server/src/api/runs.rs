@@ -1,8 +1,8 @@
 //! Run submission, inspection, cancellation, and event routes.
 
+use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
-use serde::Deserialize;
 
 use agent_metering::{
     CostEstimate, CostStatus, ModelPricing, UsageRecord, calculate_cost, summarize_usage,
@@ -100,7 +100,10 @@ async fn list_runs(
 ) -> impl Responder {
     const DEFAULT_PAGE_SIZE: u64 = 25;
     const MAX_PAGE_SIZE: u64 = 1000;
-    let limit = query.limit.unwrap_or(DEFAULT_PAGE_SIZE).clamp(1, MAX_PAGE_SIZE);
+    let limit = query
+        .limit
+        .unwrap_or(DEFAULT_PAGE_SIZE)
+        .clamp(1, MAX_PAGE_SIZE);
     let mut offset = query.offset.unwrap_or(0);
     let mut body = Vec::with_capacity(limit as usize);
     let mut has_more = false;
@@ -120,12 +123,14 @@ async fn list_runs(
         offset = offset.saturating_add(runs.len() as u64);
         has_more = offset < total;
         for run in runs {
-            if auth.as_ref().is_some_and(|auth| !owns_run(
-                &run,
-                &request,
-                Some(auth.get_ref()),
-                store.as_ref().map(|store| store.get_ref().as_ref()),
-            )) {
+            if auth.as_ref().is_some_and(|auth| {
+                !owns_run(
+                    &run,
+                    &request,
+                    Some(auth.get_ref()),
+                    store.as_ref().map(|store| store.get_ref().as_ref()),
+                )
+            }) {
                 continue;
             }
             let one_shot = is_one_shot_run(
