@@ -32,4 +32,4 @@ capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 name = "minimaxai/minimax-m2.7"
 enabled = true
 access_tier = "paid"
-capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+capabilities = ["chat", "reasoning", "coding"]
