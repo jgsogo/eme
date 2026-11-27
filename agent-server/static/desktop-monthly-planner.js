@@ -55,7 +55,7 @@ function renderMonth(){
   const slots=meals.map(([meal,title])=>{
    const assignment=assignmentFor(date,meal);
    const configuredPeople=participationDetails(date,meal);
-   const people=configuredPeople||assignment?.participants?.map(p=>p.name).join(", ")||"No participation configured";
+   const people=assignment?.participants?.map(p=>p.name).join(", ")||configuredPeople||"No participation configured";
    const recipes=recipeNames(assignment||{}).join(" · ");
    const detail=state.failedWeeks.has(weekStartFor(date))?'<p class="school-menu-placeholder">Planning data unavailable</p>':assignment||configuredPeople?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+(!assignment?'<span>Meal not planned</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned · No participation configured</p>';
    const failed=state.failedWeeks.has(weekStartFor(date));
