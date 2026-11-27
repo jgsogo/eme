@@ -463,6 +463,7 @@ capabilities = ["chat"]
 name = "test"
 client = "gemini"
 api_key_env = "TEST_API_KEY"
+enabled = true
 
 [[models]]
 name = "test-model"
