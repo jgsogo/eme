@@ -85,3 +85,8 @@
 .execution-detail .usage-panel-heading{position:sticky;top:-18px;z-index:1;background:var(--panel);padding:0 0 12px}
 .execution-detail .execution-detail-content{min-height:120px}
 @media(max-width:600px){.execution-detail{width:calc(100% - 20px);max-width:none;max-height:90dvh;padding:14px}.execution-detail .usage-panel-heading{top:-14px}.execution-detail .usage-panel-heading>div{min-width:0}.execution-detail .usage-panel-heading h3{font-size:16px}.execution-detail .usage-panel-heading p{overflow-wrap:anywhere}}
+
+.execution-pagination{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.execution-pagination button{padding:6px 10px;font-size:11px}
+.execution-pagination button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:600px){.execution-pagination{width:100%;justify-content:space-between}.execution-pagination .usage-record-count{flex:1}}
