@@ -2,7 +2,7 @@
 
 use std::{path::Path, sync::Arc};
 
-use agent_models::{ModelCatalogOverrides, ModelOverride, ProviderOverride};
+use agent_models::{AccessTier, ModelCatalogOverrides, ModelOverride, ProviderOverride};
 use async_trait::async_trait;
 use rusqlite::{Connection, params};
 use tokio::sync::Mutex;
@@ -36,6 +36,29 @@ impl SqliteModelCatalogOverrideStore {
 
 fn backend(error: rusqlite::Error) -> StorageError {
     StorageError::Backend(error.to_string())
+}
+
+fn access_tier_name(value: AccessTier) -> &'static str {
+    match value {
+        AccessTier::Free => "free",
+        AccessTier::FreeTier => "free_tier",
+        AccessTier::Trial => "trial",
+        AccessTier::Paid => "paid",
+        AccessTier::Unknown => "unknown",
+    }
+}
+
+fn parse_access_tier(value: &str) -> Result<AccessTier, StorageError> {
+    match value {
+        "free" => Ok(AccessTier::Free),
+        "free_tier" => Ok(AccessTier::FreeTier),
+        "trial" => Ok(AccessTier::Trial),
+        "paid" => Ok(AccessTier::Paid),
+        "unknown" => Ok(AccessTier::Unknown),
+        _ => Err(StorageError::Backend(format!(
+            "unsupported model access tier '{value}' in SQLite"
+        ))),
+    }
 }
 
 fn optional_bool(value: Option<i64>) -> Option<bool> {
@@ -75,7 +98,7 @@ impl ModelCatalogOverrideStore for SqliteModelCatalogOverrideStore {
 
         {
             let mut statement = connection
-                .prepare("SELECT provider, model, enabled, disabled_reason FROM model_catalog_overrides ORDER BY provider, model")
+                .prepare("SELECT provider, model, enabled, access_tier, disabled_reason FROM model_catalog_overrides ORDER BY provider, model")
                 .map_err(backend)?;
             let rows = statement
                 .query_map([], |row| {
@@ -84,15 +107,19 @@ impl ModelCatalogOverrideStore for SqliteModelCatalogOverrideStore {
                         row.get::<_, String>(1)?,
                         row.get::<_, Option<i64>>(2)?,
                         row.get::<_, Option<String>>(3)?,
+                        row.get::<_, Option<String>>(4)?,
                     ))
                 })
                 .map_err(backend)?;
             for row in rows {
-                let (provider, model, enabled, disabled_reason) = row.map_err(backend)?;
+                let (provider, model, enabled, access_tier, disabled_reason) =
+                    row.map_err(backend)?;
+                let access_tier = access_tier.as_deref().map(parse_access_tier).transpose()?;
                 overrides.models.insert(
                     (provider, model),
                     ModelOverride {
                         enabled: optional_bool(enabled),
+                        access_tier,
                         disabled_reason,
                     },
                 );
@@ -144,7 +171,8 @@ impl ModelCatalogOverrideStore for SqliteModelCatalogOverrideStore {
         value: ModelOverride,
     ) -> Result<(), StorageError> {
         let connection = self.connection.lock().await;
-        if value.enabled.is_none() && value.disabled_reason.is_none() {
+        if value.enabled.is_none() && value.access_tier.is_none() && value.disabled_reason.is_none()
+        {
             connection
                 .execute(
                     "DELETE FROM model_catalog_overrides WHERE provider = ?1 AND model = ?2",
@@ -155,11 +183,12 @@ impl ModelCatalogOverrideStore for SqliteModelCatalogOverrideStore {
         }
         connection
             .execute(
-                "INSERT INTO model_catalog_overrides(provider, model, enabled, disabled_reason, updated_at) VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP) ON CONFLICT(provider, model) DO UPDATE SET enabled = excluded.enabled, disabled_reason = excluded.disabled_reason, updated_at = CURRENT_TIMESTAMP",
+                "INSERT INTO model_catalog_overrides(provider, model, enabled, access_tier, disabled_reason, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP) ON CONFLICT(provider, model) DO UPDATE SET enabled = excluded.enabled, access_tier = excluded.access_tier, disabled_reason = excluded.disabled_reason, updated_at = CURRENT_TIMESTAMP",
                 params![
                     provider,
                     model,
                     value.enabled.map(|enabled| if enabled { 1_i64 } else { 0_i64 }),
+                    value.access_tier.map(access_tier_name),
                     value.disabled_reason
                 ],
             )
@@ -188,7 +217,7 @@ mod tests {
 
     use super::SqliteModelCatalogOverrideStore;
     use crate::ModelCatalogOverrideStore;
-    use agent_models::{ModelCatalogOverrides, ModelOverride, ProviderOverride};
+    use agent_models::{AccessTier, ModelCatalogOverrides, ModelOverride, ProviderOverride};
 
     struct TestDatabase(PathBuf);
 
@@ -233,6 +262,7 @@ mod tests {
                 "gemini-3.5-flash-lite",
                 ModelOverride {
                     enabled: Some(true),
+                    access_tier: Some(AccessTier::FreeTier),
                     disabled_reason: None,
                 },
             )
@@ -252,6 +282,7 @@ mod tests {
                 ("gemini".into(), "gemini-3.5-flash-lite".into()),
                 ModelOverride {
                     enabled: Some(true),
+                    access_tier: Some(AccessTier::FreeTier),
                     disabled_reason: None,
                 },
             )]

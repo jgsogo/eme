@@ -1,11 +1,15 @@
 use crate::{
     client::ConversationClient,
     error::ModelError,
-    models::{AccessTier, ModelCapability},
+    models::{AccessTier, ModelCapability, ModelCatalogOverrides},
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use agent_config::{ConfigError, read_toml_dir};
-use std::{collections::BTreeMap, path::Path, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 use super::provider_config::ProviderConfig;
 
@@ -15,6 +19,7 @@ pub struct ProviderInfo {
     pub name: String,
     pub client: String,
     pub enabled: bool,
+    pub disabled_reason: Option<String>,
     pub models: Vec<ProviderModelInfo>,
 }
 
@@ -23,11 +28,13 @@ pub struct ProviderModelInfo {
     pub name: String,
     pub enabled: bool,
     pub access_tier: AccessTier,
+    pub disabled_reason: Option<String>,
     pub capabilities: Vec<ModelCapability>,
 }
 
 pub struct Registry {
     providers: BTreeMap<String, ProviderConfig>,
+    overrides: RwLock<ModelCatalogOverrides>,
 }
 
 impl Registry {
@@ -50,7 +57,29 @@ impl Registry {
             }
         }
 
-        Ok(Self { providers })
+        Ok(Self {
+            providers,
+            overrides: RwLock::new(ModelCatalogOverrides::default()),
+        })
+    }
+
+    /// Replaces the effective administrative overrides without changing the TOML catalogue.
+    ///
+    /// The registry is shared by the runtime and admin API, so updates become
+    /// visible to subsequent model selections without restarting the process.
+    pub fn apply_overrides(&self, overrides: ModelCatalogOverrides) {
+        *self
+            .overrides
+            .write()
+            .expect("model registry lock poisoned") = overrides;
+    }
+
+    /// Returns a snapshot of the currently applied sparse administrative overrides.
+    pub fn overrides(&self) -> ModelCatalogOverrides {
+        self.overrides
+            .read()
+            .expect("model registry lock poisoned")
+            .clone()
     }
 
     /// Returns the validated provider/model metadata without exposing credentials.
@@ -58,22 +87,42 @@ impl Registry {
     /// Disabled entries remain visible so administrative interfaces can explain
     /// the catalogue configuration; runtime selection methods exclude them.
     pub fn catalog(&self) -> Vec<ProviderInfo> {
+        let overrides = self.overrides.read().expect("model registry lock poisoned");
         self.providers
             .values()
-            .map(|provider| ProviderInfo {
-                name: provider.name.clone(),
-                client: provider.client.clone(),
-                enabled: provider.enabled,
-                models: provider
+            .map(|provider| {
+                let provider_override = overrides.providers.get(&provider.name);
+                let enabled = provider_override
+                    .and_then(|value| value.enabled)
+                    .unwrap_or(provider.enabled);
+                let disabled_reason =
+                    provider_override.and_then(|value| value.disabled_reason.clone());
+                let models = provider
                     .models
                     .iter()
-                    .map(|model| ProviderModelInfo {
-                        name: model.name.clone(),
-                        enabled: model.enabled,
-                        access_tier: model.access_tier,
-                        capabilities: model.capabilities.clone(),
+                    .map(|model| {
+                        let model_override = overrides
+                            .models
+                            .get(&(provider.name.clone(), model.name.clone()));
+                        ProviderModelInfo {
+                            name: model.name.clone(),
+                            enabled: model_override
+                                .and_then(|value| value.enabled)
+                                .unwrap_or(model.enabled),
+                            access_tier: model.access_tier,
+                            disabled_reason: model_override
+                                .and_then(|value| value.disabled_reason.clone()),
+                            capabilities: model.capabilities.clone(),
+                        }
                     })
-                    .collect(),
+                    .collect();
+                ProviderInfo {
+                    name: provider.name.clone(),
+                    client: provider.client.clone(),
+                    enabled,
+                    disabled_reason,
+                    models,
+                }
             })
             .collect()
     }
@@ -90,13 +139,39 @@ impl Registry {
             return false;
         }
 
+        let overrides = self.overrides.read().expect("model registry lock poisoned");
         self.providers.get(provider_name).is_some_and(|provider| {
-            provider.enabled
-                && provider
-                    .models
-                    .iter()
-                    .any(|model| model.enabled && model.name == model_name)
+            let provider_enabled = overrides
+                .providers
+                .get(provider_name)
+                .and_then(|value| value.enabled)
+                .unwrap_or(provider.enabled);
+            provider_enabled
+                && provider.models.iter().any(|model| {
+                    let model_enabled = overrides
+                        .models
+                        .get(&(provider_name.to_owned(), model.name.clone()))
+                        .and_then(|value| value.enabled)
+                        .unwrap_or(model.enabled);
+                    model_enabled && model.name == model_name
+                })
         })
+    }
+
+    /// Returns whether the static TOML catalogue declares a model with every requested capability.
+    ///
+    /// This deliberately ignores administrative enablement overrides. Agent
+    /// configuration validation uses it so disabling every current model does
+    /// not prevent the admin console from starting and re-enabling one.
+    pub fn contains_declared_compatible_model(&self, required: &[ModelCapability]) -> bool {
+        !required.is_empty()
+            && self.providers.values().any(|provider| {
+                provider.models.iter().any(|model| {
+                    required
+                        .iter()
+                        .all(|capability| model.capabilities.contains(capability))
+                })
+            })
     }
 
     /// Returns whether one enabled model provides every requested capability.
@@ -118,15 +193,27 @@ impl Registry {
             return Vec::new();
         }
 
+        let overrides = self.overrides.read().expect("model registry lock poisoned");
         self.providers
             .iter()
-            .filter(|(_, provider)| provider.enabled)
+            .filter(|(provider_name, provider)| {
+                overrides
+                    .providers
+                    .get(*provider_name)
+                    .and_then(|value| value.enabled)
+                    .unwrap_or(provider.enabled)
+            })
             .flat_map(|(provider_name, provider)| {
                 provider
                     .models
                     .iter()
-                    .filter(move |model| {
-                        model.enabled
+                    .filter(|model| {
+                        let enabled = overrides
+                            .models
+                            .get(&(provider_name.clone(), model.name.clone()))
+                            .and_then(|value| value.enabled)
+                            .unwrap_or(model.enabled);
+                        enabled
                             && required
                                 .iter()
                                 .all(|capability| model.capabilities.contains(capability))
@@ -156,7 +243,13 @@ impl Registry {
             .get(provider_name)
             .ok_or_else(|| ModelError::UnsupportedProvider(provider_name.to_string()))?;
 
-        if !provider.enabled {
+        let overrides = self.overrides.read().expect("model registry lock poisoned");
+        let provider_enabled = overrides
+            .providers
+            .get(provider_name)
+            .and_then(|value| value.enabled)
+            .unwrap_or(provider.enabled);
+        if !provider_enabled {
             return Err(ModelError::ProviderDisabled(provider_name.to_string()));
         }
 
@@ -166,7 +259,12 @@ impl Registry {
             .find(|configured| configured.name == model)
             .ok_or_else(|| ModelError::UnsupportedModel(format!("{provider_name}/{model}")))?;
 
-        if !model_config.enabled {
+        let model_enabled = overrides
+            .models
+            .get(&(provider_name.to_owned(), model.to_owned()))
+            .and_then(|value| value.enabled)
+            .unwrap_or(model_config.enabled);
+        if !model_enabled {
             return Err(ModelError::ModelDisabled(format!(
                 "{provider_name}/{model}"
             )));
@@ -206,7 +304,9 @@ mod tests {
     use super::Registry;
     use crate::{
         error::ModelError,
-        models::{AccessTier, ModelCapability},
+        models::{
+            AccessTier, ModelCapability, ModelCatalogOverrides, ModelOverride, ProviderOverride,
+        },
     };
     use agent_config::ConfigError;
 
@@ -283,6 +383,44 @@ capabilities = ["chat"]
         assert!(catalog[0].models[0].enabled);
         assert_eq!(catalog[0].models[0].access_tier, AccessTier::Unknown);
 
+        // Sparse administrative overrides take precedence over TOML metadata
+        // and can be cleared to restore the static catalogue values.
+        let mut overrides = ModelCatalogOverrides::default();
+        overrides.providers.insert(
+            "test".into(),
+            ProviderOverride {
+                enabled: Some(false),
+                disabled_reason: Some("maintenance".into()),
+            },
+        );
+        overrides.models.insert(
+            ("test".into(), "test-model".into()),
+            ModelOverride {
+                enabled: Some(false),
+                access_tier: Some(AccessTier::Paid),
+                disabled_reason: Some("disabled by administrator".into()),
+            },
+        );
+        valid_registry.apply_overrides(overrides);
+        assert!(!valid_registry.contains_model("test/test-model"));
+        let overridden_catalog = valid_registry.catalog();
+        assert!(!overridden_catalog[0].enabled);
+        assert_eq!(
+            overridden_catalog[0].disabled_reason.as_deref(),
+            Some("maintenance")
+        );
+        assert!(!overridden_catalog[0].models[0].enabled);
+        assert_eq!(
+            overridden_catalog[0].models[0].access_tier,
+            AccessTier::Paid
+        );
+        assert_eq!(
+            overridden_catalog[0].models[0].disabled_reason.as_deref(),
+            Some("disabled by administrator")
+        );
+        valid_registry.apply_overrides(ModelCatalogOverrides::default());
+        assert!(valid_registry.contains_model("test/test-model"));
+
         // Disabled providers and models stay visible in the catalogue but cannot
         // be selected for runtime execution.
         let disabled = directory.case("disabled");
@@ -302,6 +440,7 @@ capabilities = ["chat"]
         .unwrap();
         let registry = Registry::load(&disabled).unwrap();
         assert!(!registry.contains_model("disabled/disabled-model"));
+        assert!(registry.contains_declared_compatible_model(&[ModelCapability::Chat]));
         assert!(
             registry
                 .compatible_models(&[ModelCapability::Chat])
@@ -331,6 +470,7 @@ capabilities = ["chat"]
         .unwrap();
         let registry = Registry::load(&disabled_model).unwrap();
         assert!(!registry.contains_model("test/test-model"));
+        assert!(registry.contains_declared_compatible_model(&[ModelCapability::Chat]));
         assert!(
             registry
                 .compatible_models(&[ModelCapability::Chat])

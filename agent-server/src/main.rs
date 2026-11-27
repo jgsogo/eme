@@ -21,8 +21,9 @@ use actix_web::{App, HttpServer, middleware, web};
 use agent_server::{LanInvitationConfig, auth::TelegramAuth};
 use agent_service::{AgentRuntimeExecutor, FamilyService, RunManager};
 use agent_storage::{
-    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, SqliteConversationStore,
-    SqliteExecutionStore, SqliteFamilyStore,
+    FamilyInvitationStore, FamilyStore, FileUserIdentityStore, ModelCatalogOverrideStore,
+    SqliteConversationStore, SqliteExecutionStore, SqliteFamilyStore,
+    SqliteModelCatalogOverrideStore,
 };
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -124,6 +125,19 @@ async fn main() -> Result<()> {
     .context("configuring media integrations")?;
     let media_api_state = media_integration.api.clone();
 
+    let conversation_database = args
+        .conversation_database
+        .clone()
+        .unwrap_or_else(|| args.data_dir.join("agent-storage.sqlite"));
+    let model_catalog_override_store = Arc::new(
+        SqliteModelCatalogOverrideStore::open(&conversation_database)
+            .context("opening SQLite model catalogue override storage")?,
+    );
+    let model_catalog_overrides = model_catalog_override_store
+        .load_overrides()
+        .await
+        .context("loading model catalogue overrides")?;
+
     let resolver = Arc::new(
         ConfiguredAgentResolver::load(
             &args.data_dir,
@@ -133,6 +147,7 @@ async fn main() -> Result<()> {
             Arc::clone(&family_store) as Arc<dyn FamilyStore>,
             google_runtime,
             media_integration.tools,
+            model_catalog_overrides,
         )
         .with_context(|| {
             format!(
@@ -161,10 +176,6 @@ async fn main() -> Result<()> {
         FileUserIdentityStore::open(args.data_dir.join("users.json"))
             .context("opening persistent user identity storage")?,
     );
-    let conversation_database = args
-        .conversation_database
-        .clone()
-        .unwrap_or_else(|| args.data_dir.join("agent-storage.sqlite"));
     let conversation_store = Arc::new(
         SqliteConversationStore::open(&conversation_database)
             .context("opening SQLite conversation storage")?,
@@ -248,6 +259,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(agents.clone()))
             .app_data(web::Data::new(tools_catalog.clone()))
             .app_data(web::Data::new(providers_catalog.clone()))
+            .app_data(web::Data::new(Arc::clone(&model_catalog_override_store)))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))

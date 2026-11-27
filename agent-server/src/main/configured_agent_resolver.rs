@@ -2,7 +2,10 @@
 
 use std::sync::Arc;
 
-use agent_models::{ModelCapability, ModelError, ModelFailureCategory, Registry as ModelRegistry};
+use agent_models::{
+    ModelCatalogOverrides, ModelCapability, ModelError, ModelFailureCategory,
+    Registry as ModelRegistry,
+};
 use agent_runtime::{
     Agent, AgentModel, AgentRegistry, AgentRuntime, AllowListPolicy, CancellationToken,
     ModelAdapter, ModelRequest, ModelRouter, ModelRoutingEvent, ModelRoutingEventSink,
@@ -59,8 +62,12 @@ impl ConfiguredAgentResolver {
         family_store: Arc<dyn FamilyStore>,
         google_runtime: Option<GoogleCalendarRuntimeConfig>,
         media_services: MediaToolServices,
+        model_catalog_overrides: ModelCatalogOverrides,
     ) -> Result<Self> {
-        let models = Arc::new(ModelRegistry::load(data_dir).context("loading model providers")?);
+        let model_registry =
+            ModelRegistry::load(data_dir).context("loading model providers")?;
+        model_registry.apply_overrides(model_catalog_overrides);
+        let models = Arc::new(model_registry);
 
         let mut tools = ToolRegistry::new();
         let books = BookStore::open(data_dir.join("books.sqlite")).context("opening personal book collection")?;
@@ -154,7 +161,7 @@ impl ModelRouter for RegistryModelRouter {
                 attempted_candidates: 0,
             });
             return Err(ModelError::UnsupportedModel(format!(
-                "no configured model satisfies required capabilities {required:?}"
+                "no enabled model satisfies required capabilities {required:?}"
             )));
         }
 
