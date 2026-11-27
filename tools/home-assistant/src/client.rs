@@ -143,7 +143,7 @@ impl HomeAssistantClient {
         entity_id: Option<&str>,
         timestamp: Option<&str>,
     ) -> Result<Value, HomeAssistantError> {
-        let mut url = self.endpoint("api/history/period/")?;
+        let mut url = self.endpoint("api/history/period")?;
         if let Some(timestamp) = timestamp {
             url.path_segments_mut()
                 .map_err(|_| HomeAssistantError::InvalidUrl("cannot append timestamp".into()))?
@@ -169,7 +169,7 @@ mod tests {
     use serde_json::json;
     use wiremock::{
         Mock, MockServer, ResponseTemplate,
-        matchers::{bearer_token, body_json, method, path, query_param},
+        matchers::{body_json, header, method, path, query_param},
     };
 
     use super::HomeAssistantClient;
@@ -179,7 +179,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/api/states/light.kitchen"))
-            .and(bearer_token("test-token"))
+            .and(header("authorization", "Bearer test-token"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "entity_id": "light.kitchen",
                 "state": "on"
@@ -196,9 +196,9 @@ mod tests {
     async fn gets_history_with_entity_filter() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/api/history/period/"))
+            .and(path("/api/history/period"))
             .and(query_param("filter_entity_id", "sensor.temperature"))
-            .and(bearer_token("test-token"))
+            .and(header("authorization", "Bearer test-token"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
             .mount(&server)
             .await;
@@ -216,7 +216,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/api/services/light/turn_on"))
-            .and(bearer_token("test-token"))
+            .and(header("authorization", "Bearer test-token"))
             .and(body_json(json!({"entity_id": "light.kitchen"})))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
             .mount(&server)
