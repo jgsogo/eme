@@ -436,6 +436,8 @@ enabled = false
 
 [[models]]
 name = "disabled-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#,
         )
