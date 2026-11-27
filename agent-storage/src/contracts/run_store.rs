@@ -21,9 +21,17 @@ pub trait RunStore: Send + Sync {
 
     /// Returns a bounded newest-first page. Backends should override this to
     /// apply pagination in the database rather than loading the full history.
-    async fn list_runs_page(&self, offset: u64, limit: u64) -> Result<Vec<StoredRun>, StorageError> {
+    async fn list_runs_page(
+        &self,
+        offset: u64,
+        limit: u64,
+    ) -> Result<Vec<StoredRun>, StorageError> {
         let runs = self.list_runs(None).await?;
-        Ok(runs.into_iter().skip(offset as usize).take(limit as usize).collect())
+        Ok(runs
+            .into_iter()
+            .skip(offset as usize)
+            .take(limit as usize)
+            .collect())
     }
 
     /// Returns the number of persisted runs.
