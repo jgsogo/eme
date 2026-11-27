@@ -9,7 +9,6 @@ pub struct ModelConfig {
     pub capabilities: Vec<ModelCapability>,
 }
 
-
 impl ModelConfig {
     pub fn validate(&self) -> Result<(), String> {
         if self.name.trim().is_empty() {
