@@ -570,61 +570,54 @@ impl RunManager {
 
     /// Returns a bounded newest-first page of runs and the persisted total.
     pub async fn list_page(&self, offset: u64, limit: u64) -> Result<(Vec<Run>, u64), String> {
-        let (in_memory_ids, in_memory_runs) = {
-            let in_memory = self.runs.lock().await;
-            (
-                in_memory
-                    .keys()
-                    .map(|id| id.as_uuid())
-                    .collect::<std::collections::HashSet<_>>(),
-                in_memory
-                    .values()
-                    .map(|entry| entry.run.clone())
-                    .collect::<Vec<_>>(),
-            )
-        };
-        let mut by_id = HashMap::new();
-        let total;
-        if let Some(storage) = current_storage(&self.persistence) {
-            let fetch_limit = offset
-                .saturating_add(limit)
-                .saturating_add(in_memory_runs.len() as u64);
+        let in_memory = self.runs.lock().await;
+        let in_memory_ids = in_memory
+            .keys()
+            .map(|id| id.as_uuid())
+            .collect::<std::collections::HashSet<_>>();
+        let mut result = if let Some(storage) = current_storage(&self.persistence) {
             let stored = storage
-                .list_runs_page(0, fetch_limit)
+                .list_runs_page(offset, limit)
                 .await
                 .map_err(|error| error.to_string())?;
-            total = storage
+            let total = storage
                 .count_runs()
                 .await
                 .map_err(|error| error.to_string())?;
+            let mut page = Vec::with_capacity(stored.len());
             for run in stored {
-                let run = if in_memory_ids.contains(&run.id) {
-                    run
+                let run = if let Some(entry) = in_memory.get(&RunId::from_uuid(run.id)) {
+                    entry.run.clone()
                 } else {
                     match recover_interrupted_run(storage.as_ref(), run.clone()).await {
-                        Ok(recovered) => recovered,
+                        Ok(recovered) => from_stored_run(recovered),
                         Err(error) => {
                             error!(run_id = %run.id, %error, "failed to recover interrupted run");
-                            run
+                            from_stored_run(run)
                         }
                     }
                 };
-                by_id.insert(run.id, from_stored_run(run));
+                page.push(run);
             }
+            (page, total)
         } else {
-            total = in_memory_runs.len() as u64;
-        }
-        for run in in_memory_runs {
-            by_id.insert(run.id.as_uuid(), run);
-        }
-        let mut result = by_id.into_values().collect::<Vec<_>>();
-        result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
-        let page = result
-            .into_iter()
-            .skip(offset as usize)
-            .take(limit as usize)
-            .collect();
-        Ok((page, total))
+            let mut runs = in_memory
+                .values()
+                .map(|entry| entry.run.clone())
+                .collect::<Vec<_>>();
+            runs.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+            let total = runs.len() as u64;
+            (
+                runs.into_iter()
+                    .skip(offset as usize)
+                    .take(limit as usize)
+                    .collect(),
+                total,
+            )
+        };
+        drop(in_memory);
+        result.0.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+        Ok(result)
     }
 
     pub async fn list(&self) -> Vec<Run> {
