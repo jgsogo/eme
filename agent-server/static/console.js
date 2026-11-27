@@ -139,6 +139,8 @@ function renderNoteFamilyFilter(){
  if([...select.options].some(option=>option.value===selected))select.value=selected;
 }
 let notesPage=1;
+let noteMode="preview";
+let noteCanEdit=false;
 const NOTES_PAGE_SIZE=10;
 function filteredNotes(){
  const query=$("note-search")?.value.trim().toLocaleLowerCase()||"";
@@ -188,22 +190,33 @@ function showNoteEditor(title){
  $("notes-main-title").textContent=title;
  $("notes-main-subtitle").textContent="View and edit note details";
 }
+function setNoteMode(mode){
+ noteMode=mode==="edit"&&noteCanEdit?"edit":"preview";
+ const preview=noteMode==="preview";
+ const previewTab=$("note-preview-tab"),editTab=$("note-edit-tab");
+ if(previewTab){previewTab.classList.toggle("active",preview);previewTab.setAttribute("aria-selected",String(preview))}
+ if(editTab){editTab.hidden=!noteCanEdit;editTab.classList.toggle("active",!preview);editTab.setAttribute("aria-selected",String(!preview))}
+ $("note-preview").hidden=!preview;
+ $("note-edit-fields").hidden=preview;
+ $("note-edit-actions").hidden=preview;
+ $("note-preview").innerHTML=renderMarkdown($("note-content").value);
+ for(const id of ["note-title","note-content","note-family","save-note","delete-note"])$(id).disabled=!noteCanEdit||preview;
+}
 function resetNoteEditor(){
- state.selectedNote=null;renderNotes();
+ state.selectedNote=null;renderNotes();noteCanEdit=false;
  if($("notes-overview"))showNotesOverview();
  if($("note-heading"))$("note-heading").textContent="Select a note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
- for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=true;
- $("delete-note").disabled=true;$("notes-status").textContent="Choose a note or create a new one. Notes are private by default.";
+ $("notes-status").textContent="Choose a note or create a new one. Notes are private by default.";
+ setNoteMode("preview");
 }
 function startNewNote(){
- state.selectedNote="new";renderNotes();
+ state.selectedNote="new";renderNotes();noteCanEdit=true;
  if($("notes-overview"))showNoteEditor("New note");
  if($("note-heading"))$("note-heading").textContent="New note";
  $("note-title").value="";$("note-content").value="";$("note-family").value="";
- for(const id of ["note-title","note-content","note-family","save-note"])$(id).disabled=false;
- $("delete-note").disabled=true;$("notes-status").textContent="New private note. You can optionally share it with one family.";
- $("note-title").focus();
+ $("notes-status").textContent="New private note. Switch to Edit to write your note.";
+ setNoteMode("preview");
 }
 async function selectNote(id){
  const note=state.notes.find(item=>item.id===id);if(!note)return;
@@ -212,10 +225,9 @@ async function selectNote(id){
   if($("notes-overview"))showNoteEditor(full.title);
   if($("note-heading"))$("note-heading").textContent=full.title;
   $("note-title").value=full.title;$("note-content").value=full.content;$("note-family").value=full.family_id||"";
-  const editable=full.owner_id===state.currentUserId;
-  for(const field of ["note-title","note-content","note-family","save-note"])$(field).disabled=!editable;
-  $("delete-note").disabled=!editable;
-  $("notes-status").textContent=!editable?"Shared note · read-only":(full.family_id?"Shared with "+(state.families.find(f=>f.id===full.family_id)?.name||"a family"):"Private note");
+  noteCanEdit=full.owner_id===state.currentUserId;
+  $("notes-status").textContent=!noteCanEdit?"Shared note · read-only":(full.family_id?"Shared with "+(state.families.find(f=>f.id===full.family_id)?.name||"a family"):"Private note");
+  setNoteMode("preview");
  }catch(e){$("notes-status").textContent=e.message;if($("notes-main-subtitle"))$("notes-main-subtitle").textContent="Unable to open note: "+e.message}
 }
 function renderNoteFamilies(){
@@ -231,14 +243,14 @@ async function loadNotes(){
  finally{if(button)button.disabled=false}
 }
 async function saveNote(event){
- event.preventDefault();const title=$("note-title").value.trim(),content=$("note-content").value,family_id=$("note-family").value||null;
+ event.preventDefault();if(!noteCanEdit||noteMode!=="edit")return;const title=$("note-title").value.trim(),content=$("note-content").value,family_id=$("note-family").value||null;
  if(!title){$("notes-status").textContent="A title is required.";return}
  const body=JSON.stringify({title,content,family_id});$("save-note").disabled=true;
  try{
   const saved=state.selectedNote==="new"?await api("/notes",{method:"POST",body}):await api("/notes/"+encodeURIComponent(state.selectedNote),{method:"PUT",body});
   await loadNotes();state.selectedNote=saved.id;renderNotes();await selectNote(saved.id);$("notes-status").textContent="Note saved.";
  }catch(e){$("notes-status").textContent=e.message}
- finally{$("save-note").disabled=false}
+ finally{setNoteMode(noteMode)}
 }
 async function deleteNote(){
  if(!state.selectedNote||state.selectedNote==="new")return;
@@ -633,7 +645,7 @@ for(const [overviewId,buttonId] of [["conversations-overview","new-conversation"
  const overview=$(overviewId),button=$(buttonId);
  if(overview&&button){overview.addEventListener("scroll",()=>updateListFabVisibility(overview,button),{passive:true});updateListFabVisibility(overview,button);}
 }
-on("new-task","click",startNewTask);on("back-to-tasks","click",resetTaskEditor);on("tasks-prev-page","click",()=>{tasksPage--;renderTasksTable()});on("tasks-next-page","click",()=>{tasksPage++;renderTasksTable()});on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;tasksPage=1;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("tasks-table-body","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}const row=e.target.closest("[data-task-id]");if(row)selectTask(row.dataset.taskId)});on("tasks-table-body","keydown",e=>{const row=e.target.closest("[data-task-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectTask(row.dataset.taskId)}});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{const row=e.target.closest("[data-note-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectNote(row.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("back-to-notes","click",resetNoteEditor);on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
+on("new-task","click",startNewTask);on("back-to-tasks","click",resetTaskEditor);on("tasks-prev-page","click",()=>{tasksPage--;renderTasksTable()});on("tasks-next-page","click",()=>{tasksPage++;renderTasksTable()});on("tasks-list","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}if(e.target.closest("[data-clear-task-filters]")){$("task-search").value="";$("tasks-enabled-only").checked=false;tasksPage=1;renderTasks();return}const button=e.target.closest("button[data-task-id]");if(button)selectTask(button.dataset.taskId)});on("tasks-table-body","click",e=>{if(e.target.closest("[data-retry-tasks]")){loadTasks();return}const row=e.target.closest("[data-task-id]");if(row)selectTask(row.dataset.taskId)});on("tasks-table-body","keydown",e=>{const row=e.target.closest("[data-task-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectTask(row.dataset.taskId)}});on("task-form","submit",saveTask);on("delete-task","click",deleteTask);on("notes-list","click",e=>{if(e.target.closest("[data-retry-notes]")){loadNotes();return}if(e.target.closest("[data-clear-note-filters]")){$("note-search").value="";$("note-family-filter").value="";notesPage=1;renderNotes();return}const button=e.target.closest("button[data-note-id]");if(button)selectNote(button.dataset.noteId)});on("notes-table-body","click",e=>{const row=e.target.closest("[data-note-id]");if(row)selectNote(row.dataset.noteId)});on("notes-table-body","keydown",e=>{const row=e.target.closest("[data-note-id]");if(row&&(e.key==="Enter"||e.key===" ")&&e.target===row){e.preventDefault();selectNote(row.dataset.noteId)}});on("notes-prev-page","click",()=>{notesPage--;renderNotesTable()});on("notes-next-page","click",()=>{notesPage++;renderNotesTable()});on("new-note","click",startNewNote);on("back-to-notes","click",resetNoteEditor);on("note-preview-tab","click",()=>setNoteMode("preview"));on("note-edit-tab","click",()=>setNoteMode("edit"));on("note-content","input",()=>{if(noteMode==="edit")$("note-preview").innerHTML=renderMarkdown($("note-content").value)});on("note-title","input",()=>{if(noteMode==="edit"&&state.selectedNote==="new")$("note-heading").textContent=$("note-title").value||"New note"});on("note-form","submit",saveNote);on("delete-note","click",deleteNote);
 on("create-family","click",createFamily);on("add-family-member","click",addManagedFamilyMember);on("family-action-cancel","click",()=> $("family-action-dialog").close());on("family-action-form","submit",async event=>{event.preventDefault();if(!familyActionHandler)return;const button=$("family-action-submit");button.disabled=true;$("family-action-cancel").disabled=true;$("family-action-status").textContent="Saving…";try{const values=Object.fromEntries(new FormData(event.currentTarget).entries());await familyActionHandler(values);$("family-action-dialog").close()}catch(error){$("family-action-status").textContent=error.message}finally{button.disabled=false;$("family-action-cancel").disabled=false}});on("family-action-dialog","close",()=>{familyActionHandler=null});on("leave-family","click",leaveFamily);on("delete-family","click",deleteFamily);on("family-members","click",e=>{if(e.target.closest("[data-clear-family-member-filter]")){$("family-members-search").value="";renderFamilyMembers();return}const role=e.target.closest("button[data-save-role]"),promote=e.target.closest("button[data-promote-member]"),remove=e.target.closest("button[data-remove-member]"),transfer=e.target.closest("button[data-transfer-owner]"),edit=e.target.closest("button[data-edit-member-profile]");if(edit)editManagedFamilyMember(edit.dataset.editMemberProfile);else if(role)changeMemberRole(role.dataset.saveRole);else if(promote)changeMemberRole(promote.dataset.promoteMember,"admin");else if(remove)removeFamilyMember(remove.dataset.removeMember);else if(transfer)transferFamilyOwnership(transfer.dataset.transferOwner)});on("rename-family","click",renameFamily);on("create-invitation","click",createInvitation);on("family-invitations","click",e=>{if(e.target.closest("[data-clear-family-invitation-filter]")){$("family-invitations-search").value="";renderFamilyInvitations();return}const button=e.target.closest("button[data-revoke-invitation]");if(button)revokeInvitation(button.dataset.revokeInvitation)});on("edit-conversation-settings","click",openEditConversationDialog);on("edit-conversation-form","submit",saveConversationSettings);on("edit-conversation-cancel","click",()=> $("edit-conversation-dialog").close());on("edit-conversation-dialog","click",event=>{if(event.target===$("edit-conversation-dialog"))$("edit-conversation-dialog").close()});on("messages","click",async e=>{if(e.target.closest("[data-retry-message]")){e.preventDefault();await retryMessage();return}if(!e.target.closest("#cancel-run")||!state.runId)return;const button=e.target.closest("#cancel-run");button.disabled=true;button.textContent="Cancelling…";try{await api("/runs/"+encodeURIComponent(state.runId)+"/cancel",{method:"POST"});setStatus("Cancellation requested")}catch(error){button.disabled=false;button.textContent="Cancel";setStatus(error.message,"error")}});on("new-conversation","click",openNewConversationDialog);on("new-conversation-form","submit",createConversation);on("new-conversation-agent","change",updateAgentDescription);on("new-conversation-close","click",()=>$("new-conversation-dialog").close());on("new-conversation-dialog","click",event=>{if(event.target===$("new-conversation-dialog"))$("new-conversation-dialog").close()});on("conversations","click",e=>{const archiveButton=e.target.closest("button[data-archive-id]");if(archiveButton){e.stopPropagation();if(!state.runId)archiveConversation(archiveButton.dataset.archiveId);return}const deleteButton=e.target.closest("button[data-delete-id]");if(deleteButton){e.stopPropagation();if(!state.runId)deleteConversation(deleteButton.dataset.deleteId);return}const item=e.target.closest("li[data-id]");if(item&&item.dataset.id!==state.selected)selectConversation(item.dataset.id)});on("composer","submit",e=>{e.preventDefault();sendMessage()});on("prompt","keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("composer").requestSubmit()}}); 
 async function loadTasks(){
  const button=$("refresh-tasks");if(button)button.disabled=true;
