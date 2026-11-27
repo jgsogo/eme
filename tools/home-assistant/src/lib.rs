@@ -33,10 +33,8 @@ pub fn register_tools(registry: &mut ToolRegistry) -> Result<(), ConfigError> {
         ("get_history.toml", Operation::GetHistory),
         ("get_config.toml", Operation::GetConfig),
     ] {
-        registry.register_from_file(
-            data_dir.join(definition),
-            HomeAssistantTool::new(operation),
-        )?;
+        registry
+            .register_from_file(data_dir.join(definition), HomeAssistantTool::new(operation))?;
     }
     Ok(())
 }
