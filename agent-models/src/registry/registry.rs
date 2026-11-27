@@ -382,6 +382,14 @@ capabilities = ["chat"]
                 "missing configured model '{model}'"
             );
         }
+
+        let groq = catalog.iter().find(|provider| provider.name == "groq").unwrap();
+        let minimax = groq
+            .models
+            .iter()
+            .find(|model| model.name == "minimaxai/minimax-m2.7")
+            .unwrap();
+        assert_eq!(minimax.access_tier, AccessTier::Enterprise);
     }
 
     #[test]
