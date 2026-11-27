@@ -19,6 +19,10 @@ pub struct Conversation {
     /// Whether the conversation is hidden from the default conversation list.
     #[serde(default)]
     pub archived: bool,
+    /// Timestamp when the conversation was removed from normal views. Its
+    /// messages, runs, events and usage records remain available for reporting.
+    #[serde(default)]
+    pub removed_at: Option<DateTime<Utc>>,
     /// Family explicitly selected for this conversation; absent in legacy records.
     #[serde(default)]
     pub selected_family_id: Option<FamilyId>,

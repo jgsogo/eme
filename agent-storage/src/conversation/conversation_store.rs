@@ -59,6 +59,7 @@ impl ConversationStore {
             agent,
             title: default_conversation_title(),
             archived: false,
+            removed_at: None,
             selected_family_id: None,
             created_at: now,
             updated_at: now,
@@ -83,7 +84,15 @@ impl ConversationStore {
         active
             .get(owner)
             .copied()
-            .map(|id| self.read_conversation(id))
+            .map(|id| {
+                self.read_conversation(id).and_then(|conversation| {
+                    if conversation.removed_at.is_some() {
+                        Err(ConversationStoreError::NotFound(id))
+                    } else {
+                        Ok(conversation)
+                    }
+                })
+            })
             .transpose()
     }
 
@@ -123,7 +132,10 @@ impl ConversationStore {
 
             let bytes = fs::read(entry.path())?;
             let conversation: Conversation = serde_json::from_slice(&bytes)?;
-            if conversation.owner == owner && conversation.archived == archived {
+            if conversation.owner == owner
+                && conversation.archived == archived
+                && conversation.removed_at.is_none()
+            {
                 conversations.push(conversation);
             }
         }
@@ -166,7 +178,11 @@ impl ConversationStore {
             .lock
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        self.read_conversation(id)
+        let conversation = self.read_conversation(id)?;
+        if conversation.removed_at.is_some() {
+            return Err(ConversationStoreError::NotFound(id));
+        }
+        Ok(conversation)
     }
 
     /// Changes the display title of a conversation belonging to owner.
@@ -261,7 +277,7 @@ impl ConversationStore {
         Ok(conversation)
     }
 
-    /// Permanently deletes a conversation belonging to owner.
+    /// Marks a conversation as removed without deleting its document.
     ///
     /// If the conversation is currently active for that owner, its active
     /// pointer is removed as part of the same process-local critical section.
@@ -284,7 +300,9 @@ impl ConversationStore {
             self.write_active_index(&active)?;
         }
 
-        fs::remove_file(self.conversation_path(id))?;
+        let mut conversation = conversation;
+        conversation.removed_at = Some(Utc::now());
+        self.write_conversation(&conversation)?;
         Ok(())
     }
 
@@ -315,7 +333,14 @@ impl ConversationStore {
     ) -> Result<Conversation, ConversationStoreError> {
         let path = self.conversation_path(id);
         match fs::read(path) {
-            Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
+            Ok(bytes) => {
+                let conversation: Conversation = serde_json::from_slice(&bytes)?;
+                if conversation.removed_at.is_some() {
+                    Err(ConversationStoreError::NotFound(id))
+                } else {
+                    Ok(conversation)
+                }
+            }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 Err(ConversationStoreError::NotFound(id))
             }
