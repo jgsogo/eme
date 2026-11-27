@@ -416,9 +416,20 @@
 }
 
 
+/* The close glyph is shared by desktop and mobile dialog markup. */
+.provider-model-dialog-close .provider-dialog-close-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  font: 400 25px/1 Arial, sans-serif;
+  visibility: visible;
+  opacity: 1;
+}
+
 /* Desktop uses CSS-drawn icons rather than inline SVG. This avoids inherited
    SVG rules from the desktop shell and keeps the controls visible without
-   relying on SVG presentation defaults. Mobile retains its existing SVGs. */
+   relying on SVG presentation defaults. Mobile retains its own view-toggle SVGs. */
 @media (min-width: 701px) {
   .provider-view-switch > button.icon-button {
     display: inline-flex !important;
