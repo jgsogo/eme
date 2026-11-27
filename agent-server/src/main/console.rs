@@ -9,12 +9,13 @@ use std::{
 use actix_web::{
     HttpRequest, HttpResponse, Responder, get,
     http::header,
-    post,
+    post, put,
     web::{self, Data},
 };
 use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
 use agent_runtime::ToolDefinition;
 use agent_server::auth::TelegramAuth;
+use agent_storage::{ModelCatalogOverrideStore, SqliteModelCatalogOverrideStore};
 
 fn login_return_to(request: &HttpRequest) -> String {
     let query = web::Query::<HashMap<String, String>>::from_query(request.query_string()).ok();
@@ -106,6 +107,178 @@ pub(super) async fn providers_script() -> impl Responder {
 #[get("/providers")]
 pub(super) async fn list_configured_providers(providers: Data<Arc<Registry>>) -> HttpResponse {
     HttpResponse::Ok().json(providers.catalog())
+}
+
+#[put("/providers/overrides")]
+pub(super) async fn update_model_catalog_override(
+    providers: Data<Arc<Registry>>,
+    store: Data<Arc<SqliteModelCatalogOverrideStore>>,
+    update_lock: Data<Arc<tokio::sync::Mutex<()>>>,
+    body: Option<web::Json<serde_json::Value>>,
+) -> HttpResponse {
+    let Some(body) = body else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "A JSON body with a provider name is required"
+        }));
+    };
+    let Some(provider_name) = body.get("provider").and_then(serde_json::Value::as_str) else {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The provider field must be a string"
+        }));
+    };
+    if provider_name.trim().is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The provider field cannot be empty"
+        }));
+    }
+
+    if body.get("access_tier").is_some() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The access_tier field is defined by the TOML catalogue and cannot be overridden"
+        }));
+    }
+
+    let model_name = match body.get("model") {
+        None | Some(serde_json::Value::Null) => None,
+        Some(serde_json::Value::String(model)) if !model.trim().is_empty() => {
+            Some(model.trim().to_owned())
+        }
+        _ => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "The model field must be a non-empty string when provided"
+            }));
+        }
+    };
+    let reset = match body.get("reset") {
+        None => false,
+        Some(value) => match value.as_bool() {
+            Some(value) => value,
+            None => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "The reset field must be a boolean"
+                }));
+            }
+        },
+    };
+    let enabled = match body.get("enabled") {
+        None => None,
+        Some(value) => match value.as_bool() {
+            Some(value) => Some(value),
+            None => {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "The enabled field must be a boolean"
+                }));
+            }
+        },
+    };
+    let disabled_reason = match body.get("disabled_reason") {
+        None => None,
+        Some(serde_json::Value::Null) => Some(String::new()),
+        Some(serde_json::Value::String(value)) => Some(value.trim().to_owned()),
+        _ => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "The disabled_reason field must be a string or null"
+            }));
+        }
+    };
+
+    if !reset && enabled.is_none() && disabled_reason.is_none() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "Provide an override field or set reset to true"
+        }));
+    }
+
+    let Some(provider) = providers
+        .catalog()
+        .into_iter()
+        .find(|provider| provider.name == provider_name)
+    else {
+        return HttpResponse::NotFound().json(serde_json::json!({
+            "error": format!("Provider '{provider_name}' is not configured")
+        }));
+    };
+    if let Some(model) = model_name.as_deref()
+        && !provider
+            .models
+            .iter()
+            .any(|configured| configured.name == model)
+    {
+        return HttpResponse::NotFound().json(serde_json::json!({
+            "error": format!("Model '{provider_name}/{model}' is not configured")
+        }));
+    }
+
+    let _guard = update_lock.lock().await;
+    let current = match store.load_overrides().await {
+        Ok(overrides) => overrides,
+        Err(error) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": error.to_string()
+            }));
+        }
+    };
+
+    let result = if let Some(model) = model_name.as_deref() {
+        if reset {
+            store.clear_model_override(provider_name, model).await
+        } else {
+            let mut value = current
+                .models
+                .get(&(provider_name.to_owned(), model.to_owned()))
+                .cloned()
+                .unwrap_or_default();
+            if let Some(enabled) = enabled {
+                value.enabled = Some(enabled);
+                if enabled {
+                    value.disabled_reason = None;
+                }
+            }
+            if let Some(reason) = disabled_reason {
+                value.disabled_reason = (!reason.is_empty()).then_some(reason);
+            }
+            if enabled == Some(true) {
+                value.disabled_reason = None;
+            }
+            store.set_model_override(provider_name, model, value).await
+        }
+    } else if reset {
+        store.clear_provider_override(provider_name).await
+    } else {
+        let mut value = current
+            .providers
+            .get(provider_name)
+            .cloned()
+            .unwrap_or_default();
+        if let Some(enabled) = enabled {
+            value.enabled = Some(enabled);
+            if enabled {
+                value.disabled_reason = None;
+            }
+        }
+        if let Some(reason) = disabled_reason {
+            value.disabled_reason = (!reason.is_empty()).then_some(reason);
+        }
+        if enabled == Some(true) {
+            value.disabled_reason = None;
+        }
+        store.set_provider_override(provider_name, value).await
+    };
+
+    if let Err(error) = result {
+        return HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": error.to_string()
+        }));
+    }
+
+    match store.load_overrides().await {
+        Ok(overrides) => {
+            providers.apply_overrides(overrides);
+            HttpResponse::Ok().json(providers.catalog())
+        }
+        Err(error) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": error.to_string()
+        })),
+    }
 }
 
 #[post("/providers")]
