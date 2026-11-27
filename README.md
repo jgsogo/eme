@@ -174,8 +174,11 @@ Provider configuration files are loaded from:
 ```text
 data/
 └── providers/
+    ├── cloudflare.toml
+    ├── deepseek.toml
     ├── gemini.toml
-    └── cloudflare.toml
+    ├── groq.toml
+    └── openrouter.toml
 ```
 
 For example, a Cloudflare provider configuration:
