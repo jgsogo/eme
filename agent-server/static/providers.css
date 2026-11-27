@@ -27,6 +27,7 @@
 .provider-dialog-shell {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  height: min(86dvh, 820px);
   max-height: min(90dvh, 900px);
   min-height: 0;
 }
@@ -316,7 +317,7 @@
     max-height: calc(100dvh - 16px);
     border-radius: 14px;
   }
-  .provider-dialog-shell { max-height: calc(100dvh - 16px); }
+  .provider-dialog-shell { height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
   .provider-dialog-header { gap: 12px; padding: 16px 16px 14px; }
   .provider-dialog-title h3 { font-size: 17px; line-height: 1.35; }
   .provider-dialog-title > p:last-child { font-size: 11px; }
