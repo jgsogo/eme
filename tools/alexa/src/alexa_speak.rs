@@ -258,6 +258,7 @@ async fn send_speak(
                             "deviceType": device_type,
                             "deviceSerialNumber": serial,
                             "customerId": customer_id,
+                            "locale": TTS_LOCALE,
                             "value": volume.to_string()
                         }
                     }]
