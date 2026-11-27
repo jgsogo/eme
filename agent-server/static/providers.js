@@ -79,53 +79,167 @@ function renderAccessTier(model) {
     escapeHtml(formatAccessTier(model.access_tier)) + "</strong></span>";
 }
 
-function renderDetailField(key, value) {
-  const empty = value === null || value === undefined || value === "";
-  const complex = Array.isArray(value) || (value !== null && typeof value === "object");
-  const display = empty ? "—" : complex ? JSON.stringify(value, null, 2) : String(value);
-  return '<div class="provider-detail-field' + (complex || display.length > 90 ? " full" : "") + '">' +
-    '<dt>' + escapeHtml(formatCapability(key)) + '</dt><dd>' +
-    (complex ? '<pre>' + escapeHtml(display) + '</pre>' : escapeHtml(display)) + '</dd></div>';
+const capabilityGroups = [
+  {
+    label: "Conversation & reasoning",
+    keys: ["chat", "coding", "reasoning"],
+  },
+  {
+    label: "Agent integration",
+    keys: ["tool_calling", "structured_output"],
+  },
+  {
+    label: "Multimodal",
+    keys: ["vision", "video_understanding", "image_generation", "transcription", "audio_understanding", "text_to_speech"],
+  },
+  {
+    label: "Embeddings",
+    keys: ["embeddings"],
+  },
+];
+
+const capabilityDescriptions = {
+  chat: "Conversational text generation and understanding",
+  coding: "Code generation, explanation and debugging",
+  reasoning: "Catalogue classification for reasoning capabilities",
+  tool_calling: "Model-generated calls to external tools",
+  structured_output: "Outputs constrained to a structured format",
+  vision: "Understanding visual inputs such as images",
+  video_understanding: "Understanding video and temporal content",
+  image_generation: "Generating images from supported inputs",
+  transcription: "Converting speech or audio into text",
+  audio_understanding: "Understanding audio beyond transcription",
+  text_to_speech: "Generating spoken audio from text",
+  embeddings: "Generating vector embeddings",
+};
+
+function renderDetailValue(value) {
+  if (value === null || value === undefined || value === "") return "Not specified";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.length ? value.map(item => String(item)).join(", ") : "None";
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
+function renderAdditionalModelMetadata(model) {
+  const known = new Set(["name", "enabled", "access_tier", "disabled_reason", "capabilities"]);
+  const entries = Object.entries(model)
+    .filter(([key]) => !known.has(key))
+    .sort(([a], [b]) => a.localeCompare(b));
+  if (!entries.length) return "";
+  const fields = entries.map(([key, value]) => {
+    const complex = value !== null && typeof value === "object";
+    return '<div class="provider-dialog-definition' + (complex ? " wide" : "") + '">' +
+      '<dt>' + escapeHtml(formatCapability(key)) + '</dt><dd>' +
+      (complex ? '<pre>' + escapeHtml(renderDetailValue(value)) + '</pre>' : escapeHtml(renderDetailValue(value))) +
+      '</dd></div>';
+  }).join("");
+  return '<section class="provider-dialog-section provider-dialog-metadata">' +
+    '<div class="provider-dialog-section-heading"><div><h4>Additional model metadata</h4>' +
+    '<p>Other fields supplied by the catalogue.</p></div></div>' +
+    '<dl class="provider-dialog-definition-list">' + fields + '</dl></section>';
+}
+
+function renderCapabilityGroups(capabilities) {
+  const normalized = capabilities.map(value => String(value).toLowerCase());
+  const remaining = new Set(normalized);
+  const groups = capabilityGroups.map(group => {
+    const values = group.keys.filter(key => remaining.has(key));
+    values.forEach(key => remaining.delete(key));
+    return { label: group.label, values };
+  }).filter(group => group.values.length);
+  if (remaining.size) {
+    groups.push({ label: "Other capabilities", values: [...remaining].sort() });
+  }
+  if (!groups.length) {
+    return '<p class="provider-no-capabilities">No capabilities are declared for this model.</p>';
+  }
+  return '<div class="provider-capability-groups">' + groups.map(group =>
+    '<div class="provider-capability-group"><h5>' + escapeHtml(group.label) + '</h5>' +
+    '<div class="provider-capability-list">' + group.values.map(value =>
+      '<span class="provider-capability" title="' + escapeHtml(capabilityDescriptions[value] || "Declared model capability") + '">' +
+      escapeHtml(formatCapability(value)) + '</span>'
+    ).join("") + '</div></div>'
+  ).join("") + '</div>';
+}
+
+function renderReason(reason, label) {
+  if (!reason) return "";
+  return '<div class="provider-dialog-reason"><strong>' + escapeHtml(label) + '</strong><p>' +
+    escapeHtml(reason) + '</p></div>';
 }
 
 function renderModelDialog(provider, model) {
-  const capabilities = model.capabilities || [];
-  const modelFields = Object.entries(model)
-    .filter(([key]) => !["name", "capabilities", "enabled", "access_tier"].includes(key))
-    .map(([key, value]) => renderDetailField(key, value)).join("");
-  const providerFields = [
-    ["Provider", provider.name],
-    ["Client adapter", provider.client],
-    ["Provider enabled", provider.enabled ? "Yes" : "No"],
-    ["Disabled reason", provider.disabled_reason || "—"],
-  ].map(([key, value]) => renderDetailField(key, value)).join("");
-  const capabilityTags = capabilities.map(value =>
-    '<span class="provider-capability">' + escapeHtml(formatCapability(value)) + '</span>'
-  ).join("") || '<span class="provider-no-capabilities">No capabilities declared</span>';
-  return '<dialog id="provider-model-dialog-host" class="modal-dialog provider-model-dialog" data-provider="' +
-    escapeHtml(provider.name) + '" aria-labelledby="provider-model-dialog-title">' +
-    '<div class="family-details-heading provider-model-dialog-heading"><div>' +
-    '<p class="eyebrow">MODEL DETAILS</p><h3 id="provider-model-dialog-title">' + escapeHtml(model.name) +
-    '</h3><p class="hint">' + escapeHtml(provider.name + " · " + provider.client) + '</p>' +
-    '<div class="provider-detail-summary"><span class="provider-detail-tier">' +
-    escapeHtml(formatAccessTier(model.access_tier)) + '</span><span class="provider-table-status' +
-    (model.enabled ? " enabled" : "") + '">' + (model.enabled ? "Enabled" : "Disabled") +
-    '</span></div></div><button type="button" class="secondary icon-button provider-model-dialog-close" ' +
-    'data-close-model-dialog aria-label="Close model details" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-    '<path d="m6 6 12 12M18 6 6 18"/></svg></button></div>' +
-    '<section class="family-section provider-detail-section"><div class="family-section-heading">' +
-    '<h3>Capabilities</h3><span class="hint">' + capabilities.length + ' declared</span></div>' +
-    '<div class="provider-capability-list">' + capabilityTags + '</div></section>' +
-    (modelFields ? '<section class="family-section provider-detail-section"><div class="family-section-heading">' +
-    '<h3>Model configuration</h3></div><dl class="provider-detail-grid">' + modelFields + '</dl></section>' : "") +
-    '<section class="family-section provider-detail-section"><div class="family-section-heading">' +
-    '<h3>Provider configuration</h3></div><dl class="provider-detail-grid">' + providerFields + '</dl></section>' +
-    '<div class="provider-model-dialog-actions"><label class="provider-setting"><input type="checkbox" data-model-enabled="' +
-    escapeHtml(model.name) + '"' + (model.enabled ? " checked" : "") + '><span>Model enabled</span></label>' +
-    '<button type="button" class="secondary provider-reset-button" data-reset-model="' + escapeHtml(model.name) +
-    '">Reset to TOML default</button><button type="button" class="secondary provider-test-button" data-test-model="' +
-    escapeHtml(model.name) + '">' + testIcon + '<span>Test model</span></button>' +
-    '<div class="provider-model-result" aria-live="polite"></div></div></dialog>';
+  const capabilities = Array.isArray(model.capabilities) ? model.capabilities : [];
+  const modelStatus = model.enabled ? "Enabled" : "Disabled";
+  const providerStatus = provider.enabled ? "Enabled" : "Disabled";
+  const providerReason = !provider.enabled ? renderReason(provider.disabled_reason, "Provider disabled") : "";
+  const modelReason = !model.enabled ? renderReason(model.disabled_reason, "Model disabled") : "";
+  const modelMetadata = renderAdditionalModelMetadata(model);
+
+  return '<dialog id="provider-model-dialog-host" class="modal-dialog provider-model-dialog" ' +
+    'data-provider="' + escapeHtml(provider.name) + '" aria-labelledby="provider-model-dialog-title">' +
+    '<div class="provider-dialog-shell">' +
+      '<header class="provider-dialog-header">' +
+        '<div class="provider-dialog-title"><p class="eyebrow">MODEL CATALOGUE</p>' +
+          '<h3 id="provider-model-dialog-title">' + escapeHtml(model.name) + '</h3>' +
+          '<p>' + escapeHtml(provider.name) + '<span aria-hidden="true"> / </span>' +
+            escapeHtml(provider.client) + '</p></div>' +
+        '<button type="button" class="secondary icon-button provider-model-dialog-close" ' +
+          'data-close-model-dialog aria-label="Close model details" title="Close">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
+            '<path d="m6 6 12 12M18 6 6 18"/></svg></button>' +
+      '</header>' +
+      '<div class="provider-dialog-content">' +
+        '<div class="provider-dialog-layout">' +
+          '<main class="provider-dialog-main">' +
+            '<section class="provider-dialog-section provider-dialog-profile">' +
+              '<div class="provider-dialog-section-heading"><div><h4>Model profile</h4>' +
+                '<p>Catalogue availability and access classification.</p></div></div>' +
+              '<div class="provider-dialog-profile-grid">' +
+                '<div class="provider-dialog-profile-item"><span>Availability</span>' +
+                  '<strong class="provider-dialog-state' + (model.enabled ? " is-enabled" : " is-disabled") + '">' +
+                    modelStatus + '</strong></div>' +
+                '<div class="provider-dialog-profile-item"><span>Access tier</span>' +
+                  '<strong>' + escapeHtml(formatAccessTier(model.access_tier)) + '</strong></div>' +
+              '</div>' + modelReason +
+            '</section>' +
+            '<section class="provider-dialog-section provider-dialog-capabilities">' +
+              '<div class="provider-dialog-section-heading"><div><h4>Capabilities</h4>' +
+                '<p>Declared compatibility features, grouped by the kind of work they support.</p></div>' +
+                '<span class="provider-dialog-count">' + capabilities.length + '</span></div>' +
+              renderCapabilityGroups(capabilities) +
+              '<p class="provider-dialog-footnote">These are catalogue classifications, not standardized guarantees or quality measurements.</p>' +
+            '</section>' +
+            modelMetadata +
+          '</main>' +
+          '<aside class="provider-dialog-aside">' +
+            '<section class="provider-dialog-section provider-dialog-provider">' +
+              '<div class="provider-dialog-section-heading"><div><h4>Provider</h4>' +
+                '<p>Connection context for this model.</p></div></div>' +
+              '<dl class="provider-dialog-provider-list">' +
+                '<div><dt>Provider</dt><dd>' + escapeHtml(provider.name) + '</dd></div>' +
+                '<div><dt>Client adapter</dt><dd>' + escapeHtml(provider.client) + '</dd></div>' +
+                '<div><dt>Provider availability</dt><dd><span class="provider-dialog-state' +
+                  (provider.enabled ? " is-enabled" : " is-disabled") + '">' + providerStatus + '</span></dd></div>' +
+              '</dl>' + providerReason +
+            '</section>' +
+          '</aside>' +
+        '</div>' +
+      '</div>' +
+      '<footer class="provider-dialog-actions">' +
+        '<label class="provider-dialog-toggle"><input type="checkbox" data-model-enabled="' +
+          escapeHtml(model.name) + '"' + (model.enabled ? " checked" : "") + '>' +
+          '<span><strong>Model enabled</strong><small>Allow the runtime to select this model.</small></span></label>' +
+        '<div class="provider-dialog-action-buttons">' +
+          '<button type="button" class="secondary provider-reset-button" data-reset-model="' +
+            escapeHtml(model.name) + '">Reset to TOML default</button>' +
+          '<button type="button" class="secondary provider-test-button" data-test-model="' +
+            escapeHtml(model.name) + '">' + testIcon + '<span>Test model</span></button>' +
+        '</div>' +
+        '<div class="provider-model-result" aria-live="polite"></div>' +
+      '</footer>' +
+    '</div></dialog>';
 }
 function sortValue(provider, model, key) {
   switch (key) {
