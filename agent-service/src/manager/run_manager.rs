@@ -570,11 +570,13 @@ impl RunManager {
 
     /// Returns a bounded newest-first page of runs and the persisted total.
     pub async fn list_page(&self, offset: u64, limit: u64) -> Result<(Vec<Run>, u64), String> {
-        let in_memory = self.runs.lock().await;
-        let in_memory_ids = in_memory
-            .keys()
-            .map(|id| id.as_uuid())
-            .collect::<std::collections::HashSet<_>>();
+        let in_memory = self
+            .runs
+            .lock()
+            .await
+            .values()
+            .map(|entry| (entry.run.id.as_uuid(), entry.run.clone()))
+            .collect::<HashMap<_, _>>();
         let mut result = if let Some(storage) = current_storage(&self.persistence) {
             let stored = storage
                 .list_runs_page(offset, limit)
@@ -586,8 +588,8 @@ impl RunManager {
                 .map_err(|error| error.to_string())?;
             let mut page = Vec::with_capacity(stored.len());
             for run in stored {
-                let run = if let Some(entry) = in_memory.get(&RunId::from_uuid(run.id)) {
-                    entry.run.clone()
+                let run = if let Some(current) = in_memory.get(&run.id) {
+                    current.clone()
                 } else {
                     match recover_interrupted_run(storage.as_ref(), run.clone()).await {
                         Ok(recovered) => from_stored_run(recovered),
@@ -601,10 +603,7 @@ impl RunManager {
             }
             (page, total)
         } else {
-            let mut runs = in_memory
-                .values()
-                .map(|entry| entry.run.clone())
-                .collect::<Vec<_>>();
+            let mut runs = in_memory.into_values().collect::<Vec<_>>();
             runs.sort_by_key(|run| std::cmp::Reverse(run.created_at));
             let total = runs.len() as u64;
             (
@@ -615,7 +614,6 @@ impl RunManager {
                 total,
             )
         };
-        drop(in_memory);
         result.0.sort_by_key(|run| std::cmp::Reverse(run.created_at));
         Ok(result)
     }
