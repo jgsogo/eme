@@ -244,10 +244,13 @@ mod tests {
                 r#"
 name = "{name}"
 client = "{client}"
+enabled = true
 api_key_env = "TEST_API_KEY"
 
 [[models]]
 name = "test-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#
             ),
@@ -259,7 +262,7 @@ capabilities = ["chat"]
     fn loads_valid_providers_and_rejects_invalid_registry_configuration() {
         let directory = TestDirectory::new();
 
-        // Existing TOML files remain enabled by default for backwards compatibility.
+        // Provider and model enablement are explicit catalogue fields.
         let valid = directory.case("valid");
         write_provider(&valid, "provider.toml", "test", "gemini");
         let valid_registry = Registry::load(&valid).unwrap();
@@ -291,11 +294,13 @@ capabilities = ["chat"]
             r#"
 name = "disabled"
 client = "gemini"
-api_key_env = "TEST_API_KEY"
 enabled = false
+api_key_env = "TEST_API_KEY"
 
 [[models]]
 name = "disabled-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#,
         )
@@ -319,6 +324,7 @@ capabilities = ["chat"]
             r#"
 name = "test"
 client = "gemini"
+enabled = true
 api_key_env = "TEST_API_KEY"
 
 [[models]]
