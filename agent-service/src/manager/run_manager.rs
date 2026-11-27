@@ -227,7 +227,9 @@ impl RunManager {
                         }
                     };
 
-                    if let Some((mut snapshot, mut terminal_event, messages, message_count)) = persisted {
+                    if let Some((mut snapshot, mut terminal_event, messages, message_count)) =
+                        persisted
+                    {
                         if let Some(storage) = current_storage(&persistence) {
                             // Persist the transcript before making the terminal event visible.
                             // The event is the browser's signal that reconciliation can finish.

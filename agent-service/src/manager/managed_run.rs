@@ -239,7 +239,6 @@ fn model_failure_category_name(category: agent_runtime::ModelFailureCategory) ->
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
