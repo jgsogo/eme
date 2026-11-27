@@ -337,7 +337,7 @@ document.querySelectorAll("[data-admin-view]").forEach(link=>link.addEventListen
 $("execution-search")?.addEventListener("input",renderExecutionHistory);
 $("execution-previous")?.addEventListener("click",()=>loadExecutionHistory(Math.max(0,executionState.offset-EXECUTION_PAGE_SIZE)));
 $("execution-next")?.addEventListener("click",()=>loadExecutionHistory(executionState.offset+EXECUTION_PAGE_SIZE));
-$("execution-refresh")?.addEventListener("click",loadExecutionHistory);
+
 $("execution-records")?.addEventListener("click",event=>{const row=event.target.closest("[data-run-id]");if(row)openExecution(row.dataset.runId)});
 $("execution-records")?.addEventListener("keydown",event=>{if((event.key==="Enter"||event.key===" ")&&event.target.matches("[data-run-id]")){event.preventDefault();openExecution(event.target.dataset.runId)}});
 $("execution-detail-close")?.addEventListener("click",()=>{$("execution-detail").close();executionState.selected=null});
