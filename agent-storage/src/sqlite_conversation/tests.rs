@@ -91,19 +91,25 @@ fn imports_legacy_history_and_active_selection_idempotently() {
     let _ = fs::remove_dir_all(root);
 }
 
-
 #[test]
 fn removing_conversation_preserves_history_and_hides_it_from_normal_access() {
     let root = temp_dir();
     fs::create_dir_all(&root).unwrap();
     let store = SqliteConversationStore::open(root.join("conversations.sqlite")).unwrap();
     let conversation = store.create("telegram:42", "assistant").unwrap();
-    let messages = vec![Message::User { content: "keep this history".into() }];
-    store.save_messages(conversation.id, messages.clone()).unwrap();
+    let messages = vec![Message::User {
+        content: "keep this history".into(),
+    }];
+    store
+        .save_messages(conversation.id, messages.clone())
+        .unwrap();
 
     store.delete("telegram:42", conversation.id).unwrap();
 
-    assert!(matches!(store.get(conversation.id), Err(ConversationStoreError::NotFound(_))));
+    assert!(matches!(
+        store.get(conversation.id),
+        Err(ConversationStoreError::NotFound(_))
+    ));
     assert!(store.list("telegram:42").unwrap().is_empty());
     assert!(store.active("telegram:42").unwrap().is_none());
     assert!(matches!(

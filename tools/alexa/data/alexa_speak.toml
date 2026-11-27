@@ -10,6 +10,8 @@ The optional chime argument accepts any soundbank URI from the Alexa Skills Kit 
 Browse, preview, and copy sound URIs from the official Alexa Skills Kit Sound Library:
 https://developer.amazon.com/en-US/docs/alexa/custom-skills/ask-soundlibrary.html
 
+The optional volume argument sets the device volume before speaking. It must be an integer from 0 to 100 (inclusive). Omit it to leave the current volume unchanged.
+
 The tool validates the soundbank URI format, but Alexa determines whether a particular library sound is available for playback."""
 
 [parameters]
@@ -25,3 +27,9 @@ description = "The text to send to the Alexa device."
 type = "string"
 description = "Optional soundbank URI to play before speaking. Omit to use the default beep; use \"none\" to play no sound; otherwise provide any soundbank://soundlibrary/... URI from the Alexa Sound Library."
 pattern = "^(none|soundbank://soundlibrary/[A-Za-z0-9_/-]+)$"
+
+[parameters.properties.volume]
+type = "integer"
+description = "Optional device volume to set before speaking. Valid range: integer from 0 to 100, inclusive. Omit to leave the current volume unchanged."
+minimum = 0
+maximum = 100

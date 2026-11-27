@@ -84,13 +84,15 @@ impl ConversationStore {
         active
             .get(owner)
             .copied()
-            .map(|id| self.read_conversation(id).and_then(|conversation| {
-                if conversation.removed_at.is_some() {
-                    Err(ConversationStoreError::NotFound(id))
-                } else {
-                    Ok(conversation)
-                }
-            }))
+            .map(|id| {
+                self.read_conversation(id).and_then(|conversation| {
+                    if conversation.removed_at.is_some() {
+                        Err(ConversationStoreError::NotFound(id))
+                    } else {
+                        Ok(conversation)
+                    }
+                })
+            })
             .transpose()
     }
 
@@ -130,7 +132,10 @@ impl ConversationStore {
 
             let bytes = fs::read(entry.path())?;
             let conversation: Conversation = serde_json::from_slice(&bytes)?;
-            if conversation.owner == owner && conversation.archived == archived && conversation.removed_at.is_none() {
+            if conversation.owner == owner
+                && conversation.archived == archived
+                && conversation.removed_at.is_none()
+            {
                 conversations.push(conversation);
             }
         }
@@ -335,7 +340,7 @@ impl ConversationStore {
                 } else {
                     Ok(conversation)
                 }
-            },
+            }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 Err(ConversationStoreError::NotFound(id))
             }

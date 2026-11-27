@@ -37,12 +37,24 @@ impl SqliteConversationStore {
             .execute_batch(include_str!("../migrations/0006_conversations.sql"))
             .map_err(sqlite_error)?;
         let has_removed_at = {
-            let mut statement = connection.prepare("PRAGMA table_info(conversations)").map_err(sqlite_error)?;
-            let columns = statement.query_map([], |row| row.get::<_, String>(1)).map_err(sqlite_error)?;
-            columns.collect::<Result<Vec<_>, _>>().map_err(sqlite_error)?.iter().any(|name| name == "removed_at")
+            let mut statement = connection
+                .prepare("PRAGMA table_info(conversations)")
+                .map_err(sqlite_error)?;
+            let columns = statement
+                .query_map([], |row| row.get::<_, String>(1))
+                .map_err(sqlite_error)?;
+            columns
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(sqlite_error)?
+                .iter()
+                .any(|name| name == "removed_at")
         };
         if !has_removed_at {
-            connection.execute_batch(include_str!("../migrations/0010_soft_delete_conversations.sql")).map_err(sqlite_error)?;
+            connection
+                .execute_batch(include_str!(
+                    "../migrations/0010_soft_delete_conversations.sql"
+                ))
+                .map_err(sqlite_error)?;
         }
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
@@ -544,7 +556,8 @@ impl SqliteConversationStore {
             )
             .optional()
             .map_err(sqlite_error)?;
-        let Some((owner, agent, title, archived, family, created, updated, removed_at)) = row else {
+        let Some((owner, agent, title, archived, family, created, updated, removed_at)) = row
+        else {
             return Err(ConversationStoreError::NotFound(id));
         };
         let mut statement = connection

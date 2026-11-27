@@ -17,6 +17,13 @@ fn valid_chime(chime: &str) -> bool {
             })
 }
 
+fn parse_volume(value: &Value) -> Option<u8> {
+    value
+        .as_u64()
+        .filter(|volume| *volume <= 100)
+        .map(|volume| volume as u8)
+}
+
 pub struct AlexaSpeak;
 
 #[async_trait]
@@ -43,11 +50,25 @@ impl Tool for AlexaSpeak {
             });
         }
 
+        let volume = match arguments.get("volume") {
+            None => None,
+            Some(value) => {
+                Some(
+                    parse_volume(value).ok_or_else(|| ToolError::InvalidArguments {
+                        tool_name: "alexa.speak".into(),
+                        errors: vec![
+                            "'volume' must be an integer between 0 and 100 (inclusive)".into(),
+                        ],
+                    })?,
+                )
+            }
+        };
+
         let device_name = std::env::var("AMAZON_ALEXA_DEVICE_NAME").map_err(|_| {
             ToolError::Configuration("AMAZON_ALEXA_DEVICE_NAME env var not set".into())
         })?;
 
-        alexa_speak(&device_name, text, chime)
+        alexa_speak(&device_name, text, chime, volume)
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
 
@@ -58,6 +79,20 @@ impl Tool for AlexaSpeak {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accepts_volume_boundaries() {
+        assert_eq!(parse_volume(&Value::from(0)), Some(0));
+        assert_eq!(parse_volume(&Value::from(100)), Some(100));
+    }
+
+    #[test]
+    fn rejects_volume_outside_range_or_non_integer_values() {
+        assert_eq!(parse_volume(&Value::from(101)), None);
+        assert_eq!(parse_volume(&Value::from(-1)), None);
+        assert_eq!(parse_volume(&Value::from(12.5)), None);
+        assert_eq!(parse_volume(&Value::from("50")), None);
+    }
 
     #[test]
     fn accepts_any_sound_library_uri() {
