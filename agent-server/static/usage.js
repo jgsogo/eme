@@ -328,7 +328,7 @@ async function openExecution(runId){
   selectExecutionTab("result");
  }catch(error){$("execution-detail-content").innerHTML='<p class="usage-status error">Could not load execution details: '+escapeHtml(error.message)+'</p>'}
 }
-document.querySelectorAll("[data-admin-view]").forEach(link=>link.addEventListener("click",event=>{event.preventDefault();showAdminView(link.dataset.adminView)}));
+document.querySelectorAll("[data-admin-view]").forEach(link=>link.addEventListener("click",event=>{event.preventDefault();showAdminView(link.dataset.adminView);history.replaceState(null,"",link.href)}));
 $("execution-search")?.addEventListener("input",renderExecutionHistory);
 $("execution-refresh")?.addEventListener("click",loadExecutionHistory);
 $("execution-records")?.addEventListener("click",event=>{const row=event.target.closest("[data-run-id]");if(row)openExecution(row.dataset.runId)});
