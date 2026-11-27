@@ -204,7 +204,10 @@ mod tests {
     };
 
     use super::Registry;
-    use crate::{error::ModelError, models::{AccessTier, ModelCapability}};
+    use crate::{
+        error::ModelError,
+        models::{AccessTier, ModelCapability},
+    };
     use agent_config::ConfigError;
 
     struct TestDirectory(PathBuf);
