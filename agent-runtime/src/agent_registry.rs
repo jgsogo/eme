@@ -194,10 +194,13 @@ mod tests {
             r#"
 name = "test"
 client = "gemini"
+enabled = true
 api_key_env = "TEST_API_KEY"
 
 [[models]]
 name = "test-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#,
         )
