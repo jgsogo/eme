@@ -6,6 +6,7 @@
 .provider-list-table-wrap{width:100%;max-width:100%;border-radius:var(--radius)}
 .provider-list-table{min-width:760px}
 .provider-list-table th,.provider-list-table td{padding:11px 12px}
+.provider-list-table td:nth-child(3){min-width:0;white-space:nowrap}
 .provider-list-table tbody tr{cursor:pointer;transition:background .12s ease}
 .provider-list-table tbody tr:hover,.provider-list-table tbody tr:focus{background:var(--panel2);outline:none}
 .provider-list-table tbody tr:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
