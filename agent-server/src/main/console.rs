@@ -12,7 +12,7 @@ use actix_web::{
     post, put,
     web::{self, Data},
 };
-use agent_models::{AccessTier, ConversationMessage, ConversationRequest, ModelError, Registry};
+use agent_models::{ConversationMessage, ConversationRequest, ModelError, Registry};
 use agent_runtime::ToolDefinition;
 use agent_server::auth::TelegramAuth;
 use agent_storage::{ModelCatalogOverrideStore, SqliteModelCatalogOverrideStore};
@@ -132,6 +132,12 @@ pub(super) async fn update_model_catalog_override(
         }));
     }
 
+    if body.get("access_tier").is_some() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The access_tier field is defined by the TOML catalogue and cannot be overridden"
+        }));
+    }
+
     let model_name = match body.get("model") {
         None | Some(serde_json::Value::Null) => None,
         Some(serde_json::Value::String(model)) if !model.trim().is_empty() => {
@@ -165,22 +171,6 @@ pub(super) async fn update_model_catalog_override(
             }
         },
     };
-    let access_tier = match body.get("access_tier") {
-        None | Some(serde_json::Value::Null) => None,
-        Some(serde_json::Value::String(value)) => match parse_access_tier(value) {
-            Some(value) => Some(value),
-            None => {
-                return HttpResponse::BadRequest().json(serde_json::json!({
-                    "error": "The access_tier field must be one of: free, free_tier, trial, paid, unknown"
-                }));
-            }
-        },
-        _ => {
-            return HttpResponse::BadRequest().json(serde_json::json!({
-                "error": "The access_tier field must be a string"
-            }));
-        }
-    };
     let disabled_reason = match body.get("disabled_reason") {
         None => None,
         Some(serde_json::Value::Null) => Some(String::new()),
@@ -192,12 +182,7 @@ pub(super) async fn update_model_catalog_override(
         }
     };
 
-    if model_name.is_none() && access_tier.is_some() {
-        return HttpResponse::BadRequest().json(serde_json::json!({
-            "error": "The access_tier field can only be set for a model"
-        }));
-    }
-    if !reset && enabled.is_none() && access_tier.is_none() && disabled_reason.is_none() {
+    if !reset && enabled.is_none() && disabled_reason.is_none() {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "error": "Provide an override field or set reset to true"
         }));
@@ -248,9 +233,6 @@ pub(super) async fn update_model_catalog_override(
                     value.disabled_reason = None;
                 }
             }
-            if let Some(access_tier) = access_tier {
-                value.access_tier = Some(access_tier);
-            }
             if let Some(reason) = disabled_reason {
                 value.disabled_reason = (!reason.is_empty()).then_some(reason);
             }
@@ -296,17 +278,6 @@ pub(super) async fn update_model_catalog_override(
         Err(error) => HttpResponse::InternalServerError().json(serde_json::json!({
             "error": error.to_string()
         })),
-    }
-}
-
-fn parse_access_tier(value: &str) -> Option<AccessTier> {
-    match value {
-        "free" => Some(AccessTier::Free),
-        "free_tier" => Some(AccessTier::FreeTier),
-        "trial" => Some(AccessTier::Trial),
-        "paid" => Some(AccessTier::Paid),
-        "unknown" => Some(AccessTier::Unknown),
-        _ => None,
     }
 }
 
