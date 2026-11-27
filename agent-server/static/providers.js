@@ -83,7 +83,7 @@ function renderModelDialog(provider, model) {
     ["Provider disabled reason", provider.disabled_reason || "—"],
   ].map(([label, value]) => '<div class="provider-model-dialog-field"><dt>' + escapeHtml(label) +
     '</dt><dd>' + escapeHtml(value) + "</dd></div>").join("");
-  return '<dialog class="provider-model-dialog" data-provider="' + escapeHtml(provider.name) +
+  return '<dialog id="provider-model-dialog-host" class="provider-model-dialog" data-provider="' + escapeHtml(provider.name) +
     '" aria-labelledby="provider-model-dialog-title"><div class="provider-model-dialog-header"><div>' +
     '<h3 id="provider-model-dialog-title">' + escapeHtml(model.name) + '</h3><p>' +
     escapeHtml(provider.name + " · " + provider.client) + '</p></div>' +
@@ -115,7 +115,7 @@ function renderTable(providers) {
       escapeHtml(capabilities) + "</td></tr>";
   })).join("");
   const dialog = '<dialog id="provider-model-dialog-host" class="provider-model-dialog" aria-label="Model details"></dialog>';
-  if (!rows) return '<div class="usage-empty">No models match this filter.</div>' + dialog;
+  if (!rows) return '<div class="usage-empty">' + (providers.length ? "No models match this filter." : "No providers are configured.") + "</div>" + dialog;
   return '<div class="provider-list-table-wrap"><table class="provider-list-table"><thead><tr>' +
     "<th>Model</th><th>Provider</th><th>Access tier</th><th>Status</th><th>Capabilities</th>" +
     '</tr></thead><tbody>' + rows + "</tbody></table></div>" + dialog;
@@ -290,6 +290,13 @@ document.querySelectorAll("[data-provider-view]").forEach(button => {
     state.view = button.dataset.providerView;
     render();
   });
+});
+$("providers-list").addEventListener("keydown", event => {
+  const row = event.target.closest("[data-model-row]");
+  if (row && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    row.click();
+  }
 });
 $("providers-list").addEventListener("click", event => {
   const closeDialog = event.target.closest("[data-close-model-dialog]");
