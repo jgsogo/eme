@@ -277,10 +277,10 @@ function renderTable(providers) {
     const active = state.sortKey === key;
     const direction = active ? state.sortDirection : "none";
     const indicator = active ? (state.sortDirection === "asc" ? " ↑" : " ↓") : "";
-    return '<th scope="col" aria-sort="' + (active ? (state.sortDirection === "asc" ? "ascending" : "descending") : "none") + '">' +
-      '<button type="button" class="provider-sort-button" data-sort-key="' + key + '" aria-label="Sort by ' +
-      label + (active ? ", " + state.sortDirection : "") + '">' + label + '<span aria-hidden="true">' +
-      indicator + '</span></button></th>';
+    return '<th scope="col" data-sort-key="' + key + '" tabindex="0" aria-sort="' +
+      (active ? (state.sortDirection === "asc" ? "ascending" : "descending") : "none") +
+      '" title="Sort by ' + escapeHtml(label) + '">' + label +
+      '<span class="provider-sort-indicator" aria-hidden="true">' + indicator + '</span></th>';
   }).join("");
   const rows = models.map(({ provider, model }) => {
     const capabilities = (model.capabilities || []).map(formatCapability).join(", ") || "—";
@@ -472,6 +472,12 @@ document.querySelectorAll("[data-provider-view]").forEach(button => {
   });
 });
 $("providers-list").addEventListener("keydown", event => {
+  const sortHeader = event.target.closest("th[data-sort-key]");
+  if (sortHeader && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    sortHeader.click();
+    return;
+  }
   const row = event.target.closest("[data-model-row]");
   if (row && (event.key === "Enter" || event.key === " ")) {
     event.preventDefault();
@@ -479,9 +485,9 @@ $("providers-list").addEventListener("keydown", event => {
   }
 });
 $("providers-list").addEventListener("click", event => {
-  const sortButton = event.target.closest("[data-sort-key]");
-  if (sortButton) {
-    const key = sortButton.dataset.sortKey;
+  const sortHeader = event.target.closest("th[data-sort-key]");
+  if (sortHeader) {
+    const key = sortHeader.dataset.sortKey;
     if (state.sortKey === key) {
       state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
     } else {
