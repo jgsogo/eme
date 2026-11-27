@@ -761,10 +761,13 @@ mod tests {
             r#"
 name = "test"
 client = "gemini"
+enabled = true
 api_key_env = "EME_TEST_MISSING_MODEL_KEY"
 
 [[models]]
 name = "mock-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#,
         )
