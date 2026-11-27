@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [main, 'feature/**', 'feat/237-*']
+    branches: [main, 'feature/**', 'feat/**']
   pull_request:
     branches: [main, 'feature/**', 'feat/237-*']
 

@@ -2,29 +2,35 @@
 
 ## Purpose
 
-The `agent-models` crate will provide the provider-independent model integration layer for the AI agent platform. It will define the common conversation interface used by the runtime and translate that interface to the APIs and data formats of supported model providers.
+The `agent-models` crate provides the provider-independent model integration layer for the AI agent platform. It defines the common conversation interface used by the runtime and translates that interface to the APIs and data formats of supported model providers.
 
-The crate will also own the model and provider metadata used to configure and resolve model clients.
+The crate also owns the static provider/model catalogue and the model registry that resolves provider/model identifiers into configured conversation clients.
 
 ## Responsibilities
 
-The crate will implement:
+The crate implements:
 
-- **Conversation interface:** common request, response, message, tool-call, and token-usage types that will isolate the rest of the platform from provider-specific protocols.
-- **Client abstraction:** an asynchronous interface through which the runtime will request model completions.
-- **Provider adapters:** implementations that will translate between the common conversation interface and individual provider APIs.
+- **Conversation interface:** common request, response, message, tool-call, and token-usage types that isolate the rest of the platform from provider-specific protocols.
+- **Client abstraction:** an asynchronous interface through which the runtime requests model completions.
+- **Provider adapters:** implementations that translate between the common conversation interface and individual provider APIs.
 - **Provider configuration:** loading and validating provider definitions, credentials configuration, endpoint information, and supported models from data files.
 - **Model registry and resolution:** resolving a provider/model identifier into a configured conversation client.
-- **Model capabilities:** declarative provider/model classifications describing features such as chat, reasoning, coding, image and video input, audio, tool calling, structured output, and other supported modalities. Capabilities are compatibility requirements, not standardized guarantees or measurements of model quality; in particular, `reasoning` does not imply a uniform reasoning level.
-- **Provider error handling:** a common error model for configuration, transport, provider responses, and unsupported models.
+- **Model metadata:** declarative provider/model enablement, commercial access classification, and capabilities such as chat, reasoning, coding, image and video input, audio, tool calling, and structured output. Capabilities are compatibility requirements, not standardized guarantees or measurements of model quality.
+- **Provider error handling:** a common error model for configuration, transport, provider responses, and unsupported or administratively disabled models.
+
+## Configuration ownership
+
+Provider and model definitions in `data/providers/*.toml` are the version-controlled catalogue. They describe technical integration details and default metadata. Administrative enablement overrides will be persisted separately; the TOML files remain the source for the provider/model definitions themselves.
+
+The `access_tier` field is descriptive metadata (`free`, `free_tier`, `trial`, `paid`, or `unknown`). It is not a token price and is not used to calculate invocation costs. Versioned token pricing and cost calculations belong to `agent-metering`.
 
 ## Boundaries
 
-- `agent-models` will own provider-specific API integration and the provider-independent conversation contract.
-- `agent-runtime` will consume the conversation abstraction and will own agent execution semantics.
-- `agent-service` and `agent-server` will use the model configuration and resolution facilities when assembling runs.
-- Provider and model definitions will remain data; provider protocol implementations will remain Rust code.
+- `agent-models` owns provider-specific API integration and the provider-independent conversation contract.
+- `agent-runtime` consumes the conversation abstraction and owns agent execution semantics.
+- `agent-service` and `agent-server` use model configuration and resolution facilities when assembling runs.
+- Provider and model definitions remain data; provider protocol implementations remain Rust code.
 
 ## Non-goals
 
-This crate will not manage agent runs, maintain agent conversation state across turns, register or execute tools, make authorization decisions, or expose an application-facing HTTP API.
+This crate does not manage agent runs, maintain agent conversation state across turns, register or execute tools, make authorization decisions, or expose an application-facing HTTP API.
