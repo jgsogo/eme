@@ -573,16 +573,30 @@ impl RunManager {
         let (in_memory_ids, in_memory_runs) = {
             let in_memory = self.runs.lock().await;
             (
-                in_memory.keys().map(|id| id.as_uuid()).collect::<std::collections::HashSet<_>>(),
-                in_memory.values().map(|entry| entry.run.clone()).collect::<Vec<_>>(),
+                in_memory
+                    .keys()
+                    .map(|id| id.as_uuid())
+                    .collect::<std::collections::HashSet<_>>(),
+                in_memory
+                    .values()
+                    .map(|entry| entry.run.clone())
+                    .collect::<Vec<_>>(),
             )
         };
         let mut by_id = HashMap::new();
         let total;
         if let Some(storage) = current_storage(&self.persistence) {
-            let fetch_limit = offset.saturating_add(limit).saturating_add(in_memory_runs.len() as u64);
-            let stored = storage.list_runs_page(0, fetch_limit).await.map_err(|error| error.to_string())?;
-            total = storage.count_runs().await.map_err(|error| error.to_string())?;
+            let fetch_limit = offset
+                .saturating_add(limit)
+                .saturating_add(in_memory_runs.len() as u64);
+            let stored = storage
+                .list_runs_page(0, fetch_limit)
+                .await
+                .map_err(|error| error.to_string())?;
+            total = storage
+                .count_runs()
+                .await
+                .map_err(|error| error.to_string())?;
             for run in stored {
                 let run = if in_memory_ids.contains(&run.id) {
                     run
@@ -605,7 +619,11 @@ impl RunManager {
         }
         let mut result = by_id.into_values().collect::<Vec<_>>();
         result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
-        let page = result.into_iter().skip(offset as usize).take(limit as usize).collect();
+        let page = result
+            .into_iter()
+            .skip(offset as usize)
+            .take(limit as usize)
+            .collect();
         Ok((page, total))
     }
 
@@ -719,7 +737,11 @@ impl RunManager {
     }
 
     /// Lists only the newest executions for a task, with the durable total count.
-    pub async fn task_runs_page(&self, task_id: Uuid, limit: u64) -> Result<(Vec<Run>, u64), String> {
+    pub async fn task_runs_page(
+        &self,
+        task_id: Uuid,
+        limit: u64,
+    ) -> Result<(Vec<Run>, u64), String> {
         let Some(storage) = current_storage(&self.persistence) else {
             return Ok((Vec::new(), 0));
         };
