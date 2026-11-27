@@ -1,0 +1,11 @@
+name = "openrouter"
+client = "openai-compatible"
+enabled = true
+api_key_env = "OPENROUTER_API_KEY"
+base_url = "https://openrouter.ai/api/v1"
+
+[[models]]
+name = "anthropic/claude-sonnet-4.5"
+enabled = true
+access_tier = "paid"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
