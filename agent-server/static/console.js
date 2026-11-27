@@ -582,8 +582,9 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
   if(!TERMINAL.has(update.kind))return;
   source.close();
   if(state.eventSource===source)state.eventSource=null;
+  let run=null;
   try{
-   const run=await api("/runs/"+encodeURIComponent(runId));
+   run=await api("/runs/"+encodeURIComponent(runId));
    state.runId=null;delete state.activeRuns[conversationId];
    let conversation=null;
    let retryDelay=100;
@@ -605,12 +606,17 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
      }
     }
     renderMessages(state.messages,null,state.retry);setComposerEnabled(true);
-    const responseRecovered=typeof run.response==="string"&&!((conversation.messages||[]).some(message=>{const part=messageParts(message);return part?.kind==="assistant"&&part.value.content===run.response}));
+    const responseRecovered=typeof run.response==="string"&&!!run.response.trim()&&!((conversation.messages||[]).some(message=>{const part=messageParts(message);return part?.kind==="assistant"&&part.value.content===run.response}));
     setStatus(responseRecovered?"Response recovered from run record; conversation history could not be saved":run.status==="completed"?"Completed":run.error||run.status,responseRecovered||run.status!=="completed"?"error":"ok");
    }
    await loadConversations();renderFamilySelector();
   }catch(error){
-   if(state.selected===conversationId){state.runId=null;delete state.activeRuns[conversationId];setStatus("Unable to retrieve completed run: "+error.message,"error");setComposerEnabled(true);renderFamilySelector()}
+   if(state.selected===conversationId){
+    if(run?.response){state.messages=recoverRunResponse(state.messages,[run]);renderMessages(state.messages)}
+    state.runId=null;delete state.activeRuns[conversationId];
+    setStatus(run?.response?"Response recovered from run record; conversation could not be loaded":"Unable to retrieve completed run: "+error.message,"error");
+    setComposerEnabled(true);renderFamilySelector()
+   }
   }
  };
  source.onerror=()=>{
