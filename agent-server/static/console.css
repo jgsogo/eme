@@ -1409,3 +1409,30 @@ body[data-page="conversations"] #conversations-table-body {
     justify-content: flex-end;
   }
 }
+
+
+/* Desktop only: keep conversation actions in the title row, right-aligned. */
+@media (min-width: 761px) {
+  body:not([data-layout="mobile"])[data-page="conversations"] .conversation-card-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  body:not([data-layout="mobile"])[data-page="conversations"] .conversation-card-heading > strong {
+    display: block;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    padding-right: 0;
+  }
+  body:not([data-layout="mobile"])[data-page="conversations"] .conversation-card-heading > .conversation-card-actions {
+    position: static;
+    flex: none;
+    width: auto;
+    margin-left: auto;
+    padding: 0;
+    align-self: center;
+    justify-content: flex-end;
+  }
+}
