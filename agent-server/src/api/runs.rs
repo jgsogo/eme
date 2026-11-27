@@ -99,7 +99,7 @@ async fn list_runs(
     store: Option<Data<Arc<SqliteConversationStore>>>,
 ) -> impl Responder {
     const DEFAULT_PAGE_SIZE: u64 = 25;
-    const MAX_PAGE_SIZE: u64 = 100;
+    const MAX_PAGE_SIZE: u64 = 1000;
     let limit = query.limit.unwrap_or(DEFAULT_PAGE_SIZE).clamp(1, MAX_PAGE_SIZE);
     let mut offset = query.offset.unwrap_or(0);
     let mut body = Vec::with_capacity(limit as usize);
