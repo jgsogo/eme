@@ -1436,3 +1436,20 @@ body[data-page="conversations"] #conversations-table-body {
     justify-content: flex-end;
   }
 }
+
+
+/* Notes default to a rendered Markdown preview; source fields appear only in Edit mode. */
+.note-mode-toolbar{display:flex;gap:4px;width:max-content;padding:4px;margin:0 0 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel2)}
+.note-mode-tab{min-height:34px;padding:7px 14px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650}
+.note-mode-tab.active{border-color:var(--border);background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.note-markdown-preview{min-height:180px;color:var(--text);line-height:1.65;overflow-wrap:anywhere}
+.note-markdown-preview:empty::before{content:"Nothing here yet.";color:var(--muted)}
+.note-markdown-preview>:first-child{margin-top:0}
+.note-markdown-preview>:last-child{margin-bottom:0}
+.note-markdown-preview pre{max-width:100%;padding:12px;overflow:auto;border:1px solid var(--border);border-radius:8px;background:var(--panel2)}
+.note-markdown-preview code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.note-markdown-preview blockquote{margin:12px 0;padding:2px 12px;border-left:3px solid var(--border);color:var(--muted)}
+.note-markdown-preview table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse}
+.note-markdown-preview th,.note-markdown-preview td{padding:7px 10px;border:1px solid var(--border);text-align:left}
+.note-markdown-preview img{max-width:100%}
+#note-edit-fields[hidden],#note-preview[hidden],#note-edit-actions[hidden],#note-edit-tab[hidden]{display:none!important}
