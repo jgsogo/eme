@@ -1258,6 +1258,17 @@ function installOneShotAction() {
   if (mobile) button.style.fontSize = "23px";
   actions.append(button);
 
+  if (mobile) {
+    const overview = $("conversations-overview");
+    if (overview) {
+      const updateVisibility = () => {
+        button.hidden = overview.scrollTop > 8;
+      };
+      overview.addEventListener("scroll", updateVisibility, { passive: true });
+      updateVisibility();
+    }
+  }
+
   const dialog = document.createElement("dialog");
   dialog.id = "one-shot-dialog";
   dialog.className = "modal-dialog new-conversation-dialog";
