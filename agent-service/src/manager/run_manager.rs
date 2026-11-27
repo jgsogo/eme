@@ -568,6 +568,42 @@ impl RunManager {
         .map_err(|_| "timed out waiting for conversation runs to stop".to_owned())
     }
 
+    /// Returns a bounded newest-first page of runs and the persisted total.
+    pub async fn list_page(&self, offset: u64, limit: u64) -> Result<(Vec<Run>, u64), String> {
+        let in_memory = self.runs.lock().await;
+        let in_memory_runs = in_memory.values().map(|entry| entry.run.clone()).collect::<Vec<_>>();
+        let mut by_id = HashMap::new();
+        let total;
+        if let Some(storage) = current_storage(&self.persistence) {
+            let fetch_limit = offset.saturating_add(limit).saturating_add(in_memory_runs.len() as u64);
+            let stored = storage.list_runs_page(0, fetch_limit).await.map_err(|error| error.to_string())?;
+            total = storage.count_runs().await.map_err(|error| error.to_string())?;
+            for run in stored {
+                let run = if in_memory.contains_key(&RunId::from(run.id)) {
+                    run
+                } else {
+                    match recover_interrupted_run(storage.as_ref(), run.clone()).await {
+                        Ok(recovered) => recovered,
+                        Err(error) => {
+                            error!(run_id = %run.id, %error, "failed to recover interrupted run");
+                            run
+                        }
+                    }
+                };
+                by_id.insert(run.id, from_stored_run(run));
+            }
+        } else {
+            total = in_memory_runs.len() as u64;
+        }
+        for run in in_memory_runs {
+            by_id.insert(run.id.as_uuid(), run);
+        }
+        let mut result = by_id.into_values().collect::<Vec<_>>();
+        result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+        let page = result.into_iter().skip(offset as usize).take(limit as usize).collect();
+        Ok((page, total))
+    }
+
     pub async fn list(&self) -> Vec<Run> {
         let mut by_id = HashMap::new();
         if let Some(storage) = current_storage(&self.persistence) {
