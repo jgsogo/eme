@@ -91,7 +91,7 @@ impl AgentRegistry {
         let mut issues = Vec::new();
 
         for agent in self.agents.values() {
-            if !models.contains_declared_compatible_model(&agent.capabilities) {
+            if !models.contains_compatible_model(&agent.capabilities) {
                 issues.push(format!(
                     "Agent '{}' requires capabilities {:?}, but no configured model satisfies all of them",
                     agent.name, agent.capabilities
@@ -194,10 +194,13 @@ mod tests {
             r#"
 name = "test"
 client = "gemini"
+enabled = true
 api_key_env = "TEST_API_KEY"
 
 [[models]]
 name = "test-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#,
         )
