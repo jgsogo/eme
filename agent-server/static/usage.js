@@ -206,7 +206,7 @@ loadPricing();
 // durable records, including runs whose temporary one-shot conversation was
 // soft-deleted after completion.
 const EXECUTION_PAGE_SIZE=25;
-const executionState={runs:[],selected:null,details:{},offset:0,hasMore:false};
+const executionState={runs:[],selected:null,details:{},offset:0,hasMore:false,requestId:0};
 const executionDate=value=>value?new Date(value).toLocaleString():"—";
 const executionDuration=run=>{
  if(typeof run.duration_ms==="number"){
@@ -246,7 +246,7 @@ function renderExecutionHistory(){
  $("execution-next").disabled=!executionState.hasMore;
 }
 async function loadExecutionHistory(offset=executionState.offset){
- executionState.offset=offset;
+ const requestId=++executionState.requestId;
  $("execution-status").textContent="Loading executions…";
  $("execution-status").className="usage-status";
  $("execution-previous").disabled=true;
@@ -274,13 +274,16 @@ async function loadExecutionHistory(offset=executionState.offset){
    });
    return {items,total:page.total};
   }));
+  if(requestId!==executionState.requestId)return;
   const conversationRuns=runsPage.items.map(run=>({...run,type:run.one_shot?"one-shot":"conversation"}));
   const allRuns=[...conversationRuns,...taskPages.flatMap(page=>page.items)].sort((a,b)=>new Date(b.started_at||b.created_at||0)-new Date(a.started_at||a.created_at||0));
+  executionState.offset=offset;
   executionState.runs=allRuns.slice(offset,requested);
   executionState.hasMore=allRuns.length>requested||runsPage.has_more||taskPages.some(page=>page.total>requested);
   renderExecutionHistory();
   $("execution-status").textContent="Updated "+new Date().toLocaleTimeString()+" · page "+(Math.floor(offset/EXECUTION_PAGE_SIZE)+1);
  }catch(error){
+  if(requestId!==executionState.requestId)return;
   $("execution-status").textContent="Could not load executions: "+error.message;
   $("execution-status").className="usage-status error";
  }
