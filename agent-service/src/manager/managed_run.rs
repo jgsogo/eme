@@ -205,6 +205,12 @@ impl ManagedRun {
         let _ = self.event_sender.send((self.run.id, event));
     }
 
+    fn publish_last_event(&self) {
+        if let Some(event) = self.events.last() {
+            let _ = self.event_sender.send((self.run.id, event.clone()));
+        }
+    }
+
     /// Records a service or lifecycle event in the shared ordered history.
     pub(super) fn record(&mut self, kind: RunEventKind) {
         let event = self.next_event(kind);

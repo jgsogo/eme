@@ -525,7 +525,7 @@ async fn stream_run_events(
                             return;
                         }
                     }
-                    if sender.send(Bytes::from_static(b": keep-alive\\n\\n")).await.is_err() {
+                    if sender.send(Bytes::from_static(b": keep-alive\n\n")).await.is_err() {
                         return;
                     }
                 }
