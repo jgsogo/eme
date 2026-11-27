@@ -52,7 +52,7 @@ function renderWeek(){
  const days=dates.map(date=>{
   const slots=meals.map(([meal,title])=>{
    const assignment=assignmentFor(date,meal),configuredPeople=participationDetails(date,meal);
-   const people=configuredPeople||assignment?.participants?.map(p=>p.name).join(", ")||"No participation configured";
+   const people=assignment?.participants?.map(p=>p.name).join(", ")||configuredPeople||"No participation configured";
    const recipes=recipeNames(assignment||{}).join(" · "),failed=state.failedWeeks.has(weekStartFor(date));
    const detail=failed?'<p class="school-menu-placeholder">Planning data unavailable</p>':assignment||configuredPeople?'<div class="meal-slot-details"><strong>'+esc(people)+'</strong>'+(recipes?'<span>'+esc(recipes)+'</span>':'')+(!assignment?'<span>Meal not planned</span>':'')+'</div>':'<p class="school-menu-placeholder">Not planned · No participation configured</p>';
    const action=failed?'<button type="button" class="text-button" data-retry>Retry</button>':assignment?'<button type="button" class="text-button" data-edit="'+date+'" data-meal="'+meal+'">Edit</button>':'<button type="button" class="text-button" data-add="'+date+'" data-meal="'+meal+'">＋ Add</button>';
