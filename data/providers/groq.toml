@@ -25,5 +25,5 @@ capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 [[models]]
 name = "minimaxai/minimax-m2.7"
 enabled = true
-access_tier = "paid"
+access_tier = "enterprise"
 capabilities = ["chat", "reasoning", "coding"]
