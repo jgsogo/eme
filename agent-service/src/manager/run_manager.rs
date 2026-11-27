@@ -213,15 +213,11 @@ impl RunManager {
                                         RunEventKind::Failed
                                     }
                                 };
-                                entry.record(event);
+                                let terminal_event = entry.next_event(event);
                                 info!(run_id = %run_id, agent = %entry.run.agent, status = ?entry.run.status, "agent run finished");
                                 Some((
                                     entry.run.clone(),
-                                    entry
-                                        .events
-                                        .last()
-                                        .cloned()
-                                        .expect("terminal event was recorded"),
+                                    terminal_event,
                                     entry.history.clone(),
                                     entry.persisted_message_count,
                                 ))
@@ -231,44 +227,79 @@ impl RunManager {
                         }
                     };
 
-                    if let (
-                        Some(storage),
-                        Some((snapshot, terminal_event, messages, message_count)),
-                    ) = (current_storage(&persistence), persisted)
-                    {
-                        if let Err(storage_error) =
-                            storage.update_run(to_stored_run(&snapshot)).await
-                        {
-                            error!(run_id = %run_id, %storage_error, "failed to persist terminal run state");
-                        }
-                        if let Err(storage_error) = storage
-                            .append_event(to_stored_event(run_id, &terminal_event))
-                            .await
-                        {
-                            error!(run_id = %run_id, sequence = terminal_event.sequence, %storage_error, "failed to persist terminal run event");
-                        }
-                        // Runtime results carry the complete transcript. The initial
-                        // history and submitted user message are already durable.
-                        if let (Some(mut next_sequence), Some(conversation_id)) =
-                            (message_count, snapshot.conversation_id)
-                        {
-                            let suffix = messages.into_iter().skip(history_len + 1);
-                            for message in suffix {
-                                let stored = StoredMessage {
-                                    conversation_id,
-                                    run_id: Some(run_id.as_uuid()),
-                                    sequence: next_sequence,
-                                    message,
-                                    created_at: Utc::now(),
-                                };
-                                match storage.append_message(stored).await {
-                                    Ok(()) => next_sequence += 1,
-                                    Err(storage_error) => {
-                                        error!(run_id = %run_id, %storage_error, "failed to persist conversation message");
-                                        break;
+                    if let Some((mut snapshot, mut terminal_event, messages, message_count)) = persisted {
+                        if let Some(storage) = current_storage(&persistence) {
+                            // Persist the transcript before making the terminal event visible.
+                            // The event is the browser's signal that reconciliation can finish.
+                            let mut persistence_error = None;
+                            if let (Some(mut next_sequence), Some(conversation_id)) =
+                                (message_count, snapshot.conversation_id)
+                            {
+                                for message in messages.into_iter().skip(history_len + 1) {
+                                    let stored = StoredMessage {
+                                        conversation_id,
+                                        run_id: Some(run_id.as_uuid()),
+                                        sequence: next_sequence,
+                                        message,
+                                        created_at: Utc::now(),
+                                    };
+                                    match storage.append_message(stored).await {
+                                        Ok(()) => next_sequence += 1,
+                                        Err(storage_error) => {
+                                            persistence_error = Some(format!(
+                                                "failed to persist conversation message: {storage_error}"
+                                            ));
+                                            break;
+                                        }
                                     }
                                 }
                             }
+
+                            if persistence_error.is_none()
+                                && let Err(storage_error) =
+                                    storage.update_run(to_stored_run(&snapshot)).await
+                            {
+                                persistence_error = Some(format!(
+                                    "failed to persist terminal run state: {storage_error}"
+                                ));
+                            }
+                            if persistence_error.is_none()
+                                && let Err(storage_error) = storage
+                                    .append_event(to_stored_event(run_id, &terminal_event))
+                                    .await
+                            {
+                                persistence_error = Some(format!(
+                                    "failed to persist terminal run event: {storage_error}"
+                                ));
+                            }
+
+                            // Keep the response on the run record so clients can recover it
+                            // if the conversation write fails. Never report that as success.
+                            if let Some(message) = persistence_error {
+                                error!(run_id = %run_id, error = %message, "failed to persist final run transcript");
+                                snapshot.status = RunStatus::Failed;
+                                snapshot.error = Some(message);
+                                snapshot.finished_at = Some(SystemTime::now());
+                                terminal_event.kind = RunEventKind::Failed;
+                                terminal_event.occurred_at = SystemTime::now();
+                                if let Err(storage_error) =
+                                    storage.update_run(to_stored_run(&snapshot)).await
+                                {
+                                    error!(run_id = %run_id, %storage_error, "failed to persist failed run state");
+                                }
+                                if let Err(storage_error) = storage
+                                    .append_event(to_stored_event(run_id, &terminal_event))
+                                    .await
+                                {
+                                    error!(run_id = %run_id, sequence = terminal_event.sequence, %storage_error, "failed to persist failed run event");
+                                }
+                            }
+                        }
+
+                        let mut runs = runs.lock().await;
+                        if let Some(entry) = runs.get_mut(&run_id) {
+                            entry.run = snapshot;
+                            entry.publish_event(terminal_event);
                         }
                     }
                 }

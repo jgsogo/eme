@@ -57,6 +57,16 @@ function showConversationDetail(){
 }
 
 function messageParts(message){if(!message||typeof message!=="object")return null;const [kind,value]=Object.entries(message)[0]||[];if(!kind)return null;return {kind:kind.toLowerCase(),value:value||{}}}
+function recoverRunResponse(messages=[],runs=[]){
+ const recovered=[...messages];
+ const latest=runs[0];
+ if(!latest||typeof latest.response!=="string"||!latest.response.trim())return recovered;
+ const hasUser=recovered.some(message=>{const part=messageParts(message);return part?.kind==="user"&&part.value.content===latest.input});
+ const hasResponse=recovered.some(message=>{const part=messageParts(message);return part?.kind==="assistant"&&part.value.content===latest.response});
+ if(hasUser&&!hasResponse)recovered.push({assistant:{content:latest.response,tool_calls:[]}});
+ return recovered;
+}
+
 function renderMarkdown(source){
  if(typeof marked==="undefined"||typeof DOMPurify==="undefined")return escapeHtml(source).replace(/\\n/g,"<br>");
  const html=marked.parse(String(source??""),{gfm:true,breaks:false});
@@ -479,7 +489,7 @@ async function renameFamily(){
  catch(e){setStatus(e.message,"error")}
 }
 
-async function selectConversation(id){if($('conversation-detail-view'))showConversationDetail();closeRunStream();state.runId=null;state.runEvents=[];state.selected=id;state.retry=null;state.messages=[];renderRunEvents([]);try{localStorage.setItem("eme.selectedConversation",id)}catch{}renderConversations();$("messages").innerHTML='<div class="empty">Loading conversation…</div>';try{const [c,runs]=await Promise.all([api("/conversations/"+encodeURIComponent(id)),api("/conversations/"+encodeURIComponent(id)+"/runs")]);if(state.selected!==id)return;$("conversation-title").textContent=c.title||"New conversation";$("conversation-meta").textContent="Agent · "+c.agent+" · Conversation "+c.id+" · ~"+Number(c.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";$("edit-conversation-settings").disabled=false;if($("agent"))$("agent").value=c.agent;updateAgentDescription();state.selectedFamilyId=c.selected_family_id||null;renderFamilySelector();state.messageCount=(c.messages||[]).length;state.messages=c.messages||[];const activeRun=runs.find(run=>["queued","running"].includes(run.status));if(activeRun){state.runId=activeRun.run_id;state.activeRuns[id]=activeRun;const alreadyShown=state.messages.some(message=>{const part=messageParts(message);return part?.kind==="user"&&part.value.content===activeRun.input});if(!alreadyShown)state.messages=[...state.messages,{user:{content:activeRun.input}}];renderMessages(state.messages,{label:activeRun.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+activeRun.status)}else{delete state.activeRuns[id];renderMessages(state.messages);setStatus("")}renderConversations();setComposerEnabled(!activeRun);if(activeRun)connectRunStream(id,activeRun.run_id,state.messageCount,activeRun.input)}catch(e){if(state.selected===id){setStatus(e.message,"error");setComposerEnabled(true)}}}
+async function selectConversation(id){if($('conversation-detail-view'))showConversationDetail();closeRunStream();state.runId=null;state.runEvents=[];state.selected=id;state.retry=null;state.messages=[];renderRunEvents([]);try{localStorage.setItem("eme.selectedConversation",id)}catch{}renderConversations();$("messages").innerHTML='<div class="empty">Loading conversation…</div>';try{const [c,runs]=await Promise.all([api("/conversations/"+encodeURIComponent(id)),api("/conversations/"+encodeURIComponent(id)+"/runs")]);if(state.selected!==id)return;$("conversation-title").textContent=c.title||"New conversation";$("conversation-meta").textContent="Agent · "+c.agent+" · Conversation "+c.id+" · ~"+Number(c.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";$("edit-conversation-settings").disabled=false;if($("agent"))$("agent").value=c.agent;updateAgentDescription();state.selectedFamilyId=c.selected_family_id||null;renderFamilySelector();state.messageCount=(c.messages||[]).length;state.messages=recoverRunResponse(c.messages||[],runs);const activeRun=runs.find(run=>["queued","running"].includes(run.status));if(activeRun){state.runId=activeRun.run_id;state.activeRuns[id]=activeRun;const alreadyShown=state.messages.some(message=>{const part=messageParts(message);return part?.kind==="user"&&part.value.content===activeRun.input});if(!alreadyShown)state.messages=[...state.messages,{user:{content:activeRun.input}}];renderMessages(state.messages,{label:activeRun.status==="queued"?"Queued…":"Working in the background…",cancelEnabled:true});setStatus("Running · "+activeRun.status)}else{delete state.activeRuns[id];renderMessages(state.messages);setStatus("")}renderConversations();setComposerEnabled(!activeRun);if(activeRun)connectRunStream(id,activeRun.run_id,state.messageCount,activeRun.input)}catch(e){if(state.selected===id){setStatus(e.message,"error");setComposerEnabled(true)}}}
 function openNewConversationDialog(){const dialog=$("new-conversation-dialog");if(!dialog)return;const name=$("new-conversation-name"),family=$("new-conversation-family"),agent=$("new-conversation-agent");name.value="New conversation";family.innerHTML='<option value="">No family</option>'+state.families.map(f=>'<option value="'+escapeHtml(f.id)+'">'+escapeHtml(f.name)+'</option>').join("");family.value=state.families.some(f=>f.id===state.selectedFamilyId)?state.selectedFamilyId:"";const preferred=$("agent")?.value||agent.value;if(state.agents.some(a=>a.name===preferred))agent.value=preferred;updateAgentDescription();$("new-conversation-status").textContent="";$("new-conversation-submit").disabled=!state.agents.length;dialog.showModal();name.focus();name.select()}
 async function createConversation(event){event.preventDefault();const name=$("new-conversation-name").value.trim(),agent=$("new-conversation-agent").value,familyId=$("new-conversation-family").value||null,status=$("new-conversation-status"),button=$("new-conversation-submit");if(!name){status.textContent="Conversation name must not be empty.";return}if(!agent){status.textContent="Choose an agent.";return}button.disabled=true;status.textContent="Creating conversation…";try{const c=await api("/conversations",{method:"POST",body:JSON.stringify({agent,family_id:familyId})});const updated=await api("/conversations/"+encodeURIComponent(c.id),{method:"PUT",body:JSON.stringify({title:name})});state.showArchived=false;state.selectedFamilyId=familyId;$("new-conversation-dialog").close();await loadConversations();await selectConversation(updated.id||c.id);$("prompt").focus()}catch(e){status.textContent=e.message;setStatus(e.message,"error")}finally{button.disabled=false}}
 function openEditConversationDialog(id=state.selected){
@@ -576,15 +586,18 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
    const run=await api("/runs/"+encodeURIComponent(runId));
    state.runId=null;delete state.activeRuns[conversationId];
    let conversation=null;
-   for(let attempt=0;attempt<40;attempt++){
+   let retryDelay=100;
+   for(let attempt=0;attempt<6;attempt++){
     conversation=await api("/conversations/"+encodeURIComponent(conversationId));
-    if((conversation.messages||[]).length>previousMessageCount)break;
-    await new Promise(resolve=>setTimeout(resolve,100));
+    const messages=conversation.messages||[];
+    const hasResponse=typeof run.response==="string"&&messages.some(message=>{const part=messageParts(message);return part?.kind==="assistant"&&part.value.content===run.response});
+    if(hasResponse||(!run.response&&messages.length>previousMessageCount))break;
+    if(attempt<5){await new Promise(resolve=>setTimeout(resolve,retryDelay));retryDelay=Math.min(retryDelay*2,1600)}
    }
    if(state.selected===conversationId){
     $("conversation-title").textContent=conversation.title||"New conversation";
     $("conversation-meta").textContent="Agent · "+conversation.agent+" · Conversation "+conversation.id+" · ~"+Number(conversation.history_tokens_estimate||0).toLocaleString()+" history tokens (estimated)";
-    state.messageCount=(conversation.messages||[]).length;state.messages=conversation.messages||[];state.retry=null;
+    state.messageCount=(conversation.messages||[]).length;state.messages=recoverRunResponse(conversation.messages||[],[run]);state.retry=null;
     if(run.status!=="completed"&&run.status!=="cancelled"){
      for(let i=state.messages.length-1;i>=0;i--){
       const part=messageParts(state.messages[i]);
@@ -592,7 +605,8 @@ function connectRunStream(conversationId,runId,previousMessageCount,input){
      }
     }
     renderMessages(state.messages,null,state.retry);setComposerEnabled(true);
-    setStatus(run.status==="completed"?"Completed":run.error||run.status,run.status==="completed"?"ok":"error");
+    const responseRecovered=typeof run.response==="string"&&!((conversation.messages||[]).some(message=>{const part=messageParts(message);return part?.kind==="assistant"&&part.value.content===run.response}));
+    setStatus(responseRecovered?"Response recovered from run record; conversation history could not be saved":run.status==="completed"?"Completed":run.error||run.status,responseRecovered||run.status!=="completed"?"error":"ok");
    }
    await loadConversations();renderFamilySelector();
   }catch(error){
