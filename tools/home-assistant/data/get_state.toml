@@ -1,0 +1,13 @@
+name = "home_assistant.get_state"
+description = "Get the current state and attributes of one Home Assistant entity."
+
+[parameters]
+type = "object"
+required = ["entity_id"]
+additionalProperties = false
+
+[parameters.properties.entity_id]
+type = "string"
+minLength = 1
+pattern = "^[A-Za-z0-9_.]+$"
+description = "Entity ID, for example light.kitchen or sensor.outdoor_temperature."

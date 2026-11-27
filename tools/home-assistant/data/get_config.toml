@@ -1,0 +1,6 @@
+name = "home_assistant.get_config"
+description = "Get Home Assistant core configuration, including location, units, and version information."
+
+[parameters]
+type = "object"
+additionalProperties = false
