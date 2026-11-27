@@ -709,3 +709,65 @@
     overflow: visible;
   }
 }
+
+
+/* Anchor the mobile dialog to the viewport's top edge. With auto margins,
+   a tall native dialog can be vertically centered with its top clipped,
+   making the title impossible to reach. The dialog is the only scroll area. */
+@media (max-width: 700px) {
+  dialog#provider-model-dialog-host.provider-model-dialog[open] {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    inset: 8px;
+    box-sizing: border-box;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+    scrollbar-color: var(--muted) var(--panel2);
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open]::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open]::-webkit-scrollbar-track {
+    background: var(--panel2);
+    border-radius: 8px;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open]::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border: 2px solid var(--panel2);
+    border-radius: 8px;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-shell {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-header,
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-content,
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-actions {
+    position: static;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+}
