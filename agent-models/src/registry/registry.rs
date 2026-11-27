@@ -376,6 +376,18 @@ capabilities = ["chat"]
             "gemini/gemini-3.8-flash",
             "groq/openai/gpt-oss-120b",
             "openrouter/anthropic/claude-sonnet-4.5",
+            "openrouter/baidu/ernie-5.5-flash-preview:free",
+            "openrouter/google/gemma-4-26b-a4b-it:free",
+            "openrouter/google/gemma-4-31b-it:free",
+            "openrouter/inclusionai/ling-3.2-flash:free",
+            "openrouter/liquid/lfm-3-1.7b:free",
+            "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+            "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+            "openrouter/nvidia/nemotron-3.5-lightning:free",
+            "openrouter/nvidia/nemotron-3.5-super-vl:free",
+            "openrouter/particle-ai/particle-1:free",
+            "openrouter/recursive/flint-v1.0:free",
+            "openrouter/free",
         ] {
             assert!(
                 registry.contains_model(model),
