@@ -364,7 +364,11 @@ capabilities = ["chat"]
         let registry = Registry::load(data_dir).unwrap();
 
         let catalog = registry.catalog();
-        assert_eq!(catalog.len(), 5, "unexpected provider catalogue: {catalog:#?}");
+        assert_eq!(
+            catalog.len(),
+            5,
+            "unexpected provider catalogue: {catalog:#?}"
+        );
 
         for model in [
             "cloudflare/@cf/zai-org/glm-4.7-flash",
@@ -373,7 +377,10 @@ capabilities = ["chat"]
             "groq/openai/gpt-oss-120b",
             "openrouter/anthropic/claude-sonnet-4.5",
         ] {
-            assert!(registry.contains_model(model), "missing configured model '{model}'");
+            assert!(
+                registry.contains_model(model),
+                "missing configured model '{model}'"
+            );
         }
     }
 
