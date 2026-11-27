@@ -1,35 +1,51 @@
-/* Providers catalogue view switch, compact table and model details dialog. */
-.provider-view-switch{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--border);border-radius:9px;background:var(--panel)}
-.provider-view-switch button{min-height:32px;padding:5px 10px;border:0;border-radius:6px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650;cursor:pointer}
-.provider-view-switch button[aria-pressed=true]{background:var(--panel2);color:var(--text);box-shadow:0 1px 3px #0002}
-.provider-list-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:11px;background:var(--panel)}
-.provider-list-table{width:100%;border-collapse:collapse;text-align:left;font-size:12px;white-space:nowrap}
-.provider-list-table th{padding:11px 14px;background:var(--panel2);color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.06em;text-transform:uppercase}
-.provider-list-table td{padding:12px 14px;border-top:1px solid var(--border);vertical-align:middle}
+/* Providers catalogue: reuse the shared admin table and modal primitives. */
+.provider-view-switch{display:inline-flex;align-items:center;gap:4px;flex:none}
+.provider-view-switch .icon-button{width:38px;min-width:38px;height:38px;min-height:38px;padding:8px!important}
+.provider-view-switch .icon-button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.provider-view-switch .icon-button[aria-pressed=true]{background:var(--panel);border-color:var(--accent);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
+.provider-list-table-wrap{width:100%;max-width:100%;border-radius:var(--radius)}
+.provider-list-table{min-width:760px}
+.provider-list-table th,.provider-list-table td{padding:11px 12px}
 .provider-list-table tbody tr{cursor:pointer;transition:background .12s ease}
-.provider-list-table tbody tr:hover,.provider-list-table tbody tr:focus{outline:none;background:var(--panel2)}
+.provider-list-table tbody tr:hover,.provider-list-table tbody tr:focus{background:var(--panel2);outline:none}
 .provider-list-table tbody tr:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
-.provider-table-model{font-weight:700;color:var(--text)}
-.provider-table-provider{color:var(--muted)}
-.provider-table-capabilities{max-width:330px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
-.provider-table-status{display:inline-flex;align-items:center;gap:6px}
-.provider-table-status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--danger,#b54747)}
-.provider-table-status.enabled::before{background:var(--success,#25865a)}
-.provider-model-dialog{width:min(720px,calc(100vw - 28px));max-width:720px;max-height:min(82vh,850px);padding:0;border:1px solid var(--border);border-radius:14px;background:var(--panel);color:var(--text);box-shadow:0 24px 80px #0005}
-.provider-model-dialog::backdrop{background:#10182099;backdrop-filter:blur(2px)}
-.provider-model-dialog-header{position:sticky;top:0;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px;border-bottom:1px solid var(--border);background:var(--panel)}
-.provider-model-dialog-header h3{margin:0;font-size:17px;line-height:1.35;overflow-wrap:anywhere}
-.provider-model-dialog-header p{margin:5px 0 0;color:var(--muted);font-size:12px}
-.provider-model-dialog-close{flex:none;min-width:34px;min-height:34px}
-.provider-model-dialog-content{display:grid;gap:18px;padding:20px 22px}
-.provider-model-dialog-section{display:grid;gap:9px;min-width:0}
-.provider-model-dialog-section h4{margin:0;font-size:12px;font-weight:750}
-.provider-model-dialog-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px}
-.provider-model-dialog-field{min-width:0}
-.provider-model-dialog-field dt{margin-bottom:4px;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-.provider-model-dialog-field dd{margin:0;font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap}
-.provider-model-dialog-field.full{grid-column:1/-1}
-.provider-model-dialog-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--border)}
+.provider-list-table tbody tr:last-child td{border-bottom:0}
+.provider-table-model{font-weight:650;color:var(--text)}
+.provider-table-capabilities{max-width:360px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.provider-table-status{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:11px}
+.provider-table-status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--danger,var(--err))}
+.provider-table-status.enabled::before{background:var(--success,var(--ok))}
+.modal-dialog.provider-model-dialog{width:min(820px,calc(100vw - 32px));max-height:min(90dvh,900px);padding:20px;overflow:auto;overscroll-behavior:contain}
+.provider-model-dialog-heading{align-items:flex-start;margin:0 0 2px;padding-bottom:16px}
+.provider-model-dialog-heading .eyebrow{margin-bottom:5px}
+.provider-model-dialog-heading h3{margin:0;color:var(--text);font-size:19px;line-height:1.3;letter-spacing:0;overflow-wrap:anywhere}
+.provider-model-dialog-heading .hint{margin:5px 0 0}
+.provider-model-dialog-close{width:38px;min-width:38px;height:38px;min-height:38px;padding:8px!important}
+.provider-model-dialog-close svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.provider-detail-summary{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px}
+.provider-detail-tier{display:inline-flex;align-items:center;min-height:25px;padding:3px 9px;border:1px solid var(--border);border-radius:7px;background:var(--panel2);color:var(--text);font-size:11px;font-weight:650}
+.provider-detail-section{padding:16px 0}
+.provider-detail-section .family-section-heading{margin-bottom:11px}
+.provider-detail-section .family-section-heading h3{margin:0;color:var(--text);font-size:13px}
+.provider-capability-list{display:flex;flex-wrap:wrap;gap:7px}
+.provider-capability{display:inline-flex;align-items:center;min-height:27px;padding:4px 9px;border:1px solid var(--border);border-radius:7px;background:var(--panel2);color:var(--text);font-size:11px}
+.provider-no-capabilities{color:var(--muted);font-size:12px}
+.provider-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;margin:0}
+.provider-detail-field{min-width:0;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--panel2)}
+.provider-detail-field.full{grid-column:1/-1}
+.provider-detail-field dt{margin:0 0 4px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.provider-detail-field dd{margin:0;color:var(--text);font-size:12px;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+.provider-detail-field pre{max-width:100%;margin:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 ui-monospace,SFMono-Regular,monospace}
+.provider-model-dialog-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
 .provider-model-dialog-actions .provider-setting{margin-right:auto}
-.provider-model-dialog-content .provider-model-result{margin:0}
-@media(max-width:600px){.provider-model-dialog-grid{grid-template-columns:minmax(0,1fr)}.provider-model-dialog-header,.provider-model-dialog-content{padding:16px}.provider-model-dialog-actions .provider-setting{flex-basis:100%}}
+.provider-model-dialog-actions .provider-model-result{flex-basis:100%;margin:0}
+@media(max-width:600px){
+  .provider-view-switch .icon-button{width:42px;min-width:42px;height:42px;min-height:42px}
+  .modal-dialog.provider-model-dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px);padding:14px;border-radius:12px}
+  .provider-model-dialog-heading{gap:10px}
+  .provider-detail-grid{grid-template-columns:minmax(0,1fr)}
+  .provider-detail-field.full{grid-column:auto}
+  .provider-model-dialog-actions{align-items:stretch}
+  .provider-model-dialog-actions .provider-setting{flex-basis:100%;margin:0}
+  .provider-model-dialog-actions button{flex:1}
+}
