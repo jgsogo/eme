@@ -173,7 +173,7 @@ async fn lists_submitted_runs() {
     let response = test::call_service(&app, request).await;
     assert_eq!(response.status(), StatusCode::OK);
     let body: Value = test::read_body_json(response).await;
-    let runs = body.as_array().expect("list should be an array");
+    let runs = body["items"].as_array().expect("response should contain paginated items");
     assert!(
         runs.iter().any(|run| run["run_id"] == run_id),
         "submitted run should appear in the list"
