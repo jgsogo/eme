@@ -130,7 +130,7 @@ function renderRunEvents(events=[]){
  }).join(""):"<li>No events yet.</li>"
 }
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId;if($("edit-conversation-settings"))$("edit-conversation-settings").disabled=!state.selected||!!state.runId}
-async function loadConversations(){const [conversations,runs]=await Promise.all([api(state.showArchived?"/conversations/archived":"/conversations"),api("/runs")]);state.conversations=conversations;state.activeRuns={};for(const run of runs){if(run.conversation_id&&["queued","running"].includes(run.status)&&!state.activeRuns[run.conversation_id])state.activeRuns[run.conversation_id]=run}renderConversations()}
+async function loadConversations(){const [conversations,runsPage]=await Promise.all([api(state.showArchived?"/conversations/archived":"/conversations"),api("/runs?limit=1000")]);state.conversations=conversations;state.activeRuns={};for(const run of (runsPage.items||[])){if(run.conversation_id&&["queued","running"].includes(run.status)&&!state.activeRuns[run.conversation_id])state.activeRuns[run.conversation_id]=run}renderConversations()}
 async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies();renderNoteFamilyFilter()}
 function renderNoteFamilyFilter(){
  const select=$("note-family-filter");if(!select)return;
