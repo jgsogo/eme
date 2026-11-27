@@ -47,6 +47,7 @@ pub async fn alexa_speak(
     device_name: &str,
     text: &str,
     chime: Option<&str>,
+    volume: Option<u8>,
 ) -> Result<(), AlexaError> {
     let refresh_token =
         std::env::var("AMAZON_ALEXA_REFRESH_TOKEN").map_err(|_| AlexaError::MissingToken)?;
@@ -79,6 +80,7 @@ pub async fn alexa_speak(
         &customer_id,
         text,
         chime,
+        volume,
     )
     .await
 }
@@ -227,26 +229,55 @@ async fn send_speak(
     customer_id: &str,
     text: &str,
     chime: Option<&str>,
+    volume: Option<u8>,
 ) -> Result<(), AlexaError> {
-    // Payload equivalente al SEQUENCECMD=Alexa.Speak del script
-    let sequence = json!({
-        "@type": "com.amazon.alexa.behaviors.model.Sequence",
-        "startNode": {
-            "@type": "com.amazon.alexa.behaviors.model.ParallelNode",
+    // Payload equivalente al SEQUENCECMD=Alexa.Speak del script.
+    let speak_node = json!({
+        "@type": "com.amazon.alexa.behaviors.model.OpaquePayloadOperationNode",
+        "type": "Alexa.Speak",
+        "operationPayload": {
+            "deviceType": device_type,
+            "deviceSerialNumber": serial,
+            "customerId": customer_id,
+            "locale": TTS_LOCALE,
+            "textToSpeak": notification_speech(text, chime)
+        }
+    });
+
+    // Apply the requested volume first so the speech uses it.
+    let start_node = match volume {
+        Some(volume) => json!({
+            "@type": "com.amazon.alexa.behaviors.model.SerialNode",
             "nodesToExecute": [
                 {
-                    "@type": "com.amazon.alexa.behaviors.model.OpaquePayloadOperationNode",
-                    "type": "Alexa.Speak",
-                    "operationPayload": {
-                        "deviceType": device_type,
-                        "deviceSerialNumber": serial,
-                        "customerId": customer_id,
-                        "locale": TTS_LOCALE,
-                        "textToSpeak": notification_speech(text, chime)
-                    }
+                    "@type": "com.amazon.alexa.behaviors.model.ParallelNode",
+                    "nodesToExecute": [{
+                        "@type": "com.amazon.alexa.behaviors.model.OpaquePayloadOperationNode",
+                        "type": "Alexa.DeviceControls.Volume",
+                        "operationPayload": {
+                            "deviceType": device_type,
+                            "deviceSerialNumber": serial,
+                            "customerId": customer_id,
+                            "locale": TTS_LOCALE,
+                            "value": volume.to_string()
+                        }
+                    }]
+                },
+                {
+                    "@type": "com.amazon.alexa.behaviors.model.ParallelNode",
+                    "nodesToExecute": [speak_node]
                 }
             ]
-        }
+        }),
+        None => json!({
+            "@type": "com.amazon.alexa.behaviors.model.ParallelNode",
+            "nodesToExecute": [speak_node]
+        }),
+    };
+
+    let sequence = json!({
+        "@type": "com.amazon.alexa.behaviors.model.Sequence",
+        "startNode": start_node
     });
 
     let body = json!({
