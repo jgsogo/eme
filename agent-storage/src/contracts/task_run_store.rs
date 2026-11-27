@@ -24,7 +24,11 @@ pub trait TaskRunStore: Send + Sync {
         ))
     }
 
-    async fn list_task_runs_page(&self, task_id: Uuid, limit: u64) -> Result<(Vec<StoredRun>, u64), StorageError> {
+    async fn list_task_runs_page(
+        &self,
+        task_id: Uuid,
+        limit: u64,
+    ) -> Result<(Vec<StoredRun>, u64), StorageError> {
         let runs = self.list_task_runs(task_id).await?;
         let total = runs.len() as u64;
         Ok((runs.into_iter().take(limit as usize).collect(), total))
