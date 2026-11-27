@@ -8,6 +8,7 @@ description = "Persistence contracts and storage backends for agent execution da
 async-trait = { workspace = true }
 tokio = { workspace = true }
 agent-runtime = { path = "../agent-runtime" }
+agent-models = { path = "../agent-models" }
 agent-metering = { path = "../agent-metering" }
 chrono = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
