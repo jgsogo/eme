@@ -50,3 +50,39 @@
   .provider-model-dialog-actions .provider-setting{flex-basis:100%;margin:0}
   .provider-model-dialog-actions button{flex:1}
 }
+
+/* Explicit icon rendering avoids relying on inherited button/SVG defaults. */
+.provider-view-switch .icon-button svg,
+.provider-test-button svg,
+.provider-model-dialog-close svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+.provider-list-table th { white-space: nowrap; }
+.provider-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 3px 2px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 650;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.provider-sort-button:hover,
+.provider-sort-button:focus-visible { color: var(--text); }
+.provider-sort-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.provider-sort-button span { color: var(--accent); font-size: 13px; }
