@@ -42,6 +42,15 @@
     .provider-model-result.error strong,.provider-model-result.error{color:var(--danger,#b54747)}
     .provider-model-result.pending{color:var(--muted)}
     .provider-model-result:empty{display:none}
+    .provider-model-settings{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .provider-setting{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;font-weight:600}
+    .provider-setting input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+    .provider-disabled-reason{margin:7px 0 0;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+    .provider-reset-button{min-height:34px;padding:5px 9px;font-size:11px}
+    .provider-model-settings{margin-left:auto}
+    .provider-model-header{flex-wrap:wrap}
+    .provider-card-actions .provider-setting{white-space:nowrap}
+    @media(max-width:600px){.provider-model-settings{margin-left:0;width:100%;justify-content:space-between}.provider-model-header{gap:10px}}
     .provider-test-diagnostics{flex-basis:100%;min-width:0}
     .provider-test-diagnostics pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
     @media(max-width:600px){
@@ -71,7 +80,7 @@
       <div>
         <p class="eyebrow">MODEL REGISTRY</p>
         <h2>Configured providers</h2>
-        <p class="usage-intro">Providers and models declared in the platform's loaded model registry.</p>
+        <p class="usage-intro">Manage provider availability and model access classifications. TOML defines the catalogue; administrative changes are stored as overrides.</p>
       </div>
       <div class="usage-actions">
         <label for="providers-search">Filter providers and models</label>
