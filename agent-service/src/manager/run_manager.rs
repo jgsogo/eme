@@ -749,7 +749,11 @@ impl RunManager {
             .list_task_runs_page(task_id, limit)
             .await
             .map_err(|error| error.to_string())?;
-        let mut by_id = stored.into_iter().map(from_stored_run).map(|run| (run.id.as_uuid(), run)).collect::<HashMap<_, _>>();
+        let mut by_id = stored
+            .into_iter()
+            .map(from_stored_run)
+            .map(|run| (run.id.as_uuid(), run))
+            .collect::<HashMap<_, _>>();
         for entry in self.runs.lock().await.values() {
             if by_id.contains_key(&entry.run.id.as_uuid()) {
                 by_id.insert(entry.run.id.as_uuid(), entry.run.clone());
