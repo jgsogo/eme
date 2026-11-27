@@ -9,3 +9,81 @@ name = "anthropic/claude-sonnet-4.5"
 enabled = true
 access_tier = "paid"
 capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+# Free chat endpoints currently listed by OpenRouter (November 2026).
+# Multimodal inputs and specialised non-chat endpoints are not advertised because
+# the shared EME conversation request currently carries text only.
+
+[[models]]
+name = "baidu/ernie-5.5-flash-preview:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "google/gemma-4-26b-a4b-it:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "tool_calling"]
+
+[[models]]
+name = "google/gemma-4-31b-it:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "inclusionai/ling-3.2-flash:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "tool_calling"]
+
+[[models]]
+name = "liquid/lfm-3-1.7b:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "tool_calling"]
+
+[[models]]
+name = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "tool_calling"]
+
+[[models]]
+name = "nvidia/nemotron-3-ultra-550b-a55b:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "nvidia/nemotron-3.5-lightning:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "tool_calling"]
+
+[[models]]
+name = "nvidia/nemotron-3.5-super-vl:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "particle-ai/particle-1:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "coding"]
+
+[[models]]
+name = "recursive/flint-v1.0:free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "coding"]
+
+# OpenRouter chooses a currently available free model for each request.
+# It is a dynamic router, not a stable model implementation.
+[[models]]
+name = "free"
+enabled = true
+access_tier = "free"
+capabilities = ["chat", "tool_calling"]
