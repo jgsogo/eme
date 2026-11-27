@@ -24,7 +24,7 @@ A capability is advertised only when the current provider adapter can express it
 
 Provider and model definitions in `data/providers/*.toml` are the version-controlled catalogue. They describe technical integration details and default metadata. Administrative enablement overrides will be persisted separately; the TOML files remain the source for the provider/model definitions themselves.
 
-The `access_tier` field is descriptive metadata (`free`, `free_tier`, `trial`, `paid`, or `unknown`). It is not a token price and is not used to calculate invocation costs. Versioned token pricing and cost calculations belong to `agent-metering`.
+The `access_tier` field is descriptive metadata (`free`, `free_tier`, `trial`, `paid`, `enterprise`, or `unknown`). Enterprise access generally requires an enterprise agreement or account and is unlikely to be available to personal deployments. The field is not a token price and is not used to calculate invocation costs. Versioned token pricing and cost calculations belong to `agent-metering`.
 
 ## Boundaries
 
