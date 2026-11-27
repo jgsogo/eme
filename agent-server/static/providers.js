@@ -68,10 +68,11 @@ function renderAccessTier(model) {
 function render() {
   const query = $("providers-search").value.trim().toLocaleLowerCase();
   const providers = state.providers.map(provider => {
-    const models = (provider.models || []).filter(model =>
+    const allModels = provider.models || [];
+    const models = allModels.filter(model =>
       [provider.name, provider.client, model.name, model.access_tier, ...(model.capabilities || [])]
         .some(value => String(value || "").toLocaleLowerCase().includes(query)));
-    return { ...provider, models };
+    return { ...provider, allModels, models };
   }).filter(provider =>
     !query || provider.name.toLocaleLowerCase().includes(query) ||
     provider.client.toLocaleLowerCase().includes(query) || provider.models.length);
@@ -84,46 +85,57 @@ function render() {
         .join("");
       const capabilityCount = (model.capabilities || []).length;
       const disabledReason = model.disabled_reason
-        ? '<p class="provider-disabled-reason">Disabled: ' + escapeHtml(model.disabled_reason) + "</p>"
+        ? '<p class="provider-disabled-reason"><strong>Disabled reason</strong> ' + escapeHtml(model.disabled_reason) + "</p>"
         : "";
       return '<section class="provider-model" data-model="' + escapeHtml(model.name) + '">' +
-        '<div class="provider-model-header">' +
+        '<div class="provider-model-top">' +
           '<div class="provider-model-identity"><h4>' + escapeHtml(model.name) + "</h4>" +
-            '<span class="provider-model-count">' + capabilityCount + " " +
-            (capabilityCount === 1 ? "capability" : "capabilities") + "</span></div>" +
+            renderAccessTier(model) + '</div>' +
           '<div class="provider-model-settings">' +
             '<label class="provider-setting provider-enabled"><input type="checkbox" data-model-enabled="' +
               escapeHtml(model.name) + '"' + (model.enabled ? " checked" : "") +
               '><span>Enabled</span></label>' +
-            renderAccessTier(model) +
             '<button class="secondary provider-reset-button" type="button" data-reset-model="' +
-              escapeHtml(model.name) + '">Reset</button>' +
+              escapeHtml(model.name) + '" title="Restore TOML default">Reset</button>' +
           "</div></div>" + disabledReason +
-        '<div class="provider-model-test-group"><button class="secondary provider-test-button" type="button" data-test-model="' +
-          escapeHtml(model.name) + '">' + testIcon + "<span>Test model</span></button>" +
-          '<div class="provider-model-result" aria-live="polite"></div></div>' +
-        '<div class="provider-capabilities"><span class="provider-field-label">Capabilities</span>' +
-          '<div class="provider-capability-list">' +
-            (capabilities || '<span class="provider-no-capabilities">None declared</span>') +
-          "</div></div></section>";
+        '<div class="provider-model-details">' +
+          '<div class="provider-capabilities"><span class="provider-field-label">Capabilities <span class="provider-capability-count">' +
+            capabilityCount + "</span></span>" +
+            '<div class="provider-capability-list">' +
+              (capabilities || '<span class="provider-no-capabilities">No capabilities declared</span>') +
+            "</div></div>" +
+          '<div class="provider-model-test-group"><button class="secondary provider-test-button" type="button" data-test-model="' +
+            escapeHtml(model.name) + '">' + testIcon + "<span>Test model</span></button>" +
+            '<div class="provider-model-result" aria-live="polite"></div></div>' +
+        "</div></section>";
     }).join("");
 
     const disabledReason = provider.disabled_reason
-      ? '<p class="provider-disabled-reason">Disabled: ' + escapeHtml(provider.disabled_reason) + "</p>"
+      ? '<p class="provider-disabled-reason"><strong>Disabled reason</strong> ' + escapeHtml(provider.disabled_reason) + "</p>"
       : "";
+    const modelCount = provider.allModels.length;
+    const visibleCount = provider.models.length;
     return '<article class="panel provider-card" data-provider="' + escapeHtml(provider.name) + '">' +
-      '<header class="provider-card-header"><div class="provider-card-identity">' +
-        '<span class="provider-card-kicker">PROVIDER</span><h3>' + escapeHtml(provider.name) + "</h3>" +
-        '<p><span class="provider-field-label">Client adapter</span><span class="provider-client-name">' +
-          escapeHtml(provider.client) + "</span></p>" + disabledReason +
-      '</div><div class="provider-card-actions">' +
-        '<span class="provider-models-count">' + (provider.models || []).length + " " +
-          ((provider.models || []).length === 1 ? "model" : "models") + "</span>" +
-        '<label class="provider-setting provider-enabled"><input type="checkbox" data-provider-enabled' +
-          (provider.enabled ? " checked" : "") + '><span>Enabled</span></label>' +
-        '<button class="secondary provider-reset-button" type="button" data-reset-provider>Reset</button>' +
-        '<button class="secondary provider-test-button provider-test-all" type="button" data-test-provider>' +
-          testIcon + "<span>Test all models</span></button></div></header>" +
+      '<header class="provider-card-header">' +
+        '<div class="provider-card-identity">' +
+          '<span class="provider-card-kicker">PROVIDER</span>' +
+          '<div class="provider-title-line"><h3>' + escapeHtml(provider.name) + "</h3>" +
+            '<span class="provider-models-count">' + modelCount + " " +
+              (modelCount === 1 ? "model" : "models") + "</span></div>" +
+          '<div class="provider-client-line"><span class="provider-field-label">Client adapter</span>' +
+            '<strong class="provider-client-name">' + escapeHtml(provider.client) + "</strong></div>" +
+          disabledReason +
+        "</div>" +
+        '<div class="provider-card-actions">' +
+          '<label class="provider-setting provider-enabled"><input type="checkbox" data-provider-enabled' +
+            (provider.enabled ? " checked" : "") + '><span>Provider enabled</span></label>' +
+          '<button class="secondary provider-reset-button" type="button" data-reset-provider title="Restore TOML defaults">Reset</button>' +
+          '<button class="secondary provider-test-button provider-test-all" type="button" data-test-provider>' +
+            testIcon + "<span>Test all models</span></button>" +
+        "</div></header>" +
+      '<div class="provider-model-section-heading"><h4>Models</h4>' +
+        (query ? '<span>' + visibleCount + " of " + modelCount + " shown</span>" : '<span>' + modelCount + (modelCount === 1 ? " configured model" : " configured models") + "</span>") +
+      "</div>" +
       '<div class="provider-model-list">' + (models || '<p class="provider-no-models">No models match this filter.</p>') +
       "</div></article>";
   }).join("") : '<div class="usage-empty">' +
@@ -134,7 +146,6 @@ function render() {
     ? providers.length + " of " + state.providers.length + " providers · " + visibleModels + " matching models"
     : providers.length + " providers · " + visibleModels + " configured models";
 }
-
 async function testModel(button) {
   const card = button.closest("[data-provider]");
   const row = button.closest(".provider-model");
