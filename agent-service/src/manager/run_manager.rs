@@ -614,7 +614,9 @@ impl RunManager {
                 total,
             )
         };
-        result.0.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+        result
+            .0
+            .sort_by_key(|run| std::cmp::Reverse(run.created_at));
         Ok(result)
     }
 
