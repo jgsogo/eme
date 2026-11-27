@@ -745,7 +745,10 @@ impl RunManager {
         let Some(storage) = current_storage(&self.persistence) else {
             return Ok((Vec::new(), 0));
         };
-        let (stored, total) = storage.list_task_runs_page(task_id, limit).await.map_err(|error| error.to_string())?;
+        let (stored, total) = storage
+            .list_task_runs_page(task_id, limit)
+            .await
+            .map_err(|error| error.to_string())?;
         let mut by_id = stored.into_iter().map(from_stored_run).map(|run| (run.id.as_uuid(), run)).collect::<HashMap<_, _>>();
         for entry in self.runs.lock().await.values() {
             if by_id.contains_key(&entry.run.id.as_uuid()) {
