@@ -1331,6 +1331,7 @@ body[data-layout="mobile"][data-page="conversations"] .conversation-card-heading
   min-width: 0;
 }
 body[data-layout="mobile"][data-page="conversations"] .conversation-card-heading > strong {
+  flex: 1;
   min-width: 0;
   font-size: 14px;
   line-height: 1.35;
