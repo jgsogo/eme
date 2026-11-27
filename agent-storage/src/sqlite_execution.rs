@@ -1,6 +1,8 @@
 //! SQLite implementation of durable run, event, usage, pricing, and conversation contracts.
 
 #[cfg(test)]
+mod ownership_tests;
+#[cfg(test)]
 mod usage_tests;
 
 use std::{path::Path, str::FromStr, sync::Arc};
@@ -43,6 +45,14 @@ impl SqliteExecutionStore {
         connection
             .execute_batch(include_str!("../migrations/0009_task_run_history.sql"))
             .map_err(backend)?;
+        connection
+            .execute_batch(include_str!("../migrations/0010_one_shot_run_owners.sql"))
+            .map_err(backend)?;
+        connection
+            .execute_batch(include_str!(
+                "../migrations/0011_run_history_pagination.sql"
+            ))
+            .map_err(backend)?;
         ensure_message_column(
             &connection,
             "run_id",
@@ -56,6 +66,56 @@ impl SqliteExecutionStore {
         Ok(Self {
             connection: Arc::new(Mutex::new(connection)),
         })
+    }
+
+    /// Associates a one-shot run with the authenticated user who submitted it.
+    ///
+    /// The association is stored separately from conversations because the
+    /// temporary conversation is deleted after the one-shot reaches a terminal
+    /// state. Repeating the same association is safe; changing its owner is not.
+    pub async fn associate_one_shot_run(
+        &self,
+        run_id: Uuid,
+        owner: &str,
+    ) -> Result<(), StorageError> {
+        let connection = self.connection.lock().await;
+        let existing: Option<String> = connection
+            .query_row(
+                "SELECT owner FROM one_shot_run_owners WHERE run_id = ?1",
+                [run_id.to_string()],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(backend)?;
+        if let Some(existing) = existing {
+            return if existing == owner {
+                Ok(())
+            } else {
+                Err(StorageError::InvalidAssociation(format!(
+                    "one-shot run {run_id} already belongs to another owner"
+                )))
+            };
+        }
+
+        connection
+            .execute(
+                "INSERT INTO one_shot_run_owners(run_id, owner) VALUES (?1, ?2)",
+                params![run_id.to_string(), owner],
+            )
+            .map_err(backend)?;
+        Ok(())
+    }
+
+    /// Returns persisted one-shot ownership associations for startup recovery.
+    pub async fn list_one_shot_run_owners(&self) -> Result<Vec<(String, String)>, StorageError> {
+        let connection = self.connection.lock().await;
+        let mut statement = connection
+            .prepare("SELECT run_id, owner FROM one_shot_run_owners ORDER BY run_id")
+            .map_err(backend)?;
+        let rows = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(backend)?;
+        rows.map(|row| row.map_err(backend)).collect()
     }
 }
 

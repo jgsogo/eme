@@ -1486,3 +1486,21 @@ body[data-page="conversations"] #conversations-table-body {
     padding: 22px 17px;
   }
 }
+
+
+/* Keep conversation creation actions aligned in the desktop sidebar. */
+@media (min-width: 761px) {
+  body[data-page="conversations"] #conversation-create-actions {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    margin: 0 0 16px;
+  }
+  body[data-page="conversations"] #conversation-create-actions > button {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0;
+    margin: 0 !important;
+  }
+}

@@ -200,3 +200,151 @@ $("usage-records")?.addEventListener("click",event=>{if(event.target.closest("[d
 $("pricing-form").addEventListener("submit",savePricing);
 load();
 loadPricing();
+
+
+// Execution history is a separate sub-view of Admin. The run API includes
+// durable records, including runs whose temporary one-shot conversation was
+// soft-deleted after completion.
+const EXECUTION_PAGE_SIZE=25;
+const executionState={runs:[],selected:null,details:{},offset:0,hasMore:false,requestId:0};
+const executionDate=value=>value?new Date(value).toLocaleString():"—";
+const executionDuration=run=>{
+ if(typeof run.duration_ms==="number"){
+  const seconds=Math.max(0,Math.round(run.duration_ms/1000));
+  return seconds<60?seconds+"s":Math.floor(seconds/60)+"m "+(seconds%60)+"s";
+ }
+ const start=run.started_at?new Date(run.started_at).getTime():new Date(run.created_at).getTime();
+ const end=run.finished_at?new Date(run.finished_at).getTime():Date.now();
+ if(!Number.isFinite(start)||!Number.isFinite(end))return "—";
+ const seconds=Math.max(0,Math.round((end-start)/1000));
+ return seconds<60?seconds+"s":Math.floor(seconds/60)+"m "+(seconds%60)+"s";
+};
+function showAdminView(view){
+ const history=view==="execution-history";
+ $("observability-view").hidden=history;
+ $("execution-history-view").hidden=!history;
+ document.querySelectorAll("[data-admin-view]").forEach(link=>{
+  const active=link.dataset.adminView===(history?"execution-history":"observability");
+  link.classList.toggle("active",active);
+  if(active)link.setAttribute("aria-current","page");else link.removeAttribute("aria-current");
+ });
+ if(history)loadExecutionHistory(0);
+}
+function renderExecutionHistory(){
+ const query=$("execution-search")?.value.trim().toLocaleLowerCase()||"";
+ const runs=executionState.runs.filter(run=>[
+  run.agent,run.input,run.status,run.run_id,run.type,run.task_name
+ ].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
+ const start=executionState.offset+1;
+ const end=executionState.offset+runs.length;
+ $("execution-count").textContent=runs.length?("Showing "+start+"–"+end+(executionState.hasMore?" · more available":"")):"No executions on this page";
+ $("execution-records").innerHTML=runs.length?runs.map(run=>{
+  const type=run.type==="one-shot"?"One-shot":run.type==="task"?"Task":"Conversation";
+  return '<tr class="execution-row" data-run-id="'+escapeHtml(run.run_id)+'" tabindex="0" role="button" aria-label="View '+escapeHtml(type.toLowerCase())+' execution for '+escapeHtml(run.agent)+'"><td>'+escapeHtml(executionDate(run.started_at||run.created_at))+'</td><td>'+escapeHtml(type)+'</td><td>'+escapeHtml(run.agent)+(run.task_name?'<span class="usage-model-id">'+escapeHtml(run.task_name)+'</span>':'')+'</td><td class="execution-prompt">'+escapeHtml(run.input)+'</td><td><span class="usage-outcome '+escapeHtml(run.status)+'">'+escapeHtml(String(run.status).replaceAll("_"," "))+'</span></td><td>'+escapeHtml(executionDuration(run))+'</td></tr>';
+ }).join(""):'<tr><td colspan="6" class="usage-empty">No executions recorded on this page.</td></tr>';
+ $("execution-previous").disabled=executionState.offset===0;
+ $("execution-next").disabled=!executionState.hasMore;
+}
+async function loadExecutionHistory(offset=executionState.offset){
+ const requestId=++executionState.requestId;
+ $("execution-status").textContent="Loading executions…";
+ $("execution-status").className="usage-status";
+ $("execution-previous").disabled=true;
+ $("execution-next").disabled=true;
+ try{
+  const requested=offset+EXECUTION_PAGE_SIZE;
+  const [runsResponse,tasksResponse]=await Promise.all([
+   fetch("/runs?offset=0&limit="+requested,{headers:{Accept:"application/json"}}),
+   fetch("/tasks",{headers:{Accept:"application/json"}})
+  ]);
+  if(!runsResponse.ok)throw new Error(await runsResponse.text()||runsResponse.statusText);
+  if(!tasksResponse.ok)throw new Error(await tasksResponse.text()||tasksResponse.statusText);
+  const [runsPage,tasks]=await Promise.all([runsResponse.json(),tasksResponse.json()]);
+  const taskPages=await Promise.all(tasks.map(async task=>{
+   const response=await fetch("/tasks/"+encodeURIComponent(task.id)+"/executions?limit="+requested,{headers:{Accept:"application/json"}});
+   if(!response.ok)throw new Error("Could not load executions for task "+(task.name||task.id)+": "+(await response.text()||response.statusText));
+   const page=await response.json();
+   const items=page.items.map(execution=>{
+    const iso=value=>value==null?null:new Date(Number(value)).toISOString();
+    const run={...execution,type:"task",task_id:task.id,task_name:task.name,
+     created_at:iso(execution.created_at_unix_ms),started_at:iso(execution.started_at_unix_ms),
+     finished_at:iso(execution.finished_at_unix_ms),duration_ms:execution.duration_ms};
+    executionState.details[run.run_id]={run,events:execution.events||[],usage:{invocations:execution.usage||[]}};
+    return run;
+   });
+   return {items,total:page.total};
+  }));
+  if(requestId!==executionState.requestId)return;
+  const conversationRuns=runsPage.items.map(run=>({...run,type:run.one_shot?"one-shot":"conversation"}));
+  const allRuns=[...conversationRuns,...taskPages.flatMap(page=>page.items)].sort((a,b)=>new Date(b.started_at||b.created_at||0)-new Date(a.started_at||a.created_at||0));
+  executionState.offset=offset;
+  executionState.runs=allRuns.slice(offset,requested);
+  executionState.hasMore=allRuns.length>requested||runsPage.has_more||taskPages.some(page=>page.total>requested);
+  renderExecutionHistory();
+  $("execution-status").textContent="Updated "+new Date().toLocaleTimeString()+" · page "+(Math.floor(offset/EXECUTION_PAGE_SIZE)+1);
+ }catch(error){
+  if(requestId!==executionState.requestId)return;
+  $("execution-status").textContent="Could not load executions: "+error.message;
+  $("execution-status").className="usage-status error";
+ }
+}
+
+function selectExecutionTab(tab){
+ document.querySelectorAll("[data-execution-tab]").forEach(button=>button.classList.toggle("active",button.dataset.executionTab===tab));
+ const detail=executionState.details[executionState.selected];
+ const content=$("execution-detail-content");
+ if(!detail)return;
+ if(tab==="result"){
+  content.innerHTML=detail.run.response?'<div class="markdown-content">'+(typeof marked!=="undefined"&&typeof DOMPurify!=="undefined"?DOMPurify.sanitize(marked.parse(detail.run.response,{gfm:true}),{USE_PROFILES:{html:true},FORBID_TAGS:["img","style","iframe","svg","math"]}):'<pre>'+escapeHtml(detail.run.response)+'</pre>')+'</div>':detail.run.error?'<p class="error">'+escapeHtml(detail.run.error)+'</p>':'<p class="usage-empty">No result is available yet.</p>';
+ }else if(tab==="input"){
+  content.innerHTML='<h4>Prompt</h4><pre class="execution-pre">'+escapeHtml(detail.run.input)+'</pre>';
+ }else if(tab==="timeline"){
+  content.innerHTML=detail.events.length?'<ol class="execution-timeline">'+detail.events.map(event=>'<li><strong>'+escapeHtml(String(event.kind).replaceAll("_"," "))+'</strong><time>'+escapeHtml(event.occurred_at_unix_ms?new Date(Number(event.occurred_at_unix_ms)).toLocaleString():"")+'</time>'+(event.tool_name?'<span>Tool: '+escapeHtml(event.tool_name)+'</span>':'')+(event.model_id?'<span>Model: '+escapeHtml(event.model_id)+'</span>':'')+(event.error_category?'<span class="error">Error category: '+escapeHtml(event.error_category)+'</span>':'')+'</li>').join("")+'</ol>':'<p class="usage-empty">No lifecycle events are available.</p>';
+ }else{
+  const invocations=detail.usage?.invocations||[];
+  const totals={input:0,output:0,cached:0,reasoning:0};
+  const get=(record,key)=>record.usage?.dimensions?.[key]?.value;
+  invocations.forEach(record=>{totals.input+=get(record,"input_tokens")||0;totals.output+=get(record,"output_tokens")||0;totals.cached+=get(record,"cached_input_tokens")||0;totals.reasoning+=get(record,"reasoning_tokens")||0});
+  const costs=new Map();
+  invocations.forEach(record=>{if(record.cost)costs.set(record.cost.currency,(costs.get(record.cost.currency)||0)+record.cost.amount_micros)});
+  const costText=Array.from(costs).map(([currency,value])=>money(value,currency)).join(" · ")||"Unpriced";
+  content.innerHTML='<div class="execution-usage-grid"><div><span>Input tokens</span><strong>'+number(totals.input)+'</strong></div><div><span>Output tokens</span><strong>'+number(totals.output)+'</strong></div><div><span>Cached input</span><strong>'+number(totals.cached)+'</strong></div><div><span>Reasoning tokens</span><strong>'+number(totals.reasoning)+'</strong></div><div><span>Recorded cost</span><strong>'+escapeHtml(costText)+'</strong></div><div><span>Model invocations</span><strong>'+number(invocations.length)+'</strong></div></div>'+(invocations.length?'<div class="usage-table-wrap"><table class="usage-table"><thead><tr><th>Provider / model</th><th>Input</th><th>Output</th><th>Outcome</th><th>Cost</th></tr></thead><tbody>'+invocations.map(record=>'<tr><td>'+escapeHtml(record.provider)+'<span class="usage-model-id">'+escapeHtml(record.model)+'</span></td><td>'+escapeHtml(get(record,"input_tokens")??"—")+'</td><td>'+escapeHtml(get(record,"output_tokens")??"—")+'</td><td>'+escapeHtml(record.outcome||"—")+'</td><td>'+escapeHtml(costLabel(record.cost))+'</td></tr>').join("")+'</tbody></table></div>':'<p class="usage-empty">No model usage was recorded for this execution.</p>');
+ }
+}
+async function openExecution(runId){
+ const run=executionState.runs.find(item=>item.run_id===runId);
+ if(!run)return;
+ executionState.selected=runId;
+ $("execution-detail-title").textContent=run.agent+" · "+String(run.run_id).slice(0,8);
+ $("execution-detail-meta").textContent=(run.type==="task"?"Task · "+(run.task_name||"Scheduled task"):run.type==="one-shot"?"One-shot":"Conversation")+" · "+executionDate(run.created_at)+" · "+run.status+" · "+executionDuration(run);
+ $("execution-detail-content").innerHTML='<p class="usage-empty">Loading execution details…</p>';
+ const dialog=$("execution-detail");
+ if(!dialog.open)dialog.showModal();
+ try{
+  let detail=executionState.details[runId];
+  if(!detail){
+   const [eventsResponse,usageResponse]=await Promise.all([
+    fetch("/runs/"+encodeURIComponent(runId)+"/events",{headers:{Accept:"application/json"}}),
+    fetch("/runs/"+encodeURIComponent(runId)+"/usage",{headers:{Accept:"application/json"}})
+   ]);
+   if(!eventsResponse.ok)throw new Error("Could not load execution timeline: "+eventsResponse.statusText);
+   if(!usageResponse.ok)throw new Error("Could not load execution usage: "+usageResponse.statusText);
+   const [events,usage]=await Promise.all([eventsResponse.json(),usageResponse.json()]);
+   detail={run,events,usage};
+   executionState.details[runId]=detail;
+  }
+  selectExecutionTab("result");
+ }catch(error){$("execution-detail-content").innerHTML='<p class="usage-status error">Could not load execution details: '+escapeHtml(error.message)+'</p>'}
+}
+document.querySelectorAll("[data-admin-view]").forEach(link=>link.addEventListener("click",event=>{event.preventDefault();showAdminView(link.dataset.adminView);history.replaceState(null,"",link.href)}));
+$("execution-search")?.addEventListener("input",renderExecutionHistory);
+$("execution-previous")?.addEventListener("click",()=>loadExecutionHistory(Math.max(0,executionState.offset-EXECUTION_PAGE_SIZE)));
+$("execution-next")?.addEventListener("click",()=>loadExecutionHistory(executionState.offset+EXECUTION_PAGE_SIZE));
+
+$("execution-records")?.addEventListener("click",event=>{const row=event.target.closest("[data-run-id]");if(row)openExecution(row.dataset.runId)});
+$("execution-records")?.addEventListener("keydown",event=>{if((event.key==="Enter"||event.key===" ")&&event.target.matches("[data-run-id]")){event.preventDefault();openExecution(event.target.dataset.runId)}});
+$("execution-detail-close")?.addEventListener("click",()=>{$("execution-detail").close();executionState.selected=null});
+$("execution-detail")?.addEventListener("close",()=>{executionState.selected=null});
+$("execution-detail")?.addEventListener("click",event=>{if(event.target===$("execution-detail"))$("execution-detail").close()});
+document.querySelectorAll("[data-execution-tab]").forEach(button=>button.addEventListener("click",()=>selectExecutionTab(button.dataset.executionTab)));
+if(window.location.hash==="#execution-history")showAdminView("execution-history");

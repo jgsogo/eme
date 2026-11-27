@@ -568,6 +568,58 @@ impl RunManager {
         .map_err(|_| "timed out waiting for conversation runs to stop".to_owned())
     }
 
+    /// Returns a bounded newest-first page of runs and the persisted total.
+    pub async fn list_page(&self, offset: u64, limit: u64) -> Result<(Vec<Run>, u64), String> {
+        let in_memory = self
+            .runs
+            .lock()
+            .await
+            .values()
+            .map(|entry| (entry.run.id.as_uuid(), entry.run.clone()))
+            .collect::<HashMap<_, _>>();
+        let mut result = if let Some(storage) = current_storage(&self.persistence) {
+            let stored = storage
+                .list_runs_page(offset, limit)
+                .await
+                .map_err(|error| error.to_string())?;
+            let total = storage
+                .count_runs()
+                .await
+                .map_err(|error| error.to_string())?;
+            let mut page = Vec::with_capacity(stored.len());
+            for run in stored {
+                let run = if let Some(current) = in_memory.get(&run.id) {
+                    current.clone()
+                } else {
+                    match recover_interrupted_run(storage.as_ref(), run.clone()).await {
+                        Ok(recovered) => from_stored_run(recovered),
+                        Err(error) => {
+                            error!(run_id = %run.id, %error, "failed to recover interrupted run");
+                            from_stored_run(run)
+                        }
+                    }
+                };
+                page.push(run);
+            }
+            (page, total)
+        } else {
+            let mut runs = in_memory.into_values().collect::<Vec<_>>();
+            runs.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+            let total = runs.len() as u64;
+            (
+                runs.into_iter()
+                    .skip(offset as usize)
+                    .take(limit as usize)
+                    .collect(),
+                total,
+            )
+        };
+        result
+            .0
+            .sort_by_key(|run| std::cmp::Reverse(run.created_at));
+        Ok(result)
+    }
+
     pub async fn list(&self) -> Vec<Run> {
         let mut by_id = HashMap::new();
         if let Some(storage) = current_storage(&self.persistence) {
@@ -675,6 +727,34 @@ impl RunManager {
         let mut result = by_id.into_values().collect::<Vec<_>>();
         result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
         Ok(result)
+    }
+
+    /// Lists only the newest executions for a task, with the durable total count.
+    pub async fn task_runs_page(
+        &self,
+        task_id: Uuid,
+        limit: u64,
+    ) -> Result<(Vec<Run>, u64), String> {
+        let Some(storage) = current_storage(&self.persistence) else {
+            return Ok((Vec::new(), 0));
+        };
+        let (stored, total) = storage
+            .list_task_runs_page(task_id, limit)
+            .await
+            .map_err(|error| error.to_string())?;
+        let mut by_id = stored
+            .into_iter()
+            .map(from_stored_run)
+            .map(|run| (run.id.as_uuid(), run))
+            .collect::<HashMap<_, _>>();
+        for entry in self.runs.lock().await.values() {
+            if by_id.contains_key(&entry.run.id.as_uuid()) {
+                by_id.insert(entry.run.id.as_uuid(), entry.run.clone());
+            }
+        }
+        let mut result = by_id.into_values().collect::<Vec<_>>();
+        result.sort_by_key(|run| std::cmp::Reverse(run.created_at));
+        Ok((result, total))
     }
 
     /// Lists durable invocation usage, optionally restricted to one run.

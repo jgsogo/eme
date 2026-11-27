@@ -22,7 +22,7 @@ use agent_runtime::{Message, ToolContext};
 use agent_service::{FamilyService, FamilyServiceError, RunManager, RunStatus, SubmitRunError};
 use agent_storage::{
     Conversation, ConversationId, ConversationStoreError, FamilyId, FileUserIdentityStore,
-    SqliteConversationStore, UserId, UserIdentityStore,
+    SqliteConversationStore, SqliteExecutionStore, UserId, UserIdentityStore,
 };
 
 use super::types::{AgentCatalog, GetRunResponse, SubmitRunResponse};
@@ -448,6 +448,14 @@ async fn list_conversation_runs(
             },
             response: run.response,
             error: run.error,
+            created_at: chrono::DateTime::<chrono::Utc>::from(run.created_at).to_rfc3339(),
+            started_at: run
+                .started_at
+                .map(|value| chrono::DateTime::<chrono::Utc>::from(value).to_rfc3339()),
+            finished_at: run
+                .finished_at
+                .map(|value| chrono::DateTime::<chrono::Utc>::from(value).to_rfc3339()),
+            one_shot: false,
         })
         .collect::<Vec<_>>();
     HttpResponse::Ok().json(runs)
@@ -458,6 +466,7 @@ async fn continue_conversation(
     request_http: HttpRequest,
     auth: Data<crate::auth::TelegramAuth>,
     store: Data<Arc<SqliteConversationStore>>,
+    execution_store: Data<Arc<SqliteExecutionStore>>,
     manager: Data<RunManager>,
     identities: Data<Arc<FileUserIdentityStore>>,
     families: Data<Arc<FamilyService>>,
@@ -592,6 +601,45 @@ async fn continue_conversation(
     {
         Ok(run_id) => {
             auth.register_run(run_id.to_string(), &owner);
+            if request.one_shot {
+                if let Err(error) = execution_store
+                    .associate_one_shot_run(run_id.as_uuid(), &owner)
+                    .await
+                {
+                    tracing::error!(%run_id, %error, "failed to persist one-shot run ownership");
+                    let _ = manager.cancel(run_id).await;
+                    return HttpResponse::InternalServerError()
+                        .body("could not persist one-shot run ownership");
+                }
+                auth.register_one_shot_run(run_id.to_string());
+                let cleanup_store = store.get_ref().clone();
+                let cleanup_manager = manager.get_ref().clone();
+                let cleanup_owner = owner.clone();
+                tokio::spawn(async move {
+                    loop {
+                        if let Some(run) = cleanup_manager.get(run_id).await {
+                            if matches!(
+                                run.status,
+                                RunStatus::Completed
+                                    | RunStatus::Failed
+                                    | RunStatus::Cancelled
+                                    | RunStatus::TimedOut
+                                    | RunStatus::MaxIterationsReached
+                            ) {
+                                if let Err(error) = cleanup_store.delete(&cleanup_owner, id) {
+                                    tracing::warn!(
+                                        %id,
+                                        %error,
+                                        "failed to soft-delete completed one-shot conversation"
+                                    );
+                                }
+                                break;
+                            }
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    }
+                });
+            }
             HttpResponse::Accepted().json(SubmitRunResponse {
                 run_id: run_id.to_string(),
                 status: "queued",

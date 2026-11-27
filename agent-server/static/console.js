@@ -130,7 +130,7 @@ function renderRunEvents(events=[]){
  }).join(""):"<li>No events yet.</li>"
 }
 function setComposerEnabled(enabled){$("prompt").disabled=!enabled||!!state.runId;$("send").disabled=!enabled||!!state.runId;if($("edit-conversation-settings"))$("edit-conversation-settings").disabled=!state.selected||!!state.runId}
-async function loadConversations(){const [conversations,runs]=await Promise.all([api(state.showArchived?"/conversations/archived":"/conversations"),api("/runs")]);state.conversations=conversations;state.activeRuns={};for(const run of runs){if(run.conversation_id&&["queued","running"].includes(run.status)&&!state.activeRuns[run.conversation_id])state.activeRuns[run.conversation_id]=run}renderConversations()}
+async function loadConversations(){const [conversations,runsPage]=await Promise.all([api(state.showArchived?"/conversations/archived":"/conversations"),api("/runs?limit=1000")]);state.conversations=conversations;state.activeRuns={};for(const run of (runsPage.items||[])){if(run.conversation_id&&["queued","running"].includes(run.status)&&!state.activeRuns[run.conversation_id])state.activeRuns[run.conversation_id]=run}renderConversations()}
 async function loadFamilies(){const [families,current]=await Promise.all([api("/families"),api("/families/current-user")]);state.families=families;state.currentUserId=current.user_id;renderFamilySelector();renderFamiliesList();renderNoteFamilies();renderNoteFamilyFilter()}
 function renderNoteFamilyFilter(){
  const select=$("note-family-filter");if(!select)return;
@@ -1228,3 +1228,209 @@ $("task-execution-dialog-close")?.addEventListener("click",()=>$("task-execution
 $("task-execution-dialog")?.addEventListener("click",event=>{
  if(event.target===$("task-execution-dialog"))$("task-execution-dialog").close();
 });
+
+
+// One-shot agent conversations are temporary conversations: they use the
+// regular conversation/run pipeline, then soft-delete their conversation once
+// the run has reached a terminal state. Closing the dialog never cancels a run.
+const oneShotTerminalStatuses = new Set(["completed","failed","cancelled","timed_out","max_iterations_reached"]);
+let oneShotExecution = null;
+let oneShotPollTimer = null;
+
+function installOneShotAction() {
+  const newConversationButton = $("new-conversation");
+  if (!newConversationButton || $("one-shot-open")) return;
+
+  const mobile = document.body.dataset.layout === "mobile";
+  const actions = document.createElement("div");
+  actions.id = "conversation-create-actions";
+  actions.className = "conversation-create-actions";
+  newConversationButton.parentNode.insertBefore(actions, newConversationButton);
+  actions.append(newConversationButton);
+
+  const button = document.createElement("button");
+  button.id = "one-shot-open";
+  button.type = "button";
+  button.className = "secondary conversation-create-action";
+  button.textContent = mobile ? "⚡" : "⚡ One-shot";
+  button.setAttribute("aria-label", "Start a one-shot agent conversation");
+  button.title = "Start a one-shot agent conversation";
+  if (mobile) button.style.fontSize = "23px";
+  actions.append(button);
+
+  if (mobile) {
+    const overview = $("conversations-overview");
+    if (overview) {
+      const updateVisibility = () => {
+        button.hidden = overview.scrollTop > 8;
+      };
+      overview.addEventListener("scroll", updateVisibility, { passive: true });
+      updateVisibility();
+    }
+  }
+
+  const dialog = document.createElement("dialog");
+  dialog.id = "one-shot-dialog";
+  dialog.className = "modal-dialog new-conversation-dialog";
+  dialog.setAttribute("aria-labelledby", "one-shot-title");
+  dialog.innerHTML = `
+    <form id="one-shot-form" class="notes-editor">
+      <div class="family-details-heading">
+        <div><h3 id="one-shot-title">One-shot agent</h3><p class="hint">Send a prompt to an agent and receive a single result. The temporary conversation is removed when execution finishes.</p></div>
+        <button id="one-shot-close" type="button" class="secondary">Close</button>
+      </div>
+      <label for="one-shot-agent">Agent</label>
+      <select id="one-shot-agent" required></select>
+      <label for="one-shot-family">Family context</label>
+      <select id="one-shot-family"><option value="">No family</option></select>
+      <label for="one-shot-prompt">Prompt</label>
+      <textarea id="one-shot-prompt" rows="6" required placeholder="What would you like the agent to do?"></textarea>
+      <div class="notes-actions"><button id="one-shot-submit" type="submit">Send</button></div>
+      <p id="one-shot-status" class="hint" role="status" aria-live="polite"></p>
+      <section id="one-shot-result" class="one-shot-result" hidden aria-live="polite"></section>
+    </form>`;
+  document.body.append(dialog);
+
+  const style = document.createElement("style");
+  style.textContent = `
+    #one-shot-dialog { width:min(620px,calc(100vw - 28px)); max-height:min(86vh,900px); overflow:auto; }
+    #one-shot-dialog textarea { width:100%; min-height:130px; resize:vertical; box-sizing:border-box; }
+    #one-shot-dialog .one-shot-result { margin-top:16px; padding:14px; border:1px solid var(--border); border-radius:10px; background:var(--panel2); overflow-wrap:anywhere; }
+    #one-shot-dialog .one-shot-result h4 { margin:0 0 10px; }
+    #one-shot-dialog .one-shot-result .markdown-content { line-height:1.55; }
+    #one-shot-dialog .one-shot-result pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+    #one-shot-dialog .one-shot-result[hidden] { display:none; }
+  `;
+  document.head.append(style);
+
+  button.addEventListener("click", openOneShotDialog);
+  $("one-shot-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
+  $("one-shot-agent").addEventListener("change", renderOneShotAgentDescription);
+  $("one-shot-form").addEventListener("submit", startOneShotExecution);
+}
+
+function renderOneShotAgentDescription() {
+  const agent = state.agents.find(item => item.name === $("one-shot-agent")?.value);
+  const description = $("one-shot-agent-description");
+  if (description) description.textContent = agent?.description || "";
+}
+
+function openOneShotDialog() {
+  const dialog = $("one-shot-dialog");
+  if (!dialog) return;
+  const agent = $("one-shot-agent");
+  const family = $("one-shot-family");
+  const preferred = $("agent")?.value || state.agents[0]?.name || "";
+  agent.innerHTML = state.agents.map(item => '<option value="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</option>').join("");
+  if (state.agents.some(item => item.name === preferred)) agent.value = preferred;
+  family.innerHTML = '<option value="">No family</option>' + state.families.map(item => '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.name) + '</option>').join("");
+  family.value = state.families.some(item => item.id === state.selectedFamilyId) ? state.selectedFamilyId : "";
+  if (!oneShotExecution || oneShotTerminalStatuses.has(oneShotExecution.status)) {
+    $("one-shot-agent").disabled = false;
+    $("one-shot-family").disabled = false;
+    $("one-shot-prompt").disabled = false;
+    $("one-shot-submit").disabled = false;
+    $("one-shot-submit").textContent = "Send";
+    $("one-shot-status").textContent = "";
+    $("one-shot-result").hidden = true;
+    $("one-shot-result").innerHTML = "";
+    if (oneShotExecution?.status && oneShotTerminalStatuses.has(oneShotExecution.status)) {
+      oneShotExecution = null;
+      $("one-shot-prompt").value = "";
+    }
+  } else {
+    renderOneShotExecution();
+  }
+  dialog.showModal();
+  if (!oneShotExecution) $("one-shot-prompt").focus();
+}
+
+function renderOneShotExecution() {
+  if (!oneShotExecution) return;
+  const active = !oneShotTerminalStatuses.has(oneShotExecution.status);
+  $("one-shot-agent").disabled = active;
+  $("one-shot-family").disabled = active;
+  $("one-shot-prompt").disabled = active;
+  $("one-shot-submit").disabled = active;
+  $("one-shot-submit").textContent = active ? "Running…" : "Start another one-shot";
+  $("one-shot-status").textContent = active
+    ? (oneShotExecution.status === "queued" ? "Queued…" : "Running… You can close this window; execution will continue.")
+    : (oneShotExecution.cleanupError
+      ? "Execution finished, but temporary conversation cleanup failed: " + oneShotExecution.cleanupError
+      : "Execution finished. Temporary conversation is being removed.");
+  const result = $("one-shot-result");
+  if (oneShotExecution.response || oneShotExecution.error) {
+    result.hidden = false;
+    result.innerHTML = '<h4>' + (oneShotExecution.error ? "Execution result" : "Result") + '</h4>' +
+      (oneShotExecution.response ? '<div class="markdown-content">' + renderMarkdown(oneShotExecution.response) + '</div>' : '') +
+      (oneShotExecution.error ? '<p class="error">' + escapeHtml(oneShotExecution.error) + '</p>' : '');
+  }
+}
+
+async function startOneShotExecution(event) {
+  event.preventDefault();
+  if (oneShotExecution && !oneShotTerminalStatuses.has(oneShotExecution.status)) return;
+  const agent = $("one-shot-agent").value;
+  const familyId = $("one-shot-family").value || null;
+  const input = $("one-shot-prompt").value.trim();
+  if (!agent || !input) {
+    $("one-shot-status").textContent = "Choose an agent and enter a prompt.";
+    return;
+  }
+  oneShotExecution = { status:"creating", agent, input, response:null, error:null, conversationId:null, runId:null };
+  $("one-shot-agent").disabled = true;
+  $("one-shot-family").disabled = true;
+  $("one-shot-prompt").disabled = true;
+  $("one-shot-submit").disabled = true;
+  $("one-shot-status").textContent = "Preparing one-shot execution…";
+  try {
+    const conversation = await api("/conversations", {
+      method:"POST",
+      body:JSON.stringify({agent, family_id:familyId})
+    });
+    oneShotExecution.conversationId = conversation.id;
+    const submitted = await api("/conversations/" + encodeURIComponent(conversation.id) + "/runs", {
+      method:"POST",
+      body:JSON.stringify({input, one_shot:true})
+    });
+    oneShotExecution.runId = submitted.run_id;
+    oneShotExecution.status = submitted.status || "queued";
+    renderOneShotExecution();
+    void pollOneShotExecution();
+  } catch (error) {
+    oneShotExecution.status = "failed";
+    oneShotExecution.error = error.message;
+    if (oneShotExecution.conversationId) {
+      try { await api("/conversations/" + encodeURIComponent(oneShotExecution.conversationId), {method:"DELETE"}); }
+      catch (cleanupError) { oneShotExecution.cleanupError = cleanupError.message; }
+    }
+    renderOneShotExecution();
+  }
+}
+
+async function pollOneShotExecution() {
+  if (!oneShotExecution?.runId || oneShotTerminalStatuses.has(oneShotExecution.status)) return;
+  try {
+    const run = await api("/runs/" + encodeURIComponent(oneShotExecution.runId));
+    oneShotExecution.status = run.status;
+    oneShotExecution.response = run.response || null;
+    oneShotExecution.error = run.error || null;
+    if (oneShotTerminalStatuses.has(run.status)) {
+      // The server owns cleanup so it still happens if this page is closed.
+      renderOneShotExecution();
+      return;
+    }
+    renderOneShotExecution();
+  } catch (error) {
+    $("one-shot-status").textContent = "Checking execution status… " + error.message;
+  }
+  if (!oneShotPollTimer) {
+    oneShotPollTimer = window.setTimeout(() => {
+      oneShotPollTimer = null;
+      void pollOneShotExecution();
+    }, 1200);
+  }
+}
+
+installOneShotAction();

@@ -315,6 +315,23 @@ body[data-layout="mobile"] .usage-table {
   min-width: 760px;
 }
 
+/* Keep long execution prompts to a single compact line on narrow screens. */
+body[data-layout="mobile"] .execution-table .execution-prompt {
+  width: 160px;
+  max-width: 160px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Execution history should scroll with the page vertically, not trap its rows in a nested scroller. */
+body[data-layout="mobile"] .execution-history-view .usage-table-wrap {
+  height: auto;
+  max-height: none;
+  overflow-y: hidden;
+}
+
 body[data-layout="mobile"] .tools-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

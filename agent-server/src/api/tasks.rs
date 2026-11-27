@@ -16,6 +16,11 @@ use tasks_tool::{NewTask, TaskError, TaskRegistry};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
+struct TaskExecutionQuery {
+    limit: Option<u64>,
+}
+
+#[derive(Deserialize)]
 struct TaskRequest {
     name: String,
     #[serde(default)]
@@ -173,6 +178,7 @@ async fn list_task_executions(
     tasks: Data<TaskRegistry>,
     manager: Data<RunManager>,
     task_id: Path<String>,
+    query: web::Query<TaskExecutionQuery>,
 ) -> impl Responder {
     let user = match actor(&request, &auth, &identities, &tasks) {
         Ok(user) => user,
@@ -186,8 +192,9 @@ async fn list_task_executions(
         return HttpResponse::NotFound().finish();
     }
 
-    let runs = match manager.task_runs(task_id).await {
-        Ok(runs) => runs,
+    let limit = query.limit.unwrap_or(25).clamp(1, 1000);
+    let (runs, total) = match manager.task_runs_page(task_id, limit).await {
+        Ok(page) => page,
         Err(error) => {
             tracing::error!(%task_id, %error, "failed to load task execution history");
             return HttpResponse::InternalServerError()
@@ -232,7 +239,10 @@ async fn list_task_executions(
             "usage": usage,
         }));
     }
-    HttpResponse::Ok().json(executions)
+    HttpResponse::Ok().json(serde_json::json!({
+        "items": executions,
+        "total": total,
+    }))
 }
 
 #[put("/{task_id}")]

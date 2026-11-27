@@ -6,7 +6,7 @@ mod pending_login;
 mod session;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::Mutex,
     time::{Duration, Instant},
 };
@@ -32,6 +32,7 @@ pub struct TelegramAuth {
     pending: Mutex<HashMap<String, PendingLogin>>,
     sessions: Mutex<HashMap<String, Session>>,
     run_owners: Mutex<HashMap<String, String>>,
+    one_shot_runs: Mutex<HashSet<String>>,
 }
 
 impl TelegramAuth {
@@ -44,6 +45,7 @@ impl TelegramAuth {
             pending: Mutex::new(HashMap::new()),
             sessions: Mutex::new(HashMap::new()),
             run_owners: Mutex::new(HashMap::new()),
+            one_shot_runs: Mutex::new(HashSet::new()),
         }
     }
 
@@ -110,6 +112,14 @@ impl TelegramAuth {
 
     pub fn register_run(&self, run_id: impl Into<String>, owner: &str) {
         Self::lock(&self.run_owners).insert(run_id.into(), owner.to_owned());
+    }
+
+    pub fn register_one_shot_run(&self, run_id: impl Into<String>) {
+        Self::lock(&self.one_shot_runs).insert(run_id.into());
+    }
+
+    pub fn is_one_shot_run(&self, run_id: &str) -> bool {
+        Self::lock(&self.one_shot_runs).contains(run_id)
     }
 
     pub fn owns_run(&self, run_id: &str, owner: &str) -> bool {

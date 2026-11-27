@@ -204,9 +204,20 @@ async fn main() -> Result<()> {
         SqliteExecutionStore::open(&conversation_database)
             .context("opening SQLite execution history storage")?,
     );
+    // Restore one-shot ownership before serving requests. Temporary
+    // conversations are deleted after completion, so this association must
+    // survive process restarts independently of the conversation store.
+    for (run_id, owner) in execution_store
+        .list_one_shot_run_owners()
+        .await
+        .context("loading one-shot run ownership")?
+    {
+        telegram_auth.register_run(run_id.clone(), &owner);
+        telegram_auth.register_one_shot_run(run_id);
+    }
     let manager = RunManager::new(executor, args.max_concurrent_runs, args.max_queued_runs)
         .context("configuring run manager")?
-        .with_storage(execution_store);
+        .with_storage(execution_store.clone());
     let task_scheduler = TaskScheduler::start(
         task_registry.clone(),
         manager.clone(),
@@ -263,6 +274,7 @@ async fn main() -> Result<()> {
             .app_data(web::Data::new(Arc::clone(&model_catalog_override_store)))
             .app_data(web::Data::new(Arc::clone(&model_catalog_update_lock)))
             .app_data(web::Data::new(Arc::clone(&conversation_store)))
+            .app_data(web::Data::new(Arc::clone(&execution_store)))
             .app_data(web::Data::new(Arc::clone(&identity_store)))
             .app_data(web::Data::new(Arc::clone(&family_service)))
             .app_data(web::Data::new(notes_store.clone()))

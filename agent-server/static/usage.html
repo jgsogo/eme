@@ -15,11 +15,13 @@
   <header></header>
   <main class="console-main usage-main">
     <nav class="profile-section-nav admin-section-nav" aria-label="Admin">
-      <a class="profile-section-link active" href="/console/admin/usage" aria-current="page">Observability</a>
+      <a class="profile-section-link active" href="/console/admin/usage" data-admin-view="observability" aria-current="page">Observability</a>
+      <a class="profile-section-link" href="/console/admin/usage#execution-history" data-admin-view="execution-history">Execution history</a>
       <a class="profile-section-link" href="/console/admin/tools">Tools</a>
       <a class="profile-section-link" href="/console/admin/agents">Agents</a>
       <a class="profile-section-link" href="/console/admin/providers">Providers</a>
     </nav>
+    <div id="observability-view">
     <div class="usage-heading">
       <div>
         <p class="eyebrow">OBSERVABILITY</p>
@@ -93,6 +95,20 @@
         </table>
       </div>
     </section>
+    </div>
+<section id="execution-history-view" class="execution-history-view" hidden>
+  <div class="usage-heading"><div><p class="eyebrow">EXECUTIONS</p><h2>Execution history</h2><p class="usage-intro">Inspect agent runs, their prompts, results, lifecycle events and token usage.</p></div><div class="usage-actions"><label for="execution-search">Filter</label><input id="execution-search" type="search" placeholder="Filter this page…" autocomplete="off"></div></div>
+  <p id="execution-status" class="usage-status" role="status">Loading executions…</p>
+  <section class="panel usage-history">
+    <div class="usage-panel-heading"><div><h3>Executions</h3><p>Most recent runs first · 25 per page</p></div><div class="execution-pagination"><span id="execution-count" class="usage-record-count">—</span><button id="execution-previous" type="button" class="secondary" disabled>Previous</button><button id="execution-next" type="button" class="secondary" disabled>Next</button></div></div>
+    <div class="usage-table-wrap"><table class="usage-table execution-table"><thead><tr><th>Started</th><th>Type</th><th>Agent</th><th>Prompt</th><th>Status</th><th>Duration</th></tr></thead><tbody id="execution-records"><tr><td colspan="6" class="usage-empty">Loading…</td></tr></tbody></table></div>
+  </section>
+  <dialog id="execution-detail" class="panel execution-detail" aria-labelledby="execution-detail-title">
+    <div class="usage-panel-heading"><div><h3 id="execution-detail-title">Execution details</h3><p id="execution-detail-meta"></p></div><button id="execution-detail-close" type="button" class="secondary">Close</button></div>
+    <nav class="execution-tabs" aria-label="Execution details"><button type="button" class="active" data-execution-tab="result">Result</button><button type="button" data-execution-tab="input">Input</button><button type="button" data-execution-tab="timeline">Timeline</button><button type="button" data-execution-tab="usage">Usage</button></nav>
+    <div id="execution-detail-content" class="execution-detail-content"></div>
+  </dialog>
+</section>
   </main>
 </body>
 </html>
