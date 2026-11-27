@@ -655,3 +655,57 @@
     border-radius: 8px;
   }
 }
+
+
+/* On mobile, the dialog itself is the single scroll container. This makes
+   the scrollbar travel through the header, model details, and action footer
+   as one continuous document instead of scrolling only the middle panel. */
+@media (max-width: 700px) {
+  dialog.modal-dialog.provider-model-dialog[open] {
+    inset: 8px;
+    width: auto;
+    height: auto;
+    max-height: calc(100dvh - 16px);
+    overflow-x: hidden;
+    overflow-y: scroll;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+    scrollbar-color: var(--muted) var(--panel2);
+  }
+  dialog.modal-dialog.provider-model-dialog[open]::-webkit-scrollbar {
+    width: 7px;
+  }
+  dialog.modal-dialog.provider-model-dialog[open]::-webkit-scrollbar-track {
+    background: var(--panel2);
+    border-radius: 8px;
+  }
+  dialog.modal-dialog.provider-model-dialog[open]::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border: 2px solid var(--panel2);
+    border-radius: 8px;
+  }
+  .provider-model-dialog .provider-dialog-shell {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+  .provider-model-dialog .provider-dialog-header {
+    position: relative;
+  }
+  .provider-model-dialog .provider-dialog-content {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    overscroll-behavior: auto;
+    -webkit-overflow-scrolling: auto;
+    scrollbar-width: auto;
+  }
+  .provider-model-dialog .provider-dialog-actions {
+    max-height: none;
+    overflow: visible;
+  }
+}
