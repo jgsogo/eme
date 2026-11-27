@@ -26,6 +26,8 @@ Provider and model definitions in `data/providers/*.toml` are the version-contro
 
 The `access_tier` field is descriptive metadata (`free`, `free_tier`, `trial`, `paid`, `enterprise`, or `unknown`). Enterprise access generally requires an enterprise agreement or account and is unlikely to be available to personal deployments. The field is not a token price and is not used to calculate invocation costs. Versioned token pricing and cost calculations belong to `agent-metering`.
 
+OpenRouter's free catalogue changes frequently. The TOML snapshot includes the free chat endpoints listed in November 2026 that can be invoked through the current OpenAI-compatible conversation adapter, plus the `openrouter/free` dynamic router. Image-generation, embedding, reranking, audio, and decision-specific endpoints are excluded until EME has matching request/response contracts. Free endpoints may have provider-specific rate limits and data-use terms; do not send confidential data unless the endpoint's terms have been reviewed.
+
 ## Boundaries
 
 - `agent-models` owns provider-specific API integration and the provider-independent conversation contract.
