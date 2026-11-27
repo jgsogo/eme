@@ -1,0 +1,795 @@
+/* Providers catalogue: reuse the shared admin table and modal primitives. */
+.provider-view-switch{display:inline-flex;align-items:center;gap:4px;flex:none}
+.provider-view-switch .icon-button{display:inline-flex;align-items:center;justify-content:center;width:40px;min-width:40px;height:40px;min-height:40px;padding:9px!important}
+.provider-view-switch .icon-button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.provider-view-switch .icon-button[aria-pressed=true]{background:var(--panel);border-color:var(--accent);color:var(--text);box-shadow:inset 0 0 0 1px var(--accent)}
+.provider-list-table-wrap{width:100%;max-width:100%;border-radius:var(--radius)}
+.provider-list-table{min-width:760px}
+.provider-list-table th,.provider-list-table td{padding:11px 12px}
+.provider-list-table td:nth-child(3){min-width:0;white-space:nowrap}
+.provider-list-table tbody tr{cursor:pointer;transition:background .12s ease}
+.provider-list-table tbody tr:hover,.provider-list-table tbody tr:focus{background:var(--panel2);outline:none}
+.provider-list-table tbody tr:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.provider-list-table tbody tr:last-child td{border-bottom:0}
+.provider-table-model{font-weight:650;color:var(--text)}
+.provider-table-capabilities{max-width:360px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.provider-table-status{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:11px}
+.provider-table-status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--danger,var(--err))}
+.provider-table-status.enabled::before{background:var(--success,var(--ok))}
+/* Model detail dialog: deliberate hierarchy with a scrollable body and persistent actions. */
+.modal-dialog.provider-model-dialog {
+  width: min(960px, calc(100vw - 40px));
+  max-width: none;
+  max-height: min(90dvh, 900px);
+  padding: 0;
+  overflow: hidden;
+}
+.provider-dialog-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: min(86dvh, 820px);
+  max-height: min(90dvh, 900px);
+  min-height: 0;
+}
+.provider-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.provider-dialog-title { min-width: 0; }
+.provider-dialog-title .eyebrow { margin: 0 0 6px; }
+.provider-dialog-title h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 21px;
+  line-height: 1.3;
+  letter-spacing: -.02em;
+  overflow-wrap: anywhere;
+}
+.provider-dialog-title > p:last-child {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.provider-model-dialog-close {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 8px !important;
+}
+.provider-dialog-content {
+  min-height: 0;
+  padding: 20px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.provider-dialog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(250px, .85fr);
+  align-items: start;
+  gap: 18px;
+}
+.provider-dialog-main,
+.provider-dialog-aside { display: grid; gap: 16px; min-width: 0; }
+.provider-dialog-aside { position: sticky; top: 0; }
+.provider-dialog-section {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+.provider-dialog-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.provider-dialog-section-heading h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.provider-dialog-section-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.provider-dialog-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.provider-dialog-profile-item {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+}
+.provider-dialog-profile-item > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+.provider-dialog-profile-item > strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.provider-dialog-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+}
+.provider-dialog-state::before {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--danger, var(--err));
+  content: "";
+}
+.provider-dialog-state.is-enabled::before { background: var(--success, var(--ok)); }
+.provider-dialog-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.provider-capability-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.provider-capability-group {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+}
+.provider-capability-group h5 {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+.provider-capability-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.provider-capability {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.provider-no-capabilities { margin: 0; color: var(--muted); font-size: 12px; }
+.provider-dialog-footnote {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.provider-dialog-provider-list { display: grid; gap: 0; margin: 0; }
+.provider-dialog-provider-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.provider-dialog-provider-list > div:first-child { padding-top: 0; }
+.provider-dialog-provider-list > div:last-child { padding-bottom: 0; border-bottom: 0; }
+.provider-dialog-provider-list dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.provider-dialog-provider-list dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.provider-dialog-reason {
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--err) 35%, var(--border));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--err) 7%, var(--panel));
+}
+.provider-dialog-reason strong { color: var(--err); font-size: 11px; }
+.provider-dialog-reason p {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.provider-dialog-definition-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0;
+}
+.provider-dialog-definition {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.provider-dialog-definition.wide { grid-column: 1 / -1; }
+.provider-dialog-definition dt {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.provider-dialog-definition dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.provider-dialog-definition pre {
+  max-width: 100%;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 11px/1.5 ui-monospace, SFMono-Regular, monospace;
+}
+.provider-dialog-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 18px;
+  padding: 15px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.provider-dialog-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+.provider-dialog-toggle input { flex: none; }
+.provider-dialog-toggle > span { display: grid; gap: 2px; min-width: 0; }
+.provider-dialog-toggle strong { color: var(--text); font-size: 12px; }
+.provider-dialog-toggle small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.provider-dialog-action-buttons { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.provider-dialog-action-buttons button { min-height: 40px; white-space: nowrap; }
+.provider-dialog-actions .provider-model-result {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.provider-dialog-actions .provider-model-result:empty { display: none; }
+.provider-dialog-actions .provider-test-diagnostics { min-width: 0; }
+.provider-dialog-actions .provider-test-diagnostics pre {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .modal-dialog.provider-model-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px;
+  }
+  .provider-dialog-shell { height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
+  .provider-dialog-header { gap: 12px; padding: 16px 16px 14px; }
+  .provider-dialog-title h3 { font-size: 17px; line-height: 1.35; }
+  .provider-dialog-title > p:last-child { font-size: 11px; }
+  .provider-dialog-content { padding: 14px; }
+  .provider-dialog-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .provider-dialog-main,
+  .provider-dialog-aside { gap: 12px; }
+  .provider-dialog-aside { position: static; }
+  .provider-dialog-section { padding: 14px; border-radius: 10px; }
+  .provider-dialog-section-heading { margin-bottom: 11px; }
+  .provider-dialog-profile-grid { gap: 8px; }
+  .provider-dialog-profile-item { padding: 10px; }
+  .provider-capability-groups { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .provider-dialog-provider-list > div { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
+  .provider-dialog-definition-list { grid-template-columns: minmax(0, 1fr); }
+  .provider-dialog-definition.wide { grid-column: auto; }
+  .provider-dialog-actions {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+  }
+  .provider-dialog-toggle { padding-bottom: 9px; border-bottom: 1px solid var(--border); }
+  .provider-dialog-action-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .provider-dialog-action-buttons button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 9px;
+    white-space: normal;
+    font-size: 11px;
+  }
+  .provider-dialog-actions .provider-model-result { grid-column: auto; }
+}
+@media (max-width: 360px) {
+  .provider-dialog-header { padding-right: 12px; padding-left: 12px; }
+  .provider-dialog-content { padding: 10px; }
+  .provider-dialog-section { padding: 12px; }
+  .provider-dialog-profile-grid { grid-template-columns: minmax(0, 1fr); }
+  .provider-dialog-actions { padding-right: 10px; padding-left: 10px; }
+}
+/* Explicit icon rendering avoids relying on inherited button/SVG defaults. */
+.provider-view-switch .icon-button svg,
+.provider-test-button svg,
+.provider-model-dialog-close svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+.provider-list-table th { white-space: nowrap; }
+.provider-list-table th[data-sort-key] {
+  cursor: pointer;
+  user-select: none;
+  transition: color .12s ease, background .12s ease;
+}
+.provider-list-table th[data-sort-key]:hover,
+.provider-list-table th[data-sort-key]:focus-visible { color: var(--text); }
+.provider-list-table th[data-sort-key]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.provider-sort-indicator { color: var(--accent); font-size: 13px; }
+
+
+/* Desktop admin styles can override generic SVG/button defaults. Keep these
+   controls explicit here; the mobile admin has its own icon reset already. */
+@media (min-width: 701px) {
+  .usage-actions .provider-view-switch > button.icon-button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .usage-actions .provider-view-switch > button.icon-button > svg,
+  .provider-model-dialog .provider-model-dialog-close > svg {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px;
+    min-height: 18px;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    overflow: visible;
+    flex: none;
+  }
+}
+
+
+/* The close glyph is shared by desktop and mobile dialog markup. */
+.provider-model-dialog-close .provider-dialog-close-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  font: 400 25px/1 Arial, sans-serif;
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Desktop uses CSS-drawn icons rather than inline SVG. This avoids inherited
+   SVG rules from the desktop shell and keeps the controls visible without
+   relying on SVG presentation defaults. Mobile retains its own view-toggle SVGs. */
+@media (min-width: 701px) {
+  .provider-view-switch > button.icon-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    color: var(--text) !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+  }
+  .provider-desktop-icon {
+    display: grid !important;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: currentColor;
+    pointer-events: none;
+  }
+  .provider-desktop-icon-grid {
+    grid-template-columns: repeat(2, 7px);
+    grid-template-rows: repeat(2, 7px);
+    gap: 3px;
+  }
+  .provider-desktop-icon-grid i {
+    display: block;
+    width: 7px;
+    height: 7px;
+    border: 1.7px solid currentColor;
+    border-radius: 1.5px;
+  }
+  .provider-desktop-icon-list {
+    grid-template-columns: 3px 1fr;
+    grid-template-rows: repeat(3, 3px);
+    align-content: center;
+    column-gap: 4px;
+    row-gap: 3px;
+  }
+  .provider-desktop-icon-list i {
+    display: block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 7px 0 0 -0.3px currentColor;
+  }
+  .provider-desktop-icon-list i::after {
+    display: block;
+    width: 10px;
+    height: 1.6px;
+    margin-left: 5px;
+    margin-top: .7px;
+    border-radius: 2px;
+    background: currentColor;
+    content: "";
+  }
+  .provider-model-dialog .provider-model-dialog-close {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    color: var(--text) !important;
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+  }
+  .provider-model-dialog .provider-model-dialog-close .provider-dialog-close-glyph {
+    display: block !important;
+    color: currentColor !important;
+    font: 400 25px/1 Arial, sans-serif !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .provider-view-switch > button.icon-button > svg {
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+  }
+  .provider-model-dialog .provider-model-dialog-close > svg { display: none !important; }
+}
+
+
+/* Mobile-only model dialog viewport fix. Keep the title/close control fixed
+   while the model details scroll independently inside the available space. */
+@media (max-width: 700px) {
+  dialog.modal-dialog.provider-model-dialog[open] {
+    position: fixed;
+    inset: 8px;
+    box-sizing: border-box;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .provider-model-dialog .provider-dialog-shell {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+  .provider-model-dialog .provider-dialog-header {
+    position: relative;
+    z-index: 1;
+    flex: none;
+    min-width: 0;
+    background: var(--panel);
+  }
+  .provider-model-dialog .provider-dialog-title {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .provider-model-dialog .provider-model-dialog-close {
+    flex: 0 0 38px;
+    align-self: flex-start;
+    visibility: visible;
+  }
+  .provider-model-dialog .provider-dialog-content {
+    min-height: 0;
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  .provider-model-dialog .provider-dialog-actions {
+    position: relative;
+    z-index: 1;
+    max-height: 35dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--panel);
+  }
+}
+
+
+/* Keep the two primary model actions immediately visible on mobile. The
+   footer can scroll when diagnostics are long, but actions come first. */
+@media (max-width: 700px) {
+  .provider-model-dialog .provider-dialog-actions {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    max-height: 42dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  }
+  .provider-model-dialog .provider-dialog-action-buttons {
+    order: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+  .provider-model-dialog .provider-dialog-action-buttons button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 7px;
+    visibility: visible !important;
+    opacity: 1 !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+  .provider-model-dialog .provider-dialog-toggle {
+    order: 1;
+    flex: none;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .provider-model-dialog .provider-model-result {
+    order: 2;
+    flex: none;
+  }
+}
+
+
+/* Keep the model details scrollbar visible on mobile, even when the
+   platform normally hides overlay scrollbars. */
+@media (max-width: 700px) {
+  .provider-model-dialog .provider-dialog-content {
+    overflow-y: scroll;
+    scrollbar-width: auto;
+    scrollbar-color: var(--muted) var(--panel2);
+  }
+  .provider-model-dialog .provider-dialog-content::-webkit-scrollbar {
+    width: 7px;
+  }
+  .provider-model-dialog .provider-dialog-content::-webkit-scrollbar-track {
+    background: var(--panel2);
+    border-radius: 8px;
+  }
+  .provider-model-dialog .provider-dialog-content::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border: 2px solid var(--panel2);
+    border-radius: 8px;
+  }
+}
+
+
+/* On mobile, the dialog itself is the single scroll container. This makes
+   the scrollbar travel through the header, model details, and action footer
+   as one continuous document instead of scrolling only the middle panel. */
+@media (max-width: 700px) {
+  dialog.modal-dialog.provider-model-dialog[open] {
+    inset: 8px;
+    width: auto;
+    height: auto;
+    max-height: calc(100dvh - 16px);
+    overflow-x: hidden;
+    overflow-y: scroll;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+    scrollbar-color: var(--muted) var(--panel2);
+  }
+  dialog.modal-dialog.provider-model-dialog[open]::-webkit-scrollbar {
+    width: 7px;
+  }
+  dialog.modal-dialog.provider-model-dialog[open]::-webkit-scrollbar-track {
+    background: var(--panel2);
+    border-radius: 8px;
+  }
+  dialog.modal-dialog.provider-model-dialog[open]::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border: 2px solid var(--panel2);
+    border-radius: 8px;
+  }
+  .provider-model-dialog .provider-dialog-shell {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+  .provider-model-dialog .provider-dialog-header {
+    position: relative;
+  }
+  .provider-model-dialog .provider-dialog-content {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    overscroll-behavior: auto;
+    -webkit-overflow-scrolling: auto;
+    scrollbar-width: auto;
+  }
+  .provider-model-dialog .provider-dialog-actions {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+
+/* Anchor the mobile dialog to the viewport's top edge. With auto margins,
+   a tall native dialog can be vertically centered with its top clipped,
+   making the title impossible to reach. The dialog is the only scroll area. */
+@media (max-width: 700px) {
+  dialog#provider-model-dialog-host.provider-model-dialog[open] {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    inset: 8px;
+    box-sizing: border-box;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+    scrollbar-color: var(--muted) var(--panel2);
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open]::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open]::-webkit-scrollbar-track {
+    background: var(--panel2);
+    border-radius: 8px;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open]::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border: 2px solid var(--panel2);
+    border-radius: 8px;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-shell {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-header,
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-content,
+  dialog#provider-model-dialog-host.provider-model-dialog[open] .provider-dialog-actions {
+    position: static;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+
+/* mobile.css hides every page-level header on mobile, which also matches
+   this dialog's semantic header. Restore the model identity header explicitly
+   so the model title, provider, client adapter, and close control are visible. */
+@media (max-width: 700px) {
+  body[data-layout="mobile"] dialog.provider-model-dialog .provider-dialog-header {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-height: 0;
+  }
+
+  body[data-layout="mobile"] dialog.provider-model-dialog .provider-dialog-title,
+  body[data-layout="mobile"] dialog.provider-model-dialog .provider-dialog-title h3 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}

@@ -104,6 +104,13 @@ pub(super) async fn providers_script() -> impl Responder {
         .body(include_str!("../../static/providers.js"))
 }
 
+#[get("/assets/providers.css")]
+pub(super) async fn providers_stylesheet() -> impl Responder {
+    HttpResponse::Ok()
+        .content_type("text/css; charset=utf-8")
+        .body(include_str!("../../static/providers.css"))
+}
+
 #[get("/providers")]
 pub(super) async fn list_configured_providers(providers: Data<Arc<Registry>>) -> HttpResponse {
     HttpResponse::Ok().json(providers.catalog())
