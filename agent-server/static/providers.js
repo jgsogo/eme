@@ -6,6 +6,7 @@ const accessTiers = [
   ["free_tier", "Free tier"],
   ["trial", "Trial"],
   ["paid", "Paid"],
+  ["enterprise", "Enterprise"],
   ["unknown", "Unknown"],
 ];
 
@@ -194,10 +195,10 @@ function renderModelDialog(provider, model) {
         '<div class="provider-dialog-layout">' +
           '<main class="provider-dialog-main">' +
             '<section class="provider-dialog-section provider-dialog-profile">' +
-              '<div class="provider-dialog-section-heading"><div><h4>Model profile</h4>' +
-                '<p>Catalogue availability and access classification.</p></div></div>' +
+              '<div class="provider-dialog-section-heading"><div><h4>Model catalogue settings</h4>' +
+                '<p>Model-level enablement and the provider access classification.</p></div></div>' +
               '<div class="provider-dialog-profile-grid">' +
-                '<div class="provider-dialog-profile-item"><span>Availability</span>' +
+                '<div class="provider-dialog-profile-item"><span>Model enabled</span>' +
                   '<strong class="provider-dialog-state' + (model.enabled ? " is-enabled" : " is-disabled") + '">' +
                     modelStatus + '</strong></div>' +
                 '<div class="provider-dialog-profile-item"><span>Access tier</span>' +
@@ -209,7 +210,7 @@ function renderModelDialog(provider, model) {
                 '<p>Declared compatibility features, grouped by the kind of work they support.</p></div>' +
                 '<span class="provider-dialog-count">' + capabilities.length + '</span></div>' +
               renderCapabilityGroups(capabilities) +
-              '<p class="provider-dialog-footnote">These are catalogue classifications, not standardized guarantees or quality measurements.</p>' +
+              '<p class="provider-dialog-footnote">The model and its provider must both be enabled before the runtime can select it. Capability labels are compatibility classifications, not quality guarantees.</p>' +
             '</section>' +
             modelMetadata +
           '</main>' +
