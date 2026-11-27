@@ -298,6 +298,7 @@ fn normalize_gemini_schema(schema: &Value) -> Value {
         match value {
             Value::Object(object) => {
                 object.remove("additionalProperties");
+                object.remove("uniqueItems");
                 object.remove("exclusiveMinimum");
                 object.remove("exclusiveMaximum");
 
@@ -644,9 +645,18 @@ mod tests {
                 },
                 "values": {
                     "type": "array",
+                    "uniqueItems": true,
                     "items": {
                         "type": "number",
                         "exclusiveMinimum": 0
+                    }
+                },
+                "nested_values": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "uniqueItems": true,
+                        "items": { "type": "string" }
                     }
                 }
             },
@@ -684,11 +694,26 @@ mod tests {
                 .get("exclusiveMinimum")
                 .is_none()
         );
+        assert!(
+            normalized["properties"]["values"]
+                .get("uniqueItems")
+                .is_none()
+        );
+        assert!(
+            normalized["properties"]["nested_values"]["items"]
+                .get("uniqueItems")
+                .is_none()
+        );
 
         // The original schema remains intact.
         assert_eq!(schema["additionalProperties"], false);
         assert_eq!(schema["properties"]["count"]["exclusiveMinimum"], 1);
         assert_eq!(schema["properties"]["count"]["exclusiveMaximum"], 10);
+        assert_eq!(schema["properties"]["values"]["uniqueItems"], true);
+        assert_eq!(
+            schema["properties"]["nested_values"]["items"]["uniqueItems"],
+            true
+        );
     }
     #[test]
     fn converts_nullable_json_schema_types_to_gemini_schema() {
