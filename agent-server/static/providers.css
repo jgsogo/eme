@@ -771,3 +771,25 @@
     overflow: visible;
   }
 }
+
+
+/* mobile.css hides every page-level header on mobile, which also matches
+   this dialog's semantic header. Restore the model identity header explicitly
+   so the model title, provider, client adapter, and close control are visible. */
+@media (max-width: 700px) {
+  body[data-layout="mobile"] dialog.provider-model-dialog .provider-dialog-header {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-height: 0;
+  }
+
+  body[data-layout="mobile"] dialog.provider-model-dialog .provider-dialog-title,
+  body[data-layout="mobile"] dialog.provider-model-dialog .provider-dialog-title h3 {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
