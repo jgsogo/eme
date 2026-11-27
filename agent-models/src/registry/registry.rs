@@ -259,23 +259,23 @@ capabilities = ["chat"]
         // Existing TOML files remain enabled by default for backwards compatibility.
         let valid = directory.case("valid");
         write_provider(&valid, "provider.toml", "test", "gemini");
-        let registry = Registry::load(&valid).unwrap();
-        assert!(registry.contains_model("test/test-model"));
-        assert!(!registry.contains_model("test/missing-model"));
-        assert!(registry.contains_compatible_model(&[ModelCapability::Chat]));
+        let valid_registry = Registry::load(&valid).unwrap();
+        assert!(valid_registry.contains_model("test/test-model"));
+        assert!(!valid_registry.contains_model("test/missing-model"));
+        assert!(valid_registry.contains_compatible_model(&[ModelCapability::Chat]));
         assert_eq!(
-            registry.compatible_models(&[ModelCapability::Chat]),
+            valid_registry.compatible_models(&[ModelCapability::Chat]),
             vec!["test/test-model"]
         );
         assert_eq!(
-            registry
+            valid_registry
                 .first_compatible_model(&[ModelCapability::Chat])
                 .as_deref(),
             Some("test/test-model")
         );
-        assert!(!registry.contains_compatible_model(&[ModelCapability::Reasoning]));
-        assert_eq!(registry.first_compatible_model(&[]), None);
-        let catalog = registry.catalog();
+        assert!(!valid_registry.contains_compatible_model(&[ModelCapability::Reasoning]));
+        assert_eq!(valid_registry.first_compatible_model(&[]), None);
+        let catalog = valid_registry.catalog();
         assert!(catalog[0].enabled);
         assert!(catalog[0].models[0].enabled);
         assert_eq!(catalog[0].models[0].access_tier, AccessTier::Unknown);
@@ -367,7 +367,7 @@ capabilities = ["chat"]
 
         // Resolving a declared model still distinguishes missing credentials.
         assert!(matches!(
-            registry.resolve_model("test/test-model"),
+            valid_registry.resolve_model("test/test-model"),
             Err(ModelError::MissingApiKey(_))
         ));
     }
