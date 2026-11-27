@@ -13,19 +13,19 @@ capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 [[models]]
 name = "openai/gpt-oss-120b"
 enabled = true
-access_tier = "paid"
+access_tier = "free_tier"
 capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 
 [[models]]
 name = "llama-3.3-70b-versatile"
 enabled = true
 access_tier = "paid"
-capabilities = ["chat", "coding", "tool_calling"]
+capabilities = ["chat", "tool_calling"]
 
 [[models]]
 name = "qwen/qwen3.8-27b"
 enabled = true
-access_tier = "paid"
+access_tier = "free_tier"
 capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 
 [[models]]
