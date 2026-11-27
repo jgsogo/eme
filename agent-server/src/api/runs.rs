@@ -47,10 +47,28 @@ fn owns_run(
             store
                 .get(id)
                 .is_ok_and(|conversation| conversation.owner == owner)
-        })
+        }) || auth.runs_for_owner(&owner).contains(&run.id.to_string())
     } else {
         auth.runs_for_owner(&owner).contains(&run.id.to_string())
     }
+}
+
+fn is_one_shot_run(
+    run: &Run,
+    store: Option<&SqliteConversationStore>,
+    auth: Option<&crate::auth::TelegramAuth>,
+) -> bool {
+    auth.is_some_and(|auth| auth.is_one_shot_run(&run.id.to_string()))
+        || run.conversation_id.is_some_and(|conversation_id| {
+            let Ok(id) = ConversationId::from_str(&conversation_id.to_string()) else {
+                return false;
+            };
+            store.is_some_and(|store| store.get(id).is_err())
+        })
+}
+
+fn timestamp(value: std::time::SystemTime) -> String {
+    chrono::DateTime::<chrono::Utc>::from(value).to_rfc3339()
 }
 
 fn status_name(status: RunStatus) -> &'static str {
@@ -88,14 +106,25 @@ async fn list_runs(
         .collect::<Vec<_>>();
     let body = runs
         .into_iter()
-        .map(|run| GetRunResponse {
-            run_id: run.id.to_string(),
-            conversation_id: run.conversation_id.map(|id| id.to_string()),
-            input: run.input,
-            agent: run.agent,
-            status: status_name(run.status),
-            response: run.response,
-            error: run.error,
+        .map(|run| {
+            let one_shot = is_one_shot_run(
+                &run,
+                store.as_ref().map(|store| store.get_ref().as_ref()),
+                auth.as_deref().map(|value| &**value),
+            );
+            GetRunResponse {
+                run_id: run.id.to_string(),
+                conversation_id: run.conversation_id.map(|id| id.to_string()),
+                input: run.input,
+                agent: run.agent,
+                status: status_name(run.status),
+                response: run.response,
+                error: run.error,
+                created_at: timestamp(run.created_at),
+                started_at: run.started_at.map(timestamp),
+                finished_at: run.finished_at.map(timestamp),
+                one_shot,
+            }
         })
         .collect::<Vec<_>>();
     HttpResponse::Ok().json(body)
@@ -371,6 +400,11 @@ async fn get_run(
                 store.as_ref().map(|store| store.get_ref().as_ref()),
             ) =>
         {
+            let one_shot = is_one_shot_run(
+                &run,
+                store.as_ref().map(|store| store.get_ref().as_ref()),
+                auth.as_deref().map(|value| &**value),
+            );
             HttpResponse::Ok().json(GetRunResponse {
                 run_id: run.id.to_string(),
                 conversation_id: run.conversation_id.map(|id| id.to_string()),
@@ -379,6 +413,10 @@ async fn get_run(
                 status: status_name(run.status),
                 response: run.response,
                 error: run.error,
+                created_at: timestamp(run.created_at),
+                started_at: run.started_at.map(timestamp),
+                finished_at: run.finished_at.map(timestamp),
+                one_shot,
             })
         }
         Some(_) | None => HttpResponse::NotFound().finish(),

@@ -11,4 +11,8 @@ pub struct GetRunResponse {
     pub status: &'static str,
     pub response: Option<String>,
     pub error: Option<String>,
+    pub created_at: String,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+    pub one_shot: bool,
 }
