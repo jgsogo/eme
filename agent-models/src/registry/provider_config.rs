@@ -7,10 +7,16 @@ use std::path::Path;
 pub(super) struct ProviderConfig {
     pub(super) name: String,
     pub(super) client: String,
+    #[serde(default = "default_enabled")]
+    pub(super) enabled: bool,
     pub(super) api_key_env: String,
     pub(super) account_id_env: Option<String>,
     pub(super) base_url: Option<String>,
     pub(super) models: Vec<ModelConfig>,
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 impl ProviderConfig {

@@ -1,10 +1,18 @@
-use crate::models::ModelCapability;
+use crate::models::{AccessTier, ModelCapability};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ModelConfig {
     pub name: String,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub access_tier: AccessTier,
     pub capabilities: Vec<ModelCapability>,
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 impl ModelConfig {

@@ -20,6 +20,12 @@ pub enum ModelError {
     #[error("Provider '{0}' is not supported")]
     UnsupportedProvider(String),
 
+    #[error("Provider '{0}' is disabled in the model catalogue")]
+    ProviderDisabled(String),
+
+    #[error("Model '{0}' is disabled in the model catalogue")]
+    ModelDisabled(String),
+
     #[error("HTTP request failed: {0}")]
     Http(#[from] reqwest::Error),
 
@@ -52,9 +58,11 @@ impl ModelError {
     /// reason to believe another candidate may work.
     pub fn failure_category(&self) -> ModelFailureCategory {
         match self {
-            Self::MissingApiKey(_) | Self::UnsupportedProvider(_) | Self::UnsupportedModel(_) => {
-                ModelFailureCategory::CandidateUnavailable
-            }
+            Self::MissingApiKey(_)
+            | Self::UnsupportedProvider(_)
+            | Self::UnsupportedModel(_)
+            | Self::ProviderDisabled(_)
+            | Self::ModelDisabled(_) => ModelFailureCategory::CandidateUnavailable,
             Self::Http(error) if error.is_timeout() || error.is_connect() => {
                 ModelFailureCategory::Transient
             }
