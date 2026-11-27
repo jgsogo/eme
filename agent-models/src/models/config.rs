@@ -1,9 +1,11 @@
-use crate::models::ModelCapability;
+use crate::models::{AccessTier, ModelCapability};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ModelConfig {
     pub name: String,
+    pub enabled: bool,
+    pub access_tier: AccessTier,
     pub capabilities: Vec<ModelCapability>,
 }
 

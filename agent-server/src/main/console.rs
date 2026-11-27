@@ -310,6 +310,10 @@ fn safe_model_error(error: &ModelError) -> String {
         ModelError::UnsupportedProvider(provider) => {
             format!("Unsupported provider '{provider}'")
         }
+        ModelError::ProviderDisabled(provider) => {
+            format!("Provider '{provider}' is disabled")
+        }
+        ModelError::ModelDisabled(model) => format!("Model '{model}' is disabled"),
         ModelError::UnsupportedModel(model) => format!("Unsupported model '{model}'"),
         ModelError::Http(_) => {
             "Provider request failed due to a network or transport error".to_owned()
@@ -757,10 +761,13 @@ mod tests {
             r#"
 name = "test"
 client = "gemini"
+enabled = true
 api_key_env = "EME_TEST_MISSING_MODEL_KEY"
 
 [[models]]
 name = "mock-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#,
         )

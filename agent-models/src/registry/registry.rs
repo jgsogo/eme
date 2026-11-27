@@ -1,7 +1,7 @@
 use crate::{
     client::ConversationClient,
     error::ModelError,
-    models::ModelCapability,
+    models::{AccessTier, ModelCapability},
     providers::{GeminiClient, OpenAICompatibleClient},
 };
 use agent_config::{ConfigError, read_toml_dir};
@@ -14,12 +14,15 @@ use super::provider_config::ProviderConfig;
 pub struct ProviderInfo {
     pub name: String,
     pub client: String,
+    pub enabled: bool,
     pub models: Vec<ProviderModelInfo>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ProviderModelInfo {
     pub name: String,
+    pub enabled: bool,
+    pub access_tier: AccessTier,
     pub capabilities: Vec<ModelCapability>,
 }
 
@@ -51,17 +54,23 @@ impl Registry {
     }
 
     /// Returns the validated provider/model metadata without exposing credentials.
+    ///
+    /// Disabled entries remain visible so administrative interfaces can explain
+    /// the catalogue configuration; runtime selection methods exclude them.
     pub fn catalog(&self) -> Vec<ProviderInfo> {
         self.providers
             .values()
             .map(|provider| ProviderInfo {
                 name: provider.name.clone(),
                 client: provider.client.clone(),
+                enabled: provider.enabled,
                 models: provider
                     .models
                     .iter()
                     .map(|model| ProviderModelInfo {
                         name: model.name.clone(),
+                        enabled: model.enabled,
+                        access_tier: model.access_tier,
                         capabilities: model.capabilities.clone(),
                     })
                     .collect(),
@@ -69,7 +78,7 @@ impl Registry {
             .collect()
     }
 
-    /// Returns whether a provider/model pair is declared in the loaded configuration.
+    /// Returns whether an enabled provider/model pair is declared in the configuration.
     ///
     /// This check does not read credentials or construct a provider client.
     pub fn contains_model(&self, model_name: &str) -> bool {
@@ -81,12 +90,16 @@ impl Registry {
             return false;
         }
 
-        self.providers
-            .get(provider_name)
-            .is_some_and(|provider| provider.models.iter().any(|model| model.name == model_name))
+        self.providers.get(provider_name).is_some_and(|provider| {
+            provider.enabled
+                && provider
+                    .models
+                    .iter()
+                    .any(|model| model.enabled && model.name == model_name)
+        })
     }
 
-    /// Returns whether one configured model provides every requested capability.
+    /// Returns whether one enabled model provides every requested capability.
     ///
     /// Provider names are traversed in `BTreeMap` order and models in their TOML
     /// declaration order, so the first compatible model is deterministic. This
@@ -95,7 +108,7 @@ impl Registry {
         self.first_compatible_model(required).is_some()
     }
 
-    /// Returns every configured model that provides all requested capabilities.
+    /// Returns every enabled model that provides all requested capabilities.
     ///
     /// Provider names are traversed in `BTreeMap` order and models in their TOML
     /// declaration order. The result is therefore deterministic and provider-qualified.
@@ -107,21 +120,23 @@ impl Registry {
 
         self.providers
             .iter()
+            .filter(|(_, provider)| provider.enabled)
             .flat_map(|(provider_name, provider)| {
                 provider
                     .models
                     .iter()
                     .filter(move |model| {
-                        required
-                            .iter()
-                            .all(|capability| model.capabilities.contains(capability))
+                        model.enabled
+                            && required
+                                .iter()
+                                .all(|capability| model.capabilities.contains(capability))
                     })
                     .map(move |model| format!("{provider_name}/{}", model.name))
             })
             .collect()
     }
 
-    /// Finds the first configured model that provides every requested capability.
+    /// Finds the first enabled model that provides every requested capability.
     ///
     /// This is a convenience wrapper around deterministic candidate enumeration.
     pub fn first_compatible_model(&self, required: &[ModelCapability]) -> Option<String> {
@@ -141,8 +156,18 @@ impl Registry {
             .get(provider_name)
             .ok_or_else(|| ModelError::UnsupportedProvider(provider_name.to_string()))?;
 
-        if !provider.models.iter().any(|m| m.name == model) {
-            return Err(ModelError::UnsupportedModel(format!(
+        if !provider.enabled {
+            return Err(ModelError::ProviderDisabled(provider_name.to_string()));
+        }
+
+        let model_config = provider
+            .models
+            .iter()
+            .find(|configured| configured.name == model)
+            .ok_or_else(|| ModelError::UnsupportedModel(format!("{provider_name}/{model}")))?;
+
+        if !model_config.enabled {
+            return Err(ModelError::ModelDisabled(format!(
                 "{provider_name}/{model}"
             )));
         }
@@ -179,7 +204,10 @@ mod tests {
     };
 
     use super::Registry;
-    use crate::{error::ModelError, models::ModelCapability};
+    use crate::{
+        error::ModelError,
+        models::{AccessTier, ModelCapability},
+    };
     use agent_config::ConfigError;
 
     struct TestDirectory(PathBuf);
@@ -216,10 +244,13 @@ mod tests {
                 r#"
 name = "{name}"
 client = "{client}"
+enabled = true
 api_key_env = "TEST_API_KEY"
 
 [[models]]
 name = "test-model"
+enabled = true
+access_tier = "unknown"
 capabilities = ["chat"]
 "#
             ),
@@ -231,25 +262,94 @@ capabilities = ["chat"]
     fn loads_valid_providers_and_rejects_invalid_registry_configuration() {
         let directory = TestDirectory::new();
 
-        // Valid provider configuration: model lookup must not require credentials.
+        // Provider and model enablement are explicit catalogue fields.
         let valid = directory.case("valid");
         write_provider(&valid, "provider.toml", "test", "gemini");
-        let registry = Registry::load(&valid).unwrap();
-        assert!(registry.contains_model("test/test-model"));
-        assert!(!registry.contains_model("test/missing-model"));
-        assert!(registry.contains_compatible_model(&[ModelCapability::Chat]));
+        let valid_registry = Registry::load(&valid).unwrap();
+        assert!(valid_registry.contains_model("test/test-model"));
+        assert!(!valid_registry.contains_model("test/missing-model"));
+        assert!(valid_registry.contains_compatible_model(&[ModelCapability::Chat]));
         assert_eq!(
-            registry.compatible_models(&[ModelCapability::Chat]),
+            valid_registry.compatible_models(&[ModelCapability::Chat]),
             vec!["test/test-model"]
         );
         assert_eq!(
-            registry
+            valid_registry
                 .first_compatible_model(&[ModelCapability::Chat])
                 .as_deref(),
             Some("test/test-model")
         );
-        assert!(!registry.contains_compatible_model(&[ModelCapability::Reasoning]));
-        assert_eq!(registry.first_compatible_model(&[]), None);
+        assert!(!valid_registry.contains_compatible_model(&[ModelCapability::Reasoning]));
+        assert_eq!(valid_registry.first_compatible_model(&[]), None);
+        let catalog = valid_registry.catalog();
+        assert!(catalog[0].enabled);
+        assert!(catalog[0].models[0].enabled);
+        assert_eq!(catalog[0].models[0].access_tier, AccessTier::Unknown);
+
+        // Disabled providers and models stay visible in the catalogue but cannot
+        // be selected for runtime execution.
+        let disabled = directory.case("disabled");
+        fs::write(
+            disabled.join("providers/provider.toml"),
+            r#"
+name = "disabled"
+client = "gemini"
+enabled = false
+api_key_env = "TEST_API_KEY"
+
+[[models]]
+name = "disabled-model"
+enabled = true
+access_tier = "unknown"
+capabilities = ["chat"]
+"#,
+        )
+        .unwrap();
+        let registry = Registry::load(&disabled).unwrap();
+        assert!(!registry.contains_model("disabled/disabled-model"));
+        assert!(
+            registry
+                .compatible_models(&[ModelCapability::Chat])
+                .is_empty()
+        );
+        assert!(matches!(
+            registry.resolve_model("disabled/disabled-model"),
+            Err(ModelError::ProviderDisabled(_))
+        ));
+        assert!(!registry.catalog()[0].enabled);
+
+        let disabled_model = directory.case("disabled-model");
+        fs::write(
+            disabled_model.join("providers/provider.toml"),
+            r#"
+name = "test"
+client = "gemini"
+enabled = true
+api_key_env = "TEST_API_KEY"
+
+[[models]]
+name = "test-model"
+enabled = false
+access_tier = "free_tier"
+capabilities = ["chat"]
+"#,
+        )
+        .unwrap();
+        let registry = Registry::load(&disabled_model).unwrap();
+        assert!(!registry.contains_model("test/test-model"));
+        assert!(
+            registry
+                .compatible_models(&[ModelCapability::Chat])
+                .is_empty()
+        );
+        assert!(matches!(
+            registry.resolve_model("test/test-model"),
+            Err(ModelError::ModelDisabled(_))
+        ));
+        assert_eq!(
+            registry.catalog()[0].models[0].access_tier,
+            AccessTier::FreeTier
+        );
 
         // Candidate ordering is stable across provider files and independent
         // of the order in which those files are discovered.
@@ -287,7 +387,7 @@ capabilities = ["chat"]
 
         // Resolving a declared model still distinguishes missing credentials.
         assert!(matches!(
-            registry.resolve_model("test/test-model"),
+            valid_registry.resolve_model("test/test-model"),
             Err(ModelError::MissingApiKey(_))
         ));
     }

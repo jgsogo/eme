@@ -7,6 +7,7 @@ use std::path::Path;
 pub(super) struct ProviderConfig {
     pub(super) name: String,
     pub(super) client: String,
+    pub(super) enabled: bool,
     pub(super) api_key_env: String,
     pub(super) account_id_env: Option<String>,
     pub(super) base_url: Option<String>,
