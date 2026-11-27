@@ -372,23 +372,45 @@
   flex: none;
 }
 .provider-list-table th { white-space: nowrap; }
-.provider-sort-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin: 0;
-  padding: 3px 2px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: 650;
-  letter-spacing: inherit;
-  text-transform: inherit;
+.provider-list-table th[data-sort-key] {
   cursor: pointer;
+  user-select: none;
+  transition: color .12s ease, background .12s ease;
 }
-.provider-sort-button:hover,
-.provider-sort-button:focus-visible { color: var(--text); }
-.provider-sort-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.provider-sort-button span { color: var(--accent); font-size: 13px; }
+.provider-list-table th[data-sort-key]:hover,
+.provider-list-table th[data-sort-key]:focus-visible { color: var(--text); }
+.provider-list-table th[data-sort-key]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.provider-sort-indicator { color: var(--accent); font-size: 13px; }
+
+
+/* Desktop admin styles can override generic SVG/button defaults. Keep these
+   controls explicit here; the mobile admin has its own icon reset already. */
+@media (min-width: 701px) {
+  .usage-actions .provider-view-switch > button.icon-button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .usage-actions .provider-view-switch > button.icon-button > svg,
+  .provider-model-dialog .provider-model-dialog-close > svg {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px;
+    min-height: 18px;
+    fill: none !important;
+    stroke: currentColor !important;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    overflow: visible;
+    flex: none;
+  }
+}
