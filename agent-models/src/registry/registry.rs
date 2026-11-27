@@ -164,12 +164,12 @@ impl Registry {
             .models
             .iter()
             .find(|configured| configured.name == model)
-            .ok_or_else(|| {
-                ModelError::UnsupportedModel(format!("{provider_name}/{model}"))
-            })?;
+            .ok_or_else(|| ModelError::UnsupportedModel(format!("{provider_name}/{model}")))?;
 
         if !model_config.enabled {
-            return Err(ModelError::ModelDisabled(format!("{provider_name}/{model}")));
+            return Err(ModelError::ModelDisabled(format!(
+                "{provider_name}/{model}"
+            )));
         }
 
         let key = std::env::var(&provider.api_key_env)
@@ -302,7 +302,11 @@ capabilities = ["chat"]
         .unwrap();
         let registry = Registry::load(&disabled).unwrap();
         assert!(!registry.contains_model("disabled/disabled-model"));
-        assert!(registry.compatible_models(&[ModelCapability::Chat]).is_empty());
+        assert!(
+            registry
+                .compatible_models(&[ModelCapability::Chat])
+                .is_empty()
+        );
         assert!(matches!(
             registry.resolve_model("disabled/disabled-model"),
             Err(ModelError::ProviderDisabled(_))
@@ -332,7 +336,10 @@ capabilities = ["chat"]
             registry.resolve_model("test/test-model"),
             Err(ModelError::ModelDisabled(_))
         ));
-        assert_eq!(registry.catalog()[0].models[0].access_tier, AccessTier::FreeTier);
+        assert_eq!(
+            registry.catalog()[0].models[0].access_tier,
+            AccessTier::FreeTier
+        );
 
         // Candidate ordering is stable across provider files and independent
         // of the order in which those files are discovered.
