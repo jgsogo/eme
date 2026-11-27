@@ -15,7 +15,7 @@ capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 name = "@cf/deepseek-ai/deepseek-v4.1-flash-1017"
 enabled = true
 access_tier = "paid"
-capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+capabilities = ["chat", "reasoning", "coding"]
 
 [[models]]
 name = "@cf/qwen/qwen3.8-27b"
