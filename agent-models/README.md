@@ -18,6 +18,8 @@ The crate implements:
 - **Model metadata:** declarative provider/model enablement, commercial access classification, and capabilities such as chat, reasoning, coding, image and video input, audio, tool calling, and structured output. Capabilities are compatibility requirements, not standardized guarantees or measurements of model quality.
 - **Provider error handling:** a common error model for configuration, transport, provider responses, and unsupported or administratively disabled models.
 
+A capability is advertised only when the current provider adapter can express it through the shared conversation API. Upstream model support alone is not sufficient: for example, a model may accept images or structured-output parameters at the provider API, while the current adapter exposes neither in its request contract.
+
 ## Configuration ownership
 
 Provider and model definitions in `data/providers/*.toml` are the version-controlled catalogue. They describe technical integration details and default metadata. Administrative enablement overrides will be persisted separately; the TOML files remain the source for the provider/model definitions themselves.
