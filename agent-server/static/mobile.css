@@ -1818,3 +1818,7 @@ body[data-layout="mobile"] #conversation-create-actions > #new-conversation {
 body[data-layout="mobile"] #conversation-create-actions > #one-shot-open {
   font-size: 23px;
 }
+/* The floating action buttons must respect their hidden state while scrolling. */
+body[data-layout="mobile"] #conversation-create-actions > button[hidden] {
+  display: none !important;
+}
