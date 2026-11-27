@@ -383,8 +383,8 @@ capabilities = ["chat"]
         assert!(catalog[0].models[0].enabled);
         assert_eq!(catalog[0].models[0].access_tier, AccessTier::Unknown);
 
-        // Sparse administrative overrides take precedence over TOML metadata
-        // and can be cleared to restore the static catalogue values.
+        // Sparse administrative overrides affect operational settings only.
+        // Model access tiers always come from the static TOML catalogue.
         let mut overrides = ModelCatalogOverrides::default();
         overrides.providers.insert(
             "test".into(),
@@ -397,7 +397,6 @@ capabilities = ["chat"]
             ("test".into(), "test-model".into()),
             ModelOverride {
                 enabled: Some(false),
-                access_tier: Some(AccessTier::Paid),
                 disabled_reason: Some("disabled by administrator".into()),
             },
         );
@@ -412,7 +411,7 @@ capabilities = ["chat"]
         assert!(!overridden_catalog[0].models[0].enabled);
         assert_eq!(
             overridden_catalog[0].models[0].access_tier,
-            AccessTier::Paid
+            AccessTier::Unknown
         );
         assert_eq!(
             overridden_catalog[0].models[0].disabled_reason.as_deref(),
