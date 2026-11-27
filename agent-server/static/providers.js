@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const state = { providers: [], view: "cards" };
+const state = { providers: [], view: "cards", sortKey: null, sortDirection: "asc" };
 
 const accessTiers = [
   ["free", "Free"],
@@ -9,7 +9,7 @@ const accessTiers = [
   ["unknown", "Unknown"],
 ];
 
-const testIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2L14 9V3M8 15h8"/></svg>';
+const testIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2L14 9V3M8 15h8"/></svg>';
 const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 }[char]));
@@ -111,7 +111,7 @@ function renderModelDialog(provider, model) {
     escapeHtml(formatAccessTier(model.access_tier)) + '</span><span class="provider-table-status' +
     (model.enabled ? " enabled" : "") + '">' + (model.enabled ? "Enabled" : "Disabled") +
     '</span></div></div><button type="button" class="secondary icon-button provider-model-dialog-close" ' +
-    'data-close-model-dialog aria-label="Close model details" title="Close"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+    'data-close-model-dialog aria-label="Close model details" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
     '<path d="m6 6 12 12M18 6 6 18"/></svg></button></div>' +
     '<section class="family-section provider-detail-section"><div class="family-section-heading">' +
     '<h3>Capabilities</h3><span class="hint">' + capabilities.length + ' declared</span></div>' +
@@ -127,8 +127,47 @@ function renderModelDialog(provider, model) {
     escapeHtml(model.name) + '">' + testIcon + '<span>Test model</span></button>' +
     '<div class="provider-model-result" aria-live="polite"></div></div></dialog>';
 }
+function sortValue(provider, model, key) {
+  switch (key) {
+    case "model": return model.name || "";
+    case "provider": return provider.name || "";
+    case "access_tier": return formatAccessTier(model.access_tier);
+    case "status": return model.enabled ? "Enabled" : "Disabled";
+    case "capabilities": return (model.capabilities || []).map(formatCapability).join(", ");
+    default: return "";
+  }
+}
+
 function renderTable(providers) {
-  const rows = providers.flatMap(provider => provider.models.map(model => {
+  const models = providers.flatMap(provider => provider.models.map(model => ({ provider, model })));
+  if (state.sortKey) {
+    const direction = state.sortDirection === "asc" ? 1 : -1;
+    models.sort((left, right) => {
+      const a = sortValue(left.provider, left.model, state.sortKey);
+      const b = sortValue(right.provider, right.model, state.sortKey);
+      const comparison = String(a).localeCompare(String(b), undefined, {
+        numeric: true, sensitivity: "base",
+      });
+      return comparison * direction;
+    });
+  }
+  const headers = [
+    ["model", "Model"],
+    ["provider", "Provider"],
+    ["access_tier", "Access tier"],
+    ["status", "Status"],
+    ["capabilities", "Capabilities"],
+  ];
+  const heading = headers.map(([key, label]) => {
+    const active = state.sortKey === key;
+    const direction = active ? state.sortDirection : "none";
+    const indicator = active ? (state.sortDirection === "asc" ? " ↑" : " ↓") : "";
+    return '<th scope="col" aria-sort="' + (active ? (state.sortDirection === "asc" ? "ascending" : "descending") : "none") + '">' +
+      '<button type="button" class="provider-sort-button" data-sort-key="' + key + '" aria-label="Sort by ' +
+      label + (active ? ", " + state.sortDirection : "") + '">' + label + '<span aria-hidden="true">' +
+      indicator + '</span></button></th>';
+  }).join("");
+  const rows = models.map(({ provider, model }) => {
     const capabilities = (model.capabilities || []).map(formatCapability).join(", ") || "—";
     return '<tr data-model-row data-provider="' + escapeHtml(provider.name) + '" data-model="' +
       escapeHtml(model.name) + '" tabindex="0" role="button" aria-label="Show details for ' +
@@ -140,13 +179,12 @@ function renderTable(providers) {
       (model.enabled ? "Enabled" : "Disabled") + '</span></td>' +
       '<td class="provider-table-capabilities" title="' + escapeHtml(capabilities) + '">' +
       escapeHtml(capabilities) + '</td></tr>';
-  })).join("");
+  }).join("");
   const dialog = '<dialog id="provider-model-dialog-host" class="modal-dialog provider-model-dialog" aria-label="Model details"></dialog>';
   if (!rows) return '<div class="usage-empty">' +
     (providers.length ? "No models match this filter." : "No providers are configured.") + "</div>" + dialog;
   return '<div class="usage-table-wrap provider-list-table-wrap"><table class="usage-table provider-list-table">' +
-    '<thead><tr><th>Model</th><th>Provider</th><th>Access tier</th><th>Status</th><th>Capabilities</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody></table></div>' + dialog;
+    '<thead><tr>' + heading + '</tr></thead><tbody>' + rows + '</tbody></table></div>' + dialog;
 }
 function render() {
   const query = $("providers-search").value.trim().toLocaleLowerCase();
@@ -326,6 +364,18 @@ $("providers-list").addEventListener("keydown", event => {
   }
 });
 $("providers-list").addEventListener("click", event => {
+  const sortButton = event.target.closest("[data-sort-key]");
+  if (sortButton) {
+    const key = sortButton.dataset.sortKey;
+    if (state.sortKey === key) {
+      state.sortDirection = state.sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      state.sortKey = key;
+      state.sortDirection = "asc";
+    }
+    render();
+    return;
+  }
   const closeDialog = event.target.closest("[data-close-model-dialog]");
   if (closeDialog) {
     closeDialog.closest("dialog").close();
