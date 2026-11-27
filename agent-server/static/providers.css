@@ -583,3 +583,52 @@
     background: var(--panel);
   }
 }
+
+
+/* Keep the two primary model actions immediately visible on mobile. The
+   footer can scroll when diagnostics are long, but actions come first. */
+@media (max-width: 700px) {
+  .provider-model-dialog .provider-dialog-actions {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    max-height: 42dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  }
+  .provider-model-dialog .provider-dialog-action-buttons {
+    order: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+  .provider-model-dialog .provider-dialog-action-buttons button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0;
+    padding: 8px 7px;
+    visibility: visible !important;
+    opacity: 1 !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 11px;
+  }
+  .provider-model-dialog .provider-dialog-toggle {
+    order: 1;
+    flex: none;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .provider-model-dialog .provider-model-result {
+    order: 2;
+    flex: none;
+  }
+}
