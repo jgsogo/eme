@@ -25,6 +25,7 @@ meal-planner = { path = "../tools/meal-planner" }
 media-tools = { path = "../tools/media" }
 rabel-tool = { path = "../tools/rabel" }
 mercadona-tool = { path = "../tools/mercadona" }
+home-assistant-tool = { path = "../tools/home-assistant" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 clap = { workspace = true }
