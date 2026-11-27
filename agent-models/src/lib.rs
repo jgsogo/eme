@@ -21,7 +21,7 @@ mod types;
 pub use client::ConversationClient;
 pub use error::{ModelError, ModelFailureCategory};
 pub use models::{
-    AccessTier, ModelCatalogOverrides, ModelCapability, ModelConfig, ModelOverride,
+    AccessTier, ModelCapability, ModelCatalogOverrides, ModelConfig, ModelOverride,
     ProviderOverride,
 };
 pub use registry::{ProviderInfo, ProviderModelInfo, Registry};
