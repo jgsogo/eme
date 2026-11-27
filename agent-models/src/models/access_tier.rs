@@ -15,6 +15,8 @@ pub enum AccessTier {
     Trial,
     /// Use of the model requires paid access.
     Paid,
+    /// Use of the model requires an enterprise agreement or enterprise account.
+    Enterprise,
     /// The access terms have not yet been classified.
     #[default]
     Unknown,

@@ -3,18 +3,20 @@ client = "gemini"
 enabled = true
 api_key_env = "GEMINI_API_KEY"
 
+[[models]]
+name = "gemini-3.8-flash"
+enabled = true
+access_tier = "free_tier"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "gemini-3.6-flash"
+enabled = true
+access_tier = "free_tier"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
 
 [[models]]
 name = "gemini-3.5-flash-lite"
 enabled = true
 access_tier = "free_tier"
-capabilities = [
-    "chat",
-    "reasoning",
-    "coding",
-    "vision",
-    "transcription",
-    "audio_understanding",
-    "tool_calling",
-    "structured_output",
-]
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]

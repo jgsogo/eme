@@ -8,4 +8,22 @@ base_url = "https://api.groq.com/openai/v1"
 name = "openai/gpt-oss-20b"
 enabled = true
 access_tier = "free_tier"
-capabilities = ["chat", "reasoning", "coding", "tool_calling", "structured_output"]
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "openai/gpt-oss-120b"
+enabled = true
+access_tier = "free_tier"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "qwen/qwen3.8-27b"
+enabled = true
+access_tier = "free_tier"
+capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+
+[[models]]
+name = "minimaxai/minimax-m2.7"
+enabled = true
+access_tier = "enterprise"
+capabilities = ["chat", "reasoning", "coding"]

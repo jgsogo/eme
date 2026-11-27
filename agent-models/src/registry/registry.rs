@@ -359,6 +359,55 @@ capabilities = ["chat"]
     }
 
     #[test]
+    fn loads_repository_provider_catalogue() {
+        let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../data");
+        let registry = Registry::load(data_dir).unwrap();
+
+        let catalog = registry.catalog();
+        assert_eq!(
+            catalog.len(),
+            5,
+            "unexpected provider catalogue: {catalog:#?}"
+        );
+
+        for model in [
+            "cloudflare/@cf/zai-org/glm-4.7-flash",
+            "deepseek/deepseek-flash",
+            "gemini/gemini-3.8-flash",
+            "groq/openai/gpt-oss-120b",
+            "openrouter/anthropic/claude-sonnet-4.5",
+            "openrouter/baidu/ernie-5.5-flash-preview:free",
+            "openrouter/google/gemma-4-26b-a4b-it:free",
+            "openrouter/google/gemma-4-31b-it:free",
+            "openrouter/inclusionai/ling-3.2-flash:free",
+            "openrouter/liquid/lfm-3-1.7b:free",
+            "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+            "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+            "openrouter/nvidia/nemotron-3.5-lightning:free",
+            "openrouter/nvidia/nemotron-3.5-super-vl:free",
+            "openrouter/particle-ai/particle-1:free",
+            "openrouter/recursive/flint-v1.0:free",
+            "openrouter/free",
+        ] {
+            assert!(
+                registry.contains_model(model),
+                "missing configured model '{model}'"
+            );
+        }
+
+        let groq = catalog
+            .iter()
+            .find(|provider| provider.name == "groq")
+            .unwrap();
+        let minimax = groq
+            .models
+            .iter()
+            .find(|model| model.name == "minimaxai/minimax-m2.7")
+            .unwrap();
+        assert_eq!(minimax.access_tier, AccessTier::Enterprise);
+    }
+
+    #[test]
     fn loads_valid_providers_and_rejects_invalid_registry_configuration() {
         let directory = TestDirectory::new();
 
