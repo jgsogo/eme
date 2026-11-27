@@ -14,7 +14,6 @@ pub(super) struct ProviderConfig {
     pub(super) models: Vec<ModelConfig>,
 }
 
-
 impl ProviderConfig {
     pub(super) fn validate(&self, path: &Path) -> Result<(), ConfigError> {
         let invalid = |reason: &str| {
