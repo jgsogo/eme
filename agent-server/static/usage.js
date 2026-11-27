@@ -205,7 +205,8 @@ loadPricing();
 // Execution history is a separate sub-view of Admin. The run API includes
 // durable records, including runs whose temporary one-shot conversation was
 // soft-deleted after completion.
-const executionState={runs:[],selected:null,details:{}};
+const EXECUTION_PAGE_SIZE=25;
+const executionState={runs:[],selected:null,details:{},offset:0,hasMore:false};
 const executionDate=value=>value?new Date(value).toLocaleString():"—";
 const executionDuration=run=>{
  if(typeof run.duration_ms==="number"){
@@ -227,60 +228,63 @@ function showAdminView(view){
   link.classList.toggle("active",active);
   if(active)link.setAttribute("aria-current","page");else link.removeAttribute("aria-current");
  });
- if(history)loadExecutionHistory();
+ if(history)loadExecutionHistory(0);
 }
 function renderExecutionHistory(){
  const query=$("execution-search")?.value.trim().toLocaleLowerCase()||"";
  const runs=executionState.runs.filter(run=>[
   run.agent,run.input,run.status,run.run_id,run.type,run.task_name
  ].some(value=>String(value||"").toLocaleLowerCase().includes(query)));
- $("execution-count").textContent=query?runs.length+" of "+executionState.runs.length+" executions":runs.length+" executions";
+ const start=executionState.offset+1;
+ const end=executionState.offset+runs.length;
+ $("execution-count").textContent=runs.length?("Showing "+start+"–"+end+(executionState.hasMore?" · more available":"")):"No executions on this page";
  $("execution-records").innerHTML=runs.length?runs.map(run=>{
   const type=run.type==="one-shot"?"One-shot":run.type==="task"?"Task":"Conversation";
   return '<tr class="execution-row" data-run-id="'+escapeHtml(run.run_id)+'" tabindex="0" role="button" aria-label="View '+escapeHtml(type.toLowerCase())+' execution for '+escapeHtml(run.agent)+'"><td>'+escapeHtml(executionDate(run.started_at||run.created_at))+'</td><td>'+escapeHtml(type)+'</td><td>'+escapeHtml(run.agent)+(run.task_name?'<span class="usage-model-id">'+escapeHtml(run.task_name)+'</span>':'')+'</td><td class="execution-prompt">'+escapeHtml(run.input)+'</td><td><span class="usage-outcome '+escapeHtml(run.status)+'">'+escapeHtml(String(run.status).replaceAll("_"," "))+'</span></td><td>'+escapeHtml(executionDuration(run))+'</td></tr>';
- }).join(""):'<tr><td colspan="6" class="usage-empty">'+(executionState.runs.length?"No executions match this filter.":"No executions recorded yet.")+'</td></tr>';
+ }).join(""):'<tr><td colspan="6" class="usage-empty">No executions recorded on this page.</td></tr>';
+ $("execution-previous").disabled=executionState.offset===0;
+ $("execution-next").disabled=!executionState.hasMore;
 }
-async function loadExecutionHistory(){
+async function loadExecutionHistory(offset=executionState.offset){
+ executionState.offset=offset;
  $("execution-status").textContent="Loading executions…";
  $("execution-status").className="usage-status";
+ $("execution-previous").disabled=true;
+ $("execution-next").disabled=true;
  try{
+  const requested=offset+EXECUTION_PAGE_SIZE;
   const [runsResponse,tasksResponse]=await Promise.all([
-   fetch("/runs",{headers:{Accept:"application/json"}}),
+   fetch("/runs?offset=0&limit="+requested,{headers:{Accept:"application/json"}}),
    fetch("/tasks",{headers:{Accept:"application/json"}})
   ]);
   if(!runsResponse.ok)throw new Error(await runsResponse.text()||runsResponse.statusText);
   if(!tasksResponse.ok)throw new Error(await tasksResponse.text()||tasksResponse.statusText);
-  const [runs,tasks]=await Promise.all([runsResponse.json(),tasksResponse.json()]);
-  const taskRuns=(await Promise.all(tasks.map(async task=>{
-   const response=await fetch("/tasks/"+encodeURIComponent(task.id)+"/executions",{headers:{Accept:"application/json"}});
+  const [runsPage,tasks]=await Promise.all([runsResponse.json(),tasksResponse.json()]);
+  const taskPages=await Promise.all(tasks.map(async task=>{
+   const response=await fetch("/tasks/"+encodeURIComponent(task.id)+"/executions?limit="+requested,{headers:{Accept:"application/json"}});
    if(!response.ok)throw new Error("Could not load executions for task "+(task.name||task.id)+": "+(await response.text()||response.statusText));
-   const executions=await response.json();
-   return executions.map(execution=>{
+   const page=await response.json();
+   return page.items.map(execution=>{
     const iso=value=>value==null?null:new Date(Number(value)).toISOString();
-    const run={
-     ...execution,
-     type:"task",
-     task_id:task.id,
-     task_name:task.name,
-     created_at:iso(execution.created_at_unix_ms),
-     started_at:iso(execution.started_at_unix_ms),
-     finished_at:iso(execution.finished_at_unix_ms),
-     duration_ms:execution.duration_ms
-    };
+    const run={...execution,type:"task",task_id:task.id,task_name:task.name,
+     created_at:iso(execution.created_at_unix_ms),started_at:iso(execution.started_at_unix_ms),
+     finished_at:iso(execution.finished_at_unix_ms),duration_ms:execution.duration_ms};
     executionState.details[run.run_id]={run,events:execution.events||[],usage:{invocations:execution.usage||[]}};
     return run;
    });
-  }))).flat();
-  const conversationRuns=runs.map(run=>({...run,type:run.one_shot?"one-shot":"conversation"}));
-  executionState.runs=[...conversationRuns,...taskRuns].sort((a,b)=>new Date(b.started_at||b.created_at||0)-new Date(a.started_at||a.created_at||0));
+  }));
+  const conversationRuns=runsPage.items.map(run=>({...run,type:run.one_shot?"one-shot":"conversation"}));
+  const allRuns=[...conversationRuns,...taskPages.flat()].sort((a,b)=>new Date(b.started_at||b.created_at||0)-new Date(a.started_at||a.created_at||0));
+  executionState.runs=allRuns.slice(offset,requested);
+  executionState.hasMore=allRuns.length>requested||runsPage.has_more||taskPages.some(page=>page.length>=requested);
   renderExecutionHistory();
-  $("execution-status").textContent="Updated "+new Date().toLocaleTimeString()+" · "+executionState.runs.length+" executions";
+  $("execution-status").textContent="Updated "+new Date().toLocaleTimeString()+" · page "+(Math.floor(offset/EXECUTION_PAGE_SIZE)+1);
  }catch(error){
   $("execution-status").textContent="Could not load executions: "+error.message;
   $("execution-status").className="usage-status error";
-  $("execution-records").innerHTML='<tr><td colspan="6" class="usage-empty">Execution history could not be loaded.</td></tr>';
  }
 }
+
 function selectExecutionTab(tab){
  document.querySelectorAll("[data-execution-tab]").forEach(button=>button.classList.toggle("active",button.dataset.executionTab===tab));
  const detail=executionState.details[executionState.selected];
@@ -330,6 +334,8 @@ async function openExecution(runId){
 }
 document.querySelectorAll("[data-admin-view]").forEach(link=>link.addEventListener("click",event=>{event.preventDefault();showAdminView(link.dataset.adminView);history.replaceState(null,"",link.href)}));
 $("execution-search")?.addEventListener("input",renderExecutionHistory);
+$("execution-previous")?.addEventListener("click",()=>loadExecutionHistory(Math.max(0,executionState.offset-EXECUTION_PAGE_SIZE)));
+$("execution-next")?.addEventListener("click",()=>loadExecutionHistory(executionState.offset+EXECUTION_PAGE_SIZE));
 $("execution-refresh")?.addEventListener("click",loadExecutionHistory);
 $("execution-records")?.addEventListener("click",event=>{const row=event.target.closest("[data-run-id]");if(row)openExecution(row.dataset.runId)});
 $("execution-records")?.addEventListener("keydown",event=>{if((event.key==="Enter"||event.key===" ")&&event.target.matches("[data-run-id]")){event.preventDefault();openExecution(event.target.dataset.runId)}});
