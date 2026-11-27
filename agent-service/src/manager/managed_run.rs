@@ -181,9 +181,10 @@ impl ManagedRun {
         self.publish_last_event();
     }
 
-    /// Records a service or lifecycle event in the shared ordered history.
-    pub(super) fn record(&mut self, kind: RunEventKind) {
-        self.events.push(RunEvent {
+    /// Builds a lifecycle event without exposing it to subscribers yet.
+    /// Terminal events use this to ensure the transcript is durable first.
+    pub(super) fn next_event(&self, kind: RunEventKind) -> RunEvent {
+        RunEvent {
             sequence: self.events.len() as u64,
             kind,
             iteration: None,
@@ -194,14 +195,26 @@ impl ManagedRun {
             attempted_candidates: None,
             error_category: None,
             occurred_at: std::time::SystemTime::now(),
-        });
-        self.publish_last_event();
+        }
+    }
+
+    /// Adds an event to the ordered history and broadcasts it to subscribers.
+    pub(super) fn publish_event(&mut self, event: RunEvent) {
+        debug_assert_eq!(event.sequence, self.events.len() as u64);
+        self.events.push(event.clone());
+        let _ = self.event_sender.send((self.run.id, event));
     }
 
     fn publish_last_event(&self) {
         if let Some(event) = self.events.last() {
             let _ = self.event_sender.send((self.run.id, event.clone()));
         }
+    }
+
+    /// Records a service or lifecycle event in the shared ordered history.
+    pub(super) fn record(&mut self, kind: RunEventKind) {
+        let event = self.next_event(kind);
+        self.publish_event(event);
     }
 }
 
@@ -223,5 +236,40 @@ fn model_failure_category_name(category: agent_runtime::ModelFailureCategory) ->
         agent_runtime::ModelFailureCategory::Transient => "transient",
         agent_runtime::ModelFailureCategory::CandidateUnavailable => "candidate_unavailable",
         agent_runtime::ModelFailureCategory::Permanent => "permanent",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::RunStatus;
+
+    #[test]
+    fn pending_terminal_event_is_not_visible_until_published() {
+        let (event_sender, mut receiver) = broadcast::channel(8);
+        let mut managed = ManagedRun {
+            run: Run::new("assistant", "hello"),
+            cancellation: CancellationToken::new(),
+            events: Vec::new(),
+            history: Vec::new(),
+            context: ToolContext::default(),
+            persisted_message_count: None,
+            event_sender,
+        };
+        managed.run.mark_running().unwrap();
+        let event = managed.next_event(RunEventKind::Completed);
+
+        assert_eq!(managed.run.status, RunStatus::Running);
+        assert!(managed.events.is_empty());
+        assert!(matches!(
+            receiver.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+
+        managed.publish_event(event);
+
+        assert_eq!(managed.events.len(), 1);
+        assert_eq!(managed.events[0].kind, RunEventKind::Completed);
+        assert_eq!(receiver.try_recv().unwrap().1.kind, RunEventKind::Completed);
     }
 }
