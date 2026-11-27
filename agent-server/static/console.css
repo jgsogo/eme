@@ -1436,3 +1436,53 @@ body[data-page="conversations"] #conversations-table-body {
     justify-content: flex-end;
   }
 }
+
+
+/* Notes default to a rendered Markdown preview; source fields appear only in Edit mode. */
+.note-mode-toolbar{display:flex;gap:4px;width:max-content;padding:4px;margin:0 0 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel2)}
+.note-mode-tab{min-height:34px;padding:7px 14px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:650}
+.note-mode-tab.active{border-color:var(--border);background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.note-markdown-preview{min-height:180px;color:var(--text);line-height:1.65;overflow-wrap:anywhere}
+.note-markdown-preview:empty::before{content:"Nothing here yet.";color:var(--muted)}
+.note-markdown-preview>:first-child{margin-top:0}
+.note-markdown-preview>:last-child{margin-bottom:0}
+.note-markdown-preview pre{max-width:100%;padding:12px;overflow:auto;border:1px solid var(--border);border-radius:8px;background:var(--panel2)}
+.note-markdown-preview code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.note-markdown-preview blockquote{margin:12px 0;padding:2px 12px;border-left:3px solid var(--border);color:var(--muted)}
+.note-markdown-preview table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse}
+.note-markdown-preview th,.note-markdown-preview td{padding:7px 10px;border:1px solid var(--border);text-align:left}
+.note-markdown-preview img{max-width:100%}
+#note-edit-fields[hidden],#note-preview[hidden],#note-edit-actions[hidden],#note-edit-tab[hidden]{display:none!important}
+
+
+/* Keep the Notes view toggle alongside the note title. */
+.notes-editor-panel>.family-details-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.notes-editor-panel>.family-details-heading>div:first-child{min-width:0}
+.notes-editor-panel .note-mode-toolbar{flex:none;margin:0}
+.notes-editor-panel .note-mode-tab{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;min-height:34px;padding:7px}
+.notes-editor-panel .note-mode-tab svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.note-markdown-preview .note-preview-title{margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);font-size:1.55em;line-height:1.25}
+@media(max-width:600px){.notes-editor-panel>.family-details-heading{align-items:flex-start}.notes-editor-panel .note-mode-toolbar{margin-top:0}}
+
+
+/* Give the rendered note a calm reading surface and a comfortable measure. */
+.note-markdown-preview {
+  box-sizing: border-box;
+  width: min(100%, 860px);
+  margin: 22px auto;
+  padding: 34px clamp(20px, 4vw, 40px) 30px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel2);
+}
+.note-markdown-preview .note-preview-title {
+  margin-top: 0;
+  padding-top: 4px;
+}
+@media (max-width: 600px) {
+  .note-markdown-preview {
+    width: 100%;
+    margin: 14px auto;
+    padding: 22px 17px;
+  }
+}
