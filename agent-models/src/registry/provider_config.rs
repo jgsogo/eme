@@ -7,7 +7,6 @@ use std::path::Path;
 pub(super) struct ProviderConfig {
     pub(super) name: String,
     pub(super) client: String,
-    #[serde(default = "default_enabled")]
     pub(super) enabled: bool,
     pub(super) api_key_env: String,
     pub(super) account_id_env: Option<String>,
@@ -15,9 +14,6 @@ pub(super) struct ProviderConfig {
     pub(super) models: Vec<ModelConfig>,
 }
 
-fn default_enabled() -> bool {
-    true
-}
 
 impl ProviderConfig {
     pub(super) fn validate(&self, path: &Path) -> Result<(), ConfigError> {
