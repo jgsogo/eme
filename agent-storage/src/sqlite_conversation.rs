@@ -368,6 +368,7 @@ impl SqliteConversationStore {
         )
         .map_err(sqlite_error)?;
         tx.commit().map_err(sqlite_error)?;
+        drop(connection);
         self.get(id)
     }
 
