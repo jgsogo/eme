@@ -50,8 +50,22 @@ async function saveOverride(payload) {
     });
     const result = await response.json().catch(() => ({ error: response.statusText }));
     if (!response.ok) throw new Error(result.error || response.statusText);
+    const openDialog = document.querySelector(".provider-model-dialog[open]");
+    const selection = openDialog ? {
+      provider: openDialog.dataset.provider,
+      model: openDialog.querySelector("[data-model-enabled]")?.dataset.modelEnabled,
+    } : null;
     state.providers = result;
     render();
+    if (selection && state.view === "table") {
+      const provider = state.providers.find(item => item.name === selection.provider);
+      const model = provider?.models?.find(item => item.name === selection.model);
+      const host = $("provider-model-dialog-host");
+      if (provider && model && host) {
+        host.outerHTML = renderModelDialog(provider, model);
+        $("provider-model-dialog-host").showModal();
+      }
+    }
     $("providers-status").textContent = "Catalogue override saved.";
   } catch (error) {
     $("providers-status").textContent = "Could not save catalogue override: " + error.message;
