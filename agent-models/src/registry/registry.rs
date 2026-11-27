@@ -331,7 +331,11 @@ capabilities = ["chat"]
         .unwrap();
         let registry = Registry::load(&disabled_model).unwrap();
         assert!(!registry.contains_model("test/test-model"));
-        assert!(registry.compatible_models(&[ModelCapability::Chat]).is_empty());
+        assert!(
+            registry
+                .compatible_models(&[ModelCapability::Chat])
+                .is_empty()
+        );
         assert!(matches!(
             registry.resolve_model("test/test-model"),
             Err(ModelError::ModelDisabled(_))
