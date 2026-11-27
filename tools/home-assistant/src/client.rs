@@ -17,8 +17,8 @@ pub struct HomeAssistantClient {
 impl HomeAssistantClient {
     /// Build a client from a base URL.
     pub fn new(base_url: &str) -> Result<Self, HomeAssistantError> {
-        let mut base_url =
-            Url::parse(base_url).map_err(|error| HomeAssistantError::InvalidUrl(error.to_string()))?;
+        let mut base_url = Url::parse(base_url)
+            .map_err(|error| HomeAssistantError::InvalidUrl(error.to_string()))?;
 
         if !matches!(base_url.scheme(), "http" | "https")
             || base_url.host_str().is_none()
@@ -37,9 +37,7 @@ impl HomeAssistantClient {
             base_url.set_path(&path);
         }
 
-        let client = Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()?;
+        let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
         Ok(Self { client, base_url })
     }
@@ -76,7 +74,10 @@ impl HomeAssistantClient {
             return Err(HomeAssistantError::Http {
                 status: status.as_u16(),
                 message: if message.is_empty() {
-                    status.canonical_reason().unwrap_or("request failed").to_owned()
+                    status
+                        .canonical_reason()
+                        .unwrap_or("request failed")
+                        .to_owned()
                 } else {
                     message
                 },
@@ -188,7 +189,10 @@ mod tests {
             .await;
 
         let client = HomeAssistantClient::new(&server.uri()).unwrap();
-        let state = client.get_state("test-token", "light.kitchen").await.unwrap();
+        let state = client
+            .get_state("test-token", "light.kitchen")
+            .await
+            .unwrap();
         assert_eq!(state["state"], "on");
     }
 
@@ -224,7 +228,12 @@ mod tests {
 
         let client = HomeAssistantClient::new(&server.uri()).unwrap();
         let result = client
-            .call_service("test-token", "light", "turn_on", json!({"entity_id": "light.kitchen"}))
+            .call_service(
+                "test-token",
+                "light",
+                "turn_on",
+                json!({"entity_id": "light.kitchen"}),
+            )
             .await
             .unwrap();
         assert_eq!(result, json!([]));
