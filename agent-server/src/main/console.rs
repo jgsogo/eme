@@ -132,6 +132,12 @@ pub(super) async fn update_model_catalog_override(
         }));
     }
 
+    if body.get("access_tier").is_some() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "The access_tier field is defined by the TOML catalogue and cannot be overridden"
+        }));
+    }
+
     let model_name = match body.get("model") {
         None | Some(serde_json::Value::Null) => None,
         Some(serde_json::Value::String(model)) if !model.trim().is_empty() => {
