@@ -65,41 +65,54 @@ function renderAccessTier(model) {
     escapeHtml(formatAccessTier(model.access_tier)) + "</strong></span>";
 }
 
+function renderDetailField(key, value) {
+  const empty = value === null || value === undefined || value === "";
+  const complex = Array.isArray(value) || (value !== null && typeof value === "object");
+  const display = empty ? "—" : complex ? JSON.stringify(value, null, 2) : String(value);
+  return '<div class="provider-detail-field' + (complex || display.length > 90 ? " full" : "") + '">' +
+    '<dt>' + escapeHtml(formatCapability(key)) + '</dt><dd>' +
+    (complex ? '<pre>' + escapeHtml(display) + '</pre>' : escapeHtml(display)) + '</dd></div>';
+}
+
 function renderModelDialog(provider, model) {
-  const fields = Object.entries(model).map(([key, value]) => {
-    const display = value === null || value === undefined || value === ""
-      ? "—"
-      : Array.isArray(value) || typeof value === "object"
-        ? JSON.stringify(value, null, 2)
-        : String(value);
-    const full = display.length > 70 || display.includes("\n") || typeof value === "object";
-    return '<div class="provider-model-dialog-field' + (full ? " full" : "") + '"><dt>' +
-      escapeHtml(formatCapability(key)) + '</dt><dd>' + escapeHtml(display) + "</dd></div>";
-  }).join("");
+  const capabilities = model.capabilities || [];
+  const modelFields = Object.entries(model)
+    .filter(([key]) => !["name", "capabilities", "enabled", "access_tier"].includes(key))
+    .map(([key, value]) => renderDetailField(key, value)).join("");
   const providerFields = [
     ["Provider", provider.name],
     ["Client adapter", provider.client],
     ["Provider enabled", provider.enabled ? "Yes" : "No"],
-    ["Provider disabled reason", provider.disabled_reason || "—"],
-  ].map(([label, value]) => '<div class="provider-model-dialog-field"><dt>' + escapeHtml(label) +
-    '</dt><dd>' + escapeHtml(value) + "</dd></div>").join("");
-  return '<dialog id="provider-model-dialog-host" class="provider-model-dialog" data-provider="' + escapeHtml(provider.name) +
-    '" aria-labelledby="provider-model-dialog-title"><div class="provider-model-dialog-header"><div>' +
-    '<h3 id="provider-model-dialog-title">' + escapeHtml(model.name) + '</h3><p>' +
-    escapeHtml(provider.name + " · " + provider.client) + '</p></div>' +
-    '<button type="button" class="secondary provider-model-dialog-close" data-close-model-dialog aria-label="Close model details">✕</button></div>' +
-    '<div class="provider-model-dialog-content"><section class="provider-model-dialog-section"><h4>Model details</h4>' +
-    '<dl class="provider-model-dialog-grid">' + fields + '</dl></section>' +
-    '<section class="provider-model-dialog-section"><h4>Provider</h4><dl class="provider-model-dialog-grid">' +
-    providerFields + '</dl></section>' +
+    ["Disabled reason", provider.disabled_reason || "—"],
+  ].map(([key, value]) => renderDetailField(key, value)).join("");
+  const capabilityTags = capabilities.map(value =>
+    '<span class="provider-capability">' + escapeHtml(formatCapability(value)) + '</span>'
+  ).join("") || '<span class="provider-no-capabilities">No capabilities declared</span>';
+  return '<dialog id="provider-model-dialog-host" class="modal-dialog provider-model-dialog" data-provider="' +
+    escapeHtml(provider.name) + '" aria-labelledby="provider-model-dialog-title">' +
+    '<div class="family-details-heading provider-model-dialog-heading"><div>' +
+    '<p class="eyebrow">MODEL DETAILS</p><h3 id="provider-model-dialog-title">' + escapeHtml(model.name) +
+    '</h3><p class="hint">' + escapeHtml(provider.name + " · " + provider.client) + '</p>' +
+    '<div class="provider-detail-summary"><span class="provider-detail-tier">' +
+    escapeHtml(formatAccessTier(model.access_tier)) + '</span><span class="provider-table-status' +
+    (model.enabled ? " enabled" : "") + '">' + (model.enabled ? "Enabled" : "Disabled") +
+    '</span></div></div><button type="button" class="secondary icon-button provider-model-dialog-close" ' +
+    'data-close-model-dialog aria-label="Close model details" title="Close"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="m6 6 12 12M18 6 6 18"/></svg></button></div>' +
+    '<section class="family-section provider-detail-section"><div class="family-section-heading">' +
+    '<h3>Capabilities</h3><span class="hint">' + capabilities.length + ' declared</span></div>' +
+    '<div class="provider-capability-list">' + capabilityTags + '</div></section>' +
+    (modelFields ? '<section class="family-section provider-detail-section"><div class="family-section-heading">' +
+    '<h3>Model configuration</h3></div><dl class="provider-detail-grid">' + modelFields + '</dl></section>' : "") +
+    '<section class="family-section provider-detail-section"><div class="family-section-heading">' +
+    '<h3>Provider configuration</h3></div><dl class="provider-detail-grid">' + providerFields + '</dl></section>' +
     '<div class="provider-model-dialog-actions"><label class="provider-setting"><input type="checkbox" data-model-enabled="' +
     escapeHtml(model.name) + '"' + (model.enabled ? " checked" : "") + '><span>Model enabled</span></label>' +
     '<button type="button" class="secondary provider-reset-button" data-reset-model="' + escapeHtml(model.name) +
     '">Reset to TOML default</button><button type="button" class="secondary provider-test-button" data-test-model="' +
-    escapeHtml(model.name) + '">' + testIcon + "<span>Test model</span></button>" +
-    '<div class="provider-model-result" aria-live="polite"></div></div></div></dialog>';
+    escapeHtml(model.name) + '">' + testIcon + '<span>Test model</span></button>' +
+    '<div class="provider-model-result" aria-live="polite"></div></div></dialog>';
 }
-
 function renderTable(providers) {
   const rows = providers.flatMap(provider => provider.models.map(model => {
     const capabilities = (model.capabilities || []).map(formatCapability).join(", ") || "—";
@@ -107,20 +120,20 @@ function renderTable(providers) {
       escapeHtml(model.name) + '" tabindex="0" role="button" aria-label="Show details for ' +
       escapeHtml(model.name) + '">' +
       '<td class="provider-table-model">' + escapeHtml(model.name) + '</td>' +
-      '<td class="provider-table-provider">' + escapeHtml(provider.name) + '</td>' +
+      '<td>' + escapeHtml(provider.name) + '</td>' +
       '<td>' + escapeHtml(formatAccessTier(model.access_tier)) + '</td>' +
       '<td><span class="provider-table-status' + (model.enabled ? " enabled" : "") + '">' +
       (model.enabled ? "Enabled" : "Disabled") + '</span></td>' +
       '<td class="provider-table-capabilities" title="' + escapeHtml(capabilities) + '">' +
-      escapeHtml(capabilities) + "</td></tr>";
+      escapeHtml(capabilities) + '</td></tr>';
   })).join("");
-  const dialog = '<dialog id="provider-model-dialog-host" class="provider-model-dialog" aria-label="Model details"></dialog>';
-  if (!rows) return '<div class="usage-empty">' + (providers.length ? "No models match this filter." : "No providers are configured.") + "</div>" + dialog;
-  return '<div class="provider-list-table-wrap"><table class="provider-list-table"><thead><tr>' +
-    "<th>Model</th><th>Provider</th><th>Access tier</th><th>Status</th><th>Capabilities</th>" +
-    '</tr></thead><tbody>' + rows + "</tbody></table></div>" + dialog;
+  const dialog = '<dialog id="provider-model-dialog-host" class="modal-dialog provider-model-dialog" aria-label="Model details"></dialog>';
+  if (!rows) return '<div class="usage-empty">' +
+    (providers.length ? "No models match this filter." : "No providers are configured.") + "</div>" + dialog;
+  return '<div class="usage-table-wrap provider-list-table-wrap"><table class="usage-table provider-list-table">' +
+    '<thead><tr><th>Model</th><th>Provider</th><th>Access tier</th><th>Status</th><th>Capabilities</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>' + dialog;
 }
-
 function render() {
   const query = $("providers-search").value.trim().toLocaleLowerCase();
   const providers = state.providers.map(provider => {
