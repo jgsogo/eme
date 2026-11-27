@@ -632,3 +632,26 @@
     flex: none;
   }
 }
+
+
+/* Keep the model details scrollbar visible on mobile, even when the
+   platform normally hides overlay scrollbars. */
+@media (max-width: 700px) {
+  .provider-model-dialog .provider-dialog-content {
+    overflow-y: scroll;
+    scrollbar-width: auto;
+    scrollbar-color: var(--muted) var(--panel2);
+  }
+  .provider-model-dialog .provider-dialog-content::-webkit-scrollbar {
+    width: 7px;
+  }
+  .provider-model-dialog .provider-dialog-content::-webkit-scrollbar-track {
+    background: var(--panel2);
+    border-radius: 8px;
+  }
+  .provider-model-dialog .provider-dialog-content::-webkit-scrollbar-thumb {
+    background: var(--muted);
+    border: 2px solid var(--panel2);
+    border-radius: 8px;
+  }
+}
