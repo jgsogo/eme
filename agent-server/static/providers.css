@@ -414,3 +414,91 @@
     flex: none;
   }
 }
+
+
+/* Desktop uses CSS-drawn icons rather than inline SVG. This avoids inherited
+   SVG rules from the desktop shell and keeps the controls visible without
+   relying on SVG presentation defaults. Mobile retains its existing SVGs. */
+@media (min-width: 701px) {
+  .provider-view-switch > button.icon-button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    color: var(--text) !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+  }
+  .provider-desktop-icon {
+    display: grid !important;
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: currentColor;
+    pointer-events: none;
+  }
+  .provider-desktop-icon-grid {
+    grid-template-columns: repeat(2, 7px);
+    grid-template-rows: repeat(2, 7px);
+    gap: 3px;
+  }
+  .provider-desktop-icon-grid i {
+    display: block;
+    width: 7px;
+    height: 7px;
+    border: 1.7px solid currentColor;
+    border-radius: 1.5px;
+  }
+  .provider-desktop-icon-list {
+    grid-template-columns: 3px 1fr;
+    grid-template-rows: repeat(3, 3px);
+    align-content: center;
+    column-gap: 4px;
+    row-gap: 3px;
+  }
+  .provider-desktop-icon-list i {
+    display: block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 7px 0 0 -0.3px currentColor;
+  }
+  .provider-desktop-icon-list i::after {
+    display: block;
+    width: 10px;
+    height: 1.6px;
+    margin-left: 5px;
+    margin-top: .7px;
+    border-radius: 2px;
+    background: currentColor;
+    content: "";
+  }
+  .provider-model-dialog .provider-model-dialog-close {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    color: var(--text) !important;
+    font-size: 25px !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+  }
+  .provider-model-dialog .provider-model-dialog-close .provider-dialog-close-glyph {
+    display: block !important;
+    color: currentColor !important;
+    font: 400 25px/1 Arial, sans-serif !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .provider-view-switch > button.icon-button > svg,
+  .provider-model-dialog .provider-model-dialog-close > svg { display: none !important; }
+}
