@@ -70,7 +70,9 @@ Provider-independent model integration.
 Current integrations:
 
 - Google Gemini.
-- OpenAI-compatible APIs, including Cloudflare Workers AI.
+- OpenAI-compatible APIs: Cloudflare Workers AI, DeepSeek, Groq, and OpenRouter.
+
+The catalogue advertises capabilities supported by the current adapter, not every feature available from the upstream model API. For example, image-input models are not marked as vision-capable until the shared conversation contract and provider adapters can actually send image content.
 
 #### `agent-runtime`
 
