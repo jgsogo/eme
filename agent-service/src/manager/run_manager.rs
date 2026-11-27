@@ -570,8 +570,13 @@ impl RunManager {
 
     /// Returns a bounded newest-first page of runs and the persisted total.
     pub async fn list_page(&self, offset: u64, limit: u64) -> Result<(Vec<Run>, u64), String> {
-        let in_memory = self.runs.lock().await;
-        let in_memory_runs = in_memory.values().map(|entry| entry.run.clone()).collect::<Vec<_>>();
+        let (in_memory_ids, in_memory_runs) = {
+            let in_memory = self.runs.lock().await;
+            (
+                in_memory.keys().map(|id| id.as_uuid()).collect::<std::collections::HashSet<_>>(),
+                in_memory.values().map(|entry| entry.run.clone()).collect::<Vec<_>>(),
+            )
+        };
         let mut by_id = HashMap::new();
         let total;
         if let Some(storage) = current_storage(&self.persistence) {
@@ -579,7 +584,7 @@ impl RunManager {
             let stored = storage.list_runs_page(0, fetch_limit).await.map_err(|error| error.to_string())?;
             total = storage.count_runs().await.map_err(|error| error.to_string())?;
             for run in stored {
-                let run = if in_memory.contains_key(&RunId::from(run.id)) {
+                let run = if in_memory_ids.contains(&run.id) {
                     run
                 } else {
                     match recover_interrupted_run(storage.as_ref(), run.clone()).await {
