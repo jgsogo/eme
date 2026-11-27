@@ -395,7 +395,10 @@ capabilities = ["chat"]
             );
         }
 
-        let groq = catalog.iter().find(|provider| provider.name == "groq").unwrap();
+        let groq = catalog
+            .iter()
+            .find(|provider| provider.name == "groq")
+            .unwrap();
         let minimax = groq
             .models
             .iter()
