@@ -43,11 +43,26 @@ impl Tool for AlexaSpeak {
             });
         }
 
+        let volume = match arguments.get("volume") {
+            None => None,
+            Some(value) => match value.as_u64().filter(|volume| *volume <= 100) {
+                Some(volume) => Some(volume as u8),
+                None => {
+                    return Err(ToolError::InvalidArguments {
+                        tool_name: "alexa.speak".into(),
+                        errors: vec![
+                            "'volume' must be an integer between 0 and 100 (inclusive)".into(),
+                        ],
+                    });
+                }
+            },
+        };
+
         let device_name = std::env::var("AMAZON_ALEXA_DEVICE_NAME").map_err(|_| {
             ToolError::Configuration("AMAZON_ALEXA_DEVICE_NAME env var not set".into())
         })?;
 
-        alexa_speak(&device_name, text, chime)
+        alexa_speak(&device_name, text, chime, volume)
             .await
             .map_err(|error| ToolError::Execution(error.to_string()))?;
 
