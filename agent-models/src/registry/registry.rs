@@ -359,6 +359,25 @@ capabilities = ["chat"]
     }
 
     #[test]
+    fn loads_repository_provider_catalogue() {
+        let data_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../data");
+        let registry = Registry::load(data_dir).unwrap();
+
+        let catalog = registry.catalog();
+        assert_eq!(catalog.len(), 5, "unexpected provider catalogue: {catalog:#?}");
+
+        for model in [
+            "cloudflare/@cf/zai-org/glm-4.7-flash",
+            "deepseek/deepseek-flash",
+            "gemini/gemini-3.8-flash",
+            "groq/openai/gpt-oss-120b",
+            "openrouter/anthropic/claude-sonnet-4.5",
+        ] {
+            assert!(registry.contains_model(model), "missing configured model '{model}'");
+        }
+    }
+
+    #[test]
     fn loads_valid_providers_and_rejects_invalid_registry_configuration() {
         let directory = TestDirectory::new();
 
