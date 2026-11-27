@@ -1,0 +1,6 @@
+name = "home_assistant.get_states"
+description = "List the current state and attributes of all Home Assistant entities."
+
+[parameters]
+type = "object"
+additionalProperties = false
