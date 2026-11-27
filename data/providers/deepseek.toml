@@ -8,10 +8,10 @@ base_url = "https://api.deepseek.com"
 name = "deepseek-flash"
 enabled = true
 access_tier = "paid"
-capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+capabilities = ["chat", "reasoning", "coding"]
 
 [[models]]
 name = "deepseek-v4-pro"
 enabled = true
 access_tier = "paid"
-capabilities = ["chat", "reasoning", "coding", "tool_calling"]
+capabilities = ["chat", "reasoning", "coding"]
