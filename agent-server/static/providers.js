@@ -225,7 +225,7 @@ function render() {
 
 async function testModel(button) {
   const card = button.closest("[data-provider]");
-  const row = button.closest(".provider-model") || button.closest(".provider-model-dialog-content");
+  const row = button.closest(".provider-model") || button.closest(".provider-model-dialog");
   const result = row.querySelector(".provider-model-result");
   button.disabled = true;
   button.innerHTML = "<span>Testing…</span>";
