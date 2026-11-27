@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
+use serde::Deserialize;
 
 use agent_metering::{
     CostEstimate, CostStatus, ModelPricing, UsageRecord, calculate_cost, summarize_usage,
@@ -83,36 +84,56 @@ fn status_name(status: RunStatus) -> &'static str {
     }
 }
 
+#[derive(Deserialize)]
+struct RunListQuery {
+    offset: Option<u64>,
+    limit: Option<u64>,
+}
+
 #[get("")]
 async fn list_runs(
     request: HttpRequest,
+    query: web::Query<RunListQuery>,
     auth: Option<Data<crate::auth::TelegramAuth>>,
     manager: Data<RunManager>,
     store: Option<Data<Arc<SqliteConversationStore>>>,
 ) -> impl Responder {
-    let runs = manager
-        .list()
-        .await
-        .into_iter()
-        .filter(|run| match auth.as_ref() {
-            Some(auth) => owns_run(
-                run,
+    const DEFAULT_PAGE_SIZE: u64 = 25;
+    const MAX_PAGE_SIZE: u64 = 100;
+    let limit = query.limit.unwrap_or(DEFAULT_PAGE_SIZE).clamp(1, MAX_PAGE_SIZE);
+    let mut offset = query.offset.unwrap_or(0);
+    let mut body = Vec::with_capacity(limit as usize);
+    let mut has_more = false;
+
+    while body.len() < limit as usize {
+        let remaining = limit - body.len() as u64;
+        let (runs, total) = match manager.list_page(offset, remaining).await {
+            Ok(page) => page,
+            Err(error) => {
+                tracing::error!(%error, "failed to load paginated run history");
+                return HttpResponse::InternalServerError().body("could not load run history");
+            }
+        };
+        if runs.is_empty() {
+            break;
+        }
+        offset = offset.saturating_add(runs.len() as u64);
+        has_more = offset < total;
+        for run in runs {
+            if auth.as_ref().is_some_and(|auth| !owns_run(
+                &run,
                 &request,
                 Some(auth.get_ref()),
                 store.as_ref().map(|store| store.get_ref().as_ref()),
-            ),
-            None => true,
-        })
-        .collect::<Vec<_>>();
-    let body = runs
-        .into_iter()
-        .map(|run| {
+            )) {
+                continue;
+            }
             let one_shot = is_one_shot_run(
                 &run,
                 store.as_ref().map(|store| store.get_ref().as_ref()),
                 auth.as_deref().map(|value| &**value),
             );
-            GetRunResponse {
+            body.push(GetRunResponse {
                 run_id: run.id.to_string(),
                 conversation_id: run.conversation_id.map(|id| id.to_string()),
                 input: run.input,
@@ -124,10 +145,21 @@ async fn list_runs(
                 started_at: run.started_at.map(timestamp),
                 finished_at: run.finished_at.map(timestamp),
                 one_shot,
+            });
+            if body.len() == limit as usize {
+                break;
             }
-        })
-        .collect::<Vec<_>>();
-    HttpResponse::Ok().json(body)
+        }
+        if offset >= total {
+            break;
+        }
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "items": body,
+        "next_offset": offset,
+        "has_more": has_more,
+    }))
 }
 
 #[get("/usage")]
