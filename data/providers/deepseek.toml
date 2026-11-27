@@ -1,0 +1,17 @@
+name = "deepseek"
+client = "openai-compatible"
+enabled = true
+api_key_env = "DEEPSEEK_API_KEY"
+base_url = "https://api.deepseek.com"
+
+[[models]]
+name = "deepseek-flash"
+enabled = true
+access_tier = "paid"
+capabilities = ["chat", "reasoning", "coding"]
+
+[[models]]
+name = "deepseek-v4-pro"
+enabled = true
+access_tier = "paid"
+capabilities = ["chat", "reasoning", "coding"]
