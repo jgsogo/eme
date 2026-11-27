@@ -264,7 +264,7 @@ async function loadExecutionHistory(offset=executionState.offset){
    const response=await fetch("/tasks/"+encodeURIComponent(task.id)+"/executions?limit="+requested,{headers:{Accept:"application/json"}});
    if(!response.ok)throw new Error("Could not load executions for task "+(task.name||task.id)+": "+(await response.text()||response.statusText));
    const page=await response.json();
-   return page.items.map(execution=>{
+   const items=page.items.map(execution=>{
     const iso=value=>value==null?null:new Date(Number(value)).toISOString();
     const run={...execution,type:"task",task_id:task.id,task_name:task.name,
      created_at:iso(execution.created_at_unix_ms),started_at:iso(execution.started_at_unix_ms),
@@ -272,11 +272,12 @@ async function loadExecutionHistory(offset=executionState.offset){
     executionState.details[run.run_id]={run,events:execution.events||[],usage:{invocations:execution.usage||[]}};
     return run;
    });
+   return {items,total:page.total};
   }));
   const conversationRuns=runsPage.items.map(run=>({...run,type:run.one_shot?"one-shot":"conversation"}));
-  const allRuns=[...conversationRuns,...taskPages.flat()].sort((a,b)=>new Date(b.started_at||b.created_at||0)-new Date(a.started_at||a.created_at||0));
+  const allRuns=[...conversationRuns,...taskPages.flatMap(page=>page.items)].sort((a,b)=>new Date(b.started_at||b.created_at||0)-new Date(a.started_at||a.created_at||0));
   executionState.runs=allRuns.slice(offset,requested);
-  executionState.hasMore=allRuns.length>requested||runsPage.has_more||taskPages.some(page=>page.length>=requested);
+  executionState.hasMore=allRuns.length>requested||runsPage.has_more||taskPages.some(page=>page.total>requested);
   renderExecutionHistory();
   $("execution-status").textContent="Updated "+new Date().toLocaleTimeString()+" · page "+(Math.floor(offset/EXECUTION_PAGE_SIZE)+1);
  }catch(error){
