@@ -1453,3 +1453,13 @@ body[data-page="conversations"] #conversations-table-body {
 .note-markdown-preview th,.note-markdown-preview td{padding:7px 10px;border:1px solid var(--border);text-align:left}
 .note-markdown-preview img{max-width:100%}
 #note-edit-fields[hidden],#note-preview[hidden],#note-edit-actions[hidden],#note-edit-tab[hidden]{display:none!important}
+
+
+/* Keep the Notes view toggle alongside the note title. */
+.notes-editor-panel>.family-details-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.notes-editor-panel>.family-details-heading>div:first-child{min-width:0}
+.notes-editor-panel .note-mode-toolbar{flex:none;margin:0}
+.notes-editor-panel .note-mode-tab{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;min-height:34px;padding:7px}
+.notes-editor-panel .note-mode-tab svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.note-markdown-preview .note-preview-title{margin:0 0 18px;padding-bottom:12px;border-bottom:1px solid var(--border);font-size:1.55em;line-height:1.25}
+@media(max-width:600px){.notes-editor-panel>.family-details-heading{align-items:flex-start}.notes-editor-panel .note-mode-toolbar{margin-top:0}}
