@@ -188,8 +188,7 @@ function renderModelDialog(provider, model) {
             escapeHtml(provider.client) + '</p></div>' +
         '<button type="button" class="secondary icon-button provider-model-dialog-close" ' +
           'data-close-model-dialog aria-label="Close model details" title="Close">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">' +
-            '<path d="m6 6 12 12M18 6 6 18"/></svg></button>' +
+          '<span class="provider-dialog-close-glyph" aria-hidden="true">×</span></button>' +
       '</header>' +
       '<div class="provider-dialog-content">' +
         '<div class="provider-dialog-layout">' +
