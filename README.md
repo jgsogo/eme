@@ -143,6 +143,56 @@ The `basic_agent` example demonstrates an end-to-end agent workflow:
 
 The example includes an addition tool and demonstrates tool-failure recovery: a deprecated tool returns an error, the model receives that error, and it can select an alternative tool.
 
+## Agent delegation
+
+Agents can delegate specialized work to other configured agents through the built-in
+`delegate_agent` capability. Delegation is synchronous from the parent's
+perspective: the parent waits for the child run, receives its result, and then
+continues its own conversation.
+
+A parent must explicitly grant delegation targets in its agent definition:
+
+```toml
+# data/agents/assistant.toml
+
+name = "assistant"
+description = "General-purpose assistant"
+capabilities = ["chat", "tool_calling"]
+instructions = "Coordinate tasks and delegate specialized work when useful."
+tools = ["get_current_datetime"]
+allowed_delegates = ["researcher", "analyst"]
+max_delegation_depth = 3
+max_iterations = 10
+```
+
+The child is an ordinary agent definition with its own instructions, model
+capabilities, and tool grants:
+
+```toml
+# data/agents/researcher.toml
+
+name = "researcher"
+description = "Research specialist"
+capabilities = ["chat", "tool_calling"]
+instructions = "Research the assigned question and return a concise report."
+tools = ["tavily_search"]
+max_iterations = 8
+```
+
+The runtime exposes `delegate_agent` only to agents with configured
+`allowed_delegates`. The requested target is checked against that allow-list
+at execution time; unknown targets and invalid delegation depth are rejected.
+The child receives a fresh conversation, its own agent instructions and tool
+allow-list, plus only the task and optional context explicitly supplied by the
+parent. Trusted host identity and authorization context are retained, while
+the parent's conversation identifier and transcript are not inherited.
+
+Delegation currently executes the child runtime inline rather than submitting
+it to the bounded `RunManager` worker queue. This avoids worker starvation
+when parent runs wait for children. The parent tool invocation is subject to
+the runtime's normal tool timeout and cancellation signal. Child run IDs and
+results are returned to the parent as structured JSON tool output.
+
 ## Model routing and fallback
 
 Agents declare the capabilities they require rather than pinning a provider/model identifier. For each model turn, the runtime asks the configured registry for all compatible models. Candidate order is deterministic, and model identifiers remain provider-qualified.

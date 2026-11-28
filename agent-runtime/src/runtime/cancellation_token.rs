@@ -12,7 +12,7 @@ use std::sync::{
 /// recorded before the runtime stops. No subsequent model or tool operation is
 /// started after cancellation is observed. This avoids abandoning a tool result
 /// when an external side effect may already have occurred.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct CancellationToken {
     cancelled: Arc<AtomicBool>,
 }
@@ -32,3 +32,11 @@ impl CancellationToken {
         self.cancelled.load(Ordering::Relaxed)
     }
 }
+
+impl PartialEq for CancellationToken {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.cancelled, &other.cancelled)
+    }
+}
+
+impl Eq for CancellationToken {}

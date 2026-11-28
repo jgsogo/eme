@@ -1,6 +1,7 @@
 //! Trusted host-provided metadata passed to every tool invocation.
 
 use uuid::Uuid;
+use crate::CancellationToken;
 
 use super::FamilyContext;
 
@@ -23,6 +24,12 @@ pub struct ToolContext {
     pub conversation_id: Option<String>,
     /// Stable identifier of the enclosing agent run.
     pub run_id: Option<Uuid>,
+    /// Agent executing this tool call, supplied by the runtime.
+    pub agent_id: Option<String>,
+    /// Number of delegation edges between the root run and this run.
+    pub delegation_depth: usize,
+    /// Shared cancellation signal for the enclosing run.
+    pub cancellation: Option<CancellationToken>,
 }
 
 impl ToolContext {

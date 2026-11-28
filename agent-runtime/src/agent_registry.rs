@@ -7,7 +7,7 @@ use agent_models::Registry as ModelRegistry;
 
 use crate::{AgentDefinition, ToolRegistry};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct AgentRegistry {
     agents: BTreeMap<String, AgentDefinition>,
 }
@@ -96,6 +96,21 @@ impl AgentRegistry {
                     "Agent '{}' requires capabilities {:?}, but no configured model satisfies all of them",
                     agent.name, agent.capabilities
                 ));
+            }
+
+            let mut seen_delegates = std::collections::HashSet::new();
+            for delegate in &agent.allowed_delegates {
+                if !seen_delegates.insert(delegate) {
+                    issues.push(format!(
+                        "Agent '{}' lists delegate '{}' more than once",
+                        agent.name, delegate
+                    ));
+                } else if !self.agents.contains_key(delegate) {
+                    issues.push(format!(
+                        "Agent '{}' is allowed to delegate to unknown agent '{}'",
+                        agent.name, delegate
+                    ));
+                }
             }
 
             let mut seen_tools = std::collections::HashSet::new();
