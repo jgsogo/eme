@@ -64,8 +64,10 @@ async fn update_profile(
         Err(response) => return response,
     };
 
-    if body.display_name.is_none() && body.timezone.is_none()
-        && body.one_shot_agent.is_none() && body.one_shot_family_id.is_none()
+    if body.display_name.is_none()
+        && body.timezone.is_none()
+        && body.one_shot_agent.is_none()
+        && body.one_shot_family_id.is_none()
         && body.one_shot_prompt.is_none()
     {
         return HttpResponse::BadRequest().body("at least one profile field must be provided");
