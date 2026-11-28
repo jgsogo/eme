@@ -67,6 +67,9 @@ impl IdentityState {
             display_name: Some(display_name),
             birthday,
             timezone: None,
+            one_shot_agent: None,
+            one_shot_family_id: None,
+            one_shot_prompt: None,
             created_at: now,
             updated_at: now,
         };
