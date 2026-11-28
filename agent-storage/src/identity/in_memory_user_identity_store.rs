@@ -72,6 +72,18 @@ impl UserIdentityStore for InMemoryUserIdentityStore {
             .unwrap_or_else(|p| p.into_inner())
             .update_timezone(user_id, timezone)
     }
+    fn update_one_shot_config(
+        &self,
+        user_id: UserId,
+        agent: Option<&str>,
+        family_id: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<User, IdentityStoreError> {
+        self.state
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .update_one_shot_config(user_id, agent, family_id, prompt)
+    }
     fn find_identity(
         &self,
         provider: &str,
