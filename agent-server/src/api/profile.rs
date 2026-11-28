@@ -94,18 +94,34 @@ async fn update_profile(
             Err(_) => return HttpResponse::InternalServerError().finish(),
         };
     }
-    if body.one_shot_agent.is_some() || body.one_shot_family_id.is_some() || body.one_shot_prompt.is_some() {
-        let agent = body.one_shot_agent.as_deref().or(updated.one_shot_agent.as_deref());
-        let family_id = body.one_shot_family_id.as_deref().or(updated.one_shot_family_id.as_deref());
-        let prompt = body.one_shot_prompt.as_deref().or(updated.one_shot_prompt.as_deref());
+    if body.one_shot_agent.is_some()
+        || body.one_shot_family_id.is_some()
+        || body.one_shot_prompt.is_some()
+    {
+        let agent = body
+            .one_shot_agent
+            .as_deref()
+            .or(updated.one_shot_agent.as_deref());
+        let family_id = body
+            .one_shot_family_id
+            .as_deref()
+            .or(updated.one_shot_family_id.as_deref());
+        let prompt = body
+            .one_shot_prompt
+            .as_deref()
+            .or(updated.one_shot_prompt.as_deref());
         if agent.is_some_and(|value| !value.trim().is_empty() && value.trim().len() > 120) {
-            return HttpResponse::BadRequest().body("one-shot agent name must be at most 120 characters");
+            return HttpResponse::BadRequest()
+                .body("one-shot agent name must be at most 120 characters");
         }
-        if family_id.is_some_and(|value| !value.trim().is_empty() && uuid::Uuid::parse_str(value.trim()).is_err()) {
+        if family_id.is_some_and(|value| {
+            !value.trim().is_empty() && uuid::Uuid::parse_str(value.trim()).is_err()
+        }) {
             return HttpResponse::BadRequest().body("one-shot family identifier is invalid");
         }
         if prompt.is_some_and(|value| value.chars().count() > 4000) {
-            return HttpResponse::BadRequest().body("one-shot prompt must be at most 4000 characters");
+            return HttpResponse::BadRequest()
+                .body("one-shot prompt must be at most 4000 characters");
         }
         updated = match identities.update_one_shot_config(updated.id, agent, family_id, prompt) {
             Ok(user) => user,
