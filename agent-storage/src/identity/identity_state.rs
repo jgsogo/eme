@@ -144,9 +144,18 @@ impl IdentityState {
             .users
             .get_mut(&user_id)
             .ok_or(IdentityStoreError::UserNotFound(user_id))?;
-        user.one_shot_agent = agent.map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned);
-        user.one_shot_family_id = family_id.map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned);
-        user.one_shot_prompt = prompt.map(str::trim).filter(|value| !value.is_empty()).map(str::to_owned);
+        user.one_shot_agent = agent
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        user.one_shot_family_id = family_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        user.one_shot_prompt = prompt
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
         user.updated_at = Utc::now();
         Ok(user.clone())
     }
