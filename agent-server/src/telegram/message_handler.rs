@@ -7,7 +7,8 @@ use agent_server::AgentListItem;
 use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, FamilyId, FamilyInvitationStore, FamilyRelationship, FamilyStore, FileUserIdentityStore,
+    ConversationId, FamilyId, FamilyInvitationStore, FamilyRelationship, FamilyStore,
+    FileUserIdentityStore,
     InvitationTargetIdentity, InvitationToken, SqliteConversationStore, SqliteFamilyStore, UserId,
     UserIdentityStore,
 };
@@ -492,11 +493,24 @@ async fn handle_one_shot(
     active_conversations: &Arc<Mutex<HashSet<ConversationId>>>,
     auth: &Arc<TelegramAuth>,
 ) {
-    let Some(agent) = user.one_shot_agent.as_deref().filter(|value| !value.trim().is_empty()) else {
-        let _ = gateway.send_message(chat_id, "Configure a one-shot agent in your EME profile before using /m.").await;
+    let Some(agent) = user
+        .one_shot_agent
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    else {
+        let _ = gateway
+            .send_message(
+                chat_id,
+                "Configure a one-shot agent in your EME profile before using /m.",
+            )
+            .await;
         return;
     };
-    let input = match user.one_shot_prompt.as_deref().filter(|value| !value.trim().is_empty()) {
+    let input = match user
+        .one_shot_prompt
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
         Some(prefix) => format!("{}\n\n{}", prefix.trim(), message.trim()),
         None => message.trim().to_owned(),
     };
@@ -504,7 +518,12 @@ async fn handle_one_shot(
         Some(value) => match FamilyId::from_str(value) {
             Ok(id) => Some(id),
             Err(_) => {
-                let _ = gateway.send_message(chat_id, "The family configured for one-shot execution is invalid. Update your profile settings.").await;
+                let _ = gateway
+                    .send_message(
+                        chat_id,
+                        "The family configured for one-shot execution is invalid. Update your profile settings.",
+                    )
+                    .await;
                 return;
             }
         },
@@ -517,17 +536,26 @@ async fn handle_one_shot(
                     let member_id = match UserId::from_str(&member.user_id) {
                         Ok(id) => id,
                         Err(_) => {
-                            let _ = gateway.send_message(chat_id, "Could not resolve a family member identity.").await;
+                            let _ = gateway
+                                .send_message(chat_id, "Could not resolve a family member identity.")
+                                .await;
                             return;
                         }
                     };
-                    member.telegram_id = match identities.find_identity_for_user("telegram", member_id) {
-                        Ok(identity) => identity.map(|identity| identity.subject),
-                        Err(error) => {
-                            send_error(gateway, chat_id, "load a family member Telegram identity", error).await;
-                            return;
-                        }
-                    };
+                    member.telegram_id =
+                        match identities.find_identity_for_user("telegram", member_id) {
+                            Ok(identity) => identity.map(|identity| identity.subject),
+                            Err(error) => {
+                                send_error(
+                                    gateway,
+                                    chat_id,
+                                    "load a family member Telegram identity",
+                                    error,
+                                )
+                                .await;
+                                return;
+                            }
+                        };
                     if let Ok(Some(member_user)) = identities.get_user(member_id) {
                         member.name = member_user.display_name;
                         member.birthday = member_user.birthday;
@@ -536,7 +564,12 @@ async fn handle_one_shot(
                 Some(context)
             }
             Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
-                let _ = gateway.send_message(chat_id, "The family configured for one-shot execution is no longer available. Update your profile settings.").await;
+                let _ = gateway
+                    .send_message(
+                        chat_id,
+                        "The family configured for one-shot execution is no longer available. Update your profile settings.",
+                    )
+                    .await;
                 return;
             }
             Err(error) => {
@@ -568,12 +601,21 @@ async fn handle_one_shot(
         conversation_id: Some(conversation.id.to_string()),
         run_id: None,
     };
-    match manager.submit(agent.to_owned(), input, Vec::new(), context).await {
+    match manager
+        .submit(agent.to_owned(), input, Vec::new(), context)
+        .await
+    {
         Ok(run_id) => {
             auth.register_run(run_id.to_string(), owner);
             tokio::spawn(report(
-                gateway.clone(), chat_id, message_id, manager.clone(), store.clone(),
-                conversation.id, active_conversations.clone(), run_id,
+                gateway.clone(),
+                chat_id,
+                message_id,
+                manager.clone(),
+                store.clone(),
+                conversation.id,
+                active_conversations.clone(),
+                run_id,
             ));
             let cleanup_store = store.clone();
             let cleanup_manager = manager.clone();
@@ -581,9 +623,19 @@ async fn handle_one_shot(
             let conversation_id = conversation.id;
             tokio::spawn(async move {
                 loop {
-                    if cleanup_manager.get(run_id).await.is_some_and(|run| run.status.is_terminal()) {
-                        if let Err(error) = cleanup_store.delete(&cleanup_owner, conversation_id) {
-                            tracing::warn!(%conversation_id, %error, "failed to remove Telegram one-shot conversation");
+                    if cleanup_manager
+                        .get(run_id)
+                        .await
+                        .is_some_and(|run| run.status.is_terminal())
+                    {
+                        if let Err(error) =
+                            cleanup_store.delete(&cleanup_owner, conversation_id)
+                        {
+                            tracing::warn!(
+                                %conversation_id,
+                                %error,
+                                "failed to remove Telegram one-shot conversation"
+                            );
                         }
                         break;
                     }
@@ -594,7 +646,9 @@ async fn handle_one_shot(
         Err(SubmitRunError::QueueFull) => {
             active_conversations.lock().await.remove(&conversation.id);
             let _ = store.delete(owner, conversation.id);
-            let _ = gateway.send_message(chat_id, "The agent queue is full; try again shortly.").await;
+            let _ = gateway
+                .send_message(chat_id, "The agent queue is full; try again shortly.")
+                .await;
         }
         Err(SubmitRunError::Storage(error)) => {
             active_conversations.lock().await.remove(&conversation.id);
