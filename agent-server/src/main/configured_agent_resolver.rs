@@ -263,6 +263,7 @@ impl Tool for DelegateAgentTool {
 
         Ok(json!({
             "run_id": child_run_id,
+            "parent_run_id": context.run_id,
             "agent": target,
             "status": format!("{:?}", result.status).to_lowercase(),
             "output": result.response,
