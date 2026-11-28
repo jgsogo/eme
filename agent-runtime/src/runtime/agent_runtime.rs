@@ -442,6 +442,8 @@ impl AgentRuntime {
         cancellation: CancellationToken,
     ) -> Result<RunResult, RunFailure> {
         context.run_id = Some(run_id);
+        context.agent_id = Some(agent.id.clone());
+        context.cancellation = Some(cancellation.clone());
         let deadline = self
             .timeout
             .map(|timeout| tokio::time::Instant::now() + timeout);
