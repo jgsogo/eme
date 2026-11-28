@@ -1,13 +1,13 @@
 //! Authenticates inbound messages and dispatches prompts to agent runs.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use agent_runtime::ToolContext;
 use agent_server::AgentListItem;
 use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
-    ConversationId, FamilyInvitationStore, FamilyRelationship, FamilyStore, FileUserIdentityStore,
+    ConversationId, FamilyId, FamilyInvitationStore, FamilyRelationship, FamilyStore, FileUserIdentityStore,
     InvitationTargetIdentity, InvitationToken, SqliteConversationStore, SqliteFamilyStore, UserId,
     UserIdentityStore,
 };
@@ -220,6 +220,18 @@ pub(super) async fn handle_message(
     };
 
     let owner = format!("telegram:{telegram_user_id}");
+    if command == "/m" {
+        if arguments.is_empty() {
+            let _ = gateway.send_message(message.chat_id, "Usage: /m message").await;
+        } else {
+            handle_one_shot(
+                gateway, &owner, &user, arguments, message.chat_id, message.message_id,
+                telegram_user_id, manager, store, identities, family_service,
+                active_conversations, auth,
+            ).await;
+        }
+        return;
+    }
     if handle_command(
         gateway,
         &owner,
@@ -459,6 +471,135 @@ pub(super) async fn handle_message(
                     "The agent queue is full; try again shortly.",
                 )
                 .await;
+        }
+    }
+}
+
+
+/// Starts a temporary run using the one-shot preferences saved in the user's profile.
+async fn handle_one_shot(
+    gateway: &Arc<TelegramGateway>,
+    owner: &str,
+    user: &agent_storage::User,
+    message: &str,
+    chat_id: i64,
+    message_id: i32,
+    telegram_user_id: i64,
+    manager: &RunManager,
+    store: &Arc<SqliteConversationStore>,
+    identities: &Arc<FileUserIdentityStore>,
+    family_service: &Arc<FamilyService>,
+    active_conversations: &Arc<Mutex<HashSet<ConversationId>>>,
+    auth: &Arc<TelegramAuth>,
+) {
+    let Some(agent) = user.one_shot_agent.as_deref().filter(|value| !value.trim().is_empty()) else {
+        let _ = gateway.send_message(chat_id, "Configure a one-shot agent in your EME profile before using /m.").await;
+        return;
+    };
+    let input = match user.one_shot_prompt.as_deref().filter(|value| !value.trim().is_empty()) {
+        Some(prefix) => format!("{}\n\n{}", prefix.trim(), message.trim()),
+        None => message.trim().to_owned(),
+    };
+    let family_id = match user.one_shot_family_id.as_deref() {
+        Some(value) => match FamilyId::from_str(value) {
+            Ok(id) => Some(id),
+            Err(_) => {
+                let _ = gateway.send_message(chat_id, "The family configured for one-shot execution is invalid. Update your profile settings.").await;
+                return;
+            }
+        },
+        None => None,
+    };
+    let family = match family_id {
+        Some(id) => match family_service.context_for_member(user.id, id).await {
+            Ok(mut context) => {
+                for member in &mut context.members {
+                    let member_id = match UserId::from_str(&member.user_id) {
+                        Ok(id) => id,
+                        Err(_) => {
+                            let _ = gateway.send_message(chat_id, "Could not resolve a family member identity.").await;
+                            return;
+                        }
+                    };
+                    member.telegram_id = match identities.find_identity_for_user("telegram", member_id) {
+                        Ok(identity) => identity.map(|identity| identity.subject),
+                        Err(error) => {
+                            send_error(gateway, chat_id, "load a family member Telegram identity", error).await;
+                            return;
+                        }
+                    };
+                    if let Ok(Some(member_user)) = identities.get_user(member_id) {
+                        member.name = member_user.display_name;
+                        member.birthday = member_user.birthday;
+                    }
+                }
+                Some(context)
+            }
+            Err(FamilyServiceError::NotMember | FamilyServiceError::NotFound) => {
+                let _ = gateway.send_message(chat_id, "The family configured for one-shot execution is no longer available. Update your profile settings.").await;
+                return;
+            }
+            Err(error) => {
+                send_error(gateway, chat_id, "resolve the one-shot family", error).await;
+                return;
+            }
+        },
+        None => None,
+    };
+    let conversation = match store.create(owner, agent.to_owned()) {
+        Ok(conversation) => conversation,
+        Err(error) => {
+            send_error(gateway, chat_id, "prepare the one-shot execution", error).await;
+            return;
+        }
+    };
+    if let Err(error) = store.set_selected_family(owner, conversation.id, family_id) {
+        let _ = store.delete(owner, conversation.id);
+        send_error(gateway, chat_id, "associate the one-shot family", error).await;
+        return;
+    }
+    active_conversations.lock().await.insert(conversation.id);
+    let context = ToolContext {
+        user_id: Some(user.id.to_string()),
+        telegram_id: Some(telegram_user_id.to_string()),
+        timezone: user.timezone.clone(),
+        family,
+        families: Vec::new(),
+        conversation_id: Some(conversation.id.to_string()),
+        run_id: None,
+    };
+    match manager.submit(agent.to_owned(), input, Vec::new(), context).await {
+        Ok(run_id) => {
+            auth.register_run(run_id.to_string(), owner);
+            tokio::spawn(report(
+                gateway.clone(), chat_id, message_id, manager.clone(), store.clone(),
+                conversation.id, active_conversations.clone(), run_id,
+            ));
+            let cleanup_store = store.clone();
+            let cleanup_manager = manager.clone();
+            let cleanup_owner = owner.to_owned();
+            let conversation_id = conversation.id;
+            tokio::spawn(async move {
+                loop {
+                    if cleanup_manager.get(run_id).await.is_some_and(|run| run.status.is_terminal()) {
+                        if let Err(error) = cleanup_store.delete(&cleanup_owner, conversation_id) {
+                            tracing::warn!(%conversation_id, %error, "failed to remove Telegram one-shot conversation");
+                        }
+                        break;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                }
+            });
+        }
+        Err(SubmitRunError::QueueFull) => {
+            active_conversations.lock().await.remove(&conversation.id);
+            let _ = store.delete(owner, conversation.id);
+            let _ = gateway.send_message(chat_id, "The agent queue is full; try again shortly.").await;
+        }
+        Err(SubmitRunError::Storage(error)) => {
+            active_conversations.lock().await.remove(&conversation.id);
+            let _ = store.delete(owner, conversation.id);
+            send_error(gateway, chat_id, "persist the one-shot execution", error).await;
         }
     }
 }
