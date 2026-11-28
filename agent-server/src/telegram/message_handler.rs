@@ -8,9 +8,8 @@ use agent_server::auth::TelegramAuth;
 use agent_service::{FamilyService, FamilyServiceError, RunManager, SubmitRunError};
 use agent_storage::{
     ConversationId, FamilyId, FamilyInvitationStore, FamilyRelationship, FamilyStore,
-    FileUserIdentityStore,
-    InvitationTargetIdentity, InvitationToken, SqliteConversationStore, SqliteFamilyStore, UserId,
-    UserIdentityStore,
+    FileUserIdentityStore, InvitationTargetIdentity, InvitationToken, SqliteConversationStore,
+    SqliteFamilyStore, UserId, UserIdentityStore,
 };
 use telegram_tool::{IncomingMessage, TelegramGateway};
 use tokio::sync::Mutex;
@@ -223,13 +222,26 @@ pub(super) async fn handle_message(
     let owner = format!("telegram:{telegram_user_id}");
     if command == "/m" {
         if arguments.is_empty() {
-            let _ = gateway.send_message(message.chat_id, "Usage: /m message").await;
+            let _ = gateway
+                .send_message(message.chat_id, "Usage: /m message")
+                .await;
         } else {
             handle_one_shot(
-                gateway, &owner, &user, arguments, message.chat_id, message.message_id,
-                telegram_user_id, manager, store, identities, family_service,
-                active_conversations, auth,
-            ).await;
+                gateway,
+                &owner,
+                &user,
+                arguments,
+                message.chat_id,
+                message.message_id,
+                telegram_user_id,
+                manager,
+                store,
+                identities,
+                family_service,
+                active_conversations,
+                auth,
+            )
+            .await;
         }
         return;
     }
@@ -476,7 +488,6 @@ pub(super) async fn handle_message(
     }
 }
 
-
 /// Starts a temporary run using the one-shot preferences saved in the user's profile.
 async fn handle_one_shot(
     gateway: &Arc<TelegramGateway>,
@@ -537,7 +548,10 @@ async fn handle_one_shot(
                         Ok(id) => id,
                         Err(_) => {
                             let _ = gateway
-                                .send_message(chat_id, "Could not resolve a family member identity.")
+                                .send_message(
+                                    chat_id,
+                                    "Could not resolve a family member identity.",
+                                )
                                 .await;
                             return;
                         }
@@ -628,9 +642,7 @@ async fn handle_one_shot(
                         .await
                         .is_some_and(|run| run.status.is_terminal())
                     {
-                        if let Err(error) =
-                            cleanup_store.delete(&cleanup_owner, conversation_id)
-                        {
+                        if let Err(error) = cleanup_store.delete(&cleanup_owner, conversation_id) {
                             tracing::warn!(
                                 %conversation_id,
                                 %error,
