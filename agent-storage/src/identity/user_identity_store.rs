@@ -34,6 +34,13 @@ pub trait UserIdentityStore: Send + Sync {
         user_id: UserId,
         timezone: Option<&str>,
     ) -> Result<User, IdentityStoreError>;
+    fn update_one_shot_config(
+        &self,
+        user_id: UserId,
+        agent: Option<&str>,
+        family_id: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<User, IdentityStoreError>;
     fn find_identity(
         &self,
         provider: &str,

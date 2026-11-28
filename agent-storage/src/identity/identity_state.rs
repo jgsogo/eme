@@ -38,6 +38,9 @@ impl IdentityState {
             display_name: normalize_display_name(display_name),
             birthday: None,
             timezone: None,
+            one_shot_agent: None,
+            one_shot_family_id: None,
+            one_shot_prompt: None,
             created_at: now,
             updated_at: now,
         };
@@ -64,6 +67,9 @@ impl IdentityState {
             display_name: Some(display_name),
             birthday,
             timezone: None,
+            one_shot_agent: None,
+            one_shot_family_id: None,
+            one_shot_prompt: None,
             created_at: now,
             updated_at: now,
         };
@@ -123,6 +129,33 @@ impl IdentityState {
             .get_mut(&user_id)
             .ok_or(IdentityStoreError::UserNotFound(user_id))?;
         user.timezone = timezone;
+        user.updated_at = Utc::now();
+        Ok(user.clone())
+    }
+
+    pub(super) fn update_one_shot_config(
+        &mut self,
+        user_id: UserId,
+        agent: Option<&str>,
+        family_id: Option<&str>,
+        prompt: Option<&str>,
+    ) -> Result<User, IdentityStoreError> {
+        let user = self
+            .users
+            .get_mut(&user_id)
+            .ok_or(IdentityStoreError::UserNotFound(user_id))?;
+        user.one_shot_agent = agent
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        user.one_shot_family_id = family_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
+        user.one_shot_prompt = prompt
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned);
         user.updated_at = Utc::now();
         Ok(user.clone())
     }

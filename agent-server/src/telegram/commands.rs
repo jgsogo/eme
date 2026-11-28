@@ -25,7 +25,7 @@ pub(super) async fn handle_command(
     match command {
         "/help" => {
             let _ = gateway.send_message(chat_id,
-                "Available commands:\n/help — show this help\n/new — create a conversation\n/info — show the current conversation\n/agents — browse configured agents").await;
+                "Available commands:\n/help — show this help\n/m message — run a one-shot agent request\n/new — create a conversation\n/info — show the current conversation\n/agents — browse configured agents").await;
             true
         }
         "/new" => {

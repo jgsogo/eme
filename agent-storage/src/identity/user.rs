@@ -15,6 +15,15 @@ pub struct User {
     /// IANA timezone identifier configured for this user, when known.
     #[serde(default)]
     pub timezone: Option<String>,
+    /// Agent used for one-shot executions initiated from any client.
+    #[serde(default)]
+    pub one_shot_agent: Option<String>,
+    /// Optional family context for one-shot executions.
+    #[serde(default)]
+    pub one_shot_family_id: Option<String>,
+    /// Optional prompt prefix appended to every one-shot request.
+    #[serde(default)]
+    pub one_shot_prompt: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

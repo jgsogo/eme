@@ -799,17 +799,33 @@ async function deleteTask(){
 async function loadProfile(){
  const displayName=$("profile-display-name"),timezone=$("profile-timezone"),status=$("profile-status");
  if(!displayName||!status)return;
- try{const profile=await api("/profile");displayName.value=profile.display_name||"";if(timezone)timezone.value=profile.timezone||"";status.textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you."}
- catch(e){status.textContent=e.message}
+ try{
+  const [profile,agents,families]=await Promise.all([api("/profile"),api("/agents"),api("/families")]);
+  displayName.value=profile.display_name||"";if(timezone)timezone.value=profile.timezone||"";
+  const agentSelect=$("profile-one-shot-agent"),familySelect=$("profile-one-shot-family");
+  if(agentSelect){agentSelect.innerHTML='<option value="">Select an agent</option>'+agents.map(item=>'<option value="'+escapeHtml(item.name)+'">'+escapeHtml(item.name)+'</option>').join("");agentSelect.value=profile.one_shot_agent||""}
+  if(familySelect){familySelect.innerHTML='<option value="">No family</option>'+families.map(item=>'<option value="'+escapeHtml(item.id)+'">'+escapeHtml(item.name)+'</option>').join("");familySelect.value=profile.one_shot_family_id||""}
+  if($("profile-one-shot-prompt"))$("profile-one-shot-prompt").value=profile.one_shot_prompt||"";
+  status.textContent=profile.display_name?"Your profile is up to date.":"Choose the name agents should use for you.";
+ }catch(e){status.textContent=e.message}
 }
 async function saveProfile(event){
- event.preventDefault();const name=$("profile-display-name").value.trim(),timezone=$("profile-timezone")?.value.trim()||"";if(!name){$("profile-status").textContent="Display name must not be empty.";return}
+ event.preventDefault();
+ const name=$("profile-display-name").value.trim(),timezone=$("profile-timezone")?.value.trim()||"";
+ if(!name){$("profile-status").textContent="Display name must not be empty.";return}
  $("save-profile").disabled=true;
- try{const profile=await api("/profile",{method:"PUT",body:JSON.stringify({display_name:name,timezone})});$("profile-display-name").value=profile.display_name;if($("profile-timezone"))$("profile-timezone").value=profile.timezone||"";$("profile-status").textContent="Profile saved."}
- catch(e){$("profile-status").textContent=e.message}
+ try{
+  const payload={display_name:name,timezone};
+  if($("profile-one-shot-agent"))payload.one_shot_agent=$("profile-one-shot-agent").value;
+  if($("profile-one-shot-family"))payload.one_shot_family_id=$("profile-one-shot-family").value;
+  if($("profile-one-shot-prompt"))payload.one_shot_prompt=$("profile-one-shot-prompt").value;
+  const profile=await api("/profile",{method:"PUT",body:JSON.stringify(payload)});
+  $("profile-display-name").value=profile.display_name;
+  if($("profile-timezone"))$("profile-timezone").value=profile.timezone||"";
+  $("profile-status").textContent="Profile saved.";
+ }catch(e){$("profile-status").textContent=e.message}
  finally{$("save-profile").disabled=false}
 }
-on("profile-form","submit",saveProfile);
 function googleHasWriteScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
 function googleHasReadScope(connection){return (connection.scopes||[]).some(scope=>scope==="https://www.googleapis.com/auth/calendar.events.readonly"||scope==="https://www.googleapis.com/auth/calendar.events"||scope==="https://www.googleapis.com/auth/calendar")}
 function renderIntegrationNav(){
@@ -1236,6 +1252,7 @@ $("task-execution-dialog")?.addEventListener("click",event=>{
 const oneShotTerminalStatuses = new Set(["completed","failed","cancelled","timed_out","max_iterations_reached"]);
 let oneShotExecution = null;
 let oneShotPollTimer = null;
+let oneShotProfileConfig = null;
 
 function installOneShotAction() {
   const newConversationButton = $("new-conversation");
@@ -1279,10 +1296,7 @@ function installOneShotAction() {
         <div><h3 id="one-shot-title">One-shot agent</h3><p class="hint">Send a prompt to an agent and receive a single result. The temporary conversation is removed when execution finishes.</p></div>
         <button id="one-shot-close" type="button" class="secondary">Close</button>
       </div>
-      <label for="one-shot-agent">Agent</label>
-      <select id="one-shot-agent" required></select>
-      <label for="one-shot-family">Family context</label>
-      <select id="one-shot-family"><option value="">No family</option></select>
+      <p class="hint">This uses the agent and family configured in your <a id="one-shot-config-link" href="/console/profile#one-shot">profile</a>.</p>
       <label for="one-shot-prompt">Prompt</label>
       <textarea id="one-shot-prompt" rows="6" required placeholder="What would you like the agent to do?"></textarea>
       <div class="notes-actions"><button id="one-shot-submit" type="submit">Send</button></div>
@@ -1306,7 +1320,6 @@ function installOneShotAction() {
   button.addEventListener("click", openOneShotDialog);
   $("one-shot-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
-  $("one-shot-agent").addEventListener("change", renderOneShotAgentDescription);
   $("one-shot-form").addEventListener("submit", startOneShotExecution);
 }
 
@@ -1316,23 +1329,24 @@ function renderOneShotAgentDescription() {
   if (description) description.textContent = agent?.description || "";
 }
 
-function openOneShotDialog() {
+async function openOneShotDialog() {
   const dialog = $("one-shot-dialog");
   if (!dialog) return;
-  const agent = $("one-shot-agent");
-  const family = $("one-shot-family");
-  const preferred = $("agent")?.value || state.agents[0]?.name || "";
-  agent.innerHTML = state.agents.map(item => '<option value="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</option>').join("");
-  if (state.agents.some(item => item.name === preferred)) agent.value = preferred;
-  family.innerHTML = '<option value="">No family</option>' + state.families.map(item => '<option value="' + escapeHtml(item.id) + '">' + escapeHtml(item.name) + '</option>').join("");
-  family.value = state.families.some(item => item.id === state.selectedFamilyId) ? state.selectedFamilyId : "";
+  const mobile = document.body.dataset.layout === "mobile";
+  const link = $("one-shot-config-link");
+  if (link) link.href = mobile ? "/mobile/profile#one-shot" : "/console/profile#one-shot";
+  try {
+    oneShotProfileConfig = await api("/profile");
+  } catch (error) {
+    $("one-shot-status").textContent = "Could not load your one-shot profile configuration: " + error.message;
+    dialog.showModal();
+    return;
+  }
   if (!oneShotExecution || oneShotTerminalStatuses.has(oneShotExecution.status)) {
-    $("one-shot-agent").disabled = false;
-    $("one-shot-family").disabled = false;
     $("one-shot-prompt").disabled = false;
-    $("one-shot-submit").disabled = false;
+    $("one-shot-submit").disabled = !oneShotProfileConfig.one_shot_agent;
     $("one-shot-submit").textContent = "Send";
-    $("one-shot-status").textContent = "";
+    $("one-shot-status").textContent = oneShotProfileConfig.one_shot_agent ? "" : "Configure a one-shot agent in your profile to get started.";
     $("one-shot-result").hidden = true;
     $("one-shot-result").innerHTML = "";
     if (oneShotExecution?.status && oneShotTerminalStatuses.has(oneShotExecution.status)) {
@@ -1349,8 +1363,6 @@ function openOneShotDialog() {
 function renderOneShotExecution() {
   if (!oneShotExecution) return;
   const active = !oneShotTerminalStatuses.has(oneShotExecution.status);
-  $("one-shot-agent").disabled = active;
-  $("one-shot-family").disabled = active;
   $("one-shot-prompt").disabled = active;
   $("one-shot-submit").disabled = active;
   $("one-shot-submit").textContent = active ? "Running…" : "Start another one-shot";
@@ -1371,16 +1383,15 @@ function renderOneShotExecution() {
 async function startOneShotExecution(event) {
   event.preventDefault();
   if (oneShotExecution && !oneShotTerminalStatuses.has(oneShotExecution.status)) return;
-  const agent = $("one-shot-agent").value;
-  const familyId = $("one-shot-family").value || null;
-  const input = $("one-shot-prompt").value.trim();
-  if (!agent || !input) {
-    $("one-shot-status").textContent = "Choose an agent and enter a prompt.";
+  const agent = oneShotProfileConfig?.one_shot_agent;
+  const familyId = oneShotProfileConfig?.one_shot_family_id || null;
+  const message = $("one-shot-prompt").value.trim();
+  const input = [oneShotProfileConfig?.one_shot_prompt, message].map(value => (value || "").trim()).filter(Boolean).join("\n\n");
+  if (!agent || !message) {
+    $("one-shot-status").textContent = !agent ? "Configure a one-shot agent in your profile." : "Enter a prompt.";
     return;
   }
   oneShotExecution = { status:"creating", agent, input, response:null, error:null, conversationId:null, runId:null };
-  $("one-shot-agent").disabled = true;
-  $("one-shot-family").disabled = true;
   $("one-shot-prompt").disabled = true;
   $("one-shot-submit").disabled = true;
   $("one-shot-status").textContent = "Preparing one-shot execution…";
