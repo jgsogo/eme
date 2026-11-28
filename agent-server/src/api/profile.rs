@@ -13,6 +13,9 @@ use serde::Deserialize;
 struct UpdateProfileRequest {
     display_name: Option<String>,
     timezone: Option<String>,
+    one_shot_agent: Option<String>,
+    one_shot_family_id: Option<String>,
+    one_shot_prompt: Option<String>,
 }
 
 fn current_user(
@@ -61,7 +64,10 @@ async fn update_profile(
         Err(response) => return response,
     };
 
-    if body.display_name.is_none() && body.timezone.is_none() {
+    if body.display_name.is_none() && body.timezone.is_none()
+        && body.one_shot_agent.is_none() && body.one_shot_family_id.is_none()
+        && body.one_shot_prompt.is_none()
+    {
         return HttpResponse::BadRequest().body("at least one profile field must be provided");
     }
 
@@ -84,6 +90,25 @@ async fn update_profile(
                 return HttpResponse::BadRequest()
                     .body("timezone must be an IANA timezone identifier, e.g. Europe/Madrid");
             }
+            Err(IdentityStoreError::UserNotFound(_)) => return HttpResponse::NotFound().finish(),
+            Err(_) => return HttpResponse::InternalServerError().finish(),
+        };
+    }
+    if body.one_shot_agent.is_some() || body.one_shot_family_id.is_some() || body.one_shot_prompt.is_some() {
+        let agent = body.one_shot_agent.as_deref().or(updated.one_shot_agent.as_deref());
+        let family_id = body.one_shot_family_id.as_deref().or(updated.one_shot_family_id.as_deref());
+        let prompt = body.one_shot_prompt.as_deref().or(updated.one_shot_prompt.as_deref());
+        if agent.is_some_and(|value| !value.trim().is_empty() && value.trim().len() > 120) {
+            return HttpResponse::BadRequest().body("one-shot agent name must be at most 120 characters");
+        }
+        if family_id.is_some_and(|value| !value.trim().is_empty() && uuid::Uuid::parse_str(value.trim()).is_err()) {
+            return HttpResponse::BadRequest().body("one-shot family identifier is invalid");
+        }
+        if prompt.is_some_and(|value| value.chars().count() > 4000) {
+            return HttpResponse::BadRequest().body("one-shot prompt must be at most 4000 characters");
+        }
+        updated = match identities.update_one_shot_config(updated.id, agent, family_id, prompt) {
+            Ok(user) => user,
             Err(IdentityStoreError::UserNotFound(_)) => return HttpResponse::NotFound().finish(),
             Err(_) => return HttpResponse::InternalServerError().finish(),
         };
